@@ -54,6 +54,7 @@ export class DltDocument {
 
     private _text: string; // the rendered text
     get text() {
+        console.log(`DltDocument.text() returning text with len ${this._text.length}`);
         this._renderTriggered = false;
         return this._text;
     }
@@ -152,7 +153,7 @@ export class DltDocument {
         }
         console.log(`applyFilter got ${numberDecorations} decorations.`);
         // only once the text is rendered this._docEventEmitter.fire(this.uri);
-        return this.renderLines(this._skipMsgs);
+        return this.renderLines(this._skipMsgs, progress);
     }
 
     lineCloseTo(index: number): number {
@@ -389,9 +390,9 @@ export class DltDocument {
 
     }
 
-    async renderLines(skipMsgs: number): Promise<void> {
+    async renderLines(skipMsgs: number, progress?: vscode.Progress<{ increment?: number | undefined, message?: string | undefined, }>): Promise<void> {
         const fnStart = process.hrtime();
-        console.log(`renderLines(${skipMsgs}) called`);
+        console.log(`DltDocument.renderLines(${skipMsgs}) called`);
         if (this.msgs.length === 0) {
             this._text = `Loading dlt document from uri=${this._fileUri.toString()}...`;
             //            this._renderTriggered = false;
@@ -399,7 +400,6 @@ export class DltDocument {
             return;
         }
 
-        let kLines = new Map<number, string>(); // map/array with one string per 1k lines
         let toRet: string = "";
 
         let msgs = this.filteredMsgs ? this.filteredMsgs : this.msgs;
@@ -418,13 +418,20 @@ export class DltDocument {
         if (this._allDecorations?.size) {
             if (!this.decorations || this._skipMsgs !== skipMsgs) {
 
+                if (progress) {
+                    progress.report({ message: "renderLines: removing decorations" });
+                    await sleep(10);
+                }
                 // remove decorations:
                 this.textEditors.forEach((editor) => {
                     this.decorations?.forEach((value, key) => {
                         editor.setDecorations(key, []);
                     });
                 });
-
+                if (progress) {
+                    progress.report({ message: "renderLines: adapting decorations" });
+                    await sleep(10);
+                }
                 // need to adjust the visible decorations:
                 this.decorations = new Map<vscode.TextEditorDecorationType, vscode.DecorationOptions[]>();
                 // add all visible decorations:
@@ -449,99 +456,52 @@ export class DltDocument {
             }
         }
 
-        // calc in parallel in 5m chunks: this was intended for full parallelism... 
-        // todo use worker threads later with e.g. 100k lines per thread
         const nrMsgs = msgs.length > this._maxNrMsgs ? this._maxNrMsgs : msgs.length;
-        const chunkSize = 5000000;
-        const numberChunks = 1 + Math.floor((nrMsgs - 1) / chunkSize);
         this._skipMsgs = skipMsgs;
         const renderRangeStartLine = skipMsgs;
         const renderRangeEndLine = skipMsgs + this._maxNrMsgs;
 
-        console.log(`DltDocument.text numberChunks=${numberChunks} for ${nrMsgs} msgs.`);
-        for (let i = 0; i < numberChunks; ++i) {
-            promises.push(new Promise(async (resolve, reject) => {
-                const hrStart = process.hrtime();
-                const numberStart = skipMsgs + (chunkSize * i);
-                let numberEnd = numberStart + chunkSize - 1;
-                if (numberEnd >= renderRangeEndLine) {
-                    numberEnd = renderRangeEndLine - 1;
-                }
+        console.log(` processing msg ${renderRangeStartLine}-${renderRangeEndLine}...`);
 
+        const numberStart = renderRangeStartLine;
+        let numberEnd = renderRangeEndLine - 1;
                 assert(numberEnd >= numberStart, "logical error: numberEnd>=numberStart");
-                let kStr = "";
+        toRet = "";
                 // enter skipped lines?
                 if (numberStart === 0 && renderRangeStartLine > 0) {
                     this._staticLinesAbove = [];
                     this._staticLinesAbove.push(`...skipped ${renderRangeStartLine} msgs...\n`);
-                    kStr += this._staticLinesAbove[0];
+            toRet += this._staticLinesAbove[0];
                 }
                 // todo will we not render some at the end?
 
+        let startTime = process.hrtime();
                 for (let j = numberStart; j <= numberEnd; ++j) {
                     const msg = msgs[j];
                     try {
-                        if (j >= renderRangeStartLine && j < renderRangeEndLine) {
-                            kStr += String(`${String(msg.index).padStart(maxLength)} ${String(msg.ecu).padEnd(4)} ${String(msg.apid).padEnd(4)} ${String(msg.ctid).padEnd(4)} ${msg.payloadString}`);
-                            kStr += "\n";
-                        } else {
-                            // kStr += " \n"; // `${String(msg.index).padStart(maxLength)} ${String(msg.ecu).padEnd(4)} ${String(msg.apid).padEnd(4)} ${String(msg.ctid).padEnd(4)}`;
-                        }
-                        //kStr += "\n";
-
+                toRet += String(`${String(msg.index).padStart(maxLength)} ${String(msg.ecu).padEnd(4)} ${String(msg.apid).padEnd(4)} ${String(msg.ctid).padEnd(4)} ${msg.payloadString}\n`);
                     } catch (error) {
                         console.log(`error ${error} at parsing msg ${j}`);
                     }
-                    if (j % 10000 === 0) { // todo check whether the 10ms each 100ms approach is better
-                        await setImmedidatePromise();
-                    }
+            if (j % 1000 === 0) {
+                let curTime = process.hrtime(startTime);
+                if (curTime[1] / 1000000 > 100) { // 100ms passed
+                    if (progress) {
+                        progress.report({ message: "renderLines: processing msg ${j}" });
+                        await sleep(10);
                 }
-                kLines.set(i, kStr);
-                const hrEnd = process.hrtime(hrStart);
-                console.info('DltDocument processChunk took: %ds %dms', hrEnd[0], hrEnd[1] / 1000000);
-                resolve();
-            }));
+                    startTime = process.hrtime();
         }
-
-        return Promise.all(promises).then(async () => {
-            const hrStart = process.hrtime();
-            for (let i = 0; i < numberChunks; ++i) {
-                try {
-                    toRet += kLines.get(i);
-                } catch (error) {
-                    console.log(` got error ${error} on kLines[${i}]`);
                 }
             }
-            const hrEnd = process.hrtime(hrStart);
-            console.info('DltDocument sum kLines took: %ds %dms', hrEnd[0], hrEnd[1] / 1000000);
+        this._text = toRet;
             const fnEnd = process.hrtime(fnStart);
-            console.info('DltDocument text() took: %ds %dms', fnEnd[0], fnEnd[1] / 1000000);
-            this._text = toRet;
+        console.info('DltDocument.renderLines() took: %ds %dms', fnEnd[0], fnEnd[1] / 1000000);
             //           this._renderTriggered = false;
             await sleep(10);
             this._docEventEmitter.fire(this.uri);
-            return;
-        }).catch((err) => {
-            console.log(` got error ${err} on promise.all`);
-            //          this._renderTriggered = false;
-            return;
-        });
-
-        /*
-                for (let i = 0; i < msgs.length; ++i) {
-                    const msg = msgs[i];
-                    try {
-                        toRet += String(`${ String(msg.index).padStart(maxLength)
-                        } ${ String(msg.ecu).padEnd(4) } ${ String(msg.apid).padEnd(4) } ${ String(msg.ctid).padEnd(4) } ${ msg.payloadString } `);
-                        toRet += "\n";
-        
-                    } catch (error) {
-                        console.log(`error ${ error } at parsing msg ${ i } `);
                     }
-                    // todo limit to 50mb or xx lines on first read?
-                } */
 
-    }
     async checkFileChanges() {
         // we want this to be callable from file watcher as well
         // we will assume that only additional data has been written
