@@ -9,6 +9,7 @@ import * as path from 'path';
 import { DltParser, DltMsg, MSTP, MTIN_LOG, MTIN_CTRL } from './dltParser';
 import { DltLifecycleInfo } from './dltLifecycle';
 import { DltLifecycleNode } from './dltDocumentProvider';
+import { DltFilter, DltFilterType } from './dltFilter';
 import TelemetryReporter from 'vscode-extension-telemetry';
 
 // improve event-loop to be non blocking:
@@ -39,6 +40,13 @@ export class DltDocument {
     msgs = new Array<DltMsg>();
     filteredMsgs: DltMsg[] | undefined = undefined;
     lifecycles = new Map<string, DltLifecycleInfo[]>();
+
+    // filters:
+    posFilters: DltFilter[] = [];
+    negFilters: DltFilter[] = [];
+    loadTimePosFilters: DltFilter[] = [];
+    loadTimeNegFilters: DltFilter[] = [];
+    decFilters: DltFilter[] = [];
 
     private _visibleRangeTimeout: NodeJS.Timeout | undefined = undefined; // not used yet
 
@@ -77,6 +85,14 @@ export class DltDocument {
         if (!fs.existsSync(this._fileUri.fsPath)) {
             throw Error(`DltDocument file ${this._fileUri.fsPath} doesn't exist!`);
         }
+
+        // load filters: 
+        // todo add onDidChangeConfiguration handling to reflect filter changes at runtime
+        {
+            const filterObjs = vscode.workspace.getConfiguration().get<Array<object>>("dlt-logs.filters");
+            this.parseFilterConfigs(filterObjs);
+        }
+
         this.lifecycleTreeNode = { label: `${path.basename(this._fileUri.fsPath)}`, uri: this.uri, parent: parentTreeNode, children: [] };
         parentTreeNode.children.push(this.lifecycleTreeNode);
         this._text = `Loading dlt document from uri=${this._fileUri.toString()}...`;
@@ -84,6 +100,42 @@ export class DltDocument {
         setTimeout(() => {
             this.checkFileChanges();
         }, 1000); // todo make dynamic or use a configureable timeout like in vsc-lfs
+    }
+
+    parseFilterConfigs(filterObjs: Object[] | undefined) {
+        console.log(`parseFilterConfigs: have ${filterObjs?.length} filters to parse...`);
+        if (filterObjs) {
+            for (let i = 0; i < filterObjs.length; ++i) {
+                try {
+                    let filterConf = filterObjs[i];
+                    let newFilter = new DltFilter(filterConf);
+                    // todo add only enabled ones (and the disabled somewhere else?)
+                    switch (newFilter.type) {
+                        case DltFilterType.POSITIVE:
+                            if (newFilter.atLoadTime) {
+                                this.loadTimePosFilters.push(newFilter);
+                            } else {
+                                this.posFilters.push(newFilter);
+                            }
+                            break;
+                        case DltFilterType.NEGATIVE:
+                            if (newFilter.atLoadTime) {
+                                this.loadTimeNegFilters.push(newFilter);
+                            } else {
+                                this.negFilters.push(newFilter);
+                            }
+                            break;
+                        case DltFilterType.MARKER:
+                            this.decFilters.push(newFilter);
+                            break;
+                    }
+                    console.log(` got filter: type=${newFilter.type}, enabled=${newFilter.enabled}, atLoadTime=${newFilter.atLoadTime}`, newFilter);
+                } catch (error) {
+                    console.log(`dlt-logs.parseFilterConfigs error:${error}`);
+                }
+            }
+        }
+        console.log(` have ${this.posFilters.length}/${this.loadTimePosFilters.length} pos., ${this.negFilters.length}/${this.loadTimeNegFilters.length} neg., ${this.decFilters.length} marker filters.`);
     }
 
     clearFilter() {
@@ -120,9 +172,35 @@ export class DltDocument {
                 }
             }
             const msg = this.msgs[i];
-            if (msg.ecu !== `ECU\0`) { // todo if visibility is met
+
+            // check for visibility:
+            // a msg is visible if:
+            // no negative filter matches and
+            // if any pos. filter exists: at least one positive filter matches (if no pos. filters exist -> treat as matching)
+            let foundAfterPosFilters: boolean = this.posFilters.length ? false : true;
+            if (this.posFilters.length) {
+                // check the pos filters, break on first match:
+                for (let i = 0; i < this.posFilters.length; ++i) {
+                    if (!this.posFilters[i].atLoadTime && this.posFilters[i].matches(msg)) {
+                        foundAfterPosFilters = true;
+                        break;
+                    }
+                }
+            }
+            let foundAfterNegFilters: boolean = foundAfterPosFilters;
+            if (foundAfterNegFilters && this.negFilters.length) {
+                // check the neg filters, break on first match:
+                for (let i = 0; i < this.negFilters.length; ++i) {
+                    if (!this.negFilters[i].atLoadTime && this.negFilters[i].matches(msg)) {
+                        foundAfterNegFilters = false;
+                        break;
+                    }
+                }
+            }
+
+            if (foundAfterNegFilters) {
                 this.filteredMsgs.push(msg);
-                // any decorations?
+                // any decorations? todo decFilter....
                 // todo impl. proper config parsing and use those objects instead of constantly creating new ones
 
                 if (msg.mstp === MSTP.TYPE_LOG && msg.mtin === MTIN_LOG.LOG_WARN) {
@@ -465,42 +543,42 @@ export class DltDocument {
 
         const numberStart = renderRangeStartLine;
         let numberEnd = renderRangeEndLine - 1;
-                assert(numberEnd >= numberStart, "logical error: numberEnd>=numberStart");
+        assert(numberEnd >= numberStart, "logical error: numberEnd>=numberStart");
         toRet = "";
-                // enter skipped lines?
-                if (numberStart === 0 && renderRangeStartLine > 0) {
-                    this._staticLinesAbove = [];
-                    this._staticLinesAbove.push(`...skipped ${renderRangeStartLine} msgs...\n`);
+        // enter skipped lines?
+        if (numberStart === 0 && renderRangeStartLine > 0) {
+            this._staticLinesAbove = [];
+            this._staticLinesAbove.push(`...skipped ${renderRangeStartLine} msgs...\n`);
             toRet += this._staticLinesAbove[0];
-                }
-                // todo will we not render some at the end?
+        }
+        // todo will we not render some at the end?
 
         let startTime = process.hrtime();
-                for (let j = numberStart; j <= numberEnd; ++j) {
-                    const msg = msgs[j];
-                    try {
+        for (let j = numberStart; j <= numberEnd; ++j) {
+            const msg = msgs[j];
+            try {
                 toRet += String(`${String(msg.index).padStart(maxLength)} ${String(msg.ecu).padEnd(4)} ${String(msg.apid).padEnd(4)} ${String(msg.ctid).padEnd(4)} ${msg.payloadString}\n`);
-                    } catch (error) {
-                        console.log(`error ${error} at parsing msg ${j}`);
-                    }
+            } catch (error) {
+                console.log(`error ${error} at parsing msg ${j}`);
+            }
             if (j % 1000 === 0) {
                 let curTime = process.hrtime(startTime);
                 if (curTime[1] / 1000000 > 100) { // 100ms passed
                     if (progress) {
                         progress.report({ message: "renderLines: processing msg ${j}" });
                         await sleep(10);
-                }
+                    }
                     startTime = process.hrtime();
-        }
                 }
             }
+        }
         this._text = toRet;
-            const fnEnd = process.hrtime(fnStart);
+        const fnEnd = process.hrtime(fnStart);
         console.info('DltDocument.renderLines() took: %ds %dms', fnEnd[0], fnEnd[1] / 1000000);
-            //           this._renderTriggered = false;
-            await sleep(10);
-            this._docEventEmitter.fire(this.uri);
-                    }
+        //           this._renderTriggered = false;
+        await sleep(10);
+        this._docEventEmitter.fire(this.uri);
+    }
 
     async checkFileChanges() {
         // we want this to be callable from file watcher as well
@@ -518,15 +596,32 @@ export class DltDocument {
             if ((stats.size - this._parsedFileLen) < chunkSize) {
                 chunkSize = stats.size - this._parsedFileLen;
             }
+
             await vscode.window.withProgress({ cancellable: false, location: vscode.ProgressLocation.Notification, title: "loading dlt file..." },
                 async (progress) => {
+                    // do we have any filters to apply at load time?
+                    let posFilters: DltFilter[] = [];
+                    let negFilters: DltFilter[] = [];
+
+                    for (let i = 0; i < this.loadTimePosFilters.length; ++i) {
+                        if (this.loadTimePosFilters[i].enabled) {
+                            posFilters.push(this.loadTimePosFilters[i]);
+                        }
+                    }
+                    for (let i = 0; i < this.loadTimeNegFilters.length; ++i) {
+                        if (this.loadTimeNegFilters[i].enabled) {
+                            negFilters.push(this.loadTimeNegFilters[i]);
+                        }
+                    }
+                    console.log(` have ${posFilters.length} pos. and ${negFilters.length} neg. filters at load time.`);
+
                     let data = Buffer.allocUnsafe(chunkSize);
                     let startTime = process.hrtime();
                     do {
                         read = fs.readSync(fd, data, 0, chunkSize, this._parsedFileLen);
                         if (read) {
                             // parse data:
-                            let parseInfo = DltDocument.dltP.parseDltFromBuffer(Buffer.from(data.slice(0, read)), 0, this.msgs); // have to create a copy of Buffer here!
+                            let parseInfo = DltDocument.dltP.parseDltFromBuffer(Buffer.from(data.slice(0, read)), 0, this.msgs, posFilters, negFilters); // have to create a copy of Buffer here!
                             if (parseInfo[0] > 0) {
                                 console.log(`checkFileChanges skipped ${parseInfo[0]} bytes.`);
                             }

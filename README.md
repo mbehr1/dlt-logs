@@ -33,14 +33,30 @@ This Visual Studio Code(tm) extension adds support to open DLT (diagnostic log a
 - Support time synchronized split-view between e.g. two APIDs from within one DLT log file.
 - Use the outline view for lifecycles, errors,...
 - Add support for file changes (growing) and load/update automatically.
+- Add editor for filter (e.g. via config extension)
 
 ## Extension Settings
 
-<!-- This extension contributes the following settings:
+This extension contributes the following settings:
 
-* `myExtension.enable`: enable/disable this extension
-* `myExtension.thing`: set to `blah` to do something
--->
+* `dlt-logs.fileExtensions`: Specifies the file extensions to use for file open dialog. Defaults to .dlt|.DLT.
+* `dlt-logs.filters`: Configures the filter that are available.
+   There are tree type of filters:
+   * **positive**: filter need to match to include the message in the view. If no positive filter exists all msgs are assumed matching.
+   * **negative**: if filter matches the message will not be included in the view.
+   * **marker**: if filter matches the messages will be "marked"/decorated.
+
+   Currently filter can match for:
+   * **ecu**: the ECU identifier.
+   * **apid**: the APID (application identifier).
+   * **ctid**: the CTID (context identifier).
+
+   Filter can be:
+   * **enabled**: filter is enabled and will be applied.
+   * **atLoadTime**: filter is used already at file load/opening time (only pos/neg filters). This reduces the memory-load with huge files significantly but the filter can't be turned off once the file is opened. Take care: this changes the index of the message and might impact the lifecycle detection as well (todo improve later).
+
+   Filter configuration changes will be applied on next file open.
+   Details see (todo...).
 
 ## Known Issues
 

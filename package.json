@@ -2,7 +2,7 @@
 	"name": "dlt-logs",
 	"displayName": "DLT-Logs",
 	"description": "Open DLT diagnostic log and trace files with lifecycle detection, filters, time-sync, etc.",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"license": "CC BY-NC-SA 4.0",
 	"publisher": "mbehr1",
 	"author": {
@@ -31,7 +31,7 @@
 			{
 				"title": "DLT-Logs",
 				"properties": {
-					"dlt-logs.fileFilters": {
+					"dlt-logs.fileExtensions": {
 						"type": [
 							"string"
 						],
@@ -40,6 +40,45 @@
 							"DLT"
 						],
 						"description": "Specifies the file extensions that can be opened."
+					},
+					"dlt-logs.filters": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"title": "filter",
+							"properties": {
+								"type": {
+									"type": "integer",
+									"description": "Type of this filter. 0 = positive, 1 = negative, 2 = marker"
+								},
+								"enabled": {
+									"type": "boolean",
+									"description": "Determines whether the filter is currently enabled.",
+									"default": true
+								},
+								"atLoadTime": {
+									"type": "boolean",
+									"description": "Determines whether the filter is already applied at file open time reducing the amount of msgs to be processed. Default=false",
+									"default": false
+								},
+								"ecu": {
+									"type": "string",
+									"description": "The ECU id to filter for. Ignored if empty.",
+									"default": ""
+								},
+								"apid": {
+									"type": "string",
+									"description": "The APID to filter for. Should have 4 chars (less will be filled with \\0). Ignored if empty.",
+									"default": ""
+								},
+								"ctid": {
+									"type": "string",
+									"description": "The CTID to filter for. Should have 4 chars (less will be filled with \\0). Ignored if empty.",
+									"default": ""
+								}
+							}
+						},
+						"default": []
 					}
 				}
 			}

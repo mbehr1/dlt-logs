@@ -38,7 +38,7 @@ export function activate(context: vscode.ExtensionContext) {
 	// register our command to open dlt files as "dlt-logs":
 	context.subscriptions.push(vscode.commands.registerCommand('extension.dltOpenFile', async () => {
 		// todo use configuration file filters
-		return vscode.window.showOpenDialog({ canSelectFiles: true, canSelectFolders: false, canSelectMany: false, filters: { 'DLT Logs': <Array<string>>(vscode.workspace.getConfiguration().get("dlt-logs.fileFilters")) }, openLabel: 'Select DLT file to open...' }).then(
+		return vscode.window.showOpenDialog({ canSelectFiles: true, canSelectFolders: false, canSelectMany: false, filters: { 'DLT Logs': <Array<string>>(vscode.workspace.getConfiguration().get("dlt-logs.fileExtensions")) }, openLabel: 'Select DLT file to open...' }).then(
 			async (uris: vscode.Uri[] | undefined) => {
 				if (uris) {
 					uris.forEach((uri) => {

@@ -5,6 +5,7 @@
 import * as vscode from 'vscode';
 import * as assert from 'assert';
 import { DltLifecycleInfo } from './dltLifecycle';
+import { DltFilter } from './dltFilter';
 
 const fs = require('fs');
 var Parser = require("binary-parser").Parser;
@@ -254,7 +255,7 @@ export class DltParser {
     static stdHeaderParser = new Parser().endianess("little").uint8("htyp").uint8("mcnt").uint16be("len");
     static extHeaderParser = new Parser().endianess("little").bit1("verb").bit3("mstp").bit4("mtin").uint8("noar").string("apid", { encoding: "ascii", length: 4, stripNull: true }).string("ctid", { encoding: "ascii", length: 4, stripNull: true });
 
-    parseDltFromBuffer(buf: Buffer, startOffset: number, msgs: Array<DltMsg>) { // todo make async
+    parseDltFromBuffer(buf: Buffer, startOffset: number, msgs: Array<DltMsg>, posFilters?: DltFilter[], negFilters?: DltFilter[]) { // todo make async
         let skipped: number = 0;
         let remaining: number = buf.byteLength - startOffset;
         let nrMsgs: number = 0; let offset = startOffset;
@@ -270,8 +271,34 @@ export class DltParser {
                 const len = stdHeader["len"];
                 if (remaining - ((offset + len) - msgOffset) >= 0) {
                     offset += len;
-                    msgs.push(new DltMsg(storageHeader["ecu"], startIndex + nrMsgs, time, buf.slice(msgOffset, offset)));
-                    nrMsgs++;
+
+                    let newMsg = new DltMsg(storageHeader["ecu"], startIndex + nrMsgs, time, buf.slice(msgOffset, offset));
+                    // do we need to filter this one?
+
+                    let foundAfterPosFilters: boolean = posFilters?.length ? false : true;
+                    if (posFilters?.length) {
+                        // check the pos filters, break on first match:
+                        for (let i = 0; i < posFilters.length; ++i) {
+                            if (posFilters[i].matches(newMsg)) {
+                                foundAfterPosFilters = true;
+                                break;
+                            }
+                        }
+                    }
+                    let foundAfterNegFilters: boolean = foundAfterPosFilters;
+                    if (foundAfterNegFilters && negFilters?.length) {
+                        // check the neg filters, break on first match:
+                        for (let i = 0; i < negFilters.length; ++i) {
+                            if (negFilters[i].matches(newMsg)) {
+                                foundAfterNegFilters = false;
+                                break;
+                            }
+                        }
+                    }
+                    if (foundAfterNegFilters) {
+                        msgs.push(newMsg);
+                        nrMsgs++;
+                    }
                     remaining -= (offset - msgOffset);
                 } else {
                     break;
