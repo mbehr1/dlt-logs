@@ -66,18 +66,16 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<DltLifecycle
                                 // find the editor for this uri in active docs:
                                 let uriWoFrag = event.selection[0].uri.with({ fragment: "" }).toString();
                                 const activeTextEditors = vscode.window.visibleTextEditors;
-                                // console.log(`smartLogTreeView.onDidChangeSelection. finding editor for ${uriWoFrag}, activeTextEditors=${activeTextEditors.length}`);
                                 for (let ind = 0; ind < activeTextEditors.length; ++ind) {
                                     const editor = activeTextEditors[ind];
                                     const editorUri = editor.document.uri.toString();
-                                    // console.log(` comparing with ${editorUri}`);
                                     if (editor && uriWoFrag === editorUri) {
                                         let doc = this._documents.get(editorUri);
                                         if (doc) {
                                             const index = +(event.selection[0].uri.fragment);
                                             console.log(`  revealing ${event.selection[0].uri} index ${index}`);
                                             let willBeLine = doc.revealIndex(index);
-                                            console.log(`   got willBeLine=${willBeLine}`);
+                                            console.log(`   revealIndex retured willBeLine=${willBeLine}`);
                                             if (willBeLine >= 0) {
                                                 editor.revealRange(new vscode.Range(willBeLine, 0, willBeLine + 1, 0), vscode.TextEditorRevealType.AtTop);
                                             }
@@ -128,15 +126,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<DltLifecycle
                 // e.g. by adding to the root node directly on opening the document. todo
                 //this.updateData(data);
                 // update decorations:
-
-                if (data.decorations && data.textEditors) {
-                    // set decorations // todo check that it's really on the already updated content...
-                    data.textEditors.forEach((editor) => {
-                        data?.decorations?.forEach((value, key) => {
-                            editor.setDecorations(key, value);
-                        });
-                    });
-                }
+                this.updateDecorations(data);
 
             }
         }));
@@ -155,7 +145,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<DltLifecycle
                     this._onDidChangeTreeData.fire(data.lifecycleTreeNode);
                     this._dltLifecycleTreeView?.reveal(data.lifecycleTreeNode, { select: false, focus: true, expand: true });
                     //this.checkActiveTextEditor(data);
-                    //this.updateDecorations(data);
+                    this.updateDecorations(data);
                 }
             }
         }));
@@ -211,6 +201,17 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<DltLifecycle
             this.checkActiveExtensions();
         }, 2000);
     };
+
+    updateDecorations(data: DltDocument) {
+        if (data.decorations && data.textEditors) {
+            // set decorations // todo check that it's really on the already updated content...
+            data.textEditors.forEach((editor) => {
+                data?.decorations?.forEach((value, key) => {
+                    editor.setDecorations(key, value);
+                });
+            });
+        }
+    }
 
     public provideHover(doc: vscode.TextDocument, position: vscode.Position): vscode.ProviderResult<vscode.Hover> {
         const data = this._documents.get(doc.uri.toString());
