@@ -92,7 +92,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<DltLifecycle
         }));
 
         this._subscriptions.push(vscode.workspace.onDidCloseTextDocument((event: vscode.TextDocument) => {
-            // todo investigate why we sometimes dont get a onDidClose for our documents??? (we get a didOpen and didChange...)
+            // todo investigate why we sometimes dont get a onDidClose for our documents??? (its the garbage collector, ...we get a didOpen and didChange...)
             const uriStr = event.uri.toString();
             console.log(`DltDocumentProvider onDidCloseTextDocument uri=${uriStr}`);
             // is it one of our documents?
