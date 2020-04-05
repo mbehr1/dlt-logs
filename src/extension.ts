@@ -32,7 +32,7 @@ export function activate(context: vscode.ExtensionContext) {
 	}
 
 	// register our document provider that knows how to handle "dlt-logs"
-	let dltProvider = new dltDocument.DltDocumentProvider(context);
+	let dltProvider = new dltDocument.DltDocumentProvider(context, reporter);
 	context.subscriptions.push(vscode.workspace.registerTextDocumentContentProvider(dltScheme, dltProvider));
 
 	// register our command to open dlt files as "dlt-logs":

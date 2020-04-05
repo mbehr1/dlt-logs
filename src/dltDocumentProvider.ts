@@ -7,6 +7,8 @@ import * as vscode from 'vscode';
 import * as assert from 'assert';
 import * as fs from 'fs';
 import { DltDocument } from './dltDocument';
+import TelemetryReporter from 'vscode-extension-telemetry';
+import { reporters } from 'mocha';
 
 interface SelectedTimeData {
     time: Date;
@@ -22,6 +24,7 @@ export interface DltLifecycleNode {
 
 export class DltDocumentProvider implements vscode.TreeDataProvider<DltLifecycleNode>, vscode.TextDocumentContentProvider,
     vscode.DocumentSymbolProvider, vscode.Disposable {
+    private _reporter?: TelemetryReporter;
     private _subscriptions: Array<vscode.Disposable> = new Array<vscode.Disposable>();
 
     private _onDidChange = new vscode.EventEmitter<vscode.Uri>();
@@ -39,9 +42,9 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<DltLifecycle
     private _onDidChangeSelectedTime: vscode.EventEmitter<SelectedTimeData> = new vscode.EventEmitter<SelectedTimeData>();
     readonly onDidChangeSelectedTime: vscode.Event<SelectedTimeData> = this._onDidChangeSelectedTime.event;
 
-    constructor(context: vscode.ExtensionContext) {
+    constructor(context: vscode.ExtensionContext, reporter?: TelemetryReporter) {
         console.log(`DltDocumentProvider()...`);
-
+        this._reporter = reporter;
         this._subscriptions.push(vscode.workspace.onDidOpenTextDocument((event: vscode.TextDocument) => {
             const uriStr = event.uri.toString();
             console.log(`DltDocumentProvider onDidOpenTextDocument uri=${uriStr}`);
@@ -282,7 +285,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<DltLifecycle
             return document.text;
         }
 
-        document = new DltDocument(uri, this._onDidChange, this._dltLifecycleRootNode);
+        document = new DltDocument(uri, this._onDidChange, this._dltLifecycleRootNode, this._reporter);
         this._documents.set(uri.toString(), document);
         this._onDidChangeTreeData.fire();
         token.onCancellationRequested(() => {

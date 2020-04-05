@@ -9,6 +9,7 @@ import * as path from 'path';
 import { DltParser, DltMsg, MSTP, MTIN_LOG, MTIN_CTRL } from './dltParser';
 import { DltLifecycleInfo } from './dltLifecycle';
 import { DltLifecycleNode } from './dltDocumentProvider';
+import TelemetryReporter from 'vscode-extension-telemetry';
 
 // improve event-loop to be non blocking:
 function setImmedidatePromise() {
@@ -28,6 +29,7 @@ export class DltDocument {
 
     uri: vscode.Uri;
     textDocument: vscode.TextDocument | undefined = undefined;
+    private _reporter?: TelemetryReporter;
 
     private _fileUri: vscode.Uri;
     private _parsedFileLen: number = 0; // we parsed that much yet
@@ -65,8 +67,9 @@ export class DltDocument {
     // cachedTimes?: Array<Date>; // per line one date/time
     timeAdjustMs?: number; // adjust in ms
 
-    constructor(uri: vscode.Uri, docEventEmitter: vscode.EventEmitter<vscode.Uri>, parentTreeNode: DltLifecycleNode) {
+    constructor(uri: vscode.Uri, docEventEmitter: vscode.EventEmitter<vscode.Uri>, parentTreeNode: DltLifecycleNode, reporter?: TelemetryReporter) {
         this.uri = uri;
+        this._reporter = reporter;
         this._docEventEmitter = docEventEmitter;
         //this._treeEventEmitter = treeEventEmitter;
         this._fileUri = uri.with({ scheme: "file" });
@@ -546,6 +549,9 @@ export class DltDocument {
         const fnStart = process.hrtime();
         const stats = fs.statSync(this._fileUri.fsPath);
         if (stats.size > this._parsedFileLen) {
+            if (this._reporter && this._parsedFileLen === 0) {
+                this._reporter.sendTelemetryEvent("open file", undefined, { 'fileSize': stats.size });
+            }
             const fd = fs.openSync(this._fileUri.fsPath, "r");
             let read: number = 0;
             let chunkSize = 10 * 1024 * 1024; // todo config?
