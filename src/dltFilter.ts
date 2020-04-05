@@ -27,19 +27,19 @@ export class DltFilter {
         } else {
             throw Error("type missing for DltFilter");
         }
-        if (options.enabled) {
+        if ('enabled' in options) {
             this.enabled = options.enabled;
         }
-        if (options.atLoadTime) {
+        if ('atLoadTime' in options) {
             this.atLoadTime = options.atLoadTime;
         }
-        if (options.ecu) {
+        if ('ecu' in options) {
             this.ecu = options.ecu;
         }
-        if (options.apid) {
+        if ('apid' in options) {
             this.apid = options.apid;
         }
-        if (options.ctid) {
+        if ('ctid' in options) {
             this.ctid = options.ctid;
         }
     }
