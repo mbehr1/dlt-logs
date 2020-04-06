@@ -47,6 +47,7 @@ export class DltDocument {
     loadTimePosFilters: DltFilter[] = [];
     loadTimeNegFilters: DltFilter[] = [];
     decFilters: DltFilter[] = [];
+    disabledFilters: DltFilter[] = [];
 
     private _visibleRangeTimeout: NodeJS.Timeout | undefined = undefined; // not used yet
 
@@ -109,7 +110,7 @@ export class DltDocument {
                 try {
                     let filterConf = filterObjs[i];
                     let newFilter = new DltFilter(filterConf);
-                    // todo add only enabled ones (and the disabled somewhere else?)
+                    if (newFilter.enabled) {
                     switch (newFilter.type) {
                         case DltFilterType.POSITIVE:
                             if (newFilter.atLoadTime) {
@@ -129,13 +130,16 @@ export class DltDocument {
                             this.decFilters.push(newFilter);
                             break;
                     }
+                    } else {
+                        this.disabledFilters.push(newFilter);
+                    }
                     console.log(` got filter: type=${newFilter.type}, enabled=${newFilter.enabled}, atLoadTime=${newFilter.atLoadTime}`, newFilter);
                 } catch (error) {
                     console.log(`dlt-logs.parseFilterConfigs error:${error}`);
                 }
             }
         }
-        console.log(` have ${this.posFilters.length}/${this.loadTimePosFilters.length} pos., ${this.negFilters.length}/${this.loadTimeNegFilters.length} neg., ${this.decFilters.length} marker filters.`);
+        console.log(` have ${this.posFilters.length}/${this.loadTimePosFilters.length} pos., ${this.negFilters.length}/${this.loadTimeNegFilters.length} neg., ${this.decFilters.length} marker and ${this.disabledFilters.length} not enabled filters.`);
     }
 
     clearFilter() {
@@ -180,8 +184,8 @@ export class DltDocument {
             let foundAfterPosFilters: boolean = this.posFilters.length ? false : true;
             if (this.posFilters.length) {
                 // check the pos filters, break on first match:
-                for (let i = 0; i < this.posFilters.length; ++i) {
-                    if (!this.posFilters[i].atLoadTime && this.posFilters[i].matches(msg)) {
+                for (let j = 0; j < this.posFilters.length; ++j) {
+                    if (this.posFilters[j].matches(msg)) {
                         foundAfterPosFilters = true;
                         break;
                     }
@@ -190,8 +194,8 @@ export class DltDocument {
             let foundAfterNegFilters: boolean = foundAfterPosFilters;
             if (foundAfterNegFilters && this.negFilters.length) {
                 // check the neg filters, break on first match:
-                for (let i = 0; i < this.negFilters.length; ++i) {
-                    if (!this.negFilters[i].atLoadTime && this.negFilters[i].matches(msg)) {
+                for (let j = 0; j < this.negFilters.length; ++j) {
+                    if (this.negFilters[j].matches(msg)) {
                         foundAfterNegFilters = false;
                         break;
                     }
@@ -402,16 +406,6 @@ export class DltDocument {
                 }
             }
         };
-
-        /*
-                if ((range.start.line - 10000 < this._renderRange[0]) || range.end.line > this._renderRange[1] - 10000) {
-                    this._visibleRangeTimeout = setTimeout(() => {
-                        console.log(`load range was renderRange=${this._renderRange[0]}-${this._renderRange[1]}`);
-                        const renderRange: [number, number] = [range.start.line - 20000, range.end.line + 20000];
-                        console.log(` load range to renderRange=${renderRange[0]}-${renderRange[1]}`);
-                        this.renderLines(renderRange);
-                    }, 200);
-                }*/
     }
 
     revealByMsgsIndex(i: number): number { // msgs Index = the i inside msgs/filteredMsgs[i]
@@ -470,7 +464,7 @@ export class DltDocument {
 
     async renderLines(skipMsgs: number, progress?: vscode.Progress<{ increment?: number | undefined, message?: string | undefined, }>): Promise<void> {
         const fnStart = process.hrtime();
-        console.log(`DltDocument.renderLines(${skipMsgs}) called`);
+        console.log(`DltDocument.renderLines(${skipMsgs}) with ${this.filteredMsgs?.length}/${this.msgs.length} msgs ...`);
         if (this.msgs.length === 0) {
             this._text = `Loading dlt document from uri=${this._fileUri.toString()}...`;
             //            this._renderTriggered = false;
@@ -546,7 +540,7 @@ export class DltDocument {
         assert(numberEnd >= numberStart, "logical error: numberEnd>=numberStart");
         toRet = "";
         // enter skipped lines?
-        if (numberStart === 0 && renderRangeStartLine > 0) {
+        if (false && renderRangeStartLine > 0) { // todo someparts are off by 1 then
             this._staticLinesAbove = [];
             this._staticLinesAbove.push(`...skipped ${renderRangeStartLine} msgs...\n`);
             toRet += this._staticLinesAbove[0];
@@ -642,6 +636,7 @@ export class DltDocument {
                             }
                         }
                     } while (read > 0);
+                    fs.closeSync(fd);
                     const readEnd = process.hrtime(fnStart);
                     console.info('checkFileChanges read took: %ds %dms', readEnd[0], readEnd[1] / 1000000);
                     progress.report({ message: `reading done. Determining lifecycles...` });
