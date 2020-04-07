@@ -12,14 +12,7 @@ import { DltLifecycleNode } from './dltDocumentProvider';
 import { DltFilter, DltFilterType } from './dltFilter';
 import TelemetryReporter from 'vscode-extension-telemetry';
 
-// improve event-loop to be non blocking:
-function setImmedidatePromise() {
-    return new Promise((resolve) => {
-        setImmediate(() => resolve());
-    });
-}
-
-function sleep(ms: number): Promise<void> {
+function sleep(ms: number): Promise<void> { // todo move into util
     return new Promise(resolve => {
         setTimeout(resolve, ms);
     });
@@ -34,8 +27,7 @@ export class DltDocument {
 
     private _fileUri: vscode.Uri;
     private _parsedFileLen: number = 0; // we parsed that much yet
-    private _docEventEmitter: vscode.EventEmitter<vscode.Uri>;
-    //private _treeEventEmitter: vscode.EventEmitter<DltLifecycleNode | null>;
+    private _docEventEmitter: vscode.EventEmitter<vscode.FileChangeEvent[]>;
 
     msgs = new Array<DltMsg>();
     filteredMsgs: DltMsg[] | undefined = undefined;
@@ -49,22 +41,20 @@ export class DltDocument {
     decFilters: DltFilter[] = [];
     disabledFilters: DltFilter[] = [];
 
-    private _visibleRangeTimeout: NodeJS.Timeout | undefined = undefined; // not used yet
-
     private _renderTriggered: boolean = false;
+    private _renderPending: boolean = false;
+
     private _skipMsgs: number = 0; // that many messages get skipped from msgs/filteredMsgs
     private _staticLinesAbove: string[] = []; // number of static lines e.g. "...skipped ... msgs..."
-    private _staticLinesBelow: string[] = []; // e.g. "... msgs not shown yet..."
+    // todo private _staticLinesBelow: string[] = []; // e.g. "... msgs not shown yet..."
 
     //  gets updated e.g. by notifyVisibleRange
-    private _maxNrMsgs: number = 1000; // that many messages are displayed at once. // todo config
+    private _maxNrMsgs: number; //  setting 'dlt-logs.maxNumberLogs'. That many messages are displayed at once
 
-    // private _renderRange: [number, number] = [-20000, 20000]; // this part of the msgs/filteredMsgs (cropped by [0 )  gets rendered as text
-
-    private _text: string; // the rendered text
+    private _text: string; // the rendered text todo change into Buffer
     get text() {
         console.log(`DltDocument.text() returning text with len ${this._text.length}`);
-        this._renderTriggered = false;
+        if (!this._renderPending) { this._renderTriggered = false; }
         return this._text;
     }
 
@@ -77,7 +67,9 @@ export class DltDocument {
     // cachedTimes?: Array<Date>; // per line one date/time
     timeAdjustMs?: number; // adjust in ms
 
-    constructor(uri: vscode.Uri, docEventEmitter: vscode.EventEmitter<vscode.Uri>, parentTreeNode: DltLifecycleNode, reporter?: TelemetryReporter) {
+    private _realStat: fs.Stats;
+
+    constructor(uri: vscode.Uri, docEventEmitter: vscode.EventEmitter<vscode.FileChangeEvent[]>, parentTreeNode: DltLifecycleNode, reporter?: TelemetryReporter) {
         this.uri = uri;
         this._reporter = reporter;
         this._docEventEmitter = docEventEmitter;
@@ -86,6 +78,7 @@ export class DltDocument {
         if (!fs.existsSync(this._fileUri.fsPath)) {
             throw Error(`DltDocument file ${this._fileUri.fsPath} doesn't exist!`);
         }
+        this._realStat = fs.statSync(uri.fsPath);
 
         // load filters: 
         // todo add onDidChangeConfiguration handling to reflect filter changes at runtime
@@ -96,11 +89,25 @@ export class DltDocument {
 
         this.lifecycleTreeNode = { label: `${path.basename(this._fileUri.fsPath)}`, uri: this.uri, parent: parentTreeNode, children: [] };
         parentTreeNode.children.push(this.lifecycleTreeNode);
-        this._text = `Loading dlt document from uri=${this._fileUri.toString()}...`;
-        this._docEventEmitter.fire(this.uri);
+
+        const maxNrMsgsConf = vscode.workspace.getConfiguration().get<number>('dlt-logs.maxNumberLogs');
+        this._maxNrMsgs = maxNrMsgsConf ? maxNrMsgsConf : 1000000; // 1mio default
+
+        this._text = `Loading dlt document from uri=${this._fileUri.toString()} with max ${this._maxNrMsgs} msgs per page...`;
+
+        const reReadTimeoutConf = vscode.workspace.getConfiguration().get<number>('dlt-logs.reReadTimeout');
+        const reReadTimeout: number = reReadTimeoutConf ? reReadTimeoutConf : 1000; // 5s default
+
         setTimeout(() => {
             this.checkFileChanges();
-        }, 1000); // todo make dynamic or use a configureable timeout like in vsc-lfs
+        }, reReadTimeout);
+    }
+
+    stat(): vscode.FileStat {
+        return {
+            size: this._text.length, ctime: this._realStat.ctime.valueOf(), mtime: this._realStat.mtime.valueOf(),
+            type: this._realStat.isDirectory() ? vscode.FileType.Directory : (this._realStat.isFile() ? vscode.FileType.File : vscode.FileType.Unknown)
+        };
     }
 
     parseFilterConfigs(filterObjs: Object[] | undefined) {
@@ -111,25 +118,25 @@ export class DltDocument {
                     let filterConf = filterObjs[i];
                     let newFilter = new DltFilter(filterConf);
                     if (newFilter.enabled) {
-                    switch (newFilter.type) {
-                        case DltFilterType.POSITIVE:
-                            if (newFilter.atLoadTime) {
-                                this.loadTimePosFilters.push(newFilter);
-                            } else {
-                                this.posFilters.push(newFilter);
-                            }
-                            break;
-                        case DltFilterType.NEGATIVE:
-                            if (newFilter.atLoadTime) {
-                                this.loadTimeNegFilters.push(newFilter);
-                            } else {
-                                this.negFilters.push(newFilter);
-                            }
-                            break;
-                        case DltFilterType.MARKER:
-                            this.decFilters.push(newFilter);
-                            break;
-                    }
+                        switch (newFilter.type) {
+                            case DltFilterType.POSITIVE:
+                                if (newFilter.atLoadTime) {
+                                    this.loadTimePosFilters.push(newFilter);
+                                } else {
+                                    this.posFilters.push(newFilter);
+                                }
+                                break;
+                            case DltFilterType.NEGATIVE:
+                                if (newFilter.atLoadTime) {
+                                    this.loadTimeNegFilters.push(newFilter);
+                                } else {
+                                    this.negFilters.push(newFilter);
+                                }
+                                break;
+                            case DltFilterType.MARKER:
+                                this.decFilters.push(newFilter);
+                                break;
+                        }
                     } else {
                         this.disabledFilters.push(newFilter);
                     }
@@ -142,11 +149,12 @@ export class DltDocument {
         console.log(` have ${this.posFilters.length}/${this.loadTimePosFilters.length} pos., ${this.negFilters.length}/${this.loadTimeNegFilters.length} neg., ${this.decFilters.length} marker and ${this.disabledFilters.length} not enabled filters.`);
     }
 
-    clearFilter() {
+    /* todo clearFilter() {
         this.filteredMsgs = undefined;
-        this._docEventEmitter.fire(this.uri); // todo needs renderLines first!
-    }
+        this._docEventEmitter.fire([{ type: vscode.FileChangeType.Changed, uri: this.uri }]); // todo needs renderLines first!
+    } */
 
+    // todo config options for decorations
     private decWarning: vscode.TextEditorDecorationType = vscode.window.createTextEditorDecorationType({ borderColor: "orange", borderWidth: "1px", borderStyle: "dotted", overviewRulerColor: "orange", overviewRulerLane: 2 });
     private decError: vscode.TextEditorDecorationType = vscode.window.createTextEditorDecorationType({ borderColor: "red", borderWidth: "1px", borderStyle: "dotted", overviewRulerColor: "red", overviewRulerLane: 1 });
     private decFatal: vscode.TextEditorDecorationType = vscode.window.createTextEditorDecorationType({ borderColor: "red", borderWidth: "3px", borderStyle: "solid", overviewRulerColor: "red", overviewRulerLane: 7 });
@@ -205,19 +213,17 @@ export class DltDocument {
             if (foundAfterNegFilters) {
                 this.filteredMsgs.push(msg);
                 // any decorations? todo decFilter....
-                // todo impl. proper config parsing and use those objects instead of constantly creating new ones
 
                 if (msg.mstp === MSTP.TYPE_LOG && msg.mtin === MTIN_LOG.LOG_WARN) {
-
-                    while (msg.decorations.length) msg.decorations.pop();
+                    while (msg.decorations.length) { msg.decorations.pop(); }
                     msg.decorations.push([this.decWarning, [{ range: new vscode.Range(this.filteredMsgs.length - 1, 0, this.filteredMsgs.length - 1, 21), hoverMessage: `LOG_WARN` }]]);
                 }
                 if (msg.mstp === MSTP.TYPE_LOG && msg.mtin === MTIN_LOG.LOG_ERROR) {
-                    while (msg.decorations.length) msg.decorations.pop();
+                    while (msg.decorations.length) { msg.decorations.pop(); }
                     msg.decorations.push([this.decError, [{ range: new vscode.Range(this.filteredMsgs.length - 1, 0, this.filteredMsgs.length - 1, 21), hoverMessage: `LOG_ERROR` }]]);
                 }
                 if (msg.mstp === MSTP.TYPE_LOG && msg.mtin === MTIN_LOG.LOG_FATAL) {
-                    while (msg.decorations.length) msg.decorations.pop();
+                    while (msg.decorations.length) { msg.decorations.pop(); }
                     msg.decorations.push([this.decFatal, [{ range: new vscode.Range(this.filteredMsgs.length - 1, 0, this.filteredMsgs.length - 1, 21), hoverMessage: `LOG_FATAL` }]]);
                 }
                 for (let m = 0; m < msg.decorations.length; ++m) {
@@ -234,7 +240,6 @@ export class DltDocument {
             }
         }
         console.log(`applyFilter got ${numberDecorations} decorations.`);
-        // only once the text is rendered this._docEventEmitter.fire(this.uri);
         return this.renderLines(this._skipMsgs, progress);
     }
 
@@ -275,8 +280,7 @@ export class DltDocument {
     }
 
     lineCloseToDate(date: Date): number {
-        console.log(`DltDocument.lineCloseToDate(${date.toLocaleTimeString()}) returning todo`);
-
+        console.log(`DltDocument.lineCloseToDate(${date.toLocaleTimeString()})...`);
         const dateValue = date.valueOf();
 
         // todo optimize with binary/tree search. with filteredMsgs it gets tricky.
@@ -290,17 +294,6 @@ export class DltDocument {
                 if (startDate + (logMsg.timeStamp / 10) >= dateValue) {
                     console.log(`DltDocument.lineCloseToDate(${date.toLocaleTimeString()}) found line ${i}`);
                     return this.revealByMsgsIndex(i);
-                    /*
-                    // is i skipped?
-                    if (i < this._skipMsgs) {
-                        console.log(`lineCloseToDate(${date.toLocaleTimeString()} not in range (${i}<${this._skipMsgs}). todo needs to trigger reload`);
-                        return this._staticLinesAbove.length;
-                    }
-                    if (i > (this._skipMsgs + this._maxNrMsgs)) {
-                        console.log(`lineCloseTo(${date.toLocaleTimeString()} not in range (${i}>${this._skipMsgs + this._maxNrMsgs}). todo needs to trigger reload`);
-                        return this._staticLinesAbove.length + this._maxNrMsgs;
-                    }
-                    return this._staticLinesAbove.length + i;*/
                 }
             }
         }
@@ -352,9 +345,7 @@ export class DltDocument {
     }
 
     notifyVisibleRange(range: vscode.Range) {
-        if (this._visibleRangeTimeout) {
-            clearTimeout(this._visibleRangeTimeout);
-        }
+
         // we do show max _maxNrMsgs from [_skipMsgs, _skipMsgs+_maxNrMsgs)
         // and trigger a reload if in the >4/5 or <1/5
         // and jump by 0.5 then
@@ -412,6 +403,11 @@ export class DltDocument {
         // return the line number that this msg will get
         // and trigger the reload if needed
 
+        if (this._renderPending) {
+            console.log('revealByMsgsIndex aborted due to renderPending!');
+            return -1;
+        }
+
         // currently visible?
         if (this._skipMsgs <= i && (this._skipMsgs + this._maxNrMsgs) > i) {
             return i - this._skipMsgs + this._staticLinesAbove.length;
@@ -465,10 +461,14 @@ export class DltDocument {
     async renderLines(skipMsgs: number, progress?: vscode.Progress<{ increment?: number | undefined, message?: string | undefined, }>): Promise<void> {
         const fnStart = process.hrtime();
         console.log(`DltDocument.renderLines(${skipMsgs}) with ${this.filteredMsgs?.length}/${this.msgs.length} msgs ...`);
+        if (this._renderPending) {
+            console.error(`DltDocument.renderLines called while already running! Investigate / todo`);
+        }
+        this._renderPending = true;
         if (this.msgs.length === 0) {
             this._text = `Loading dlt document from uri=${this._fileUri.toString()}...`;
-            //            this._renderTriggered = false;
-            this._docEventEmitter.fire(this.uri);
+            this._renderPending = false;
+            this._docEventEmitter.fire([{ type: vscode.FileChangeType.Changed, uri: this.uri }]);
             return;
         }
 
@@ -477,15 +477,12 @@ export class DltDocument {
         let msgs = this.filteredMsgs ? this.filteredMsgs : this.msgs;
         const maxLength = Math.floor(Math.log10(msgs.length)) + 1;
 
-        let promises: Promise<undefined>[] = [];
-
         if (msgs.length === 0) { // filter might lead to 0 msgs
             this._text = `<current filter leads to empty file>`;
-            //            this._renderTriggered = false;
-            this._docEventEmitter.fire(this.uri);
+            this._renderPending = false;
+            this._docEventEmitter.fire([{ type: vscode.FileChangeType.Changed, uri: this.uri }]);
             return;
         }
-
 
         if (this._allDecorations?.size) {
             if (!this.decorations || this._skipMsgs !== skipMsgs) {
@@ -531,7 +528,7 @@ export class DltDocument {
         const nrMsgs = msgs.length > this._maxNrMsgs ? this._maxNrMsgs : msgs.length;
         this._skipMsgs = skipMsgs;
         const renderRangeStartLine = skipMsgs;
-        const renderRangeEndLine = skipMsgs + this._maxNrMsgs;
+        const renderRangeEndLine = skipMsgs + nrMsgs;
 
         console.log(` processing msg ${renderRangeStartLine}-${renderRangeEndLine}...`);
 
@@ -539,39 +536,52 @@ export class DltDocument {
         let numberEnd = renderRangeEndLine - 1;
         assert(numberEnd >= numberStart, "logical error: numberEnd>=numberStart");
         toRet = "";
-        // enter skipped lines?
+        // mention skipped lines?
         if (false && renderRangeStartLine > 0) { // todo someparts are off by 1 then
             this._staticLinesAbove = [];
             this._staticLinesAbove.push(`...skipped ${renderRangeStartLine} msgs...\n`);
             toRet += this._staticLinesAbove[0];
         }
-        // todo will we not render some at the end?
+        // todo render some at the end?
 
         let startTime = process.hrtime();
-        for (let j = numberStart; j <= numberEnd; ++j) {
+        for (let j = numberStart; j <= numberEnd && j < msgs.length; ++j) {
             const msg = msgs[j];
             try {
                 toRet += String(`${String(msg.index).padStart(maxLength)} ${String(msg.ecu).padEnd(4)} ${String(msg.apid).padEnd(4)} ${String(msg.ctid).padEnd(4)} ${msg.payloadString}\n`);
             } catch (error) {
-                console.log(`error ${error} at parsing msg ${j}`);
+                console.error(`error ${error} at parsing msg ${j}`);
+                await sleep(100); // avoid hard busy loops!
             }
             if (j % 1000 === 0) {
                 let curTime = process.hrtime(startTime);
                 if (curTime[1] / 1000000 > 100) { // 100ms passed
                     if (progress) {
-                        progress.report({ message: "renderLines: processing msg ${j}" });
+                        progress.report({ message: `renderLines: processing msg ${j}` });
                         await sleep(10);
                     }
                     startTime = process.hrtime();
                 }
             }
         }
+
+        // need to remove current text in the editor and insert new one.
+        // otherwise the editor tries to identify the changes. that
+        // lasts long on big files...
+        // tried using editor.edit(replace or remove/insert) but that leads to a 
+        // doc marked with changes and then FileChange event gets ignored...
+        // so we add empty text interims wise:
+        this._text = "...revealing new range...";
+        this._docEventEmitter.fire([{ type: vscode.FileChangeType.Changed, uri: this.uri }]);
+        await sleep(100);
+
         this._text = toRet;
         const fnEnd = process.hrtime(fnStart);
         console.info('DltDocument.renderLines() took: %ds %dms', fnEnd[0], fnEnd[1] / 1000000);
-        //           this._renderTriggered = false;
-        await sleep(10);
-        this._docEventEmitter.fire(this.uri);
+        await sleep(10); // todo not needed anylonger?
+        this._docEventEmitter.fire([{ type: vscode.FileChangeType.Changed, uri: this.uri }]);
+        this._renderPending = false;
+
     }
 
     async checkFileChanges() {
@@ -586,12 +596,12 @@ export class DltDocument {
             }
             const fd = fs.openSync(this._fileUri.fsPath, "r");
             let read: number = 0;
-            let chunkSize = 10 * 1024 * 1024; // todo config?
+            let chunkSize = 10 * 1024 * 1024; // todo config
             if ((stats.size - this._parsedFileLen) < chunkSize) {
                 chunkSize = stats.size - this._parsedFileLen;
             }
 
-            await vscode.window.withProgress({ cancellable: false, location: vscode.ProgressLocation.Notification, title: "loading dlt file..." },
+            return vscode.window.withProgress({ cancellable: false, location: vscode.ProgressLocation.Notification, title: "loading dlt file..." },
                 async (progress) => {
                     // do we have any filters to apply at load time?
                     let posFilters: DltFilter[] = [];
@@ -667,15 +677,16 @@ export class DltDocument {
                     progress.report({ message: `Got ${this.lifecycles.size} ECUs. Applying filter...` });
                     await sleep(50);
                     const applyFilterStart = process.hrtime();
-                    await this.applyFilter(progress); // await wouldn't be necessary but then we keep the progress info open
+                    /* todo jft */ await this.applyFilter(progress); // await wouldn't be necessary but then we keep the progress info open
                     const applyFilterEnd = process.hrtime(applyFilterStart);
                     console.info('checkFileChanges applyFilter took: %ds %dms', applyFilterEnd[0], applyFilterEnd[1] / 1000000);
                     progress.report({ message: `Filter applied. Finish. (gc kicks in now frequently...)` });
                     await sleep(50);
                 }
-            );
-
-            // this._docEventEmitter.fire(this.uri); // todo or add own event to trigger the tree updates only when selected?
+            ).then(() => {
+                const fnEnd = process.hrtime(fnStart);
+                console.info('checkFileChanges took: %ds %dms', fnEnd[0], fnEnd[1] / 1000000);
+            });
         } else {
             console.log(`checkFileChanges no file size increase (size=${stats.size} vs ${this._parsedFileLen})`);
         }

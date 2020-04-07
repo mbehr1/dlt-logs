@@ -8,7 +8,12 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import { DltDocument } from './dltDocument';
 import TelemetryReporter from 'vscode-extension-telemetry';
-import { reporters } from 'mocha';
+
+function sleep(ms: number): Promise<void> {
+    return new Promise(resolve => {
+        setTimeout(resolve, ms);
+    });
+}
 
 interface SelectedTimeData {
     time: Date;
@@ -22,15 +27,15 @@ export interface DltLifecycleNode {
     children: DltLifecycleNode[];
 };
 
-export class DltDocumentProvider implements vscode.TreeDataProvider<DltLifecycleNode>, vscode.TextDocumentContentProvider,
+export class DltDocumentProvider implements vscode.TreeDataProvider<DltLifecycleNode>, vscode.FileSystemProvider,
     vscode.DocumentSymbolProvider, vscode.Disposable {
     private _reporter?: TelemetryReporter;
     private _subscriptions: Array<vscode.Disposable> = new Array<vscode.Disposable>();
 
-    private _onDidChange = new vscode.EventEmitter<vscode.Uri>();
+    private _onDidChangeFile = new vscode.EventEmitter<vscode.FileChangeEvent[]>();
     private _documents = new Map<string, DltDocument>();
-    get onDidChange() {
-        return this._onDidChange.event;
+    get onDidChangeFile() {
+        return this._onDidChangeFile.event;
     }
 
     private _dltLifecycleTreeView: vscode.TreeView<DltLifecycleNode> | undefined = undefined;
@@ -43,7 +48,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<DltLifecycle
     readonly onDidChangeSelectedTime: vscode.Event<SelectedTimeData> = this._onDidChangeSelectedTime.event;
 
     constructor(context: vscode.ExtensionContext, reporter?: TelemetryReporter) {
-        console.log(`DltDocumentProvider()...`);
+        console.log(`dlt-logs.DltDocumentProvider()...`);
         this._reporter = reporter;
         this._subscriptions.push(vscode.workspace.onDidOpenTextDocument((event: vscode.TextDocument) => {
             const uriStr = event.uri.toString();
@@ -75,7 +80,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<DltLifecycle
                                             const index = +(event.selection[0].uri.fragment);
                                             console.log(`  revealing ${event.selection[0].uri} index ${index}`);
                                             let willBeLine = doc.revealIndex(index);
-                                            console.log(`   revealIndex retured willBeLine=${willBeLine}`);
+                                            console.log(`   revealIndex returned willBeLine=${willBeLine}`);
                                             if (willBeLine >= 0) {
                                                 editor.revealRange(new vscode.Range(willBeLine, 0, willBeLine + 1, 0), vscode.TextEditorRevealType.AtTop);
                                             }
@@ -85,6 +90,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<DltLifecycle
 
                             }
                         }));
+                        this._onDidChangeTreeData.fire();
                         this._dltLifecycleTreeView.reveal(doc.lifecycleTreeNode, { focus: true, select: false, expand: true }); // { label: "", uri: null, parent: null, children: [] });
                     }
                 }
@@ -116,18 +122,14 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<DltLifecycle
             }
         }));
         // check for changes of the documents
-        this._subscriptions.push(vscode.workspace.onDidChangeTextDocument((event) => {
+        this._subscriptions.push(vscode.workspace.onDidChangeTextDocument(async (event) => {
             let uriStr = event.document.uri.toString();
             console.log(`DltDocumentProvider onDidChangeTextDocument uri=${uriStr}`);
             let data = this._documents.get(uriStr);
             if (data) {
-                this._onDidChangeTreeData.fire(data.lifecycleTreeNode); // can't use the node here yet. need to ensure first that its always part of the tree...
+                this._onDidChangeTreeData.fire(data.lifecycleTreeNode);
                 this._dltLifecycleTreeView?.reveal(data.lifecycleTreeNode, { select: false, focus: false, expand: true });
-                // e.g. by adding to the root node directly on opening the document. todo
-                //this.updateData(data);
-                // update decorations:
                 this.updateDecorations(data);
-
             }
         }));
 
@@ -142,7 +144,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<DltLifecycle
                         data.textEditors.push(activeTextEditor);
                     } // todo remove?
                     // or fire as well if the active one is not supported?
-                    this._onDidChangeTreeData.fire(data.lifecycleTreeNode);
+                    this._onDidChangeTreeData.fire(data.lifecycleTreeNode.parent); // or parent and this child?
                     this._dltLifecycleTreeView?.reveal(data.lifecycleTreeNode, { select: false, focus: true, expand: true });
                     //this.checkActiveTextEditor(data);
                     this.updateDecorations(data);
@@ -150,10 +152,10 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<DltLifecycle
             }
         }));
 
-        this._subscriptions.push(vscode.window.onDidChangeVisibleTextEditors((editors: vscode.TextEditor[]) => {
+        /* this._subscriptions.push(vscode.window.onDidChangeVisibleTextEditors((editors: vscode.TextEditor[]) => {
             // console.log(`DltDocumentProvider.onDidChangeVisibleTextEditors= ${editors.length}`);
             // todo update tree view to only contain the visible ones...
-        }));
+        })); */
 
         // todo doesn't work with skipped msgs... this._subscriptions.push(vscode.languages.registerDocumentSymbolProvider('dlt-log', this, { label: "DLT Lifecycles" }));
 
@@ -165,13 +167,15 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<DltLifecycle
                 // ev.kind: 1: Keyboard, 2: Mouse, 3: Command
                 // we do only take single selections.
                 if (ev.selections.length === 1) {
-                    const line = ev.selections[0].active.line; // 0-based
-                    // determine time:
-                    const time = data.provideTimeByLine(line);
-                    if (time) {
-                        // post time update... todo consider debouncing the events by e.g. 100ms...
-                        console.log(` dlt-log posting time update ${time.toLocaleTimeString()}.${String(time.valueOf() % 1000).padStart(3, "0")}`);
-                        this._onDidChangeSelectedTime.fire({ time: time, uri: data.uri });
+                    if (ev.selections[0].isSingleLine) { // todo debounce...
+                        const line = ev.selections[0].active.line; // 0-based
+                        // determine time:
+                        const time = data.provideTimeByLine(line);
+                        if (time) {
+                            // post time update... todo consider debouncing the events by e.g. 100ms...
+                            console.log(` dlt-log posting time update ${time.toLocaleTimeString()}.${String(time.valueOf() % 1000).padStart(3, "0")}`);
+                            this._onDidChangeSelectedTime.fire({ time: time, uri: data.uri });
+                        }
                     }
                 }
             }
@@ -183,6 +187,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<DltLifecycle
                 const doc = this._documents.get(e.textEditor.document.uri.toString());
                 if (doc) {
                     // console.log(`dlt-log.onDidChangeTextEditorVisibleRanges(${e.visibleRanges[0].start.line}-${e.visibleRanges[0].end.line})`);
+                    // todo we should debounce here
                     doc.notifyVisibleRange(e.visibleRanges[0]);
                 }
             }
@@ -203,6 +208,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<DltLifecycle
     };
 
     updateDecorations(data: DltDocument) {
+        // console.log('updateDecorations...');
         if (data.decorations && data.textEditors) {
             // set decorations // todo check that it's really on the already updated content...
             data.textEditors.forEach((editor) => {
@@ -211,6 +217,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<DltLifecycle
                 });
             });
         }
+        // console.log(' updateDecorations done');
     }
 
     public provideHover(doc: vscode.TextDocument, position: vscode.Position): vscode.ProviderResult<vscode.Hover> {
@@ -279,27 +286,11 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<DltLifecycle
         });
     }
 
-    async provideTextDocumentContent(uri: vscode.Uri, token: vscode.CancellationToken): Promise<string | undefined> {
-        // already loaded?
-        let document = this._documents.get(uri.toString());
-        if (document) {
-            return document.text;
-        }
-
-        document = new DltDocument(uri, this._onDidChange, this._dltLifecycleRootNode, this._reporter);
-        this._documents.set(uri.toString(), document);
-        this._onDidChangeTreeData.fire();
-        token.onCancellationRequested(() => {
-            console.log(`cancellation requested for uri=${uri.toString()}`);
-        });
-        return document.text;
-    }
-
     // lifecycle tree view support:
     public getTreeItem(element: DltLifecycleNode): vscode.TreeItem {
         // console.log(`smart-log.getTreeItem(${element.label}, ${element.uri?.toString()}) called.`);
         return {
-            label: element.label.length ? element.label : "<no events>",
+            label: element.label.length ? element.label : "Detected lifecycles",
             collapsibleState: element.children.length ? vscode.TreeItemCollapsibleState.Collapsed : void 0,
             iconPath: /* (element.children.length === 0 && element.label.startsWith("xy")) ? path.join(__filename, '..', '..', 'media', 'root-folder.svg') : */ undefined // todo!
         };
@@ -308,27 +299,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<DltLifecycle
     public getChildren(element?: DltLifecycleNode): DltLifecycleNode[] | Thenable<DltLifecycleNode[]> {
         // console.log(`smart-log.getChildren(${element?.label}, ${element?.uri?.toString()}) this=${this} called.`);
         if (!element) { // if no element we have to return the root element.
-            let toRet: DltLifecycleNode[] = [];
-            this._documents.forEach((doc) => {
-                toRet.push(doc.lifecycleTreeNode);
-            });
-            if (toRet.length) {
-                return toRet;
-            } else {
-                return [{ label: "", uri: null, parent: null, children: [] }];
-            }
-            /*
-            // check whether we have a EventNode for the current document:
-            const doc = vscode.window.activeTextEditor?.document;
-            if (doc && this) {
-                const node = this._documents.get(doc.uri.toString())?.lifecycleTreeNode;
-                if (node) {
-                    // console.log(` eventTreeNode for doc ${doc.uri.toString()} found`);
-                    return [node];
-                }
-                console.log(` no eventTreeNode for doc ${doc.uri.toString()} available`);
-            }
-            return [{ label: "", uri: null, parent: null, children: [] }]; */
+            return [this._dltLifecycleRootNode];
         } else {
             return element.children;
         }
@@ -384,6 +355,100 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<DltLifecycle
             }
         });
         console.log(`dlt-log.checkActiveExtensions: got ${this._didChangeSelectedTimeSubscriptions.length} subscriptions.`);
+    }
+
+    // filesystem provider api:
+    stat(uri: vscode.Uri): vscode.FileStat {
+
+        let document = this._documents.get(uri.toString());
+        const fileUri = uri.with({ scheme: 'file' });
+        const realStat = fs.statSync(uri.fsPath);
+        console.log(`dlt-logs.stat(uri=${uri.toString()})... isDirectory=${realStat.isDirectory()}}`);
+        if (!document && realStat.isFile() && (true /* todo dlt extension */)) {
+            try {
+                document = new DltDocument(uri, this._onDidChangeFile, this._dltLifecycleRootNode, this._reporter);
+                this._documents.set(uri.toString(), document);
+            } catch (error) {
+                console.log(` dlt-logs.stat(uri=${uri.toString()}) returning realStat ${realStat.size} size.`);
+                return {
+                    size: realStat.size, ctime: realStat.ctime.valueOf(), mtime: realStat.mtime.valueOf(),
+                    type: realStat.isDirectory() ? vscode.FileType.Directory : (realStat.isFile() ? vscode.FileType.File : vscode.FileType.Unknown) // todo symlinks as file?
+                };
+            }
+        }
+        if (document) {
+            return document.stat();
+        } else {
+            console.log(` dlt-logs.stat(uri=${uri.toString()}) returning realStat ${realStat.size} size.`);
+            return {
+                size: realStat.size, ctime: realStat.ctime.valueOf(), mtime: realStat.mtime.valueOf(),
+                type: realStat.isDirectory() ? vscode.FileType.Directory : (realStat.isFile() ? vscode.FileType.File : vscode.FileType.Unknown) // todo symlinks as file?
+            };
+        }
+    }
+
+    readFile(uri: vscode.Uri): Uint8Array {
+        let doc = this._documents.get(uri.toString());
+        console.log(`dlt-logs.readFile(uri=${uri.toString()})...`);
+        if (!doc) {
+            doc = new DltDocument(uri, this._onDidChangeFile, this._dltLifecycleRootNode, this._reporter);
+            this._documents.set(uri.toString(), doc);
+        }
+        return Buffer.from(doc.text);
+    }
+
+    watch(uri: vscode.Uri): vscode.Disposable {
+        console.log(`dlt-logs.watch(uri=${uri.toString()}...`);
+        return new vscode.Disposable(() => {
+            console.log(`dlt-logs.watch.Dispose ${uri}`);
+            // const fileUri = uri.with({ scheme: 'file' });
+            let doc = this._documents.get(uri.toString());
+            if (doc) {
+                // we could delete the key as well
+                // todo some dispose here?
+                // we seem to get this already on switching tabs... investigate todo
+                // this._documents.delete(uri.toString());
+            }
+        });
+    }
+
+    readDirectory(uri: vscode.Uri): [string, vscode.FileType][] {
+        console.log(`dlt-logs.readDirectory(uri=${uri.toString()}...`);
+        let entries: [string, vscode.FileType][] = [];
+        // list all dirs and dlt files:
+        const dirEnts = fs.readdirSync(uri.fsPath, { withFileTypes: true });
+        for (var i = 0; i < dirEnts.length; ++i) {
+            console.log(` dlt-logs.readDirectory found ${dirEnts[i].name}`);
+            if (dirEnts[i].isDirectory()) {
+                entries.push([dirEnts[i].name, vscode.FileType.Directory]);
+            } else {
+                if (dirEnts[i].isFile() && (dirEnts[i].name.endsWith(".dlt") /* todo config */)) {
+                    entries.push([dirEnts[i].name, vscode.FileType.File]);
+                }
+            }
+        }
+        console.log(` dlt-logs.readDirectory(uri=${uri.toString()}) returning ${entries.length} entries.`);
+        return entries;
+    }
+
+    writeFile(uri: vscode.Uri, content: Uint8Array, options: { create: boolean, overwrite: boolean }): void {
+        console.log(`dlt-logs.writeFile(uri=${uri.toString()}...`);
+        throw vscode.FileSystemError.NoPermissions();
+    }
+
+    rename(oldUri: vscode.Uri, newUri: vscode.Uri, options: { overwrite: boolean }): void {
+        console.log(`dlt-logs.rename(oldUri=${oldUri.toString()}...`);
+        throw vscode.FileSystemError.NoPermissions();
+    }
+
+    delete(uri: vscode.Uri): void {
+        console.log(`dlt-logs.delete(uri=${uri.toString()}...`);
+        throw vscode.FileSystemError.NoPermissions();
+    }
+
+    createDirectory(uri: vscode.Uri): void {
+        console.log(`dlt-logs.createDirectory(uri=${uri.toString()}...`);
+        throw vscode.FileSystemError.NoPermissions();
     }
 
 }

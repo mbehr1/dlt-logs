@@ -23,6 +23,7 @@
 		"Other"
 	],
 	"activationEvents": [
+		"onFileSystem:dlt-logs",
 		"onCommand:extension.dltOpenFile"
 	],
 	"main": "./out/extension.js",
@@ -40,6 +41,16 @@
 							"DLT"
 						],
 						"description": "Specifies the file extensions that can be opened."
+					},
+					"dlt-logs.reReadTimeout": {
+						"type": "integer",
+						"default": 1000,
+						"description": "Timeout in ms until the first re-read happens. Defaults to 1s."
+					},
+					"dlt-logs.maxNumberLogs": {
+						"type": "integer",
+						"default": 1000000,
+						"description": "Maximum number of DLT logs that are shown in one page. If more messages do exist a paging mechanism will reload at 4/5th the next chunk. You can only search within that page. Please consider using filter to stay within that limit. Defaults to 1'000'000."
 					},
 					"dlt-logs.filters": {
 						"type": "array",

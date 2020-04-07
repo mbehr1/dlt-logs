@@ -8,7 +8,7 @@ This Visual Studio Code(tm) extension adds support to open DLT (diagnostic log a
 
 ## Features
 
-- Open DLT files without any size restriction.
+- Open DLT files without any size restriction. (Tested with ~500MB files)
 - **Time sync** feature.
   - Calculates time for each line based on timestamp and reception/storage time.
   - An offset for the full time can be set via context menu item *adjust-time...*.
@@ -24,8 +24,11 @@ This Visual Studio Code(tm) extension adds support to open DLT (diagnostic log a
 
 > Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow. -->
 
+The extension uses telemetry with two events (`activate` (no parameters) and `open file` (file size as parameter)) if telemetry is activated within your general configuration.
+
 ## Planned features
 
+- Add configurable columns
 - Sort msgs within lifecycles by timestamp (maintaining orig index as e.g. hover info)
 - Add status bar info with e.g. number of msgs with current filter/total.
 - Support easier splitting of huge files into files per lifecycle and offer "assistant" at opening of huge files.
@@ -33,13 +36,16 @@ This Visual Studio Code(tm) extension adds support to open DLT (diagnostic log a
 - Support time synchronized split-view between e.g. two APIDs from within one DLT log file.
 - Use the outline view for lifecycles, errors,...
 - Add support for file changes (growing) and load/update automatically.
-- Add editor for filter (e.g. via config extension)
+- Add editor for filter (e.g. via config extension) and allow changing filters at runtime.
+- Saving of logs/selections allowing e.g. to add comments as proper logs.
 
 ## Extension Settings
 
 This extension contributes the following settings:
 
 * `dlt-logs.fileExtensions`: Specifies the file extensions to use for file open dialog. Defaults to .dlt|.DLT.
+* `dlt-logs.maxNumberLogs`: Specified the maximum number of DLT logs that get displayed in one page. If more logs exist - considering the active filters - a paging mechanism is in place that starts rendering a new page at 4/5th of the page boundary. Searching is limited to the visible page. Defaults to 1mio logs. Depending on your machines performance/RAM you might reduce/increase this. Best case is to find a limit/config where all logs fit into that range (use filter!).
+* `dlt-logs.reReadTimeout`: Specified the timeout in ms after opening the file before starting to parse the dlt file. If the file doesn't open, increase this to e.g. 5s.
 * `dlt-logs.filters`: Configures the filter that are available.
    There are tree type of filters:
    * **positive**: filter need to match to include the message in the view. If no positive filter exists all msgs are assumed matching.
@@ -62,7 +68,10 @@ This extension contributes the following settings:
 
 Little testing especially on different endianess.
 
+* Marker filters not implemented yet. 3 filters (to demo the feature are hard-configured (highlighting log levels warning, error and fatal))
+* Time adjust is not possible yet. (If you use it with **smart-log** adjust the time there if needed!)
 * Non-verbose support is missing yet.
+* Endianess is not tested/implemented! If you send me a DLT log with different endianess I'll implement it.
 
 ## Contributions
 
