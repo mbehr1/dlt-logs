@@ -8,6 +8,7 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import { DltDocument } from './dltDocument';
 import TelemetryReporter from 'vscode-extension-telemetry';
+import { DltFilter } from './dltFilter';
 
 function sleep(ms: number): Promise<void> {
     return new Promise(resolve => {
@@ -20,14 +21,33 @@ interface SelectedTimeData {
     uri: vscode.Uri;
 };
 
-export interface DltLifecycleNode {
+export interface TreeViewNode {
     label: string;
     uri: vscode.Uri | null; // index provided as fragment #<index>
-    parent: DltLifecycleNode | null;
-    children: DltLifecycleNode[];
+    parent: TreeViewNode | null;
+    children: TreeViewNode[];
+    contextValue?: string;
+    command?: vscode.Command;
 };
 
-export class DltDocumentProvider implements vscode.TreeDataProvider<DltLifecycleNode>, vscode.FileSystemProvider,
+export class FilterNode implements TreeViewNode {
+    label: string;
+    //uri: vscode.Uri | null; // index provided as fragment #<index>
+    //parent: TreeViewNode | null;
+    children: TreeViewNode[];
+    contextValue: string;
+    constructor(public uri: vscode.Uri | null, public parent: TreeViewNode | null, public filter: DltFilter) {
+        this.children = [];
+        this.label = filter.name;
+        if (filter.atLoadTime) {
+            this.contextValue = 'filterLoadTime';
+        } else {
+            if (filter.enabled) { this.contextValue = 'filterEnabled'; } else { this.contextValue = 'filterDisabled'; };
+        }
+    }
+};
+
+export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode>, vscode.FileSystemProvider,
     vscode.DocumentSymbolProvider, vscode.Disposable {
     private _reporter?: TelemetryReporter;
     private _subscriptions: Array<vscode.Disposable> = new Array<vscode.Disposable>();
@@ -38,10 +58,11 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<DltLifecycle
         return this._onDidChangeFile.event;
     }
 
-    private _dltLifecycleTreeView: vscode.TreeView<DltLifecycleNode> | undefined = undefined;
-    private _dltLifecycleRootNode: DltLifecycleNode = { label: "", uri: null, parent: null, children: [] };
-    private _onDidChangeTreeData: vscode.EventEmitter<DltLifecycleNode | null> = new vscode.EventEmitter<DltLifecycleNode | null>();
-    readonly onDidChangeTreeData: vscode.Event<DltLifecycleNode | null> = this._onDidChangeTreeData.event;
+    private _dltLifecycleTreeView: vscode.TreeView<TreeViewNode> | undefined = undefined;
+    private _dltLifecycleRootNode: TreeViewNode = { label: "Detected lifecycles", uri: null, parent: null, children: [] };
+    private _dltFilterRootNode: TreeViewNode = { label: "Filters", uri: null, parent: null, children: [] };
+    private _onDidChangeTreeData: vscode.EventEmitter<TreeViewNode | null> = new vscode.EventEmitter<TreeViewNode | null>();
+    readonly onDidChangeTreeData: vscode.Event<TreeViewNode | null> = this._onDidChangeTreeData.event;
 
     private _didChangeSelectedTimeSubscriptions: Array<vscode.Disposable> = new Array<vscode.Disposable>();
     private _onDidChangeSelectedTime: vscode.EventEmitter<SelectedTimeData> = new vscode.EventEmitter<SelectedTimeData>();
@@ -90,9 +111,9 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<DltLifecycle
 
                             }
                         }));
-                        this._onDidChangeTreeData.fire();
-                        this._dltLifecycleTreeView.reveal(doc.lifecycleTreeNode, { focus: true, select: false, expand: true }); // { label: "", uri: null, parent: null, children: [] });
                     }
+                    this._onDidChangeTreeData.fire();
+                    this._dltLifecycleTreeView.reveal(doc.lifecycleTreeNode, { focus: true, select: false, expand: true }); // { label: "", uri: null, parent: null, children: [] });
                 }
             }
         }));
@@ -108,7 +129,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<DltLifecycle
                 if (doc.textDocument) {
                     console.log(`  deleting document with uri=${doc.textDocument.uri.toString()}`);
                     doc.textDocument = undefined;
-                    let childNode: DltLifecycleNode = doc.lifecycleTreeNode;
+                    let childNode: TreeViewNode = doc.lifecycleTreeNode;
                     for (let i = 0; i < this._dltLifecycleRootNode.children.length; ++i) {
                         if (this._dltLifecycleRootNode.children[i] === childNode) {
                             this._dltLifecycleRootNode.children.splice(i, 1);
@@ -116,8 +137,17 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<DltLifecycle
                             break;
                         }
                     }
+                    childNode = doc.filterTreeNode;
+                    for (let i = 0; i < this._dltFilterRootNode.children.length; ++i) {
+                        if (this._dltFilterRootNode.children[i] === childNode) {
+                            this._dltFilterRootNode.children.splice(i, 1);
+                            console.log(`  deleting filter rootNode with #${i}`);
+                            break;
+                        }
+                    }
                     this._documents.delete(uriStr);
                     this._onDidChangeTreeData.fire(this._dltLifecycleRootNode);
+                    this._onDidChangeTreeData.fire(this._dltFilterRootNode);
                 }
             }
         }));
@@ -195,6 +225,38 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<DltLifecycle
 
         // hover provider:
         this._subscriptions.push(vscode.languages.registerHoverProvider({ scheme: "dlt-log" }, this));
+
+        context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.enableFilter', async (...args: any[]) => {
+            const filterNode = <FilterNode>args[0];
+            const parentUri = filterNode.parent?.uri;
+            if (parentUri) {
+                const doc = this._documents.get(parentUri.toString());
+                if (doc) {
+                    console.log(`enableFilter(${filterNode.label}) called for doc=${parentUri}`);
+                    filterNode.filter.enabled = true;
+                    filterNode.label = filterNode.filter.name; // dirty. add to FilterNode class!
+                    if (filterNode.filter.enabled) { filterNode.contextValue = 'filterEnabled'; } else { filterNode.contextValue = 'filterDisabled'; };
+                    doc.onFilterChange(filterNode.filter);
+                    this._onDidChangeTreeData.fire(filterNode); // or parent and this child?
+                }
+            }
+        }));
+
+        context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.disableFilter', async (...args: any[]) => {
+            const filterNode = <FilterNode>args[0];
+            const parentUri = filterNode.parent?.uri;
+            if (parentUri) {
+                const doc = this._documents.get(parentUri.toString());
+                if (doc) {
+                    console.log(`disableFilter(${filterNode.label}) called for doc=${parentUri}`);
+                    filterNode.filter.enabled = false;
+                    filterNode.label = filterNode.filter.name;
+                    if (filterNode.filter.enabled) { filterNode.contextValue = 'filterEnabled'; } else { filterNode.contextValue = 'filterDisabled'; };
+                    doc.onFilterChange(filterNode.filter);
+                    this._onDidChangeTreeData.fire(filterNode); // or parent and this child?
+                }
+            }
+        }));
 
         // time-sync feature: check other extensions for api onDidChangeSelectedTime and connect to them.
         // we do have to connect to ourself as well (in case of multiple smart-logs docs)
@@ -287,25 +349,27 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<DltLifecycle
     }
 
     // lifecycle tree view support:
-    public getTreeItem(element: DltLifecycleNode): vscode.TreeItem {
+    public getTreeItem(element: TreeViewNode): vscode.TreeItem {
         // console.log(`smart-log.getTreeItem(${element.label}, ${element.uri?.toString()}) called.`);
         return {
             label: element.label.length ? element.label : "Detected lifecycles",
+            contextValue: element.contextValue,
+            command: element.command,
             collapsibleState: element.children.length ? vscode.TreeItemCollapsibleState.Collapsed : void 0,
             iconPath: /* (element.children.length === 0 && element.label.startsWith("xy")) ? path.join(__filename, '..', '..', 'media', 'root-folder.svg') : */ undefined // todo!
         };
     }
 
-    public getChildren(element?: DltLifecycleNode): DltLifecycleNode[] | Thenable<DltLifecycleNode[]> {
+    public getChildren(element?: TreeViewNode): TreeViewNode[] | Thenable<TreeViewNode[]> {
         // console.log(`smart-log.getChildren(${element?.label}, ${element?.uri?.toString()}) this=${this} called.`);
         if (!element) { // if no element we have to return the root element.
-            return [this._dltLifecycleRootNode];
+            return [this._dltLifecycleRootNode, this._dltFilterRootNode];
         } else {
             return element.children;
         }
     }
 
-    public getParent(element: DltLifecycleNode): vscode.ProviderResult<DltLifecycleNode> {
+    public getParent(element: TreeViewNode): vscode.ProviderResult<TreeViewNode> {
         // console.log(`smart-log.getParent(${element.label}, ${element.uri?.toString()}) called.`);
         return element.parent;
     }
@@ -366,7 +430,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<DltLifecycle
         console.log(`dlt-logs.stat(uri=${uri.toString()})... isDirectory=${realStat.isDirectory()}}`);
         if (!document && realStat.isFile() && (true /* todo dlt extension */)) {
             try {
-                document = new DltDocument(uri, this._onDidChangeFile, this._dltLifecycleRootNode, this._reporter);
+                document = new DltDocument(uri, this._onDidChangeFile, this._dltLifecycleRootNode, this._dltFilterRootNode, this._reporter);
                 this._documents.set(uri.toString(), document);
             } catch (error) {
                 console.log(` dlt-logs.stat(uri=${uri.toString()}) returning realStat ${realStat.size} size.`);
@@ -391,7 +455,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<DltLifecycle
         let doc = this._documents.get(uri.toString());
         console.log(`dlt-logs.readFile(uri=${uri.toString()})...`);
         if (!doc) {
-            doc = new DltDocument(uri, this._onDidChangeFile, this._dltLifecycleRootNode, this._reporter);
+            doc = new DltDocument(uri, this._onDidChangeFile, this._dltLifecycleRootNode, this._dltFilterRootNode, this._reporter);
             this._documents.set(uri.toString(), doc);
         }
         return Buffer.from(doc.text);

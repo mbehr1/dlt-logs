@@ -8,7 +8,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { DltParser, DltMsg, MSTP, MTIN_LOG, MTIN_CTRL } from './dltParser';
 import { DltLifecycleInfo } from './dltLifecycle';
-import { DltLifecycleNode } from './dltDocumentProvider';
+import { TreeViewNode, FilterNode } from './dltDocumentProvider';
 import { DltFilter, DltFilterType } from './dltFilter';
 import TelemetryReporter from 'vscode-extension-telemetry';
 
@@ -58,7 +58,8 @@ export class DltDocument {
         return this._text;
     }
 
-    lifecycleTreeNode: DltLifecycleNode;
+    lifecycleTreeNode: TreeViewNode;
+    filterTreeNode: TreeViewNode;
     textEditors: Array<vscode.TextEditor> = []; // don't use in here!
 
     private _allDecorations?: Map<vscode.TextEditorDecorationType, vscode.DecorationOptions[]>;
@@ -69,7 +70,8 @@ export class DltDocument {
 
     private _realStat: fs.Stats;
 
-    constructor(uri: vscode.Uri, docEventEmitter: vscode.EventEmitter<vscode.FileChangeEvent[]>, parentTreeNode: DltLifecycleNode, reporter?: TelemetryReporter) {
+    constructor(uri: vscode.Uri, docEventEmitter: vscode.EventEmitter<vscode.FileChangeEvent[]>,
+        parentTreeNode: TreeViewNode, filterParentTreeNode: TreeViewNode, reporter?: TelemetryReporter) {
         this.uri = uri;
         this._reporter = reporter;
         this._docEventEmitter = docEventEmitter;
@@ -81,6 +83,9 @@ export class DltDocument {
         this._realStat = fs.statSync(uri.fsPath);
 
         // load filters: 
+        this.filterTreeNode = { label: `${path.basename(this._fileUri.fsPath)}`, uri: this.uri, parent: parentTreeNode, children: [] };
+        filterParentTreeNode.children.push(this.filterTreeNode);
+
         // todo add onDidChangeConfiguration handling to reflect filter changes at runtime
         {
             const filterObjs = vscode.workspace.getConfiguration().get<Array<object>>("dlt-logs.filters");
@@ -117,6 +122,7 @@ export class DltDocument {
                 try {
                     let filterConf = filterObjs[i];
                     let newFilter = new DltFilter(filterConf);
+                    this.filterTreeNode.children.push(new FilterNode(null, this.filterTreeNode, newFilter));
                     if (newFilter.enabled) {
                         switch (newFilter.type) {
                             case DltFilterType.POSITIVE:
@@ -147,6 +153,75 @@ export class DltDocument {
             }
         }
         console.log(` have ${this.posFilters.length}/${this.loadTimePosFilters.length} pos., ${this.negFilters.length}/${this.loadTimeNegFilters.length} neg., ${this.decFilters.length} marker and ${this.disabledFilters.length} not enabled filters.`);
+    }
+
+    onFilterChange(filter: DltFilter) { // todo this is really dirty. need to reconsider these arrays...
+        console.log(`onFilterChange filter.name=${filter.name}`);
+        // was is disabledFilters?
+        let wasDisabled: boolean = false;
+        for (let i = 0; i < this.disabledFilters.length; ++i) {
+            if (this.disabledFilters[i] === filter) {
+                wasDisabled = true;
+                this.disabledFilters.splice(i, 1);
+                break;
+            }
+        }
+        if (wasDisabled) {
+            if (filter.enabled) {
+                switch (filter.type) {
+                    case DltFilterType.POSITIVE:
+                        if (filter.atLoadTime) {
+                            this.loadTimePosFilters.push(filter);
+                        } else {
+                            this.posFilters.push(filter);
+                        }
+                        break;
+                    case DltFilterType.NEGATIVE:
+                        if (filter.atLoadTime) {
+                            this.loadTimeNegFilters.push(filter);
+                        } else {
+                            this.negFilters.push(filter);
+                        }
+                        break;
+                    case DltFilterType.MARKER:
+                        this.decFilters.push(filter);
+                        break;
+                }
+            }
+        } else {
+            let slot: DltFilter[] | undefined = undefined;
+            switch (filter.type) {
+                case DltFilterType.POSITIVE:
+                    if (filter.atLoadTime) {
+                        slot = this.loadTimePosFilters;
+                    } else {
+                        slot = this.posFilters;
+                    }
+                    break;
+                case DltFilterType.NEGATIVE:
+                    if (filter.atLoadTime) {
+                        slot = this.loadTimeNegFilters;
+                    } else {
+                        slot = this.negFilters;
+                    }
+                    break;
+                case DltFilterType.MARKER:
+                    slot = this.decFilters;
+                    break;
+            }
+            let wasEnabled = false;
+            if (slot) {
+                for (let i = 0; i < slot.length; ++i) {
+                    if (slot[i] === filter) {
+                        wasEnabled = true;
+                        slot.splice(i, 1);
+                        break;
+                    }
+                }
+            }
+            if (wasEnabled) { this.disabledFilters.push(filter); }
+        }
+        this.applyFilter(undefined);
     }
 
     /* todo clearFilter() {
@@ -659,13 +734,13 @@ export class DltDocument {
                     // update the lifecycleNode:
                     this.lifecycleTreeNode.children = [];
                     this.lifecycles.forEach((lcInfo, ecu) => {
-                        let ecuNode: DltLifecycleNode = { label: `ECU: ${ecu}`, parent: this.lifecycleTreeNode, children: [], uri: this.uri };
+                        let ecuNode: TreeViewNode = { label: `ECU: ${ecu}`, parent: this.lifecycleTreeNode, children: [], uri: this.uri };
                         this.lifecycleTreeNode.children.push(ecuNode);
                         console.log(`${ecuNode.label}`);
                         // add lifecycles
                         for (let i = 0; i < lcInfo.length; ++i) {
                             const lc = lcInfo[i];
-                            let lcNode: DltLifecycleNode = {
+                            let lcNode: TreeViewNode = {
                                 label: `${lc.lifecycleStart.toUTCString()}-${lc.lifecycleEnd.toUTCString()} #${lc.logMessages.length}`,
                                 parent: ecuNode, children: [], uri: this.uri.with({ fragment: lc.startIndex.toString() })
                             };

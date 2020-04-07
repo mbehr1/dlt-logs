@@ -61,4 +61,18 @@ export class DltFilter {
 
         return false;
     }
+
+    get name(): string {
+        const enabled: string = this.enabled ? "" : "disabled: ";
+        let type: string = this.type === DltFilterType.POSITIVE ? "+" : (this.type === DltFilterType.NEGATIVE ? "-" : "*");
+        if (this.atLoadTime) {
+            type = "(load time) " + type;
+        }
+        let nameStr: string = "";
+        if (this.ecu) { nameStr += `ECU:${this.ecu} `; };
+        if (this.apid) { nameStr += `APID:${this.apid} `; };
+        if (this.ctid) { nameStr += `CTID:${this.ctid}`; };
+
+        return `${enabled}${type}${nameStr}`;
+    }
 }
