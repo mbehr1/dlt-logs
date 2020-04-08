@@ -21,6 +21,10 @@ export class DltFilter {
     apid: string | undefined;
     ctid: string | undefined;
 
+    // marker decorations:
+    filterColour: string | undefined;
+    decorationId: string | undefined;
+
     constructor(options: any) { // we do need at least the type
         if ('type' in options) {
             this.type = options["type"];
@@ -41,6 +45,16 @@ export class DltFilter {
         }
         if ('ctid' in options) {
             this.ctid = options.ctid;
+        }
+
+        if (this.type === DltFilterType.MARKER) {
+            if ('decorationId' in options) { // has preference wrt filterColour
+                this.decorationId = options.decorationId;
+            } else if ('filterColour' in options) {
+                this.filterColour = options.filterColour;
+            } else {
+                this.filterColour = "blue"; // default to blue
+            }
         }
     }
 

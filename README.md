@@ -61,14 +61,20 @@ This extension contributes the following settings:
    * **enabled**: filter is enabled and will be applied.
    * **atLoadTime**: filter is used already at file load/opening time (only pos/neg filters). This reduces the memory-load with huge files significantly but the filter can't be turned off once the file is opened. Take care: this changes the index of the message and might impact the lifecycle detection as well (todo improve later).
 
+   Marker filter can be highlighted / **decorated** either by
+   * **filterColour**: css colour code to use (e.g. #f0f0f0 or 'red', etc.) or
+   * **decorationId**: id of a defined **decoration** configured with dlt-logs.decorations.
+
    Filter configuration changes will be applied on next file open.
    Details see (todo...).
+* `dlt-logs.decorations`: Definition of the decoration types supported for marker filters.
 
 ## Known Issues
 
 Little testing especially on different endianess.
 
-* Marker filters not implemented yet. 3 filters (to demo the feature are hard-configured (highlighting log levels warning, error and fatal))
+* Marker filters only partially implemented yet. 3 hard-coded filters are highlighting log levels warning, error and fatal if the decorationIds "warning", "error" and "fatal" do exist.
+* Sometimes after changing filters at runtime decorations/markers don't become active. Workaround: switch to a different editor window and back.
 * Time adjust is not possible yet. (If you use it with **smart-log** adjust the time there if needed!)
 * Non-verbose support is missing yet.
 * Endianess is not tested/implemented! If you send me a DLT log with different endianess I'll implement it.

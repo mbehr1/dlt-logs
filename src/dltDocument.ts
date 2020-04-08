@@ -88,6 +88,10 @@ export class DltDocument {
 
         // todo add onDidChangeConfiguration handling to reflect filter changes at runtime
         {
+            const decorationsObjs = vscode.workspace.getConfiguration().get<Array<object>>("dlt-logs.decorations");
+            this.parseDecorationsConfigs(decorationsObjs);
+        }
+        {
             const filterObjs = vscode.workspace.getConfiguration().get<Array<object>>("dlt-logs.filters");
             this.parseFilterConfigs(filterObjs);
         }
@@ -114,6 +118,62 @@ export class DltDocument {
             type: this._realStat.isDirectory() ? vscode.FileType.Directory : (this._realStat.isFile() ? vscode.FileType.File : vscode.FileType.Unknown)
         };
     }
+
+    // config options for decorations
+    private decWarning?: vscode.TextEditorDecorationType;
+    private decError?: vscode.TextEditorDecorationType;
+    private decFatal?: vscode.TextEditorDecorationType;
+    private _decorationTypes = new Map<string, vscode.TextEditorDecorationType>(); // map with id and settings. init from config in parseDecorationsConfigs
+
+    getDecorationFor(filter: DltFilter): vscode.TextEditorDecorationType | undefined {
+        // for filter we use decorationId or filterColour:
+        if (filter.decorationId) { return this._decorationTypes.get(filter.decorationId); };
+        // now we assume at least a filterColour:
+        const decFilterName = `filterColour_${filter.filterColour}`;
+        let dec = this._decorationTypes.get(decFilterName);
+        if (dec) { return dec; }
+        // create this decoration:
+        dec = vscode.window.createTextEditorDecorationType({ borderColor: filter.filterColour, borderWidth: "1px", borderStyle: "dotted", overviewRulerColor: filter.filterColour, overviewRulerLane: 2, isWholeLine: true });
+        this._decorationTypes.set(decFilterName, dec);
+        return dec;
+    }
+
+    parseDecorationsConfigs(decorationConfigs: Object[] | undefined) {
+        console.log(`parseDecorationsConfigs: have ${decorationConfigs?.length} decorations to parse...`);
+        if (this._decorationTypes.size) {
+
+            // remove current ones from editor:
+            this.textEditors.forEach((editor) => {
+                this.decorations?.forEach((value, key) => {
+                    editor.setDecorations(key, []);
+                });
+            });
+            this.decorations = undefined; // todo allDecorations?
+            this._decorationTypes.clear();
+        }
+        if (decorationConfigs && decorationConfigs.length) {
+            for (let i = 0; i < decorationConfigs.length; ++i) {
+                try {
+                    const conf: any = decorationConfigs[i];
+                    if (conf.id) {
+                        console.log(` adding decoration id=${conf.id}`);
+                        let decOpt = <vscode.DecorationRenderOptions>conf.renderOptions;
+                        decOpt.isWholeLine = true;
+                        let decType = vscode.window.createTextEditorDecorationType(decOpt);
+                        this._decorationTypes.set(conf.id, decType);
+                    }
+                } catch (error) {
+                    console.log(`dlt-logs.parseDecorationsConfig error:${error}`);
+                }
+            }
+        }
+        this.decWarning = this._decorationTypes.get("warning");
+        this.decError = this._decorationTypes.get("error");
+        this.decFatal = this._decorationTypes.get("fatal");
+
+        console.log(`dlt-logs.parseDecorationsConfig got ${this._decorationTypes.size} decorations!`);
+    }
+
 
     parseFilterConfigs(filterObjs: Object[] | undefined) {
         console.log(`parseFilterConfigs: have ${filterObjs?.length} filters to parse...`);
@@ -229,10 +289,6 @@ export class DltDocument {
         this._docEventEmitter.fire([{ type: vscode.FileChangeType.Changed, uri: this.uri }]); // todo needs renderLines first!
     } */
 
-    // todo config options for decorations
-    private decWarning: vscode.TextEditorDecorationType = vscode.window.createTextEditorDecorationType({ borderColor: "orange", borderWidth: "1px", borderStyle: "dotted", overviewRulerColor: "orange", overviewRulerLane: 2, isWholeLine: true });
-    private decError: vscode.TextEditorDecorationType = vscode.window.createTextEditorDecorationType({ borderColor: "red", borderWidth: "1px", borderStyle: "dotted", overviewRulerColor: "red", overviewRulerLane: 1, isWholeLine: true });
-    private decFatal: vscode.TextEditorDecorationType = vscode.window.createTextEditorDecorationType({ borderColor: "red", borderWidth: "3px", borderStyle: "solid", overviewRulerColor: "red", overviewRulerLane: 7, isWholeLine: true });
 
     async applyFilter(progress: vscode.Progress<{ increment?: number | undefined, message?: string | undefined, }> | undefined) {
         this.filteredMsgs = [];
@@ -244,6 +300,13 @@ export class DltDocument {
         // apply decorations in the background
 
         this._allDecorations = new Map<vscode.TextEditorDecorationType, vscode.DecorationOptions[]>();
+        // remove current ones from editor:
+        this.textEditors.forEach((editor) => {
+            this.decorations?.forEach((value, key) => {
+                editor.setDecorations(key, []);
+            });
+        });
+        this.decorations = undefined; // todo allDecorations?
         let numberDecorations: number = 0;
         const nrMsgs: number = this.msgs.length;
         let startTime = process.hrtime();
@@ -287,20 +350,36 @@ export class DltDocument {
 
             if (foundAfterNegFilters) {
                 this.filteredMsgs.push(msg);
-                // any decorations? todo decFilter....
+                // any decorations? todo remove log-level ones once filter are extended to MSTP, MTIN.
 
-                if (msg.mstp === MSTP.TYPE_LOG && msg.mtin === MTIN_LOG.LOG_WARN) {
-                    while (msg.decorations.length) { msg.decorations.pop(); }
-                    msg.decorations.push([this.decWarning, [{ range: new vscode.Range(this.filteredMsgs.length - 1, 0, this.filteredMsgs.length - 1, 1), hoverMessage: `LOG_WARN` }]]);
+                msg.decorations = [];
+                let gotDeco: boolean = false;
+                if (this.decWarning && msg.mstp === MSTP.TYPE_LOG && msg.mtin === MTIN_LOG.LOG_WARN) {
+                    msg.decorations.push([this.decWarning, [{ range: new vscode.Range(this.filteredMsgs.length - 1, 0, this.filteredMsgs.length - 1, 21), hoverMessage: `LOG_WARN` }]]);
+                    gotDeco = true;
                 }
-                if (msg.mstp === MSTP.TYPE_LOG && msg.mtin === MTIN_LOG.LOG_ERROR) {
-                    while (msg.decorations.length) { msg.decorations.pop(); }
-                    msg.decorations.push([this.decError, [{ range: new vscode.Range(this.filteredMsgs.length - 1, 0, this.filteredMsgs.length - 1, 1), hoverMessage: `LOG_ERROR` }]]);
+                if (!gotDeco && this.decError && msg.mstp === MSTP.TYPE_LOG && msg.mtin === MTIN_LOG.LOG_ERROR) {
+                    msg.decorations.push([this.decError, [{ range: new vscode.Range(this.filteredMsgs.length - 1, 0, this.filteredMsgs.length - 1, 21), hoverMessage: `LOG_ERROR` }]]);
                 }
-                if (msg.mstp === MSTP.TYPE_LOG && msg.mtin === MTIN_LOG.LOG_FATAL) {
-                    while (msg.decorations.length) { msg.decorations.pop(); }
-                    msg.decorations.push([this.decFatal, [{ range: new vscode.Range(this.filteredMsgs.length - 1, 0, this.filteredMsgs.length - 1, 1), hoverMessage: `LOG_FATAL` }]]);
+                if (!gotDeco && this.decFatal && msg.mstp === MSTP.TYPE_LOG && msg.mtin === MTIN_LOG.LOG_FATAL) {
+                    msg.decorations.push([this.decFatal, [{ range: new vscode.Range(this.filteredMsgs.length - 1, 0, this.filteredMsgs.length - 1, 21), hoverMessage: `LOG_FATAL` }]]);
                 }
+
+                if (!gotDeco) {
+                    for (let d = 0; d < this.decFilters.length; ++d) {
+                        let decFilter = this.decFilters[d];
+                        if (decFilter.matches(msg)) {
+                            // get decoration for this filter:
+                            const decType = this.getDecorationFor(decFilter);
+                            if (decType) {
+                                msg.decorations.push([decType, [{ range: new vscode.Range(this.filteredMsgs.length - 1, 0, this.filteredMsgs.length - 1, 21), hoverMessage: `MARKER ${decFilter.name}` }]]);
+                                gotDeco = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+
                 for (let m = 0; m < msg.decorations.length; ++m) {
                     const value = msg.decorations[m];
                     if (!this._allDecorations?.has(value[0])) {

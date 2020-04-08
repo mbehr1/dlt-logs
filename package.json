@@ -2,7 +2,7 @@
 	"name": "dlt-logs",
 	"displayName": "DLT-Logs",
 	"description": "Open DLT diagnostic log and trace files with lifecycle detection, filters, time-sync, etc.",
-	"version": "0.3.1",
+	"version": "0.4.0",
 	"license": "CC BY-NC-SA 4.0",
 	"publisher": "mbehr1",
 	"author": {
@@ -23,7 +23,7 @@
 		"Other"
 	],
 	"activationEvents": [
-		"onFileSystem:dlt-logs",
+		"onFileSystem:dlt-log",
 		"onCommand:extension.dltOpenFile"
 	],
 	"main": "./out/extension.js",
@@ -86,10 +86,83 @@
 									"type": "string",
 									"description": "The CTID to filter for. Should have 4 chars (less will be filled with \\0). Ignored if empty.",
 									"default": ""
+								},
+								"filterColour": {
+									"type": "string",
+									"description:": "The background colour used for type marker(2). Any css colour code like #f0f0f0 or 'red' can be used. For more detailed customization you can define decorations and refer to those. Only used with marker. Defaults to blue.",
+									"default": "blue"
+								},
+								"decorationId": {
+									"type": "string",
+									"description": "Identifier of the decoration (id of decorations config option) to use for marker instead of filterColour. Defaults to none."
 								}
 							}
 						},
 						"default": []
+					},
+					"dlt-logs.decorations": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"title": "decoration",
+							"properties": {
+								"id": {
+									"type": "string",
+									"description": "Identifier of this decoration for later reference e.g. in filters."
+								},
+								"renderOptions": {
+									"type": "object",
+									"description": "Render options see vs code API DecorationRenderOptions. isWholeLine:true will be added automatically."
+								}
+							}
+						},
+						"default": [
+							{
+								"id": "error",
+								"renderOptions": {
+									"borderWidth": "1px",
+									"borderStyle": "solid",
+									"overviewRulerColor": "red",
+									"overviewRulerLane": 1,
+									"light": {
+										"borderColor": "red"
+									},
+									"dark": {
+										"borderColor": "red"
+									}
+								}
+							},
+							{
+								"id": "warning",
+								"renderOptions": {
+									"borderWidth": "1px",
+									"borderStyle": "dotted",
+									"overviewRulerColor": "orange",
+									"overviewRulerLane": 2,
+									"light": {
+										"borderColor": "orange"
+									},
+									"dark": {
+										"borderColor": "orange"
+									}
+								}
+							},
+							{
+								"id": "fatal",
+								"renderOptions": {
+									"borderWidth": "3px",
+									"borderStyle": "solid",
+									"overviewRulerColor": "red",
+									"overviewRulerLane": 7,
+									"light": {
+										"borderColor": "red"
+									},
+									"dark": {
+										"borderColor": "red"
+									}
+								}
+							}
+						]
 					}
 				}
 			}

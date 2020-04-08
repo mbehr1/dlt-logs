@@ -4,6 +4,11 @@ All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
 
+## [0.4.0]
+
+- Add marker support. Still with hard coded log level markers (if decorationIds warning, error, fatal do exist).
+- Fix automatic reload of dlt-logs on editor startup.
+
 ## [0.3.1]
 
 - Fixed filters with multiple matches using "and" and not "or". So all criteria have to match.
