@@ -32,7 +32,7 @@ The extension uses telemetry with two events (`activate` (no parameters) and `op
 - Sort msgs within lifecycles by timestamp (maintaining orig index as e.g. hover info)
 - Add status bar info with e.g. number of msgs with current filter/total.
 - Support easier splitting of huge files into files per lifecycle and offer "assistant" at opening of huge files.
-- Support DLT file tranfer file extraction (and automatic filtering of those msgs).
+- Support DLT file transfer file extraction (and automatic filtering of those msgs).
 - Support time synchronized split-view between e.g. two APIDs from within one DLT log file.
 - Use the outline view for lifecycles, errors,...
 - Add support for file changes (growing) and load/update automatically.

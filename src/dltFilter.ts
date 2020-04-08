@@ -49,17 +49,18 @@ export class DltFilter {
             return false;
         }
 
-        if (this.ecu && msg.ecu === this.ecu) {
-            return true;
+        if (this.ecu && msg.ecu !== this.ecu) {
+            return false;
         }
-        if (this.apid && msg.apid === this.apid) {
-            return true;
+        if (this.apid && msg.apid !== this.apid) {
+            return false;
         }
-        if (this.ctid && msg.ctid === this.ctid) {
-            return true;
+        if (this.ctid && msg.ctid !== this.ctid) {
+            return false;
         }
 
-        return false;
+        // if we reach here all defined criteria match
+        return true;
     }
 
     get name(): string {
