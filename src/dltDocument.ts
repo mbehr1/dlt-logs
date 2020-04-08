@@ -230,9 +230,9 @@ export class DltDocument {
     } */
 
     // todo config options for decorations
-    private decWarning: vscode.TextEditorDecorationType = vscode.window.createTextEditorDecorationType({ borderColor: "orange", borderWidth: "1px", borderStyle: "dotted", overviewRulerColor: "orange", overviewRulerLane: 2 });
-    private decError: vscode.TextEditorDecorationType = vscode.window.createTextEditorDecorationType({ borderColor: "red", borderWidth: "1px", borderStyle: "dotted", overviewRulerColor: "red", overviewRulerLane: 1 });
-    private decFatal: vscode.TextEditorDecorationType = vscode.window.createTextEditorDecorationType({ borderColor: "red", borderWidth: "3px", borderStyle: "solid", overviewRulerColor: "red", overviewRulerLane: 7 });
+    private decWarning: vscode.TextEditorDecorationType = vscode.window.createTextEditorDecorationType({ borderColor: "orange", borderWidth: "1px", borderStyle: "dotted", overviewRulerColor: "orange", overviewRulerLane: 2, isWholeLine: true });
+    private decError: vscode.TextEditorDecorationType = vscode.window.createTextEditorDecorationType({ borderColor: "red", borderWidth: "1px", borderStyle: "dotted", overviewRulerColor: "red", overviewRulerLane: 1, isWholeLine: true });
+    private decFatal: vscode.TextEditorDecorationType = vscode.window.createTextEditorDecorationType({ borderColor: "red", borderWidth: "3px", borderStyle: "solid", overviewRulerColor: "red", overviewRulerLane: 7, isWholeLine: true });
 
     async applyFilter(progress: vscode.Progress<{ increment?: number | undefined, message?: string | undefined, }> | undefined) {
         this.filteredMsgs = [];
@@ -291,15 +291,15 @@ export class DltDocument {
 
                 if (msg.mstp === MSTP.TYPE_LOG && msg.mtin === MTIN_LOG.LOG_WARN) {
                     while (msg.decorations.length) { msg.decorations.pop(); }
-                    msg.decorations.push([this.decWarning, [{ range: new vscode.Range(this.filteredMsgs.length - 1, 0, this.filteredMsgs.length - 1, 21), hoverMessage: `LOG_WARN` }]]);
+                    msg.decorations.push([this.decWarning, [{ range: new vscode.Range(this.filteredMsgs.length - 1, 0, this.filteredMsgs.length - 1, 1), hoverMessage: `LOG_WARN` }]]);
                 }
                 if (msg.mstp === MSTP.TYPE_LOG && msg.mtin === MTIN_LOG.LOG_ERROR) {
                     while (msg.decorations.length) { msg.decorations.pop(); }
-                    msg.decorations.push([this.decError, [{ range: new vscode.Range(this.filteredMsgs.length - 1, 0, this.filteredMsgs.length - 1, 21), hoverMessage: `LOG_ERROR` }]]);
+                    msg.decorations.push([this.decError, [{ range: new vscode.Range(this.filteredMsgs.length - 1, 0, this.filteredMsgs.length - 1, 1), hoverMessage: `LOG_ERROR` }]]);
                 }
                 if (msg.mstp === MSTP.TYPE_LOG && msg.mtin === MTIN_LOG.LOG_FATAL) {
                     while (msg.decorations.length) { msg.decorations.pop(); }
-                    msg.decorations.push([this.decFatal, [{ range: new vscode.Range(this.filteredMsgs.length - 1, 0, this.filteredMsgs.length - 1, 21), hoverMessage: `LOG_FATAL` }]]);
+                    msg.decorations.push([this.decFatal, [{ range: new vscode.Range(this.filteredMsgs.length - 1, 0, this.filteredMsgs.length - 1, 1), hoverMessage: `LOG_FATAL` }]]);
                 }
                 for (let m = 0; m < msg.decorations.length; ++m) {
                     const value = msg.decorations[m];
