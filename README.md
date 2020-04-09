@@ -38,6 +38,7 @@ The extension uses telemetry with two events (`activate` (no parameters) and `op
 - Add support for file changes (growing) and load/update automatically.
 - Add editor for filter (e.g. via config extension) and allow changing filters at runtime.
 - Saving of logs/selections allowing e.g. to add comments as proper logs.
+- Use custom editor interface to be able to support regular file open mechanism.
 
 ## Extension Settings
 

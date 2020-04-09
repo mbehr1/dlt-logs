@@ -4,6 +4,10 @@ All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
 
+## [0.4.1]
+
+- Add icons for LOG_WARN, LOG_ERROR and enable/disable filter commands.
+
 ## [0.4.0]
 
 - Add marker support. Still with hard coded log level markers (if decorationIds warning, error, fatal do exist).

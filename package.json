@@ -2,7 +2,7 @@
 	"name": "dlt-logs",
 	"displayName": "DLT-Logs",
 	"description": "Open DLT diagnostic log and trace files with lifecycle detection, filters, time-sync, etc.",
-	"version": "0.4.0",
+	"version": "0.4.1",
 	"license": "CC BY-NC-SA 4.0",
 	"publisher": "mbehr1",
 	"author": {
@@ -178,11 +178,13 @@
 			},
 			{
 				"command": "dlt-logs.enableFilter",
-				"title": "enable"
+				"title": "enable",
+				"icon": "$(debug-start)"
 			},
 			{
 				"command": "dlt-logs.disableFilter",
-				"title": "disable"
+				"title": "disable",
+				"icon": "$(debug-pause)"
 			}
 		],
 		"menus": {
