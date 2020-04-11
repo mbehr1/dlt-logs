@@ -149,12 +149,16 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                             break;
                         }
                     }
-                    childNode = doc.pluginTreeNode;
+
+                    let childNodes = doc.pluginNodes;
                     for (let i = 0; i < this._dltPluginRootNode.children.length; ++i) {
-                        if (this._dltPluginRootNode.children[i] === childNode) {
-                            this._dltPluginRootNode.children.splice(i, 1);
-                            console.log(`  deleting plugin rootNode with #${i}`);
-                            break;
+                        for (let j = 0; j < childNodes.length; ++j) {
+                            if (this._dltPluginRootNode.children[i] === childNodes[j]) {
+                                this._dltPluginRootNode.children.splice(i, 1);
+                                console.log(`  deleting plugin rootNode with #${i}`);
+                                i--; // we modified dltPluginRootNode and need to continue from next one
+                                break;
+                            }
                         }
                     }
                     this._documents.delete(uriStr);

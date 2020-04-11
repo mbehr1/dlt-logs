@@ -56,7 +56,9 @@ export class DltDocument {
 
     lifecycleTreeNode: TreeViewNode;
     filterTreeNode: TreeViewNode;
-    pluginTreeNode: TreeViewNode;
+    pluginTreeNode: TreeViewNode; // this is from the parent = DltDocumentProvider
+    pluginNodes: TreeViewNode[] = [];
+
     private _treeEventEmitter: vscode.EventEmitter<TreeViewNode | null>;
 
     textEditors: Array<vscode.TextEditor> = []; // don't use in here!
@@ -209,6 +211,7 @@ export class DltDocument {
                             {
                                 let treeNode = { label: `File transfer from '${path.basename(this.uri.fsPath)}'`, uri: this.uri, parent: this.pluginTreeNode, children: [] };
                                 const plugin = new DltFileTransferPlugin(this.uri, treeNode, this._treeEventEmitter, pluginObj);
+                                this.pluginNodes.push(treeNode);
                                 this.pluginTreeNode.children.push(treeNode);
                                 this.allFilters.push(plugin);
                                 this.filterTreeNode.children.push(new FilterNode(null, this.filterTreeNode, plugin)); // add to filter as well
