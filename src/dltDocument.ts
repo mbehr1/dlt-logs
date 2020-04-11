@@ -34,12 +34,7 @@ export class DltDocument {
     lifecycles = new Map<string, DltLifecycleInfo[]>();
 
     // filters:
-    posFilters: DltFilter[] = [];
-    negFilters: DltFilter[] = [];
-    loadTimePosFilters: DltFilter[] = [];
-    loadTimeNegFilters: DltFilter[] = [];
-    decFilters: DltFilter[] = [];
-    disabledFilters: DltFilter[] = [];
+    allFilters: DltFilter[] = [];
 
     private _renderTriggered: boolean = false;
     private _renderPending: boolean = false;
@@ -183,104 +178,17 @@ export class DltDocument {
                     let filterConf = filterObjs[i];
                     let newFilter = new DltFilter(filterConf);
                     this.filterTreeNode.children.push(new FilterNode(null, this.filterTreeNode, newFilter));
-                    if (newFilter.enabled) {
-                        switch (newFilter.type) {
-                            case DltFilterType.POSITIVE:
-                                if (newFilter.atLoadTime) {
-                                    this.loadTimePosFilters.push(newFilter);
-                                } else {
-                                    this.posFilters.push(newFilter);
-                                }
-                                break;
-                            case DltFilterType.NEGATIVE:
-                                if (newFilter.atLoadTime) {
-                                    this.loadTimeNegFilters.push(newFilter);
-                                } else {
-                                    this.negFilters.push(newFilter);
-                                }
-                                break;
-                            case DltFilterType.MARKER:
-                                this.decFilters.push(newFilter);
-                                break;
-                        }
-                    } else {
-                        this.disabledFilters.push(newFilter);
-                    }
+                    this.allFilters.push(newFilter);
                     console.log(` got filter: type=${newFilter.type}, enabled=${newFilter.enabled}, atLoadTime=${newFilter.atLoadTime}`, newFilter);
                 } catch (error) {
                     console.log(`dlt-logs.parseFilterConfigs error:${error}`);
                 }
             }
         }
-        console.log(` have ${this.posFilters.length}/${this.loadTimePosFilters.length} pos., ${this.negFilters.length}/${this.loadTimeNegFilters.length} neg., ${this.decFilters.length} marker and ${this.disabledFilters.length} not enabled filters.`);
     }
 
     onFilterChange(filter: DltFilter) { // todo this is really dirty. need to reconsider these arrays...
         console.log(`onFilterChange filter.name=${filter.name}`);
-        // was is disabledFilters?
-        let wasDisabled: boolean = false;
-        for (let i = 0; i < this.disabledFilters.length; ++i) {
-            if (this.disabledFilters[i] === filter) {
-                wasDisabled = true;
-                this.disabledFilters.splice(i, 1);
-                break;
-            }
-        }
-        if (wasDisabled) {
-            if (filter.enabled) {
-                switch (filter.type) {
-                    case DltFilterType.POSITIVE:
-                        if (filter.atLoadTime) {
-                            this.loadTimePosFilters.push(filter);
-                        } else {
-                            this.posFilters.push(filter);
-                        }
-                        break;
-                    case DltFilterType.NEGATIVE:
-                        if (filter.atLoadTime) {
-                            this.loadTimeNegFilters.push(filter);
-                        } else {
-                            this.negFilters.push(filter);
-                        }
-                        break;
-                    case DltFilterType.MARKER:
-                        this.decFilters.push(filter);
-                        break;
-                }
-            }
-        } else {
-            let slot: DltFilter[] | undefined = undefined;
-            switch (filter.type) {
-                case DltFilterType.POSITIVE:
-                    if (filter.atLoadTime) {
-                        slot = this.loadTimePosFilters;
-                    } else {
-                        slot = this.posFilters;
-                    }
-                    break;
-                case DltFilterType.NEGATIVE:
-                    if (filter.atLoadTime) {
-                        slot = this.loadTimeNegFilters;
-                    } else {
-                        slot = this.negFilters;
-                    }
-                    break;
-                case DltFilterType.MARKER:
-                    slot = this.decFilters;
-                    break;
-            }
-            let wasEnabled = false;
-            if (slot) {
-                for (let i = 0; i < slot.length; ++i) {
-                    if (slot[i] === filter) {
-                        wasEnabled = true;
-                        slot.splice(i, 1);
-                        break;
-                    }
-                }
-            }
-            if (wasEnabled) { this.disabledFilters.push(filter); }
-        }
         this.applyFilter(undefined);
     }
 
@@ -289,6 +197,20 @@ export class DltDocument {
         this._docEventEmitter.fire([{ type: vscode.FileChangeType.Changed, uri: this.uri }]); // todo needs renderLines first!
     } */
 
+    static getFilter(allFilters: DltFilter[], enabled: boolean, atLoadTime: boolean) {
+        let toRet: DltFilter[][] = [];
+        for (let i = DltFilterType.POSITIVE; i <= DltFilterType.MARKER; ++i) {
+            toRet.push([]);
+        }
+
+        for (let i = 0; i < allFilters.length; ++i) {
+            const filter = allFilters[i];
+            if (filter.enabled === enabled && filter.atLoadTime === atLoadTime) {
+                toRet[filter.type].push(filter);
+            }
+        }
+        return toRet;
+    }
 
     async applyFilter(progress: vscode.Progress<{ increment?: number | undefined, message?: string | undefined, }> | undefined) {
         this.filteredMsgs = [];
@@ -310,6 +232,10 @@ export class DltDocument {
         let numberDecorations: number = 0;
         const nrMsgs: number = this.msgs.length;
         let startTime = process.hrtime();
+
+        // sort the filters here into the enabled pos and neg:
+        const [posFilters, negFilters, decFilters] = DltDocument.getFilter(this.allFilters, true, false);
+
         for (let i = 0; i < nrMsgs; ++i) {
             if (i % 1000 === 0) { // provide process and responsiveness for UI:
                 let curTime = process.hrtime(startTime);
@@ -327,21 +253,21 @@ export class DltDocument {
             // a msg is visible if:
             // no negative filter matches and
             // if any pos. filter exists: at least one positive filter matches (if no pos. filters exist -> treat as matching)
-            let foundAfterPosFilters: boolean = this.posFilters.length ? false : true;
-            if (this.posFilters.length) {
+            let foundAfterPosFilters: boolean = posFilters.length ? false : true;
+            if (posFilters.length) {
                 // check the pos filters, break on first match:
-                for (let j = 0; j < this.posFilters.length; ++j) {
-                    if (this.posFilters[j].matches(msg)) {
+                for (let j = 0; j < posFilters.length; ++j) {
+                    if (posFilters[j].matches(msg)) {
                         foundAfterPosFilters = true;
                         break;
                     }
                 }
             }
             let foundAfterNegFilters: boolean = foundAfterPosFilters;
-            if (foundAfterNegFilters && this.negFilters.length) {
+            if (foundAfterNegFilters && negFilters.length) {
                 // check the neg filters, break on first match:
-                for (let j = 0; j < this.negFilters.length; ++j) {
-                    if (this.negFilters[j].matches(msg)) {
+                for (let j = 0; j < negFilters.length; ++j) {
+                    if (negFilters[j].matches(msg)) {
                         foundAfterNegFilters = false;
                         break;
                     }
@@ -366,8 +292,8 @@ export class DltDocument {
                 }
 
                 if (!gotDeco) {
-                    for (let d = 0; d < this.decFilters.length; ++d) {
-                        let decFilter = this.decFilters[d];
+                    for (let d = 0; d < decFilters.length; ++d) {
+                        let decFilter = decFilters[d];
                         if (decFilter.matches(msg)) {
                             // get decoration for this filter:
                             const decType = this.getDecorationFor(decFilter);
@@ -758,19 +684,7 @@ export class DltDocument {
             return vscode.window.withProgress({ cancellable: false, location: vscode.ProgressLocation.Notification, title: "loading dlt file..." },
                 async (progress) => {
                     // do we have any filters to apply at load time?
-                    let posFilters: DltFilter[] = [];
-                    let negFilters: DltFilter[] = [];
-
-                    for (let i = 0; i < this.loadTimePosFilters.length; ++i) {
-                        if (this.loadTimePosFilters[i].enabled) {
-                            posFilters.push(this.loadTimePosFilters[i]);
-                        }
-                    }
-                    for (let i = 0; i < this.loadTimeNegFilters.length; ++i) {
-                        if (this.loadTimeNegFilters[i].enabled) {
-                            negFilters.push(this.loadTimeNegFilters[i]);
-                        }
-                    }
+                    const [posFilters, negFilters, decFilters] = DltDocument.getFilter(this.allFilters, true, true);
                     console.log(` have ${posFilters.length} pos. and ${negFilters.length} neg. filters at load time.`);
 
                     let data = Buffer.allocUnsafe(chunkSize);
