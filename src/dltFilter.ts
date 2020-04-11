@@ -15,6 +15,7 @@ export class DltFilter {
     readonly type: DltFilterType;
     enabled: boolean = true;
     atLoadTime: boolean = false; // this filter gets used a load/opening the dlt file already (thus can't be deactivated later). Not possible with MARKER.
+    beforePositive: boolean = false; // for neg. (todo later for marker?): match this before the pos. filters. mainly used for plugins like FileTransfer
 
     // what to match for:
     ecu: string | undefined;

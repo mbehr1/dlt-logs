@@ -203,7 +203,7 @@ export class DltMsg {
                             }
                             assert.equal(argOffset, this._payloadData.byteLength, "didn't process all payloadData"); // all data processed
                             assert.equal(this.noar, this.payloadArgs.length, "noars != payloadArgs.length");
-                            this._payloadArgs = []; // todo to see how much faster it gets
+                            //this._payloadArgs = []; // todo to see how much faster it gets
                         } else {
                             console.log(`no non-verbose support yet for TYPE_LOG mstp=${this.mstp}! todo`);
                             this._payloadArgs = [];
@@ -255,7 +255,7 @@ export class DltParser {
     static stdHeaderParser = new Parser().endianess("little").uint8("htyp").uint8("mcnt").uint16be("len");
     static extHeaderParser = new Parser().endianess("little").bit1("verb").bit3("mstp").bit4("mtin").uint8("noar").string("apid", { encoding: "ascii", length: 4, stripNull: true }).string("ctid", { encoding: "ascii", length: 4, stripNull: true });
 
-    parseDltFromBuffer(buf: Buffer, startOffset: number, msgs: Array<DltMsg>, posFilters?: DltFilter[], negFilters?: DltFilter[]) { // todo make async
+    parseDltFromBuffer(buf: Buffer, startOffset: number, msgs: Array<DltMsg>, posFilters?: DltFilter[], negFilters?: DltFilter[], negBeforePosFilters?: DltFilter[]) { // todo make async
         let skipped: number = 0;
         let remaining: number = buf.byteLength - startOffset;
         let nrMsgs: number = 0; let offset = startOffset;
@@ -274,30 +274,41 @@ export class DltParser {
 
                     let newMsg = new DltMsg(storageHeader["ecu"], startIndex + nrMsgs, time, buf.slice(msgOffset, offset));
                     // do we need to filter this one?
+                    let keepAfterNegBeforePosFilters: boolean = true;
+                    if (negBeforePosFilters?.length) {
+                        for (let i = 0; i < negBeforePosFilters.length; ++i) {
+                            if (negBeforePosFilters[i].matches(newMsg)) {
+                                keepAfterNegBeforePosFilters = false;
+                                break;
+                            }
+                        }
+                    }
 
-                    let foundAfterPosFilters: boolean = posFilters?.length ? false : true;
-                    if (posFilters?.length) {
-                        // check the pos filters, break on first match:
-                        for (let i = 0; i < posFilters.length; ++i) {
-                            if (posFilters[i].matches(newMsg)) {
-                                foundAfterPosFilters = true;
-                                break;
+                    if (keepAfterNegBeforePosFilters) {
+                        let foundAfterPosFilters: boolean = posFilters?.length ? false : true;
+                        if (posFilters?.length) {
+                            // check the pos filters, break on first match:
+                            for (let i = 0; i < posFilters.length; ++i) {
+                                if (posFilters[i].matches(newMsg)) {
+                                    foundAfterPosFilters = true;
+                                    break;
+                                }
                             }
                         }
-                    }
-                    let foundAfterNegFilters: boolean = foundAfterPosFilters;
-                    if (foundAfterNegFilters && negFilters?.length) {
-                        // check the neg filters, break on first match:
-                        for (let i = 0; i < negFilters.length; ++i) {
-                            if (negFilters[i].matches(newMsg)) {
-                                foundAfterNegFilters = false;
-                                break;
+                        let foundAfterNegFilters: boolean = foundAfterPosFilters;
+                        if (foundAfterNegFilters && negFilters?.length) {
+                            // check the neg filters, break on first match:
+                            for (let i = 0; i < negFilters.length; ++i) {
+                                if (negFilters[i].matches(newMsg)) {
+                                    foundAfterNegFilters = false;
+                                    break;
+                                }
                             }
                         }
-                    }
-                    if (foundAfterNegFilters) {
-                        msgs.push(newMsg);
-                        nrMsgs++;
+                        if (foundAfterNegFilters) {
+                            msgs.push(newMsg);
+                            nrMsgs++;
+                        }
                     }
                     remaining -= (offset - msgOffset);
                 } else {

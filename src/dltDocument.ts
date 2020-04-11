@@ -11,6 +11,7 @@ import { DltLifecycleInfo } from './dltLifecycle';
 import { TreeViewNode, FilterNode } from './dltDocumentProvider';
 import { DltFilter, DltFilterType } from './dltFilter';
 import TelemetryReporter from 'vscode-extension-telemetry';
+import { DltFileTransferPlugin } from './dltFileTransfer';
 
 function sleep(ms: number): Promise<void> { // todo move into util
     return new Promise(resolve => {
@@ -55,6 +56,9 @@ export class DltDocument {
 
     lifecycleTreeNode: TreeViewNode;
     filterTreeNode: TreeViewNode;
+    pluginTreeNode: TreeViewNode;
+    private _treeEventEmitter: vscode.EventEmitter<TreeViewNode | null>;
+
     textEditors: Array<vscode.TextEditor> = []; // don't use in here!
 
     private _allDecorations?: Map<vscode.TextEditorDecorationType, vscode.DecorationOptions[]>;
@@ -65,12 +69,12 @@ export class DltDocument {
 
     private _realStat: fs.Stats;
 
-    constructor(uri: vscode.Uri, docEventEmitter: vscode.EventEmitter<vscode.FileChangeEvent[]>,
-        parentTreeNode: TreeViewNode, filterParentTreeNode: TreeViewNode, reporter?: TelemetryReporter) {
+    constructor(uri: vscode.Uri, docEventEmitter: vscode.EventEmitter<vscode.FileChangeEvent[]>, treeEventEmitter: vscode.EventEmitter<TreeViewNode | null>,
+        parentTreeNode: TreeViewNode, filterParentTreeNode: TreeViewNode, pluginTreeNode: TreeViewNode, reporter?: TelemetryReporter) {
         this.uri = uri;
         this._reporter = reporter;
         this._docEventEmitter = docEventEmitter;
-        //this._treeEventEmitter = treeEventEmitter;
+        this._treeEventEmitter = treeEventEmitter;
         this._fileUri = uri.with({ scheme: "file" });
         if (!fs.existsSync(this._fileUri.fsPath)) {
             throw Error(`DltDocument file ${this._fileUri.fsPath} doesn't exist!`);
@@ -89,6 +93,12 @@ export class DltDocument {
         {
             const filterObjs = vscode.workspace.getConfiguration().get<Array<object>>("dlt-logs.filters");
             this.parseFilterConfigs(filterObjs);
+        }
+        this.pluginTreeNode = pluginTreeNode;
+        {
+            // plugins:
+            const pluginObjs = vscode.workspace.getConfiguration().get<Array<object>>("dlt-logs.plugins");
+            this.parsePluginConfigs(pluginObjs);
         }
 
         this.lifecycleTreeNode = { label: `${path.basename(this._fileUri.fsPath)}`, uri: this.uri, parent: parentTreeNode, children: [] };
@@ -187,6 +197,33 @@ export class DltDocument {
         }
     }
 
+    parsePluginConfigs(pluginObjs: Object[] | undefined) {
+        console.log(`parsePluginConfigs: have ${pluginObjs?.length} plugins to parse...`);
+        if (pluginObjs) {
+            for (let i = 0; i < pluginObjs?.length; ++i) {
+                try {
+                    const pluginObj: any = pluginObjs[i];
+                    const pluginName = pluginObj.name;
+                    switch (pluginName) {
+                        case 'FileTransfer':
+                            {
+                                let treeNode = { label: `File transfer from '${path.basename(this.uri.fsPath)}'`, uri: this.uri, parent: this.pluginTreeNode, children: [] };
+                                const plugin = new DltFileTransferPlugin(this.uri, treeNode, this._treeEventEmitter, pluginObj);
+                                this.pluginTreeNode.children.push(treeNode);
+                                this.allFilters.push(plugin);
+                                this.filterTreeNode.children.push(new FilterNode(null, this.filterTreeNode, plugin)); // add to filter as well
+                            }
+                            break;
+                    }
+
+                } catch (error) {
+                    console.log(`dlt-logs.parsePluginConfigs error:${error}`);
+                }
+            }
+        }
+
+    }
+
     onFilterChange(filter: DltFilter) { // todo this is really dirty. need to reconsider these arrays...
         console.log(`onFilterChange filter.name=${filter.name}`);
         this.applyFilter(undefined);
@@ -197,16 +234,20 @@ export class DltDocument {
         this._docEventEmitter.fire([{ type: vscode.FileChangeType.Changed, uri: this.uri }]); // todo needs renderLines first!
     } */
 
-    static getFilter(allFilters: DltFilter[], enabled: boolean, atLoadTime: boolean) {
+    static getFilter(allFilters: DltFilter[], enabled: boolean, atLoadTime: boolean, negBeforePos: boolean = false) {
         let toRet: DltFilter[][] = [];
-        for (let i = DltFilterType.POSITIVE; i <= DltFilterType.MARKER; ++i) {
+        for (let i = DltFilterType.POSITIVE; i <= DltFilterType.MARKER + 1; ++i) { // +1 for NEGATIVE_BEFORE_POSITIVE
             toRet.push([]);
         }
 
         for (let i = 0; i < allFilters.length; ++i) {
             const filter = allFilters[i];
             if (filter.enabled === enabled && filter.atLoadTime === atLoadTime) {
-                toRet[filter.type].push(filter);
+                if (negBeforePos && filter.type === DltFilterType.NEGATIVE && filter.beforePositive) {
+                    toRet[DltFilterType.MARKER + 1].push(filter);
+                } else {
+                    toRet[filter.type].push(filter);
+                }
             }
         }
         return toRet;
@@ -235,7 +276,7 @@ export class DltDocument {
 
         // sort the filters here into the enabled pos and neg:
         const [posFilters, negFilters, decFilters] = DltDocument.getFilter(this.allFilters, true, false);
-
+        // todo we don't support negBeforePos yet... (not needed for FileTransferPlugin and as long as we dont support )
         for (let i = 0; i < nrMsgs; ++i) {
             if (i % 1000 === 0) { // provide process and responsiveness for UI:
                 let curTime = process.hrtime(startTime);
@@ -684,7 +725,7 @@ export class DltDocument {
             return vscode.window.withProgress({ cancellable: false, location: vscode.ProgressLocation.Notification, title: "loading dlt file..." },
                 async (progress) => {
                     // do we have any filters to apply at load time?
-                    const [posFilters, negFilters, decFilters] = DltDocument.getFilter(this.allFilters, true, true);
+                    const [posFilters, negFilters, decFilters, negBeforePosFilters] = DltDocument.getFilter(this.allFilters, true, true);
                     console.log(` have ${posFilters.length} pos. and ${negFilters.length} neg. filters at load time.`);
 
                     let data = Buffer.allocUnsafe(chunkSize);
@@ -693,7 +734,7 @@ export class DltDocument {
                         read = fs.readSync(fd, data, 0, chunkSize, this._parsedFileLen);
                         if (read) {
                             // parse data:
-                            let parseInfo = DltDocument.dltP.parseDltFromBuffer(Buffer.from(data.slice(0, read)), 0, this.msgs, posFilters, negFilters); // have to create a copy of Buffer here!
+                            let parseInfo = DltDocument.dltP.parseDltFromBuffer(Buffer.from(data.slice(0, read)), 0, this.msgs, posFilters, negFilters, negBeforePosFilters); // have to create a copy of Buffer here!
                             if (parseInfo[0] > 0) {
                                 console.log(`checkFileChanges skipped ${parseInfo[0]} bytes.`);
                             }

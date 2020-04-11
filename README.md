@@ -19,6 +19,8 @@ This Visual Studio Code(tm) extension adds support to open DLT (diagnostic log a
   - APID
   - CTID
   - ...
+- Support DLT file transfer file extraction (and automatic filtering of FLDA msgs). Shows the file transfers and allows to save any file.
+
 
 <!-- \!\[feature X\]\(images/feature-x.png\)
 
@@ -32,7 +34,6 @@ The extension uses telemetry with two events (`activate` (no parameters) and `op
 - Sort msgs within lifecycles by timestamp (maintaining orig index as e.g. hover info)
 - Add status bar info with e.g. number of msgs with current filter/total.
 - Support easier splitting of huge files into files per lifecycle and offer "assistant" at opening of huge files.
-- Support DLT file transfer file extraction (and automatic filtering of those msgs).
 - Support time synchronized split-view between e.g. two APIDs from within one DLT log file.
 - Use the outline view for lifecycles, errors,...
 - Add support for file changes (growing) and load/update automatically.
@@ -68,6 +69,14 @@ This extension contributes the following settings:
 
    Filter configuration changes will be applied on next file open.
    Details see (todo...).
+* `dlt-logs.plugins`: Allows configuration of plugins. Currently one plugin is supported:
+  * **name** : **"FileTransfer"** plugin
+  * **enabled**: determines whether the plugin is enabled.
+  * **allowSave**: can be used to disable saving capability. Can be used if you're not interested in the files but still want to see any transfers. Reduces memory consumption.
+  * **keepFLDA**: if enabled the FLDA messages are visible in the logs (if no other filter removes them). Default is to not show the FLDA messages.
+  * **apid**: restrict searching for file transfer messages to this APID. Can be empty (as by spec). If you know the APID providing this speeds up processing.
+  * **ctid**: restrict searching for file transfer message to this CTID. Can be empty (as by spec). 
+  
 * `dlt-logs.decorations`: Definition of the decoration types supported for marker filters.
 
 ## Known Issues

@@ -6,9 +6,12 @@
 import * as vscode from 'vscode';
 import * as assert from 'assert';
 import * as fs from 'fs';
+import * as path from 'path';
 import { DltDocument } from './dltDocument';
 import TelemetryReporter from 'vscode-extension-telemetry';
 import { DltFilter } from './dltFilter';
+import { DltFileTransfer } from './dltFileTransfer';
+import { pathToFileURL } from 'url';
 
 function sleep(ms: number): Promise<void> {
     return new Promise(resolve => {
@@ -61,6 +64,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
     private _dltLifecycleTreeView: vscode.TreeView<TreeViewNode> | undefined = undefined;
     private _dltLifecycleRootNode: TreeViewNode = { label: "Detected lifecycles", uri: null, parent: null, children: [] };
     private _dltFilterRootNode: TreeViewNode = { label: "Filters", uri: null, parent: null, children: [] };
+    private _dltPluginRootNode: TreeViewNode = { label: "Plugins", uri: null, parent: null, children: [] };
     private _onDidChangeTreeData: vscode.EventEmitter<TreeViewNode | null> = new vscode.EventEmitter<TreeViewNode | null>();
     readonly onDidChangeTreeData: vscode.Event<TreeViewNode | null> = this._onDidChangeTreeData.event;
 
@@ -145,9 +149,18 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                             break;
                         }
                     }
+                    childNode = doc.pluginTreeNode;
+                    for (let i = 0; i < this._dltPluginRootNode.children.length; ++i) {
+                        if (this._dltPluginRootNode.children[i] === childNode) {
+                            this._dltPluginRootNode.children.splice(i, 1);
+                            console.log(`  deleting plugin rootNode with #${i}`);
+                            break;
+                        }
+                    }
                     this._documents.delete(uriStr);
                     this._onDidChangeTreeData.fire(this._dltLifecycleRootNode);
                     this._onDidChangeTreeData.fire(this._dltFilterRootNode);
+                    this._onDidChangeTreeData.fire(this._dltPluginRootNode);
                 }
             }
         }));
@@ -258,6 +271,24 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
             }
         }));
 
+        context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.fileTransferSave', async (...args: any[]) => {
+            const fileTransfer = <DltFileTransfer>args[0];
+            if (fileTransfer && fileTransfer.isComplete) {
+                let newFileUri = fileTransfer.uri.with({ path: path.join(path.dirname(fileTransfer.uri.fsPath), fileTransfer.fileName) });
+                return vscode.window.showSaveDialog({ defaultUri: newFileUri, filters: { 'all': ['*'] }, saveLabel: 'Save file as' }).then( // todo defaultUri from config?
+                    async (uri: vscode.Uri | undefined) => {
+                        if (uri) {
+                            try {
+                                fileTransfer.saveAs(uri);
+                            } catch (err) {
+                                return vscode.window.showInformationMessage(`Save file failed with error:'${err}'`);
+                            }
+                        }
+                    }
+                );
+            }
+        }));
+
         // time-sync feature: check other extensions for api onDidChangeSelectedTime and connect to them.
         // we do have to connect to ourself as well (in case of multiple smart-logs docs)
         this._subscriptions.push(vscode.extensions.onDidChange(() => {
@@ -363,7 +394,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
     public getChildren(element?: TreeViewNode): TreeViewNode[] | Thenable<TreeViewNode[]> {
         // console.log(`smart-log.getChildren(${element?.label}, ${element?.uri?.toString()}) this=${this} called.`);
         if (!element) { // if no element we have to return the root element.
-            return [this._dltLifecycleRootNode, this._dltFilterRootNode];
+            return [this._dltLifecycleRootNode, this._dltFilterRootNode, this._dltPluginRootNode];
         } else {
             return element.children;
         }
@@ -430,7 +461,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
         console.log(`dlt-logs.stat(uri=${uri.toString()})... isDirectory=${realStat.isDirectory()}}`);
         if (!document && realStat.isFile() && (true /* todo dlt extension */)) {
             try {
-                document = new DltDocument(uri, this._onDidChangeFile, this._dltLifecycleRootNode, this._dltFilterRootNode, this._reporter);
+                document = new DltDocument(uri, this._onDidChangeFile, this._onDidChangeTreeData, this._dltLifecycleRootNode, this._dltFilterRootNode, this._dltPluginRootNode, this._reporter);
                 this._documents.set(uri.toString(), document);
             } catch (error) {
                 console.log(` dlt-logs.stat(uri=${uri.toString()}) returning realStat ${realStat.size} size.`);
@@ -455,7 +486,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
         let doc = this._documents.get(uri.toString());
         console.log(`dlt-logs.readFile(uri=${uri.toString()})...`);
         if (!doc) {
-            doc = new DltDocument(uri, this._onDidChangeFile, this._dltLifecycleRootNode, this._dltFilterRootNode, this._reporter);
+            doc = new DltDocument(uri, this._onDidChangeFile, this._onDidChangeTreeData, this._dltLifecycleRootNode, this._dltFilterRootNode, this._dltPluginRootNode, this._reporter);
             this._documents.set(uri.toString(), doc);
         }
         return Buffer.from(doc.text);

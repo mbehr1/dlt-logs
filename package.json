@@ -2,7 +2,7 @@
 	"name": "dlt-logs",
 	"displayName": "DLT-Logs",
 	"description": "Open DLT diagnostic log and trace files with lifecycle detection, filters, time-sync, etc.",
-	"version": "0.4.1",
+	"version": "0.5.0",
 	"license": "CC BY-NC-SA 4.0",
 	"publisher": "mbehr1",
 	"author": {
@@ -100,6 +100,57 @@
 						},
 						"default": []
 					},
+					"dlt-logs.plugins": {
+						"type": "array",
+						"items": [
+							{
+								"type": "object",
+								"title": "FileTransfer plugin",
+								"properties": {
+									"name": {
+										"type": "string",
+										"description": "Identifier of the plugin. Currently only 'FileTransfer' is available.",
+										"enum": [
+											"FileTransfer"
+										]
+									},
+									"enabled": {
+										"type": "boolean",
+										"description": "Determines whether the plugin is currently enabled.",
+										"default": true
+									},
+									"allowSave": {
+										"type": "boolean",
+										"description": "Determing whether saving the files is supported. Otherwise just the information of filetransfers is provided. This reduces the memory footprint. Default: true (allow).",
+										"default": true
+									},
+									"keepFLDA": {
+										"type": "boolean",
+										"description": "Whether to keep the FLDA log messages. Default is to remove them from the logs.",
+										"default": false
+									},
+									"apid": {
+										"type": "string",
+										"description": "The APID to filter for FL* msgs. Should have 4 chars (less will be filled with \\0). Ignored if empty. The spec doesn't define any but providing one speeds up parsing.",
+										"default": ""
+									},
+									"ctid": {
+										"type": "string",
+										"description": "The CTID to filter for FL* msgs. Should have 4 chars (less will be filled with \\0). Ignored if empty. The spec doesn't define any value but providing one speeds up parsing.",
+										"default": ""
+									}
+								}
+							}
+						],
+						"default": [
+							{
+								"name": "FileTransfer",
+								"enabled": true,
+								"allowSave": true,
+								"keepFLDA": false
+							}
+						]
+					},
 					"dlt-logs.decorations": {
 						"type": "array",
 						"items": {
@@ -185,6 +236,11 @@
 				"command": "dlt-logs.disableFilter",
 				"title": "disable",
 				"icon": "$(debug-pause)"
+			},
+			{
+				"command": "dlt-logs.fileTransferSave",
+				"title": "save as...",
+				"icon": "$(save-as)"
 			}
 		],
 		"menus": {
@@ -205,6 +261,11 @@
 				{
 					"command": "dlt-logs.disableFilter",
 					"when": "view == dltLifecycleExplorer && viewItem == filterEnabled",
+					"group": "inline"
+				},
+				{
+					"command": "dlt-logs.fileTransferSave",
+					"when": "view == dltLifecycleExplorer && viewItem == fileTransferComplete",
 					"group": "inline"
 				}
 			]
