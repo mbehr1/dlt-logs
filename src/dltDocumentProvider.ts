@@ -285,7 +285,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                             try {
                                 fileTransfer.saveAs(uri);
                             } catch (err) {
-                                return vscode.window.showInformationMessage(`Save file failed with error:'${err}'`);
+                                return vscode.window.showErrorMessage(`Save file failed with error:'${err}'`);
                             }
                         }
                     }
