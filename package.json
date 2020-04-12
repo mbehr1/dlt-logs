@@ -2,7 +2,7 @@
 	"name": "dlt-logs",
 	"displayName": "DLT-Logs",
 	"description": "Open DLT diagnostic log and trace files with lifecycle detection, filters, time-sync, etc.",
-	"version": "0.5.3",
+	"version": "0.6.0",
 	"license": "CC BY-NC-SA 4.0",
 	"publisher": "mbehr1",
 	"author": {
@@ -51,6 +51,104 @@
 						"type": "integer",
 						"default": 1000000,
 						"description": "Maximum number of DLT logs that are shown in one page. If more messages do exist a paging mechanism will reload at 4/5th the next chunk. You can only search within that page. Please consider using filter to stay within that limit. Defaults to 1'000'000."
+					},
+					"dlt-logs.columns": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"title": "column config",
+							"properties": {
+								"name": {
+									"type": "string",
+									"description": "name of the column",
+									"enum": [
+										"index",
+										"recorded time",
+										"timestamp",
+										"ecu",
+										"apid",
+										"ctid",
+										"text",
+										"mcnt",
+										"type",
+										"subtype",
+										"mode"
+									]
+								},
+								"visible": {
+									"type": "boolean",
+									"description": "visibility of the column",
+									"default": true
+								},
+								"icon": {
+									"type": "string",
+									"description": "optional icon (codicon). e.g. $(watch)"
+								},
+								"description": {
+									"type": "string",
+									"description": "optional description shown in the column config menu"
+								}
+							}
+						},
+						"default": [
+							{
+								"name": "index",
+								"icon": "$(list-ordered)",
+								"description": "index of this msg inside the file"
+							},
+							{
+								"name": "recorded time",
+								"icon": "$(radio-tower)",
+								"description": "recorded time as local time string",
+								"visible": false
+							},
+							{
+								"name": "timestamp",
+								"icon": "$(watch)",
+								"description": "relative timestamp in 0.1ms when the message was sent",
+								"visible": false
+							},
+							{
+								"name": "mcnt",
+								"description": "message counter. Should count up for each (ECU/APID/CTID)",
+								"visible": false
+							},
+							{
+								"name": "ecu",
+								"icon": "$(circuit-board)",
+								"description": "ECU identifier"
+							},
+							{
+								"name": "apid",
+								"icon": "$(package)",
+								"description": "application identifier"
+							},
+							{
+								"name": "ctid",
+								"icon": "$(list-tree)",
+								"description": "context identifier"
+							},
+							{
+								"name": "type",
+								"description": "type (LOG|CONTROL|NETWORK|TRACE) of the message",
+								"visible": false
+							},
+							{
+								"name": "subtype",
+								"description": "sub-type (e.g. log level for type LOG) of the message",
+								"visible": false
+							},
+							{
+								"name": "mode",
+								"description": "mode (verbose|non-verbose) of the message",
+								"visible": false
+							},
+							{
+								"name": "text",
+								"icon": "$(symbol-string)",
+								"description": "payload (assembled args) as text"
+							}
+						]
 					},
 					"dlt-logs.filters": {
 						"type": "array",
@@ -241,6 +339,11 @@
 				"command": "dlt-logs.fileTransferSave",
 				"title": "save as...",
 				"icon": "$(save-as)"
+			},
+			{
+				"command": "dlt-logs.configureColumns",
+				"title": "configure columns...",
+				"icon": "$(list-unordered)"
 			}
 		],
 		"menus": {
@@ -267,6 +370,13 @@
 					"command": "dlt-logs.fileTransferSave",
 					"when": "view == dltLifecycleExplorer && viewItem == fileTransferComplete",
 					"group": "inline"
+				}
+			],
+			"editor/title": [
+				{
+					"command": "dlt-logs.configureColumns",
+					"when": "resourceLangId == dlt-log",
+					"group": "navigation"
 				}
 			]
 		},

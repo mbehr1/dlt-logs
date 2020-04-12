@@ -4,6 +4,10 @@ All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
 
+## [0.6.0]
+
+- Add configurable columns (button: select columns... in the upper right corner of each dlt-log document).
+
 ## [0.5.3]
 
 - Selecting a file transfer reveals the log line (close to it).

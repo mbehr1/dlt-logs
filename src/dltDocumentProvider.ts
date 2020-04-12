@@ -243,6 +243,14 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
         // hover provider:
         this._subscriptions.push(vscode.languages.registerHoverProvider({ scheme: "dlt-log" }, this));
 
+        context.subscriptions.push(vscode.commands.registerTextEditorCommand('dlt-logs.configureColumns', async (textEditor: vscode.TextEditor) => {
+            // console.log(`dlt-logs.configureColumns(textEditor.uri = ${textEditor.document.uri.toString()}) called...`);
+            const doc = this._documents.get(textEditor.document.uri.toString());
+            if (doc) {
+                return doc.configureColumns();
+            }
+        }));
+
         context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.enableFilter', async (...args: any[]) => {
             const filterNode = <FilterNode>args[0];
             const parentUri = filterNode.parent?.uri;

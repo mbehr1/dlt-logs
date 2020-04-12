@@ -14,6 +14,35 @@ import { DltFilter, DltFilterType } from './dltFilter';
 import TelemetryReporter from 'vscode-extension-telemetry';
 import { DltFileTransferPlugin } from './dltFileTransfer';
 
+class ColumnConfig implements vscode.QuickPickItem {
+    name: string;
+    icon: string | undefined;
+    visible: boolean = true;
+    description: string | undefined;
+
+    constructor(obj: any) {
+        if ("name" in obj) { this.name = obj.name; } else {
+            throw Error("name missing for ColumnConfig");
+        }
+        if ("icon" in obj) { this.icon = obj.icon; }
+        if ("visible" in obj) { this.visible = obj.visible; }
+        if ("description" in obj) { this.description = obj.description; }
+
+    }
+
+    get label() {
+        if (this.icon) {
+            return `${this.icon} ${this.name}`;
+        } else {
+            return this.name;
+        }
+    }
+    get picked() {
+        return this.visible;
+    }
+    get alwaysShow() { return true; }
+};
+
 export class DltDocument {
     static dltP: DltParser = new DltParser();
 
@@ -29,6 +58,8 @@ export class DltDocument {
     filteredMsgs: DltMsg[] | undefined = undefined;
     lifecycles = new Map<string, DltLifecycleInfo[]>();
 
+    // configured columns:
+    private _columns: ColumnConfig[] = [];
     // filters:
     allFilters: DltFilter[] = [];
 
@@ -77,6 +108,18 @@ export class DltDocument {
             throw Error(`DltDocument file ${this._fileUri.fsPath} doesn't exist!`);
         }
         this._realStat = fs.statSync(uri.fsPath);
+
+        // load column config:
+        {
+            const columnObjs = vscode.workspace.getConfiguration().get<Array<object>>("dlt-logs.columns");
+            columnObjs?.forEach((obj) => {
+                try {
+                    this._columns.push(new ColumnConfig(obj));
+                } catch (err) {
+                    console.error(`error '${err} parsing '`, obj);
+                }
+            });
+        }
 
         // load filters: 
         this.filterTreeNode = { label: `${path.basename(this._fileUri.fsPath)}`, uri: this.uri, parent: parentTreeNode, children: [] };
@@ -578,6 +621,52 @@ export class DltDocument {
 
     }
 
+    async configureColumns(): Promise<void> {
+        console.log(`DltDocument.configureColumns()...`);
+        let columns = this._columns;
+
+        vscode.window.showQuickPick(columns, {
+            canPickMany: true,
+            placeHolder: "select all columns to show"
+        }).then((selColumns: ColumnConfig[] | undefined) => {
+            if (selColumns) {
+                if (selColumns.length > 0) {
+                    columns.forEach((column) => { column.visible = false; });
+                    selColumns?.forEach((column) => { column.visible = true; });
+
+                    if (true) { // store/update config:
+                        const columnObjs = vscode.workspace.getConfiguration().get<Array<object>>("dlt-logs.columns");
+                        columnObjs?.forEach((obj: any) => {
+                            columns.forEach((column) => {
+                                try {
+                                    if (obj.name === column.name) {
+                                        obj.visible = column.visible;
+                                    }
+                                } catch (err) {
+                                    console.error(` err ${err} at updating config obj!`);
+                                }
+                            });
+                            try {
+                                vscode.workspace.getConfiguration().update("dlt-logs.columns", columnObjs, vscode.ConfigurationTarget.Global).then(() => {
+                                    // todo might need a better solution if workspace config is used.
+                                    // the changes wont be reflected at next startup. (default->global->workspace)
+                                    // would need to inspect first.
+                                    console.log("updated column config.");
+                                });
+                            } catch (err) {
+                                console.error(` err ${err} at updating configuration!`);
+                            }
+                        });
+                    }
+                    this.applyFilter(undefined);
+                } else { // we disallow unselecting all columns
+                    vscode.window.showWarningMessage("At least one column need to be selected. Ignoring selection.");
+                }
+            } // else we don't change anything
+            console.log(`DltDocument.configureColumns()... done`);
+        });
+    }
+
     async renderLines(skipMsgs: number, progress?: vscode.Progress<{ increment?: number | undefined, message?: string | undefined, }>): Promise<void> {
         const fnStart = process.hrtime();
         console.log(`DltDocument.renderLines(${skipMsgs}) with ${this.filteredMsgs?.length}/${this.msgs.length} msgs ...`);
@@ -664,11 +753,81 @@ export class DltDocument {
         }
         // todo render some at the end?
 
+        // which columns should be shown?
+        let showIndex: boolean = true;
+        let showTime: boolean = false;
+        let showTimestamp: boolean = false;
+        let showMcnt: boolean = false;
+        let showEcu: boolean = true;
+        let showApid: boolean = true;
+        let showCtid: boolean = true;
+        let showType: boolean = false;
+        let showSubtype: boolean = false;
+        let showMode: boolean = false;
+        let showPayload: boolean = true;
+
+        for (let c = 0; c < this._columns.length; ++c) {
+            const column = this._columns[c];
+            switch (column.name) {
+                case 'index': showIndex = column.visible; break;
+                case 'recorded time': showTime = column.visible; break;
+                case 'timestamp': showTimestamp = column.visible; break;
+                case 'ecu': showEcu = column.visible; break;
+                case 'apid': showApid = column.visible; break;
+                case 'ctid': showCtid = column.visible; break;
+                case 'text': showPayload = column.visible; break;
+                case 'mcnt': showMcnt = column.visible; break;
+                case 'type': showType = column.visible; break;
+                case 'subtype': showSubtype = column.visible; break;
+                case 'mode': showMode = column.visible; break;
+                default: {
+                    console.warn(`unknown column name: '${column.name}'`);
+                } break;
+            }
+        }
+
+
         let startTime = process.hrtime();
         for (let j = numberStart; j <= numberEnd && j < msgs.length; ++j) {
             const msg = msgs[j];
             try {
-                toRet += String(`${String(msg.index).padStart(maxLength)} ${String(msg.ecu).padEnd(4)} ${String(msg.apid).padEnd(4)} ${String(msg.ctid).padEnd(4)} ${msg.payloadString}\n`);
+                if (showIndex) { toRet += String(msg.index).padStart(maxLength) + ' '; }
+                if (showTime) { toRet += msg.time.toLocaleTimeString() + ' '; } // todo pad to one len?
+                if (showTimestamp) { toRet += String(msg.timeStamp).padStart(8) + ' '; }
+                if (showMcnt) { toRet += String(msg.mcnt).padStart(3) + ' '; }
+                if (showEcu) { toRet += String(msg.ecu).padEnd(5); } // 5 as we need a space anyhow
+                if (showApid) { toRet += String(msg.apid).padEnd(5); }
+                if (showCtid) { toRet += String(msg.ctid).padEnd(5); }
+                if (showType) {
+                    switch (msg.mstp) {
+                        case MSTP.TYPE_LOG: toRet += "log "; break;
+                        case MSTP.TYPE_CONTROL: toRet += "control "; break;
+                        case MSTP.TYPE_NW_TRACE: toRet += "network "; break;
+                        case MSTP.TYPE_APP_TRACE: toRet += "trace "; break;
+                    }
+                }
+                if (showSubtype) {
+                    switch (msg.mstp) {
+                        case MSTP.TYPE_LOG:
+                            switch (msg.mtin) {
+                                case MTIN_LOG.LOG_WARN: toRet += "warn  "; break;
+                                case MTIN_LOG.LOG_INFO: toRet += "info  "; break;
+                                case MTIN_LOG.LOG_VERBOSE: toRet += "verb  "; break;
+                                case MTIN_LOG.LOG_ERROR: toRet += "error "; break;
+                                case MTIN_LOG.LOG_FATAL: toRet += "fatal "; break;
+                                case MTIN_LOG.LOG_DEBUG: toRet += "debug "; break;
+                            }
+                            break;
+                        case MSTP.TYPE_CONTROL:
+                            toRet += msg.mtin === MTIN_CTRL.CONTROL_REQUEST ? "request " : "response ";
+                            break;
+                        default:
+                            toRet += " <todo> "; break; // todo
+                    }
+                }
+                if (showMode) { toRet += msg.verbose ? "verbose " : "non-verbose "; }
+                if (showPayload) { toRet += msg.payloadString; }
+                toRet += '\n';
             } catch (error) {
                 console.error(`error ${error} at parsing msg ${j}`);
                 await util.sleep(100); // avoid hard busy loops!

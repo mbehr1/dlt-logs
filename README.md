@@ -4,6 +4,8 @@
 
 This Visual Studio Code(tm) extension adds support to open DLT (diagnostic log and trace) (todo see genivi/autosar...) files.
 
+![main view](https://github.com/mbehr1/dlt-logs/raw/master/images/dlt-logs-main1.png)
+
 **Note:** It works well with [![Version](https://vsmarketplacebadge.apphb.com/version/mbehr1.smart-log.svg)](https://marketplace.visualstudio.com/items?itemName=mbehr1.smart-log) **smart-log** extension and supports the "time-sync" feature. (todo picture/animation...)
 
 ## Features
@@ -19,18 +21,14 @@ This Visual Studio Code(tm) extension adds support to open DLT (diagnostic log a
   - APID
   - CTID
   - ...
-- Support DLT file transfer file extraction (and automatic filtering of FLDA msgs). Shows the file transfers and allows to save any file.
-
-
-<!-- \!\[feature X\]\(images/feature-x.png\)
-
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow. -->
+- Support **DLT file transfer** file extraction (and automatic filtering of FLDA msgs). Shows the file transfers and allows to save any file.
+- **Quickly configurable columns**. Simply press the "select columns..." button in upper right corner of the document and select which one to show. The changes get stored permanently as global settings `dlt-logs.columns`.
+![Quickly configureable columns](https://github.com/mbehr1/dlt-logs/raw/master/images/selectColumns.png)
 
 The extension uses telemetry with two events (`activate` (no parameters) and `open file` (file size as parameter)) if telemetry is activated within your general configuration.
 
 ## Planned features
 
-- Add configurable columns
 - Sort msgs within lifecycles by timestamp (maintaining orig index as e.g. hover info)
 - Add status bar info with e.g. number of msgs with current filter/total.
 - Support easier splitting of huge files into files per lifecycle and offer "assistant" at opening of huge files.
@@ -48,6 +46,7 @@ This extension contributes the following settings:
 * `dlt-logs.fileExtensions`: Specifies the file extensions to use for file open dialog. Defaults to .dlt|.DLT.
 * `dlt-logs.maxNumberLogs`: Specified the maximum number of DLT logs that get displayed in one page. If more logs exist - considering the active filters - a paging mechanism is in place that starts rendering a new page at 4/5th of the page boundary. Searching is limited to the visible page. Defaults to 1mio logs. Depending on your machines performance/RAM you might reduce/increase this. Best case is to find a limit/config where all logs fit into that range (use filter!).
 * `dlt-logs.reReadTimeout`: Specified the timeout in ms after opening the file before starting to parse the dlt file. If the file doesn't open, increase this to e.g. 5s.
+* `dlt-logs.columns`: Specifies which columns are visible. See example config. Usually doesn't need to be changed manually but by button "select columns".
 * `dlt-logs.filters`: Configures the filter that are available.
    There are tree type of filters:
    * **positive**: filter need to match to include the message in the view. If no positive filter exists all msgs are assumed matching.
