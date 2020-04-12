@@ -72,6 +72,7 @@ export class DltFileTransfer implements TreeViewNode {
         } else {
             this.label = `Partial file transfer '${this.fileName}' unknown size`;
         }
+        this.uri = this.uri.with({ fragment: startMsg.index.toString() }); // selecting should select the first message.
         this.contextValue = 'fileTransferIncomplete';
         parent?.children.push(this);
 
