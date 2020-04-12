@@ -6,18 +6,13 @@ import * as vscode from 'vscode';
 import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as util from './util';
 import { DltParser, DltMsg, MSTP, MTIN_LOG, MTIN_CTRL } from './dltParser';
 import { DltLifecycleInfo } from './dltLifecycle';
 import { TreeViewNode, FilterNode } from './dltDocumentProvider';
 import { DltFilter, DltFilterType } from './dltFilter';
 import TelemetryReporter from 'vscode-extension-telemetry';
 import { DltFileTransferPlugin } from './dltFileTransfer';
-
-function sleep(ms: number): Promise<void> { // todo move into util
-    return new Promise(resolve => {
-        setTimeout(resolve, ms);
-    });
-}
 
 export class DltDocument {
     static dltP: DltParser = new DltParser();
@@ -287,7 +282,7 @@ export class DltDocument {
                     if (progress) {
                         progress.report({ message: `filter processed ${i}/${nrMsgs} msgs.` });
                     }
-                    await sleep(10); // 10ms each 100ms
+                    await util.sleep(10); // 10ms each 100ms
                     startTime = process.hrtime();
                 }
             }
@@ -477,8 +472,9 @@ export class DltDocument {
         const triggerAboveLine = range.start.line;
         const triggerBelowLine = range.end.line;
 
-        // console.log(` notifyVisibleRange(visible: [${triggerAboveLine}-${triggerBelowLine}]) current: [${this._skipMsgs}-${this._skipMsgs + this._maxNrMsgs})`);
-
+        if (this._renderTriggered) {
+            console.log(` notifyVisibleRange ignoring as render triggered (visible: [${triggerAboveLine}-${triggerBelowLine}]) current: [${this._skipMsgs}-${this._skipMsgs + this._maxNrMsgs})`);
+        }
         if (triggerAboveLine <= (this._maxNrMsgs * 0.2)) {
             // can we scroll to the top?
             if (this._skipMsgs > 0) {
@@ -613,7 +609,7 @@ export class DltDocument {
 
                 if (progress) {
                     progress.report({ message: "renderLines: removing decorations" });
-                    await sleep(10);
+                    await util.sleep(10);
                 }
                 // remove decorations:
                 this.textEditors.forEach((editor) => {
@@ -623,7 +619,7 @@ export class DltDocument {
                 });
                 if (progress) {
                     progress.report({ message: "renderLines: adapting decorations" });
-                    await sleep(10);
+                    await util.sleep(10);
                 }
                 // need to adjust the visible decorations:
                 this.decorations = new Map<vscode.TextEditorDecorationType, vscode.DecorationOptions[]>();
@@ -675,14 +671,14 @@ export class DltDocument {
                 toRet += String(`${String(msg.index).padStart(maxLength)} ${String(msg.ecu).padEnd(4)} ${String(msg.apid).padEnd(4)} ${String(msg.ctid).padEnd(4)} ${msg.payloadString}\n`);
             } catch (error) {
                 console.error(`error ${error} at parsing msg ${j}`);
-                await sleep(100); // avoid hard busy loops!
+                await util.sleep(100); // avoid hard busy loops!
             }
             if (j % 1000 === 0) {
                 let curTime = process.hrtime(startTime);
                 if (curTime[1] / 1000000 > 100) { // 100ms passed
                     if (progress) {
                         progress.report({ message: `renderLines: processing msg ${j}` });
-                        await sleep(10);
+                        await util.sleep(10);
                     }
                     startTime = process.hrtime();
                 }
@@ -697,12 +693,12 @@ export class DltDocument {
         // so we add empty text interims wise:
         this._text = "...revealing new range...";
         this._docEventEmitter.fire([{ type: vscode.FileChangeType.Changed, uri: this.uri }]);
-        await sleep(100);
+        await util.sleep(100);
 
         this._text = toRet;
         const fnEnd = process.hrtime(fnStart);
         console.info('DltDocument.renderLines() took: %ds %dms', fnEnd[0], fnEnd[1] / 1000000);
-        await sleep(10); // todo not needed anylonger?
+        await util.sleep(10); // todo not needed anylonger?
         this._docEventEmitter.fire([{ type: vscode.FileChangeType.Changed, uri: this.uri }]);
         this._renderPending = false;
 
@@ -749,7 +745,7 @@ export class DltDocument {
                                 let curTime = process.hrtime(startTime);
                                 if (curTime[1] / 1000000 > 100) { // 100ms passed
                                     progress.report({ message: `processed ${this._parsedFileLen} from ${stats.size} bytes` });
-                                    await sleep(10); // 10ms each 100ms
+                                    await util.sleep(10); // 10ms each 100ms
                                     startTime = process.hrtime();
                                 }
                             } else {
@@ -762,7 +758,7 @@ export class DltDocument {
                     const readEnd = process.hrtime(fnStart);
                     console.info('checkFileChanges read took: %ds %dms', readEnd[0], readEnd[1] / 1000000);
                     progress.report({ message: `reading done. Determining lifecycles...` });
-                    await sleep(50);
+                    await util.sleep(50);
                     const lcStart = process.hrtime();
                     // update lifecycles:
                     // todo have to add an index here to updateLifecycles. for now clear the lifecycles:
@@ -787,13 +783,13 @@ export class DltDocument {
                     const lcEnd = process.hrtime(lcStart);
                     console.info('checkFileChanges lcUpdate took: %ds %dms', lcEnd[0], lcEnd[1] / 1000000);
                     progress.report({ message: `Got ${this.lifecycles.size} ECUs. Applying filter...` });
-                    await sleep(50);
+                    await util.sleep(50);
                     const applyFilterStart = process.hrtime();
                     /* todo jft */ await this.applyFilter(progress); // await wouldn't be necessary but then we keep the progress info open
                     const applyFilterEnd = process.hrtime(applyFilterStart);
                     console.info('checkFileChanges applyFilter took: %ds %dms', applyFilterEnd[0], applyFilterEnd[1] / 1000000);
                     progress.report({ message: `Filter applied. Finish. (gc kicks in now frequently...)` });
-                    await sleep(50);
+                    await util.sleep(50);
                 }
             ).then(() => {
                 const fnEnd = process.hrtime(fnStart);

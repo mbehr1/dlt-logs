@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as util from './util';
 import { DltDocument } from './dltDocument';
 import TelemetryReporter from 'vscode-extension-telemetry';
 import { DltFilter } from './dltFilter';
@@ -208,7 +209,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
 
         // announce time updates on selection of lines:
         // counterpart to handleDidChangeSelectedTime... 
-        this._subscriptions.push(vscode.window.onDidChangeTextEditorSelection(async (ev) => {
+        this._subscriptions.push(vscode.window.onDidChangeTextEditorSelection(util.throttle((ev) => {
             let data = this._documents.get(ev.textEditor.document.uri.toString());
             if (data) {
                 // ev.kind: 1: Keyboard, 2: Mouse, 3: Command
@@ -226,19 +227,18 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                     }
                 }
             }
-        }));
+        }, 500)));
 
         // visible range
-        this._subscriptions.push(vscode.window.onDidChangeTextEditorVisibleRanges(async (e) => {
+        this._subscriptions.push(vscode.window.onDidChangeTextEditorVisibleRanges(util.throttle((e) => {
             if (e.visibleRanges.length === 1) {
                 const doc = this._documents.get(e.textEditor.document.uri.toString());
                 if (doc) {
                     // console.log(`dlt-log.onDidChangeTextEditorVisibleRanges(${e.visibleRanges[0].start.line}-${e.visibleRanges[0].end.line})`);
-                    // todo we should debounce here
                     doc.notifyVisibleRange(e.visibleRanges[0]);
                 }
             }
-        }));
+        }, 200)));
 
         // hover provider:
         this._subscriptions.push(vscode.languages.registerHoverProvider({ scheme: "dlt-log" }, this));

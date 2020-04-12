@@ -4,6 +4,11 @@ All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
 
+## [0.5.2]
+
+- Announce time updates only every 500ms.
+- Debounce visible range / scrolling with 200ms.
+
 ## [0.5.1]
 
 - Fix cleanup handling on close document (plugin remained in the list).
