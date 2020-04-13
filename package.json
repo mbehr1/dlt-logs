@@ -2,7 +2,7 @@
 	"name": "dlt-logs",
 	"displayName": "DLT-Logs",
 	"description": "Open DLT diagnostic log and trace files with lifecycle detection, filters, time-sync, etc.",
-	"version": "0.6.0",
+	"version": "0.7.0",
 	"license": "CC BY-NC-SA 4.0",
 	"publisher": "mbehr1",
 	"author": {
@@ -169,6 +169,18 @@
 									"type": "boolean",
 									"description": "Determines whether the filter is already applied at file open time reducing the amount of msgs to be processed. Default=false",
 									"default": false
+								},
+								"mstp": {
+									"type": "integer",
+									"description": "The MSTP to filter for. 0 = LOG, 1 = TRACE, 2 = NW_TRACE, 3 = CONTROL. Defaults to no filter."
+								},
+								"logLevelMin": {
+									"type": "integer",
+									"description": "Minimum log level to filter for. 1 = FATAL, 2 = ERROR, 3 = WARN, 4 = INFO, 5 = DEBUG, 6 = VERBOSE. Default: no filtering to log level. Matches if the msg is type LOG and the loglevel is >= this value. E.g. use logLevelMin=4 with a neg. filter to filter out all INFO, DEBUG, VERBOSE msgs. Implies filtering for MSTP=0(LOG)."
+								},
+								"logLevelMax": {
+									"type": "integer",
+									"description": "Maximum log level to filter for. 1 = FATAL, 2 = ERROR, 3 = WARN, 4 = INFO, 5 = DEBUG, 6 = VERBOSE.  Default: no filtering to log level. Matches if the msg is type LOG and the loglevel is <= this value. E.g. use logLevelMax=2 with a pos. filter to see all FATAL and ERROR msgs. Implies filtering for MSTP=0(LOG)."
 								},
 								"ecu": {
 									"type": "string",

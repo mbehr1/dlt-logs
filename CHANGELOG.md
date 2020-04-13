@@ -4,6 +4,11 @@ All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
 
+## [0.7.0]
+
+- Add filter for mstp, logLevelMin, logLevelMax.
+- Improved output for control messages.
+
 ## [0.6.0]
 
 - Add configurable columns (button: select columns... in the upper right corner of each dlt-log document).

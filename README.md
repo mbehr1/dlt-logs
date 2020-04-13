@@ -20,7 +20,9 @@ This Visual Studio Code(tm) extension adds support to open DLT (diagnostic log a
   - ECUID
   - APID
   - CTID
-  - ...
+  - MSTP
+  - log level min/max
+
 - Support **DLT file transfer** file extraction (and automatic filtering of FLDA msgs). Shows the file transfers and allows to save any file.
 - **Quickly configurable columns**. Simply press the "select columns..." button in upper right corner of the document and select which one to show. The changes get stored permanently as global settings `dlt-logs.columns`.
 ![Quickly configureable columns](https://github.com/mbehr1/dlt-logs/raw/master/images/selectColumns.png)
@@ -29,6 +31,7 @@ The extension uses telemetry with two events (`activate` (no parameters) and `op
 
 ## Planned features
 
+- Allow to filter for payload.
 - Sort msgs within lifecycles by timestamp (maintaining orig index as e.g. hover info)
 - Add status bar info with e.g. number of msgs with current filter/total.
 - Support easier splitting of huge files into files per lifecycle and offer "assistant" at opening of huge files.
@@ -57,6 +60,8 @@ This extension contributes the following settings:
    * **ecu**: the ECU identifier.
    * **apid**: the APID (application identifier).
    * **ctid**: the CTID (context identifier).
+   * **mstp**: the message type (log, control, trace, network).
+   * **logLevelMin/Max**: min/max log level.
 
    Filter can be:
    * **enabled**: filter is enabled and will be applied.

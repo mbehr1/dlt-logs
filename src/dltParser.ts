@@ -22,7 +22,29 @@ export enum MSTP { TYPE_LOG, TYPE_APP_TRACE, TYPE_NW_TRACE, TYPE_CONTROL };
 export enum MTIN_LOG { LOG_FATAL = 1, LOG_ERROR, LOG_WARN, LOG_INFO, LOG_DEBUG, LOG_VERBOSE }; // 7-15 reserved
 export enum MTIN_TRACE { TRACE_VARIABLE = 1, TRACE_FUNCTION_IN, TRACE_FUNCTION_OUT, TRACE_STATE, TRACE_VFB };
 export enum MTIN_NW { TRACE_IPC = 1, TRACE_CAN, TRACE_FLEXRAY, TRACE_MOST, TRACE_ETHERNET, TRACE_SOMEIP };
-export enum MTIN_CTRL { CONTROL_REQUEST = 1, CONTROL_RESPONSE };
+export enum MTIN_CTRL { CONTROL_REQUEST = 1, CONTROL_RESPONSE, CONTROL_TIME /* keep alive */ };
+
+// from dlt_viewer/dlt_common.c MPL2 license:
+export const MSTP_strs: string[] = ["log", "app_trace", "nw_trace", "control", "", "", "", ""];
+export const MTIN_LOG_strs: string[] = ["", "fatal", "error", "warn", "info", "debug", "verbose", "", "", "", "", "", "", "", "", ""];
+export const MTIN_TRACE_strs: string[] = ["", "variable", "func_in", "func_out", "state", "vfb", "", "", "", "", "", "", "", "", "", ""];
+export const MTIN_NW_strs: string[] = ["", "ipc", "can", "flexray", "most", "vfb", "", "", "", "", "", "", "", "", "", ""];
+export const MTIN_CTRL_strs: string[] = ["", "request", "response", "time", "", "", "", "", "", "", "", "", "", "", "", ""];
+export const MTIN_CTRL_RESPONSE_strs: string[] = ["ok", "not_supported", "error", "", "", "", "", "", "no_matching_context_id"];
+
+export const serviceIds: string[] = ["", "set_log_level", "set_trace_status", "get_log_info", "get_default_log_level", "store_config", "reset_to_factory_default",
+    "set_com_interface_status", "set_com_interface_max_bandwidth", "set_verbose_mode", "set_message_filtering", "set_timing_packets",
+    "get_local_time", "use_ecu_id", "use_session_id", "use_timestamp", "use_extended_header", "set_default_log_level", "set_default_trace_status",
+    "get_software_version", "message_buffer_overflow"];
+
+// not covered:
+/*
+#define DLT_SERVICE_ID_UNREGISTER_CONTEXT             0xf01 < Service ID: Message unregister context
+#define DLT_SERVICE_ID_CONNECTION_INFO                0xf02 < Service ID: Message connection info 
+#define DLT_SERVICE_ID_TIMEZONE						  0xf03 < Service ID: Timezone
+#define DLT_SERVICE_ID_MARKER						  0xf04 < Service ID: Timezone
+#define DLT_SERVICE_ID_CALLSW_CINJECTION              0xFFF < Service ID: Message Injection (minimal ID)
+*/
 
 export class DltMsg {
     readonly index: number; // index/nr of this msg inside orig file/stream/buffer
@@ -215,11 +237,32 @@ export class DltMsg {
                         const serviceId = isBigEndian ? this._payloadData.readUInt32BE(0) : this._payloadData.readUInt32LE(0);
                         this._payloadArgs = [];
                         if (this.noar === 1) {
-                            this._payloadArgs.push({ type: Number, v: serviceId }); // todo parse more...
-                            this._payloadText += `SERVICE_ID=${serviceId}`;
+                            this._payloadArgs.push({ type: Number, v: serviceId });
+                            if (serviceId > 0 && serviceId < serviceIds.length) {
+                                this._payloadText += serviceIds[serviceId];
+                            } else {
+                                this._payloadText += `service(${serviceId})`;
+                            }
+                            if (this._payloadData.length > 4) {
+                                // response code?
+                                let remOffset = 4;
+                                if (this.mtin === MTIN_CTRL.CONTROL_RESPONSE) {
+                                    // 1 byte resp. code
+                                    const respCode = this._payloadData.readUInt8(remOffset);
+                                    if (respCode <= 3 || respCode === 8) {
+                                        this._payloadText += `, ${MTIN_CTRL_RESPONSE_strs[respCode]}`;
+                                    } else {
+                                        this._payloadText += `, ${String(respCode.toString(16)).padStart(2, '0')}`;
+                                    }
+                                    remOffset++;
+                                }
+                                const rawd = this._payloadData.slice(remOffset);
+                                this._payloadText += ', ' + rawd.toString("hex");
+                            }
                         } else {
                             console.log(`CONTROL_MSG with noar=${this.noar} and serviceId=${serviceId}`);
                         }
+                        assert.equal(this.noar, this.payloadArgs.length, "TYPE_CONTROL noars != payloadArgs.length");
                     }
                         break;
                     default:

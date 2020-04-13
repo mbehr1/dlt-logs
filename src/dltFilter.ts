@@ -6,7 +6,7 @@ import * as vscode from 'vscode';
 import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
-import { DltMsg, MSTP, MTIN_LOG, MTIN_CTRL } from './dltParser';
+import { DltMsg, MSTP, MTIN_LOG, MTIN_CTRL, MSTP_strs, MTIN_LOG_strs } from './dltParser';
 // import { DltLifecycleInfo } from './dltLifecycle';
 
 export enum DltFilterType { POSITIVE, NEGATIVE, MARKER };
@@ -18,9 +18,12 @@ export class DltFilter {
     beforePositive: boolean = false; // for neg. (todo later for marker?): match this before the pos. filters. mainly used for plugins like FileTransfer
 
     // what to match for:
+    mstp: number | undefined;
     ecu: string | undefined;
     apid: string | undefined;
     ctid: string | undefined;
+    logLevelMin: number | undefined;
+    logLevelMax: number | undefined;
 
     // marker decorations:
     filterColour: string | undefined;
@@ -38,6 +41,9 @@ export class DltFilter {
         if ('atLoadTime' in options) {
             this.atLoadTime = options.atLoadTime;
         }
+        if ('mstp' in options) {
+            this.mstp = options.mstp;
+        }
         if ('ecu' in options) {
             this.ecu = options.ecu;
         }
@@ -46,6 +52,14 @@ export class DltFilter {
         }
         if ('ctid' in options) {
             this.ctid = options.ctid;
+        }
+        if ('logLevelMin' in options) {
+            this.mstp = 0;
+            this.logLevelMin = options.logLevelMin;
+        }
+        if ('logLevelMax' in options) {
+            this.mstp = 0;
+            this.logLevelMax = options.logLevelMax;
         }
 
         if (this.type === DltFilterType.MARKER) {
@@ -64,15 +78,12 @@ export class DltFilter {
             return false;
         }
 
-        if (this.ecu && msg.ecu !== this.ecu) {
-            return false;
-        }
-        if (this.apid && msg.apid !== this.apid) {
-            return false;
-        }
-        if (this.ctid && msg.ctid !== this.ctid) {
-            return false;
-        }
+        if (this.mstp !== undefined && msg.mstp !== this.mstp) { return false; }
+        if (this.logLevelMax && msg.mtin > this.logLevelMax) { return false; } // mstp already checked
+        if (this.logLevelMin && msg.mtin < this.logLevelMin) { return false; } // mstp already checked
+        if (this.ecu && msg.ecu !== this.ecu) { return false; }
+        if (this.apid && msg.apid !== this.apid) { return false; }
+        if (this.ctid && msg.ctid !== this.ctid) { return false; }
 
         // if we reach here all defined criteria match
         return true;
@@ -85,7 +96,17 @@ export class DltFilter {
             type = "(load time) " + type;
         }
         let nameStr: string = "";
-        if (this.ecu) { nameStr += `ECU:${this.ecu} `; };
+        if (this.mstp !== undefined) {
+            nameStr += MSTP_strs[this.mstp];
+            nameStr += ' ';
+        }
+        if (this.logLevelMin) { // we ignore 0 values here
+            nameStr += `>=${MTIN_LOG_strs[this.logLevelMin]} `;
+        }
+        if (this.logLevelMax) { // we ignore 0 value here
+            nameStr += `<=${MTIN_LOG_strs[this.logLevelMax]} `;
+        }
+        if (this.ecu) { nameStr += `ECU:${this.ecu} `; }; // we ignore empty strings
         if (this.apid) { nameStr += `APID:${this.apid} `; };
         if (this.ctid) { nameStr += `CTID:${this.ctid}`; };
 

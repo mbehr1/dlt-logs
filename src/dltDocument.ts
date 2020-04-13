@@ -7,7 +7,7 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as util from './util';
-import { DltParser, DltMsg, MSTP, MTIN_LOG, MTIN_CTRL } from './dltParser';
+import { DltParser, DltMsg, MSTP, MTIN_LOG, MTIN_CTRL, MTIN_CTRL_strs, MTIN_LOG_strs, MTIN_TRACE_strs, MTIN_NW_strs } from './dltParser';
 import { DltLifecycleInfo } from './dltLifecycle';
 import { TreeViewNode, FilterNode } from './dltDocumentProvider';
 import { DltFilter, DltFilterType } from './dltFilter';
@@ -684,7 +684,6 @@ export class DltDocument {
         let toRet: string = "";
 
         let msgs = this.filteredMsgs ? this.filteredMsgs : this.msgs;
-        const maxLength = Math.floor(Math.log10(msgs.length)) + 1;
 
         if (msgs.length === 0) { // filter might lead to 0 msgs
             this._text = `<current filter leads to empty file>`;
@@ -785,13 +784,14 @@ export class DltDocument {
                 } break;
             }
         }
-
+        // length of max index
+        const maxIndexLength = Math.floor(Math.log10(msgs[msgs.length - 1].index)) + 1;
 
         let startTime = process.hrtime();
         for (let j = numberStart; j <= numberEnd && j < msgs.length; ++j) {
             const msg = msgs[j];
             try {
-                if (showIndex) { toRet += String(msg.index).padStart(maxLength) + ' '; }
+                if (showIndex) { toRet += String(msg.index).padStart(maxIndexLength) + ' '; }
                 if (showTime) { toRet += msg.time.toLocaleTimeString() + ' '; } // todo pad to one len?
                 if (showTimestamp) { toRet += String(msg.timeStamp).padStart(8) + ' '; }
                 if (showMcnt) { toRet += String(msg.mcnt).padStart(3) + ' '; }
@@ -807,23 +807,22 @@ export class DltDocument {
                     }
                 }
                 if (showSubtype) {
+                    let subStr;
                     switch (msg.mstp) {
                         case MSTP.TYPE_LOG:
-                            switch (msg.mtin) {
-                                case MTIN_LOG.LOG_WARN: toRet += "warn  "; break;
-                                case MTIN_LOG.LOG_INFO: toRet += "info  "; break;
-                                case MTIN_LOG.LOG_VERBOSE: toRet += "verb  "; break;
-                                case MTIN_LOG.LOG_ERROR: toRet += "error "; break;
-                                case MTIN_LOG.LOG_FATAL: toRet += "fatal "; break;
-                                case MTIN_LOG.LOG_DEBUG: toRet += "debug "; break;
-                            }
+                            subStr = MTIN_LOG_strs[msg.mtin];
                             break;
                         case MSTP.TYPE_CONTROL:
-                            toRet += msg.mtin === MTIN_CTRL.CONTROL_REQUEST ? "request " : "response ";
+                            subStr = MTIN_CTRL_strs[msg.mtin] + ' ';
                             break;
-                        default:
-                            toRet += " <todo> "; break; // todo
+                        case MSTP.TYPE_APP_TRACE:
+                            subStr = MTIN_TRACE_strs[msg.mtin] + ' ';
+                            break;
+                        case MSTP.TYPE_NW_TRACE:
+                            subStr = MTIN_NW_strs[msg.mtin] + ' ';
+                            break;
                     }
+                    toRet += subStr.padEnd(9); // 9 = min length = len(response)+1
                 }
                 if (showMode) { toRet += msg.verbose ? "verbose " : "non-verbose "; }
                 if (showPayload) { toRet += msg.payloadString; }
