@@ -62,6 +62,8 @@ This extension contributes the following settings:
    * **ctid**: the CTID (context identifier).
    * **mstp**: the message type (log, control, trace, network).
    * **logLevelMin/Max**: min/max log level.
+   * **payload**: payload text contained.
+   * **payloadRegex**: regular expression to match payload text.
 
    Filter can be:
    * **enabled**: filter is enabled and will be applied.
