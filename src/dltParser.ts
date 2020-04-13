@@ -269,6 +269,7 @@ export class DltMsg {
                         console.log(`payloadArgs for type ${this.mstp} not impl. yet. todo`);
                         this._payloadArgs = [];
                 }
+                if (this._payloadText.endsWith(' ')) { this._payloadText = this._payloadText.slice(0, -1); } // this is not quite right. if ' ' was part of the payload text...
             }
             return this._payloadArgs;
         }

@@ -2,7 +2,7 @@
 	"name": "dlt-logs",
 	"displayName": "DLT-Logs",
 	"description": "Open DLT diagnostic log and trace files with lifecycle detection, filters, time-sync, etc.",
-	"version": "0.7.0",
+	"version": "0.7.1",
 	"license": "CC BY-NC-SA 4.0",
 	"publisher": "mbehr1",
 	"author": {
@@ -196,6 +196,14 @@
 									"type": "string",
 									"description": "The CTID to filter for. Should have 4 chars (less will be filled with \\0). Ignored if empty.",
 									"default": ""
+								},
+								"payload": {
+									"type": "string",
+									"description": "A string to search for in (contains) the payload text. The search is case sensitive. Ignored if empty."
+								},
+								"payloadRegex": {
+									"type": "string",
+									"description": "A regular expression (JS/TS/node syntax) to match against the payload text. The search is case sensitive. Ignored if empty. If provided 'payload' is ignored."
 								},
 								"filterColour": {
 									"type": "string",

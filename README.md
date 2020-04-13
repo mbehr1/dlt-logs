@@ -22,6 +22,7 @@ This Visual Studio Code(tm) extension adds support to open DLT (diagnostic log a
   - CTID
   - MSTP
   - log level min/max
+  - payload (by "contains" simple string or regex match)
 
 - Support **DLT file transfer** file extraction (and automatic filtering of FLDA msgs). Shows the file transfers and allows to save any file.
 - **Quickly configurable columns**. Simply press the "select columns..." button in upper right corner of the document and select which one to show. The changes get stored permanently as global settings `dlt-logs.columns`.
@@ -31,7 +32,6 @@ The extension uses telemetry with two events (`activate` (no parameters) and `op
 
 ## Planned features
 
-- Allow to filter for payload.
 - Sort msgs within lifecycles by timestamp (maintaining orig index as e.g. hover info)
 - Add status bar info with e.g. number of msgs with current filter/total.
 - Support easier splitting of huge files into files per lifecycle and offer "assistant" at opening of huge files.

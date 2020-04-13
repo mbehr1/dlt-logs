@@ -24,6 +24,8 @@ export class DltFilter {
     ctid: string | undefined;
     logLevelMin: number | undefined;
     logLevelMax: number | undefined;
+    payload: string | undefined;
+    payloadRegex: RegExp | undefined;
 
     // marker decorations:
     filterColour: string | undefined;
@@ -61,6 +63,13 @@ export class DltFilter {
             this.mstp = 0;
             this.logLevelMax = options.logLevelMax;
         }
+        if ('payload' in options) {
+            this.payload = options.payload;
+        }
+        if ('payloadRegex' in options) {
+            this.payload = undefined;
+            this.payloadRegex = new RegExp(options.payloadRegex);
+        }
 
         if (this.type === DltFilterType.MARKER) {
             if ('decorationId' in options) { // has preference wrt filterColour
@@ -84,6 +93,8 @@ export class DltFilter {
         if (this.ecu && msg.ecu !== this.ecu) { return false; }
         if (this.apid && msg.apid !== this.apid) { return false; }
         if (this.ctid && msg.ctid !== this.ctid) { return false; }
+        if (this.payload && !msg.payloadString.includes(this.payload)) { return false; }
+        if (this.payloadRegex !== undefined && !this.payloadRegex.test(msg.payloadString)) { return false; }
 
         // if we reach here all defined criteria match
         return true;
@@ -106,9 +117,11 @@ export class DltFilter {
         if (this.logLevelMax) { // we ignore 0 value here
             nameStr += `<=${MTIN_LOG_strs[this.logLevelMax]} `;
         }
-        if (this.ecu) { nameStr += `ECU:${this.ecu} `; }; // we ignore empty strings
-        if (this.apid) { nameStr += `APID:${this.apid} `; };
-        if (this.ctid) { nameStr += `CTID:${this.ctid}`; };
+        if (this.ecu) { nameStr += `ECU:${this.ecu} `; } // we ignore empty strings
+        if (this.apid) { nameStr += `APID:${this.apid} `; }
+        if (this.ctid) { nameStr += `CTID:${this.ctid} `; }
+        if (this.payload) { nameStr += `payload contains '${this.payload}' `; }
+        if (this.payloadRegex !== undefined) { nameStr += `payload matches '${this.payloadRegex.source}'`; }
 
         return `${enabled}${type}${nameStr}`;
     }
