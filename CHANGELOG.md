@@ -4,6 +4,10 @@ All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
 
+## [0.7.2]
+
+- Prepared for new time-sync events from smart-log 1.2.0. Currently ignoring them.
+
 ## [0.7.1]
 
 - Add filter for payload.

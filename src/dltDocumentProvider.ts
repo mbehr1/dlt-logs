@@ -20,9 +20,17 @@ function sleep(ms: number): Promise<void> {
     });
 }
 
+interface TimeSyncData {
+    time: Date,
+    id: string,
+    value: string,
+    prio: number
+};
+
 interface SelectedTimeData {
     time: Date;
     uri: vscode.Uri;
+    timeSyncs?: Array<TimeSyncData>; // these are not specific to a selected line. Time will be 0 then.
 };
 
 export interface TreeViewNode {
@@ -421,14 +429,16 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
         console.log(`dlt-log.handleDidChangeSelectedTime got ev from uri=${ev.uri.toString()}`);
         this._documents.forEach((doc) => {
             if (doc.uri.toString() !== ev.uri.toString()) { // avoid reacting on our own events...
-                console.log(` trying to reveal ${ev.time.toLocaleTimeString()} at doc ${doc.uri.toString()}`);
-                let line = doc.lineCloseToDate(ev.time);
-                if (line >= 0 && doc.textEditors) {
-                    const posRange = new vscode.Range(line, 0, line, 0);
-                    doc.textEditors.forEach((value) => {
-                        value.revealRange(posRange, vscode.TextEditorRevealType.AtTop);
-                        // todo add/update decoration as well
-                    });
+                if (ev.time.valueOf() > 0) {
+                    console.log(` trying to reveal ${ev.time.toLocaleTimeString()} at doc ${doc.uri.toString()}`);
+                    let line = doc.lineCloseToDate(ev.time);
+                    if (line >= 0 && doc.textEditors) {
+                        const posRange = new vscode.Range(line, 0, line, 0);
+                        doc.textEditors.forEach((value) => {
+                            value.revealRange(posRange, vscode.TextEditorRevealType.AtTop);
+                            // todo add/update decoration as well
+                        });
+                    }
                 }
             }
         });
