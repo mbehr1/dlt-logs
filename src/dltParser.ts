@@ -351,7 +351,7 @@ export class DltParser {
                         }
                         if (foundAfterNegFilters) {
                             msgs.push(newMsg);
-                            nrMsgs++;
+                            nrMsgs++; // todo or should we always keep the orig index here?
                         }
                     }
                     remaining -= (offset - msgOffset);

@@ -20,14 +20,14 @@ function sleep(ms: number): Promise<void> {
     });
 }
 
-interface TimeSyncData {
+export interface TimeSyncData {
     time: Date,
     id: string,
     value: string,
     prio: number
 };
 
-interface SelectedTimeData {
+export interface SelectedTimeData {
     time: Date;
     uri: vscode.Uri;
     timeSyncs?: Array<TimeSyncData>; // these are not specific to a selected line. Time will be 0 then.
@@ -186,6 +186,11 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                 this._onDidChangeTreeData.fire(data.lifecycleTreeNode);
                 this._dltLifecycleTreeView?.reveal(data.lifecycleTreeNode, { select: false, focus: false, expand: true });
                 this.updateDecorations(data);
+                // time sync events?
+                if (data.timeSyncs.length) {
+                    console.log(`dlt-logs.onDidChangeTextDocument broadcasting ${data.timeSyncs.length} time-syncs.`);
+                    this._onDidChangeSelectedTime.fire({ time: new Date(0), uri: data.uri, timeSyncs: data.timeSyncs });
+                }
             }
         }));
 
@@ -223,12 +228,12 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                 // ev.kind: 1: Keyboard, 2: Mouse, 3: Command
                 // we do only take single selections.
                 if (ev.selections.length === 1) {
-                    if (ev.selections[0].isSingleLine) { // todo debounce...
+                    if (ev.selections[0].isSingleLine) {
                         const line = ev.selections[0].active.line; // 0-based
                         // determine time:
                         const time = data.provideTimeByLine(line);
                         if (time) {
-                            // post time update... todo consider debouncing the events by e.g. 100ms...
+                            // post time update...
                             console.log(` dlt-log posting time update ${time.toLocaleTimeString()}.${String(time.valueOf() % 1000).padStart(3, "0")}`);
                             this._onDidChangeSelectedTime.fire({ time: time, uri: data.uri });
                         }
@@ -439,6 +444,48 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                             // todo add/update decoration as well
                         });
                     }
+                }
+                if (ev.timeSyncs?.length && doc.timeSyncs.length) {
+                    console.log(` got ${ev.timeSyncs.length} timeSyncs from ${ev.uri.toString()}`);
+                    // todo auto timesync... 
+                    let adjustTimeBy: number[] = [];
+                    let reBroadcastEvents: TimeSyncData[] = [];
+                    // compare with our known timesyncs.
+                    for (let i = 0; i < ev.timeSyncs.length; ++i) {
+                        const remoteSyncEv = ev.timeSyncs[i];
+                        console.log(`  got id='${remoteSyncEv.id}' with value='${remoteSyncEv.value} at ${remoteSyncEv.time.toLocaleTimeString()}`);
+                        // do we have this id? (optimize with maps... for now linear (search))
+                        for (let j = 0; j < doc.timeSyncs.length; ++j) {
+                            const localSyncEv = doc.timeSyncs[j];
+                            if (remoteSyncEv.id === localSyncEv.id) {
+                                console.log(`  got id='${remoteSyncEv.id}' match. Checking value='${remoteSyncEv.value} at ${remoteSyncEv.time.toLocaleTimeString()}`);
+                                if (remoteSyncEv.value === localSyncEv.value) {
+                                    console.log(`   got id='${remoteSyncEv.id}',prio=${remoteSyncEv.prio} and value='${remoteSyncEv.value} match at ${remoteSyncEv.time.toLocaleTimeString()}, prio=${localSyncEv.prio}`);
+                                    // if the received prio is lower we adjust our time... // todo consider 3 documents...
+                                    // otherwise we broadcast all values with a lower prio than the current received ones...
+                                    if (remoteSyncEv.prio < localSyncEv.prio) {
+                                        adjustTimeBy.push(remoteSyncEv.time.valueOf() - localSyncEv.time.valueOf());
+                                    } else if (remoteSyncEv.prio > localSyncEv.prio) {
+                                        reBroadcastEvents.push(localSyncEv);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if (adjustTimeBy.length) {
+                        const minAdjust = Math.min(...adjustTimeBy);
+                        const maxAdjust = Math.max(...adjustTimeBy);
+                        const avgAdjust = adjustTimeBy.reduce((a, b) => a + b, 0) / adjustTimeBy.length;
+                        console.log(`have ${adjustTimeBy.length} time adjustments with min=${minAdjust}, max=${maxAdjust}, avg=${avgAdjust} ms.`);
+                        if (Math.abs(avgAdjust) > 100) {
+                            doc.adjustTime(avgAdjust);
+                        }
+                    } else
+                        if (reBroadcastEvents.length) {
+                            console.log(`re-broadcasting ${reBroadcastEvents.length} time syncs via onDidChangeSelectedTime`);
+                            this._onDidChangeSelectedTime.fire({ time: new Date(0), uri: doc.uri, timeSyncs: reBroadcastEvents });
+                        }
+
                 }
             }
         });

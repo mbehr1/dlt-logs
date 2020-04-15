@@ -2,7 +2,7 @@
 	"name": "dlt-logs",
 	"displayName": "DLT-Logs",
 	"description": "Open DLT diagnostic log and trace files with lifecycle detection, filters, time-sync, etc.",
-	"version": "0.7.2",
+	"version": "0.8.0",
 	"license": "CC BY-NC-SA 4.0",
 	"publisher": "mbehr1",
 	"author": {
@@ -158,7 +158,7 @@
 							"properties": {
 								"type": {
 									"type": "integer",
-									"description": "Type of this filter. 0 = positive, 1 = negative, 2 = marker"
+									"description": "Type of this filter. 0 = positive, 1 = negative, 2 = marker, 3=event (time-sync)"
 								},
 								"enabled": {
 									"type": "boolean",
@@ -213,6 +213,14 @@
 								"decorationId": {
 									"type": "string",
 									"description": "Identifier of the decoration (id of decorations config option) to use for marker instead of filterColour. Defaults to none."
+								},
+								"timeSyncId": {
+									"type": "string",
+									"description": "Optional identifier of a 'time sync event'. This gets broadcasted to other documents with the time and the last regex capture in lower case (from payloadRegex) as value."
+								},
+								"timeSyncPrio": {
+									"type": "integer",
+									"description": "Optional (needed if timeSyncId is used) priority of the time-sync event. As two documents exchange their events by this prio they decide on who will adjust the time. The event with the highest prio (lowest number) will be used."
 								}
 							}
 						},

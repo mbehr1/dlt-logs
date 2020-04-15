@@ -9,7 +9,7 @@ import * as path from 'path';
 import * as util from './util';
 import { DltParser, DltMsg, MSTP, MTIN_LOG, MTIN_CTRL, MTIN_CTRL_strs, MTIN_LOG_strs, MTIN_TRACE_strs, MTIN_NW_strs } from './dltParser';
 import { DltLifecycleInfo } from './dltLifecycle';
-import { TreeViewNode, FilterNode } from './dltDocumentProvider';
+import { TreeViewNode, FilterNode, TimeSyncData } from './dltDocumentProvider';
 import { DltFilter, DltFilterType } from './dltFilter';
 import TelemetryReporter from 'vscode-extension-telemetry';
 import { DltFileTransferPlugin } from './dltFileTransfer';
@@ -92,8 +92,10 @@ export class DltDocument {
     private _allDecorations?: Map<vscode.TextEditorDecorationType, vscode.DecorationOptions[]>;
     decorations?: Map<vscode.TextEditorDecorationType, vscode.DecorationOptions[]>; // filtered ones
     identifiedFileConfig?: any;
+
+    timeSyncs: TimeSyncData[] = [];
     // cachedTimes?: Array<Date>; // per line one date/time
-    timeAdjustMs?: number; // adjust in ms
+    private _timeAdjustMs: number = 0; // adjust in ms
 
     private _realStat: fs.Stats;
 
@@ -265,6 +267,18 @@ export class DltDocument {
 
     }
 
+    adjustTime(relOffset: number) {
+        this._timeAdjustMs += relOffset;
+        console.log(`dlt-logs.adjustTime(${relOffset}) to new offset: ${this._timeAdjustMs}`);
+
+        // adjust timeSyncs: as they contain pre-calculated times
+        this.timeSyncs.forEach((syncData) => {
+            syncData.time = new Date(syncData.time.valueOf() + relOffset);
+        });
+        // update lifecycle events?
+        // fire events? todo 
+    }
+
     onFilterChange(filter: DltFilter) { // todo this is really dirty. need to reconsider these arrays...
         console.log(`onFilterChange filter.name=${filter.name}`);
         this.applyFilter(undefined);
@@ -277,7 +291,7 @@ export class DltDocument {
 
     static getFilter(allFilters: DltFilter[], enabled: boolean, atLoadTime: boolean, negBeforePos: boolean = false) {
         let toRet: DltFilter[][] = [];
-        for (let i = DltFilterType.POSITIVE; i <= DltFilterType.MARKER + 1; ++i) { // +1 for NEGATIVE_BEFORE_POSITIVE
+        for (let i = DltFilterType.POSITIVE; i <= DltFilterType.EVENT + 1; ++i) { // +1 for NEGATIVE_BEFORE_POSITIVE
             toRet.push([]);
         }
 
@@ -285,7 +299,7 @@ export class DltDocument {
             const filter = allFilters[i];
             if (filter.enabled === enabled && filter.atLoadTime === atLoadTime) {
                 if (negBeforePos && filter.type === DltFilterType.NEGATIVE && filter.beforePositive) {
-                    toRet[DltFilterType.MARKER + 1].push(filter);
+                    toRet[DltFilterType.EVENT + 1].push(filter);
                 } else {
                     toRet[filter.type].push(filter);
                 }
@@ -294,7 +308,7 @@ export class DltDocument {
         return toRet;
     }
 
-    async applyFilter(progress: vscode.Progress<{ increment?: number | undefined, message?: string | undefined, }> | undefined) {
+    async applyFilter(progress: vscode.Progress<{ increment?: number | undefined, message?: string | undefined, }> | undefined, applyEventFilter: boolean = false) {
         this.filteredMsgs = [];
         // we can in parallel check criteria todo
         // but then add into filteredMsgs sequentially only
@@ -315,8 +329,11 @@ export class DltDocument {
         const nrMsgs: number = this.msgs.length;
         let startTime = process.hrtime();
 
+        if (applyEventFilter) {
+            this.timeSyncs = [];
+        }
         // sort the filters here into the enabled pos and neg:
-        const [posFilters, negFilters, decFilters] = DltDocument.getFilter(this.allFilters, true, false);
+        const [posFilters, negFilters, decFilters, eventFilters] = DltDocument.getFilter(this.allFilters, true, false);
         // todo we don't support negBeforePos yet... (not needed for FileTransferPlugin and as long as we dont support )
         for (let i = 0; i < nrMsgs; ++i) {
             if (i % 1000 === 0) { // provide process and responsiveness for UI:
@@ -330,6 +347,28 @@ export class DltDocument {
                 }
             }
             const msg = this.msgs[i];
+
+            if (applyEventFilter) {
+                // check for any events:
+                // currently timeSync only
+                if (eventFilters.length) {
+                    for (let j = 0; j < eventFilters.length; ++j) {
+                        const filter = eventFilters[j];
+                        if (filter.matches(msg) && filter.payloadRegex) {
+                            // get the value: // todo try to abstract that...
+                            const timeSyncMatch = filter.payloadRegex.exec(msg.payloadString);
+                            if (timeSyncMatch && timeSyncMatch.length > 0) {
+                                const value = timeSyncMatch[timeSyncMatch.length - 1].toLowerCase();
+                                console.log(` event filter '${filter.name}' matched at index ${i} with value '${value}'`);
+                                const time = this.provideTimeByMsg(msg);
+                                if (time && filter.timeSyncId && filter.timeSyncPrio) {
+                                    this.timeSyncs.push({ time: time, id: filter.timeSyncId, prio: filter.timeSyncPrio, value: value });
+                                }
+                            }
+                        }
+                    }
+                }
+            }
 
             // check for visibility:
             // a msg is visible if:
@@ -443,7 +482,7 @@ export class DltDocument {
 
     lineCloseToDate(date: Date): number {
         console.log(`DltDocument.lineCloseToDate(${date.toLocaleTimeString()})...`);
-        const dateValue = date.valueOf();
+        const dateValue = date.valueOf() - this._timeAdjustMs;
 
         // todo optimize with binary/tree search. with filteredMsgs it gets tricky.
         // so for now do linear scan...
@@ -477,9 +516,9 @@ export class DltDocument {
             return;
         }
         if (msg.lifecycle) {
-            return new Date(0 + msg.lifecycle.lifecycleStart.valueOf() + (msg.timeStamp / 10));
+            return new Date(this._timeAdjustMs + msg.lifecycle.lifecycleStart.valueOf() + (msg.timeStamp / 10));
         }
-        return new Date(0 + msg.time.valueOf() + (msg.timeStamp / 10));
+        return new Date(this._timeAdjustMs + msg.time.valueOf() + (msg.timeStamp / 10));
     }
 
     provideTimeByLine(line: number): Date | undefined {
@@ -882,7 +921,7 @@ export class DltDocument {
             return vscode.window.withProgress({ cancellable: false, location: vscode.ProgressLocation.Notification, title: "loading dlt file..." },
                 async (progress) => {
                     // do we have any filters to apply at load time?
-                    const [posFilters, negFilters, decFilters, negBeforePosFilters] = DltDocument.getFilter(this.allFilters, true, true);
+                    const [posFilters, negFilters, decFilters, eventFilters, negBeforePosFilters] = DltDocument.getFilter(this.allFilters, true, true);
                     console.log(` have ${posFilters.length} pos. and ${negFilters.length} neg. filters at load time.`);
 
                     let data = Buffer.allocUnsafe(chunkSize);
@@ -943,7 +982,7 @@ export class DltDocument {
                     progress.report({ message: `Got ${this.lifecycles.size} ECUs. Applying filter...` });
                     await util.sleep(50);
                     const applyFilterStart = process.hrtime();
-                    /* todo jft */ await this.applyFilter(progress); // await wouldn't be necessary but then we keep the progress info open
+                    /* todo jft */ await this.applyFilter(progress, true); // await wouldn't be necessary but then we keep the progress info open
                     const applyFilterEnd = process.hrtime(applyFilterStart);
                     console.info('checkFileChanges applyFilter took: %ds %dms', applyFilterEnd[0], applyFilterEnd[1] / 1000000);
                     progress.report({ message: `Filter applied. Finish. (gc kicks in now frequently...)` });

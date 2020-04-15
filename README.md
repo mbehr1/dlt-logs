@@ -51,10 +51,11 @@ This extension contributes the following settings:
 * `dlt-logs.reReadTimeout`: Specified the timeout in ms after opening the file before starting to parse the dlt file. If the file doesn't open, increase this to e.g. 5s.
 * `dlt-logs.columns`: Specifies which columns are visible. See example config. Usually doesn't need to be changed manually but by button "select columns".
 * `dlt-logs.filters`: Configures the filter that are available.
-   There are tree type of filters:
+   There are four type of filters:
    * **positive**: filter need to match to include the message in the view. If no positive filter exists all msgs are assumed matching.
    * **negative**: if filter matches the message will not be included in the view.
    * **marker**: if filter matches the messages will be "marked"/decorated.
+   * **event**: used for time-sync event detection.
 
    Currently filter can match for:
    * **ecu**: the ECU identifier.
@@ -72,6 +73,11 @@ This extension contributes the following settings:
    Marker filter can be highlighted / **decorated** either by
    * **filterColour**: css colour code to use (e.g. #f0f0f0 or 'red', etc.) or
    * **decorationId**: id of a defined **decoration** configured with dlt-logs.decorations.
+
+   For time-sync feature event filter can be used:
+   * **timeSyncId**: id of the event that will be broadcasted.
+   * **timeSyncPrio**: prio of the event.
+   (todo describe time-sync feature with an example)
 
    Filter configuration changes will be applied on next file open.
    Details see (todo...).

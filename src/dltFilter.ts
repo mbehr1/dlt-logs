@@ -9,7 +9,7 @@ import * as path from 'path';
 import { DltMsg, MSTP, MTIN_LOG, MTIN_CTRL, MSTP_strs, MTIN_LOG_strs } from './dltParser';
 // import { DltLifecycleInfo } from './dltLifecycle';
 
-export enum DltFilterType { POSITIVE, NEGATIVE, MARKER };
+export enum DltFilterType { POSITIVE, NEGATIVE, MARKER, EVENT };
 
 export class DltFilter {
     readonly type: DltFilterType;
@@ -30,6 +30,10 @@ export class DltFilter {
     // marker decorations:
     filterColour: string | undefined;
     decorationId: string | undefined;
+
+    // time sync:
+    timeSyncId: string | undefined;
+    timeSyncPrio: number | undefined;
 
     constructor(options: any) { // we do need at least the type
         if ('type' in options) {
@@ -69,6 +73,13 @@ export class DltFilter {
         if ('payloadRegex' in options) {
             this.payload = undefined;
             this.payloadRegex = new RegExp(options.payloadRegex);
+
+            // needs payloadRegex
+            if ('timeSyncId' in options && 'timeSyncPrio' in options) {
+                this.type = DltFilterType.EVENT;
+                this.timeSyncId = options.timeSyncId;
+                this.timeSyncPrio = options.timeSyncPrio;
+            }
         }
 
         if (this.type === DltFilterType.MARKER) {
@@ -80,6 +91,7 @@ export class DltFilter {
                 this.filterColour = "blue"; // default to blue
             }
         }
+
     }
 
     matches(msg: DltMsg): boolean {
@@ -102,7 +114,13 @@ export class DltFilter {
 
     get name(): string {
         const enabled: string = this.enabled ? "" : "disabled: ";
-        let type: string = this.type === DltFilterType.POSITIVE ? "+" : (this.type === DltFilterType.NEGATIVE ? "-" : "*");
+        let type: string;
+        switch (this.type) {
+            case DltFilterType.POSITIVE: type = "+"; break;
+            case DltFilterType.NEGATIVE: type = "-"; break;
+            case DltFilterType.MARKER: type = "*"; break;
+            case DltFilterType.EVENT: type = "@"; break;
+        };
         if (this.atLoadTime) {
             type = "(load time) " + type;
         }
@@ -122,6 +140,7 @@ export class DltFilter {
         if (this.ctid) { nameStr += `CTID:${this.ctid} `; }
         if (this.payload) { nameStr += `payload contains '${this.payload}' `; }
         if (this.payloadRegex !== undefined) { nameStr += `payload matches '${this.payloadRegex.source}'`; }
+        if (this.timeSyncId !== undefined) { nameStr += ` timeSyncId:${this.timeSyncId} prio:${this.timeSyncPrio}`; }
 
         return `${enabled}${type}${nameStr}`;
     }
