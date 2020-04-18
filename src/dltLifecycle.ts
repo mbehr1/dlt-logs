@@ -33,6 +33,14 @@ export class DltLifecycleInfo {
         return new Date(this.lifecycleStart.valueOf() + (this._maxTimeStamp / 10));
     }
 
+    get endIndex(): number {
+        if (this.logMessages.length) {
+            return this.logMessages[this.logMessages.length - 1].index; // todo take care if sort by time... use maxIndex then?
+        } else {
+            return this.startIndex;
+        }
+    }
+
     public update(logMsg: DltMsg): boolean {
         /* this function has the tough part to decide whether the startTime, timestamp
         seem to extend this lifecycle or seem part of a new one (return false then)*/

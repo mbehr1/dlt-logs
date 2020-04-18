@@ -365,12 +365,15 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
     updateDecorations(data: DltDocument) {
         // console.log('updateDecorations...');
         if (data.decorations && data.textEditors) {
-            // set decorations // todo check that it's really on the already updated content...
-            data.textEditors.forEach((editor) => {
-                data?.decorations?.forEach((value, key) => {
-                    editor.setDecorations(key, value);
+            if (data.textDocument && data.textDocument.lineCount && data.textDocument.lineCount > data.staticLinesAbove.length + 1) {
+                // console.log(` setDecorations lineCount=${data.textDocument.lineCount}, staticLinesAbove=${data.staticLinesAbove.length}`);
+                data.textEditors.forEach((editor) => {
+                    data?.decorations?.forEach((value, key) => {
+                        // console.log(` setDecorations ${value.length}`);
+                        editor.setDecorations(key, value);
+                    });
                 });
-            });
+            }
         }
         // console.log(' updateDecorations done');
     }

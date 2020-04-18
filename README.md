@@ -16,6 +16,7 @@ This Visual Studio Code(tm) extension adds support to open DLT (diagnostic log a
   - An offset for the full time can be set via context menu item *adjust-time...*.
   - Posts events of the selected time to other documents/plugins. (See ... <todo>).
 - Detects the lifecycles and shows them in a tree-view.
+  - Lifecycles can be graphically decorated by defining *dlt-log.decorations* with id 'lifecycleEven' (for the lifecycles #0, #2,...) / 'lifecycleOdd' (for the lifecycles #1,#3,...). Default decorations contains light transparent green(dark)/gray(light) background for 'lifecycleOdd'. Only the ECU with the highest amount of messages will be decorated.
 - Allows to filter for:
   - ECUID
   - APID

@@ -4,6 +4,11 @@ All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
 
+## [0.9.1]
+- Add decoration for lifecycles.
+- Smaller fixes regarding decorations in case of skipped msgs.
+- Small optimizations for decoration rendering.
+
 ## [0.9.0]
 - Auto time-sync (sending time events on selection of a line) can be turned on/off now with the sync button in the editor title. Default off.
 - If turned off the time can be send manually by selecting the "send selected time" context button.

@@ -2,7 +2,7 @@
 	"name": "dlt-logs",
 	"displayName": "DLT-Logs",
 	"description": "Open DLT diagnostic log and trace files with lifecycle detection, filters, time-sync, etc.",
-	"version": "0.9.0",
+	"version": "0.9.1",
 	"license": "CC BY-NC-SA 4.0",
 	"publisher": "mbehr1",
 	"author": {
@@ -336,6 +336,19 @@
 									},
 									"dark": {
 										"borderColor": "red"
+									}
+								}
+							},
+							{
+								"id": "lifecycleOdd",
+								"renderOptions": {
+									"overviewRulerColor": "rgba(56,154,66,0.1)",
+									"overviewRulerLane": 7,
+									"dark": {
+										"backgroundColor": "rgba(56,154,66,0.1)"
+									},
+									"light": {
+										"backgroundColor": "rgba(156,154,166,0.1)"
 									}
 								}
 							}

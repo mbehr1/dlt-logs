@@ -67,7 +67,7 @@ export class DltDocument {
     private _renderPending: boolean = false;
 
     private _skipMsgs: number = 0; // that many messages get skipped from msgs/filteredMsgs
-    private _staticLinesAbove: string[] = []; // number of static lines e.g. "...skipped ... msgs..."
+    staticLinesAbove: string[] = []; // number of static lines e.g. "...skipped ... msgs..."
     // todo private _staticLinesBelow: string[] = []; // e.g. "... msgs not shown yet..."
 
     //  gets updated e.g. by notifyVisibleRange
@@ -89,8 +89,14 @@ export class DltDocument {
 
     textEditors: Array<vscode.TextEditor> = []; // don't use in here!
 
+    /* allDecorations contain a list of all decorations for the filteredMsgs. 
+     * the ranges dont contain line numbers but the filteredMsg number.
+     * during renderLines the visible decorations will be created and stored in 
+     * decorations (with updated ranges)
+     */
     private _allDecorations?: Map<vscode.TextEditorDecorationType, vscode.DecorationOptions[]>;
     decorations?: Map<vscode.TextEditorDecorationType, vscode.DecorationOptions[]>; // filtered ones
+
     identifiedFileConfig?: any;
 
     timeSyncs: TimeSyncData[] = [];
@@ -440,11 +446,64 @@ export class DltDocument {
                 }
             }
         }
+
+        // create decorations for the lifecycles:
+        let lcDecos = [this._decorationTypes.get("lifecycleEven"), this._decorationTypes.get("lifecycleOdd")];
+
+        if (lcDecos[0] !== undefined) { this._allDecorations.set(lcDecos[0], []); }
+        if (lcDecos[1] !== undefined) { this._allDecorations.set(lcDecos[1], []); }
+
+        if (lcDecos[0] !== undefined || lcDecos[1] !== undefined) {
+            // we only decorate the ECU with the most messages. (not taking filters into account...)
+            // otherwise the decorations overlap too much
+            let lcMsgCntMap = new Map<string, number>();
+            this.lifecycles.forEach((lcs, ecu) => {
+                lcs.forEach((lcInfo) => {
+                    let msgCnt = lcMsgCntMap.get(ecu);
+                    if (!msgCnt) {
+                        lcMsgCntMap.set(ecu, lcInfo.logMessages.length);
+                    } else {
+                        lcMsgCntMap.set(ecu, msgCnt + lcInfo.logMessages.length);
+                    }
+                });
+            });
+            let maxCnt = 0;
+            let maxEcu: string | undefined = undefined;
+            lcMsgCntMap.forEach((msgCnt, ecu) => {
+                if (msgCnt > maxCnt) {
+                    maxCnt = msgCnt;
+                    maxEcu = ecu;
+                }
+            });
+
+            if (maxEcu) {
+                const lcs = this.lifecycles.get(maxEcu);
+                if (lcs) {
+                    // console.log(` applyFilter decorating lifecycles for ecu:'${ecu}'`);
+                    for (let lcCnt = 0; lcCnt < lcs.length; ++lcCnt) {
+                        const lc = lcs[lcCnt];
+                        console.log(` applyFilter decorating lifecycle ${maxEcu} #${lcCnt} '${lc.startIndex} - ${lc.endIndex}'`);
+                        const lcDec = lcDecos[lcCnt % 2];
+                        if (lcDec !== undefined) {
+                            const startLine: number = this.lineCloseTo(lc.startIndex, true);
+                            let endLine: number = this.lineCloseTo(lc.endIndex, true);
+                            if (!endLine) {
+                                endLine = this.staticLinesAbove.length + (this.filteredMsgs?.length ? this.filteredMsgs.length - 1 : 0);
+                            }
+                            console.log(`  decorating lifecycle ${maxEcu} #${lcCnt} '${startLine} - ${endLine}'`);
+                            const dec = { range: new vscode.Range(startLine, 0, endLine, 21), hoverMessage: `lifecycle: ${lc.lifecycleStart.toLocaleTimeString()}-${lc.lifecycleEnd.toLocaleTimeString()}` };
+                            this._allDecorations?.get(lcDec)?.push(dec);
+                        }
+                    }
+                }
+            }
+        }
+
         console.log(`applyFilter got ${numberDecorations} decorations.`);
         return this.renderLines(this._skipMsgs, progress);
     }
 
-    lineCloseTo(index: number): number {
+    lineCloseTo(index: number, ignoreSkip = false): number {
         // provides the line number "close" to the index 
         // todo this causes problems once we do sort msgs (e.g. by timestamp)
         // that is the matching line or the next higher one
@@ -454,29 +513,29 @@ export class DltDocument {
                 if (this.filteredMsgs[i].index >= index) {
 
                     // is i skipped?
-                    if (i < this._skipMsgs) {
+                    if (!ignoreSkip && i < this._skipMsgs) {
                         console.log(`lineCloseTo(${index} not in range (<). todo needs to trigger reload.)`);
-                        return this._staticLinesAbove.length; // go to first line
+                        return this.staticLinesAbove.length; // go to first line
                     }
-                    if (i > this._skipMsgs + this._maxNrMsgs) {
+                    if (!ignoreSkip && i > this._skipMsgs + this._maxNrMsgs) {
                         console.log(`lineCloseTo(${index} not in range (>). todo needs to trigger reload.)`);
-                        return this._staticLinesAbove.length + this._maxNrMsgs; // go to first line    
+                        return this.staticLinesAbove.length + this._maxNrMsgs; // go to first line    
                     }
-                    return i + this._staticLinesAbove.length;
+                    return i + (ignoreSkip ? 0 : this.staticLinesAbove.length);
                 }
             }
             return 0;
         } else {
             // todo check that index is not smaller...
-            if (index < (this._skipMsgs + this._staticLinesAbove.length)) {
+            if (index < (this._skipMsgs + this.staticLinesAbove.length)) {
                 console.log(`lineCloseTo(${index} not in range (<). todo needs to trigger reload.)`);
-                return this._staticLinesAbove.length; // go to first line
+                return this.staticLinesAbove.length; // go to first line
             }
             if (index > (this._skipMsgs + this._maxNrMsgs)) {
                 console.log(`lineCloseTo(${index} not in range (>). todo needs to trigger reload.)`);
-                return this._staticLinesAbove.length + this._maxNrMsgs;
+                return this.staticLinesAbove.length + this._maxNrMsgs;
             }
-            return index - this._skipMsgs - this._staticLinesAbove.length; // unfiltered: index = line nr. both zero-based
+            return index - this._skipMsgs - this.staticLinesAbove.length; // unfiltered: index = line nr. both zero-based
         }
     }
 
@@ -504,7 +563,7 @@ export class DltDocument {
     msgByLine(line: number): DltMsg | undefined {
         const msgs = this.filteredMsgs ? this.filteredMsgs : this.msgs;
         // line = index
-        if (line >= this._staticLinesAbove.length && line < (this._skipMsgs + msgs.length)) { // we don't have to check whether the msg is visible here
+        if (line >= this.staticLinesAbove.length && line < (this._skipMsgs + msgs.length)) { // we don't have to check whether the msg is visible here
             return msgs[line + this._skipMsgs];
         } else {
             return;
@@ -553,6 +612,12 @@ export class DltDocument {
 
         const triggerAboveLine = range.start.line;
         const triggerBelowLine = range.end.line;
+
+        // we ignore the ranges for the interims "loading..." docs.
+        if (triggerBelowLine - triggerAboveLine < 10) {
+            console.log(` notifyVisibleRange ignoring as range too small (visible: [${triggerAboveLine}-${triggerBelowLine}]) current: [${this._skipMsgs}-${this._skipMsgs + this._maxNrMsgs})`);
+            return;
+        }
 
         if (this._renderTriggered) {
             console.log(` notifyVisibleRange ignoring as render triggered (visible: [${triggerAboveLine}-${triggerBelowLine}]) current: [${this._skipMsgs}-${this._skipMsgs + this._maxNrMsgs})`);
@@ -612,7 +677,7 @@ export class DltDocument {
 
         // currently visible?
         if (this._skipMsgs <= i && (this._skipMsgs + this._maxNrMsgs) > i) {
-            return i - this._skipMsgs + this._staticLinesAbove.length;
+            return i - this._skipMsgs + this.staticLinesAbove.length;
         } else {
             // we do need to reveal it:
             // so that it ends up in the range 0.25-0.75
@@ -731,6 +796,10 @@ export class DltDocument {
             return;
         }
 
+        const nrMsgs = msgs.length > this._maxNrMsgs ? this._maxNrMsgs : msgs.length;
+        const renderRangeStartLine = skipMsgs;
+        const renderRangeEndLine = skipMsgs + nrMsgs;
+
         if (this._allDecorations?.size) {
             if (!this.decorations || this._skipMsgs !== skipMsgs) {
 
@@ -755,13 +824,26 @@ export class DltDocument {
                     let visibleDecOpts: vscode.DecorationOptions[] = [];
                     for (let i = 0; i < decOpts.length; ++i) {
                         const decOpt = decOpts[i];
-                        if (decOpt.range.start.line >= skipMsgs && decOpt.range.start.line < skipMsgs + this._maxNrMsgs) {
+                        if ((decOpt.range.start.line >= skipMsgs && decOpt.range.start.line < skipMsgs + this._maxNrMsgs) ||
+                            (decOpt.range.end.line >= skipMsgs && decOpt.range.end.line < skipMsgs + this._maxNrMsgs)) {
+                            let newStartLine = decOpt.range.start.line - skipMsgs - this.staticLinesAbove.length;
+                            if (newStartLine < this.staticLinesAbove.length) {
+                                newStartLine = this.staticLinesAbove.length;
+                            }
+                            let newEndLine = decOpt.range.end.line - skipMsgs - this.staticLinesAbove.length;
+                            // is the newEnd still in range?
+                            if (newEndLine > renderRangeEndLine) {
+                                newEndLine = renderRangeEndLine;
+                            }
                             let newDecOpt: vscode.DecorationOptions = {
                                 renderOptions: decOpt.renderOptions, hoverMessage: decOpt.hoverMessage,
-                                range: new vscode.Range(decOpt.range.start.line - skipMsgs - this._staticLinesAbove.length,
+                                range: new vscode.Range(newStartLine,
                                     decOpt.range.start.character,
-                                    decOpt.range.end.line - skipMsgs - this._staticLinesAbove.length, decOpt.range.end.character)
+                                    newEndLine, decOpt.range.end.character)
                             };
+                            /*if (newDecOpt.range.start.line !== newDecOpt.range.end.line) {
+                                console.log(` updated decoration from [${decOpt.range.start.line}-${decOpt.range.end.line}] - [${newStartLine}-${newEndLine}]`);
+                            }*/
                             visibleDecOpts.push(newDecOpt);
                         }
                     }
@@ -769,14 +851,14 @@ export class DltDocument {
                         this.decorations?.set(decType, visibleDecOpts);
                     }
                 });
+            } else {
+                console.log(` renderLines !(!this.decorations(${this.decorations})|| this._skipMsgs(${this._skipMsgs}) !== skipMsgs(${skipMsgs}))`);
             }
+        } else {
+            console.log(' renderLines got no allDecorations.');
         }
 
-        const nrMsgs = msgs.length > this._maxNrMsgs ? this._maxNrMsgs : msgs.length;
         this._skipMsgs = skipMsgs;
-        const renderRangeStartLine = skipMsgs;
-        const renderRangeEndLine = skipMsgs + nrMsgs;
-
         console.log(` processing msg ${renderRangeStartLine}-${renderRangeEndLine}...`);
 
         const numberStart = renderRangeStartLine;
@@ -785,9 +867,9 @@ export class DltDocument {
         toRet = "";
         // mention skipped lines?
         if (false && renderRangeStartLine > 0) { // todo someparts are off by 1 then
-            this._staticLinesAbove = [];
-            this._staticLinesAbove.push(`...skipped ${renderRangeStartLine} msgs...\n`);
-            toRet += this._staticLinesAbove[0];
+            this.staticLinesAbove = [];
+            this.staticLinesAbove.push(`...skipped ${renderRangeStartLine} msgs...\n`);
+            toRet += this.staticLinesAbove[0];
         }
         // todo render some at the end?
 
