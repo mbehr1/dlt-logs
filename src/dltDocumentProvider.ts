@@ -81,6 +81,8 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
     private _onDidChangeSelectedTime: vscode.EventEmitter<SelectedTimeData> = new vscode.EventEmitter<SelectedTimeData>();
     readonly onDidChangeSelectedTime: vscode.Event<SelectedTimeData> = this._onDidChangeSelectedTime.event;
 
+    private _autoTimeSync = false; // todo config
+
     constructor(context: vscode.ExtensionContext, reporter?: TelemetryReporter) {
         console.log(`dlt-logs.DltDocumentProvider()...`);
         this._reporter = reporter;
@@ -223,24 +225,59 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
         // announce time updates on selection of lines:
         // counterpart to handleDidChangeSelectedTime... 
         this._subscriptions.push(vscode.window.onDidChangeTextEditorSelection(util.throttle((ev) => {
-            let data = this._documents.get(ev.textEditor.document.uri.toString());
-            if (data) {
-                // ev.kind: 1: Keyboard, 2: Mouse, 3: Command
-                // we do only take single selections.
-                if (ev.selections.length === 1) {
-                    if (ev.selections[0].isSingleLine) {
-                        const line = ev.selections[0].active.line; // 0-based
-                        // determine time:
-                        const time = data.provideTimeByLine(line);
-                        if (time) {
-                            // post time update...
-                            console.log(` dlt-log posting time update ${time.toLocaleTimeString()}.${String(time.valueOf() % 1000).padStart(3, "0")}`);
-                            this._onDidChangeSelectedTime.fire({ time: time, uri: data.uri });
+            if (this._autoTimeSync) {
+                let data = this._documents.get(ev.textEditor.document.uri.toString());
+                if (data) {
+                    // ev.kind: 1: Keyboard, 2: Mouse, 3: Command
+                    // we do only take single selections.
+                    if (ev.selections.length === 1) {
+                        if (ev.selections[0].isSingleLine) {
+                            const line = ev.selections[0].active.line; // 0-based
+                            // determine time:
+                            const time = data.provideTimeByLine(line);
+                            if (time) {
+                                // post time update...
+                                console.log(` dlt-log posting time update ${time.toLocaleTimeString()}.${String(time.valueOf() % 1000).padStart(3, "0")}`);
+                                this._onDidChangeSelectedTime.fire({ time: time, uri: data.uri });
+                            }
                         }
                     }
                 }
             }
         }, 500)));
+
+        this._subscriptions.push(vscode.commands.registerTextEditorCommand("dlt-logs.sendTime", async (textEditor) => {
+            console.log(`dlt-log.sendTime for ${textEditor.document.uri.toString()} called...`);
+            let data = this._documents.get(textEditor.document.uri.toString());
+            if (data) {
+                // ev.kind: 1: Keyboard, 2: Mouse, 3: Command
+                //console.log(`smart-log.onDidChangeTextEditorSelection doc=${data.doc.uri.toString()} ev.kind=${ev.kind} #selections=${ev.selections.length}`);
+                // we do only take single selections.
+                if (textEditor.selections.length === 1) {
+                    const line = textEditor.selections[0].active.line; // 0-based
+                    const time = data.provideTimeByLine(line);
+                    if (time) {
+                        // post time update...
+                        console.log(` dlt-log posting time update ${time.toLocaleTimeString()}.${String(time.valueOf() % 1000).padStart(3, "0")}`);
+                        this._onDidChangeSelectedTime.fire({ time: time, uri: data.uri });
+                    }
+                }
+            }
+        }));
+
+        this._subscriptions.push(vscode.commands.registerCommand("dlt-logs.toggleTimeSync", () => {
+            console.log(`dlt-log.toggleTimeSync called...`);
+            this._autoTimeSync = !this._autoTimeSync;
+            vscode.window.showInformationMessage(`Auto time-sync turned ${this._autoTimeSync ? "on. Selecting a line will send the corresponding time." : "off. To send the time use the context menu 'send selected time' command."}`);
+        }));
+
+        this._subscriptions.push(vscode.commands.registerTextEditorCommand("dlt-logs.sendTimeSyncEvents", async (textEditor) => {
+            let data = this._documents.get(textEditor.document.uri.toString());
+            if (data) {
+                console.log(`dlt-log.sendTimeSyncEvents for ${textEditor.document.uri.toString()} sending ${data.timeSyncs.length} events`);
+                this._onDidChangeSelectedTime.fire({ time: new Date(0), uri: data.uri, timeSyncs: data.timeSyncs });
+            }
+        }));
 
         // visible range
         this._subscriptions.push(vscode.window.onDidChangeTextEditorVisibleRanges(util.throttle((e) => {
@@ -431,9 +468,9 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
     }
 
     handleDidChangeSelectedTime(ev: SelectedTimeData) {
-        console.log(`dlt-log.handleDidChangeSelectedTime got ev from uri=${ev.uri.toString()}`);
         this._documents.forEach((doc) => {
             if (doc.uri.toString() !== ev.uri.toString()) { // avoid reacting on our own events...
+                console.log(`dlt-log.handleDidChangeSelectedTime got ev from uri=${ev.uri.toString()}`);
                 if (ev.time.valueOf() > 0) {
                     console.log(` trying to reveal ${ev.time.toLocaleTimeString()} at doc ${doc.uri.toString()}`);
                     let line = doc.lineCloseToDate(ev.time);

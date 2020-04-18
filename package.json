@@ -2,7 +2,7 @@
 	"name": "dlt-logs",
 	"displayName": "DLT-Logs",
 	"description": "Open DLT diagnostic log and trace files with lifecycle detection, filters, time-sync, etc.",
-	"version": "0.8.0",
+	"version": "0.9.0",
 	"license": "CC BY-NC-SA 4.0",
 	"publisher": "mbehr1",
 	"author": {
@@ -354,6 +354,21 @@
 				"title": "adjust time..."
 			},
 			{
+				"command": "dlt-logs.sendTime",
+				"title": "send selected time",
+				"icon": "$(sync)"
+			},
+			{
+				"command": "dlt-logs.sendTimeSyncEvents",
+				"title": "send detected time sync events",
+				"icon": "$(sync)"
+			},
+			{
+				"command": "dlt-logs.toggleTimeSync",
+				"title": "toggle auto time sync",
+				"icon": "$(sync-ignored)"
+			},
+			{
 				"command": "dlt-logs.enableFilter",
 				"title": "enable",
 				"icon": "$(debug-start)"
@@ -380,6 +395,11 @@
 					"group": "1_modification",
 					"command": "dlt-logs.adjustTime",
 					"when": "editorLangId == dlt-log"
+				},
+				{
+					"group": "0_navigation",
+					"command": "dlt-logs.sendTime",
+					"when": "editorLangId == dlt-log"
 				}
 			],
 			"view/item/context": [
@@ -404,6 +424,12 @@
 				{
 					"command": "dlt-logs.configureColumns",
 					"when": "resourceLangId == dlt-log",
+					"group": "navigation"
+				},
+				{
+					"command": "dlt-logs.toggleTimeSync",
+					"alt": "dlt-logs.sendTimeSyncEvents",
+					"when": "editorLangId == dlt-log",
 					"group": "navigation"
 				}
 			]
