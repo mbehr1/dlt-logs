@@ -58,7 +58,7 @@ This extension contributes the following settings:
    * **positive**: filter need to match to include the message in the view. If no positive filter exists all msgs are assumed matching.
    * **negative**: if filter matches the message will not be included in the view.
    * **marker**: if filter matches the messages will be "marked"/decorated.
-   * **event**: used for time-sync event detection.
+   * **event**: used for time-sync event detection or for report generation.
 
    Currently filter can match for:
    * **ecu**: the ECU identifier.
