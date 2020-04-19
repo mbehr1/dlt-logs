@@ -4,7 +4,7 @@
 
 // import * as vscode from 'vscode';
 import * as assert from 'assert';
-import { DltParser, DltMsg, MSTP } from './dltParser';
+import { DltParser, DltMsg, MSTP, MTIN_CTRL } from './dltParser';
 
 export class DltLifecycleInfo {
     private _startTime: Date; // within log
@@ -12,12 +12,15 @@ export class DltLifecycleInfo {
     lifecycleStart: Date; // including timestamp calc. e.g. _startTime - timestamp
     private _maxTimeStamp: number; // so _lifecycleStart + maxTimestamp defines the "end"
     readonly logMessages: DltMsg[]; // todo should be sorted... by timestamp? (without ctrl requests timestamps)
+    allCtrlRequests: boolean = true; // this lifecycle consists of only ctrl requests.
 
     constructor(logMsg: DltMsg) {
         // if its a control message from logger we ignore the timestamp:
         let timeStamp = logMsg.timeStamp;
-        if (logMsg.mstp === MSTP.TYPE_CONTROL && logMsg.mtin === 0x01) {
+        if (logMsg.mstp === MSTP.TYPE_CONTROL && logMsg.mtin === MTIN_CTRL.CONTROL_REQUEST) {
             timeStamp = 0;
+        } else {
+            this.allCtrlRequests = false;
         }
         this._startTime = logMsg.time;
         this.startIndex = logMsg.index;
@@ -45,19 +48,21 @@ export class DltLifecycleInfo {
         /* this function has the tough part to decide whether the startTime, timestamp
         seem to extend this lifecycle or seem part of a new one (return false then)*/
 
+        // if its a control message from logger we ignore it:
+        if (logMsg.mstp === MSTP.TYPE_CONTROL && logMsg.mtin === MTIN_CTRL.CONTROL_REQUEST) {
+            this.logMessages.push(logMsg); // todo we might check the time and add it as a new lifecycle as well!
+            logMsg.lifecycle = this;
+            return true;
+        }
+
         // if timestamp info is missing, we do ignore (aka treat as part of this lifecycle):
         if (logMsg.timeStamp === 0) {
+            this.allCtrlRequests = false;
             this.logMessages.push(logMsg);
             logMsg.lifecycle = this;
             return true;
         }
 
-        // if its a control message from logger we ignore it:
-        if (logMsg.mstp === MSTP.TYPE_CONTROL && logMsg.mtin === 0x01) {
-            this.logMessages.push(logMsg); // todo we might check the time and add it as a new lifecycle as well!
-            logMsg.lifecycle = this;
-            return true;
-        }
 
         // calc _lifecycleStart for this one:
         let newLifecycleStart = new Date(logMsg.time.valueOf() - (logMsg.timeStamp / 10));
@@ -85,6 +90,7 @@ export class DltLifecycleInfo {
 
         this.logMessages.push(logMsg);
         logMsg.lifecycle = this;
+        this.allCtrlRequests = false;
 
         return true; // part of this one
     }
@@ -106,5 +112,20 @@ export class DltLifecycleInfo {
                 }
             }
         }
+        // we remove all lifecycles that contain only CONTROL REQUEST messages:
+        lifecycles.forEach((lcInfos, ecu) => {
+            for (let i = 0; i < lcInfos.length; ++i) {
+                const lcInfo = lcInfos[i];
+                if (lcInfo.allCtrlRequests) {
+                    console.log(`updateLifecycles: lifecycle for ecu '${ecu}' with only CTRL requests found. Deleting...`);
+                    lcInfos.splice(i, 1);
+                    i--;
+                }
+            }
+            if (lcInfos.length === 0) {
+                console.log(`updateLifecycles: ecu '${ecu}' now without lifecycles. Deleting...`);
+                lifecycles.delete(ecu);
+            }
+        });
     }
 }
