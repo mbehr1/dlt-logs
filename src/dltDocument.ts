@@ -360,15 +360,18 @@ export class DltDocument {
                 if (eventFilters.length) {
                     for (let j = 0; j < eventFilters.length; ++j) {
                         const filter = eventFilters[j];
-                        if (filter.matches(msg) && filter.payloadRegex) {
-                            // get the value: // todo try to abstract that...
-                            const timeSyncMatch = filter.payloadRegex.exec(msg.payloadString);
-                            if (timeSyncMatch && timeSyncMatch.length > 0) {
-                                const value = timeSyncMatch[timeSyncMatch.length - 1].toLowerCase();
-                                console.log(` event filter '${filter.name}' matched at index ${i} with value '${value}'`);
-                                const time = this.provideTimeByMsg(msg);
-                                if (time && filter.timeSyncId && filter.timeSyncPrio) {
-                                    this.timeSyncs.push({ time: time, id: filter.timeSyncId, prio: filter.timeSyncPrio, value: value });
+                        // remove report filter here:
+                        if (!filter.isReport) {
+                            if (filter.matches(msg) && filter.payloadRegex) {
+                                // get the value: // todo try to abstract that... create REPORT as sep. type?
+                                const timeSyncMatch = filter.payloadRegex.exec(msg.payloadString);
+                                if (timeSyncMatch && timeSyncMatch.length > 0) {
+                                    const value = timeSyncMatch[timeSyncMatch.length - 1].toLowerCase();
+                                    console.log(` timeSync filter '${filter.name}' matched at index ${i} with value '${value}'`);
+                                    const time = this.provideTimeByMsg(msg);
+                                    if (time && filter.timeSyncId && filter.timeSyncPrio) {
+                                        this.timeSyncs.push({ time: time, id: filter.timeSyncId, prio: filter.timeSyncPrio, value: value });
+                                    }
                                 }
                             }
                         }
@@ -1077,5 +1080,124 @@ export class DltDocument {
         } else {
             console.log(`checkFileChanges no file size increase (size=${stats.size} vs ${this._parsedFileLen})`);
         }
+    }
+
+    onOpenReport(context: vscode.ExtensionContext, filter: DltFilter) {
+        console.log(`onOpenReport called...`);
+        let panel = vscode.window.createWebviewPanel("dlt-logs.report", `dlt-logs report for ${filter.name}`, vscode.ViewColumn.Beside,
+            { enableScripts: true });
+        console.log(`webview.enableScripts=${panel.webview.options.enableScripts}`);
+
+        // determine the lifecycle labels so that we can use the grid to highlight lifecycle
+        // start/end
+        let lcDates: Date[] = [];
+        this.lifecycles.forEach((lcInfos) => {
+            lcInfos.forEach((lcInfo) => {
+                lcDates.push(lcInfo.lifecycleStart);
+                lcDates.push(lcInfo.lifecycleEnd);
+            });
+        });
+        // sort them by ascending time
+        lcDates.sort((a, b) => {
+            const valA = a.valueOf();
+            const valB = b.valueOf();
+            if (valA < valB) { return -1; }
+            if (valA > valB) { return 1; }
+            return 0;
+        });
+
+        const lcStartDate: Date = lcDates[0];
+        const lcEndDate: Date = lcDates[lcDates.length - 1];
+        console.log(`lcStartDate=${lcStartDate}, lcEndDate=${lcEndDate}`);
+
+        panel.webview.onDidReceiveMessage((e) => {
+            console.log(`report.onDidReceiveMessage e=${e.message}`, e);
+        });
+
+        // load template and set a html:
+        const htmlFile = fs.readFileSync(path.join(context.extensionPath, 'src', 'timeSeriesReport.html'));
+        if (htmlFile.length) {
+            panel.webview.html = htmlFile.toString();
+        } else {
+            vscode.window.showErrorMessage(`couldn't load timeSeriesReport.html`);
+        }
+
+        let dataSets = new Map<string, any[]>();
+
+        const insertDataPoint = function (label: string, time: Date, value: number) {
+            let dataSet = dataSets.get(label);
+            const dataPoint = { x: time, y: value };
+            if (!dataSet) {
+                dataSets.set(label, [dataPoint]);
+            } else {
+                dataSet.push(dataPoint);
+            }
+        };
+
+        if (filter.isReport && (filter.payloadRegex !== undefined) && this.msgs.length) {
+            const wasEnabled = filter.enabled;
+            filter.enabled = true; // otherwise match doesn't work! (we might better give a warning here...?)
+            console.log(` matching regex '${filter.payloadRegex.source}' on ${this.msgs.length} msgs:`);
+            for (let i = 0; i < this.msgs.length; ++i) { // todo make async and report progress...
+                const msg = this.msgs[i];
+                if (filter.matches(msg)) {
+                    const time = this.provideTimeByMsg(msg);
+                    if (time) {
+                        // get the value:
+                        const matches = filter.payloadRegex.exec(msg.payloadString);
+                        if (matches && matches.length > 0) {
+                            if (matches.groups) {
+                                Object.keys(matches.groups).forEach((valueName) => {
+                                    if (matches.groups) {
+                                        // console.log(` found ${valueName}=${matches.groups[valueName]}`);
+                                        const value: number = Number.parseFloat(matches.groups[valueName]);
+                                        insertDataPoint(valueName, time, value);
+                                    }
+                                });
+                            } else {
+                                const value: number = Number.parseFloat(matches[matches.length - 1]);
+                                // console.log(` event filter '${filter.name}' matched at index ${i} with value '${value}'`);
+                                insertDataPoint("values", time, value);
+                            }
+                        }
+                    }
+                }
+            }
+            filter.enabled = wasEnabled;
+        }
+        console.log(` have ${dataSets.size} data sets.`);
+        if (dataSets.size) {
+            // todo might be safer to wait until the page is loaded first?
+            // e.g. until we got the hello ... message?
+
+            panel.webview.postMessage({ command: "update labels", labels: lcDates }).then((onFulFilled) => {
+                console.log(`webview.postMessage(update labels) ${onFulFilled}`);
+            });
+
+            // convert into an array object {label, data}
+            let datasetArray: any[] = [];
+            dataSets.forEach((data, label) => {
+                // add some NaN data at the end of each lifecycle to get real gaps (and not interpolated line)
+                for (let i = 0; i < lcDates.length; ++i) {
+                    if (i % 2 === 1) {
+                        data.push({ x: lcDates[i], y: NaN });
+                    }
+                }
+                data.sort((a, b) => {
+                    const valA = a.x.valueOf();
+                    const valB = b.x.valueOf();
+                    if (valA < valB) { return -1; }
+                    if (valA > valB) { return 1; }
+                    return 0;
+                });
+
+                datasetArray.push({ label: label, data: data });
+            });
+
+            panel.webview.postMessage({ command: "update", data: datasetArray }).then((onFulFilled) => {
+                console.log(`webview.postMessage(update) ${onFulFilled}`);
+            });
+        }
+
     }
 };

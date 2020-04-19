@@ -113,7 +113,10 @@ export class DltFilter {
     }
 
     get name(): string {
-        const enabled: string = this.enabled ? "" : "disabled: ";
+        let enabled: string = this.enabled ? "" : "disabled: ";
+        if (this.isReport) {
+            enabled = "report "; // we ignore enabled for report
+        }
         let type: string;
         switch (this.type) {
             case DltFilterType.POSITIVE: type = "+"; break;
@@ -143,5 +146,10 @@ export class DltFilter {
         if (this.timeSyncId !== undefined) { nameStr += ` timeSyncId:${this.timeSyncId} prio:${this.timeSyncPrio}`; }
 
         return `${enabled}${type}${nameStr}`;
+    }
+
+    get isReport(): boolean {
+        // a report filter is a type EVENT filter that has a payloadRegex and no timeSyncId
+        return this.type === DltFilterType.EVENT && (this.payloadRegex !== undefined) && (this.timeSyncId === undefined);
     }
 }

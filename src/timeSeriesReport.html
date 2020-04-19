@@ -1,0 +1,130 @@
+<!doctype html>
+<html>
+
+<head>
+    <title>Report</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.13.0/moment.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@2.8.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-colorschemes"></script>
+    <script>
+        const vscode = acquireVsCodeApi(); // acquireVsCodeApi can only be invoked once
+        vscode.postMessage({ message: 'hello from timeSeriesReport.html' });
+    </script>
+    <style>
+        canvas {
+            -moz-user-select: none;
+            -webkit-user-select: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="message">Time-series report:
+        <canvas id="report-canvas"></canvas>
+    </div>
+    <br>
+    <script>
+        var config = {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'dataset 1',
+                    borderWidth: 1,
+                    pointRadius: 2,
+                    fill: false,
+                    data: []
+                }]
+            },
+            options: {
+                responsive: true,
+                title: { display: true, text: 'report' },
+                scales: {
+                    xAxes: [{
+                        type: 'time',
+                        time: {
+                            unit: 'second'
+                        },
+                        display: true,
+                        scaleLabel: {
+                            display: true,
+                            labelString: 'time'
+                        },
+                        gridLines: {
+                            display: true,
+                            color: 'rgba(0,200,0,0.5)'
+                        },
+                        ticks: {
+                            source: 'labels',
+                            minRotation: 30,
+                            major: {
+                                fontStyle: 'bold',
+                                fontColor: '#FF0000'
+                            }
+                        }
+                    }],
+                    yAxes: [{
+                        display: true,
+                        scaleLabel: {
+                            display: true,
+                            labelString: 'values'
+                        }
+                    }]
+                },
+                animation: { duration: 0 },
+                hover: { animationDuration: 0 },
+                responsiveAnimationDuration: 0,
+                plugins: {
+                    colorschemes: {
+                        scheme: 'tableau.Tableau20'
+                    }
+                }
+            }
+        };
+
+        window.onload = function () {
+            Chart.defaults.line.spanGaps = false;
+            var ctx = document.getElementById('report-canvas').getContext('2d');
+            window.myReport = new Chart(ctx, config);
+        };
+        window.addEventListener('message', event => {
+            try {
+                const message = event.data;
+                vscode.postMessage({ message: 'got message ' + message.command + ' ' + Array.isArray(message.data) });
+                switch (message.command) {
+                    case 'update':
+                        vscode.postMessage({ message: 'update message.data.length=' + message.data.length });
+                        vscode.postMessage({ message: 'update config.data.datasets[0].data.length=' + config.data.datasets[0].data.length });
+                        for (let i = 0; i < message.data.length; ++i) {
+                            if (i < config.data.datasets.length) {
+                                config.data.datasets[i].label = message.data[i].label;
+                                config.data.datasets[i].data = message.data[i].data;
+                            } else {
+                                config.data.datasets.push({
+                                    label: message.data[i].label,
+                                    data: message.data[i].data,
+                                    fill: false,
+                                    borderWidth: 1,
+                                    pointRadius: 2
+                                });
+                            }
+                        }
+                        window.myReport.update();
+                        vscode.postMessage({ message: 'updated report data ' + message.data.length });
+
+                        break;
+                    case 'update labels':
+                        config.data.labels = message.labels;
+                        window.myReport.update();
+                        vscode.postMessage({ message: 'update labels #' + message.labels.length });
+                        break;
+                }
+            } catch (err) {
+                vscode.postMessage({ message: 'update got err:' + err });
+            }
+        });
+    </script>
+
+</body>
+
+</html>

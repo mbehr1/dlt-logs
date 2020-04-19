@@ -51,11 +51,14 @@ export class FilterNode implements TreeViewNode {
     constructor(public uri: vscode.Uri | null, public parent: TreeViewNode | null, public filter: DltFilter) {
         this.children = [];
         this.label = filter.name;
-        if (filter.atLoadTime) {
-            this.contextValue = 'filterLoadTime';
-        } else {
-            if (filter.enabled) { this.contextValue = 'filterEnabled'; } else { this.contextValue = 'filterDisabled'; };
-        }
+        if (filter.isReport) {
+            this.contextValue = 'filterReport';
+        } else
+            if (filter.atLoadTime) {
+                this.contextValue = 'filterLoadTime';
+            } else
+                if (filter.enabled) { this.contextValue = 'filterEnabled'; } else { this.contextValue = 'filterDisabled'; };
+
     }
 };
 
@@ -329,6 +332,18 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                     if (filterNode.filter.enabled) { filterNode.contextValue = 'filterEnabled'; } else { filterNode.contextValue = 'filterDisabled'; };
                     doc.onFilterChange(filterNode.filter);
                     this._onDidChangeTreeData.fire(filterNode); // or parent and this child?
+                }
+            }
+        }));
+
+        context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.openReport', async (...args: any[]) => {
+            const filterNode = <FilterNode>args[0];
+            const parentUri = filterNode.parent?.uri;
+            if (parentUri) {
+                const doc = this._documents.get(parentUri.toString());
+                if (doc) {
+                    console.log(`openReport(${filterNode.label}) called for doc=${parentUri}`);
+                    doc.onOpenReport(context, filterNode.filter);
                 }
             }
         }));

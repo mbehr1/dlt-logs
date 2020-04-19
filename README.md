@@ -28,6 +28,8 @@ This Visual Studio Code(tm) extension adds support to open DLT (diagnostic log a
 - Support **DLT file transfer** file extraction (and automatic filtering of FLDA msgs). Shows the file transfers and allows to save any file.
 - **Quickly configurable columns**. Simply press the "select columns..." button in upper right corner of the document and select which one to show. The changes get stored permanently as global settings `dlt-logs.columns`.
 ![Quickly configureable columns](https://github.com/mbehr1/dlt-logs/raw/master/images/selectColumns.png)
+- **Graphical time series reports** based on event filters. You can define event filters (type: 3), add normal filters and use a payloadRegex that captures either one value or even multiple values with named capture groups (?<series_name>.*). All captures needs to represent numbers. Grid lines for lifecycle start/ends are automatically added. To open a report simply press on the "report" icon next to the filter.
+![Graphical time series reports](https://github.com/mbehr1/dlt-logs/raw/master/images/timeSeriesReport1.png)
 
 The extension uses telemetry with two events (`activate` (no parameters) and `open file` (file size as parameter)) if telemetry is activated within your general configuration.
 
@@ -112,6 +114,26 @@ Open an [issue](https://github.com/mbehr1/dlt-logs/issues) or create a pull requ
 ## Release Notes
 
 See [Changelog](./CHANGELOG.md)
+
+## Third-party Content
+
+This project leverages the following third party content.
+
+binary-parser (1.5.0)
+ - License: MIT https://github.com/keichi/binary-parser/blob/master/LICENSE.md
+ - Source: https://github.com/keichi/binary-parser
+
+momentjs.com (2.13.0)
+ - License: MIT
+ - Source: https://momentjs.com
+
+chartjs.org (2.8.0)
+ - License: MIT https://github.com/chartjs/Chart.js/blob/master/LICENSE.md
+ - Source: https://github.com/chartjs/Chart.js
+
+ chartjs-plugin-colorschemes
+  - License: MIT https://github.com/nagix/chartjs-plugin-colorschemes/blob/master/LICENSE.md
+  - Source: https://github.com/nagix/chartjs-plugin-colorschemes
 
 <!--
 * Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux)
