@@ -4,6 +4,9 @@ All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
 
+## [0.9.2]
+- Added time-series report feature
+
 ## [0.9.1]
 - Add decoration for lifecycles.
 - Smaller fixes regarding decorations in case of skipped msgs.
