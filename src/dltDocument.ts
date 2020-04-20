@@ -1110,8 +1110,32 @@ export class DltDocument {
         const lcEndDate: Date = lcDates[lcDates.length - 1];
         console.log(`lcStartDate=${lcStartDate}, lcEndDate=${lcEndDate}`);
 
+        let gotAlive = false;
+        let msgsToPost: any[] = [];
+        const postMsgOnceAlive = function (msg: any) {
+            if (gotAlive) { // send instantly
+                const msgCmd = msg.command;
+                panel.webview.postMessage(msg).then((onFulFilled) => {
+                    console.log(`webview.postMessage(${msgCmd}) direct ${onFulFilled}`);
+                });
+            } else {
+                msgsToPost.push(msg);
+            }
+        };
+
         panel.webview.onDidReceiveMessage((e) => {
             console.log(`report.onDidReceiveMessage e=${e.message}`, e);
+            gotAlive = true;
+            // any messages to post?
+            if (msgsToPost.length) {
+                let msg: any;
+                while (msg = msgsToPost.pop()) {
+                    const msgCmd = msg.command;
+                    panel.webview.postMessage(msg).then((onFulFilled) => {
+                        console.log(`webview.postMessage(${msgCmd}) queued ${onFulFilled}`);
+                    });
+                }
+            }
         });
 
         // load template and set a html:
@@ -1167,12 +1191,7 @@ export class DltDocument {
         }
         console.log(` have ${dataSets.size} data sets.`);
         if (dataSets.size) {
-            // todo might be safer to wait until the page is loaded first?
-            // e.g. until we got the hello ... message?
-
-            panel.webview.postMessage({ command: "update labels", labels: lcDates }).then((onFulFilled) => {
-                console.log(`webview.postMessage(update labels) ${onFulFilled}`);
-            });
+            postMsgOnceAlive({ command: "update labels", labels: lcDates });
 
             // convert into an array object {label, data}
             let datasetArray: any[] = [];
@@ -1194,9 +1213,7 @@ export class DltDocument {
                 datasetArray.push({ label: label, data: data });
             });
 
-            panel.webview.postMessage({ command: "update", data: datasetArray }).then((onFulFilled) => {
-                console.log(`webview.postMessage(update) ${onFulFilled}`);
-            });
+            postMsgOnceAlive({ command: "update", data: datasetArray });
         }
 
     }

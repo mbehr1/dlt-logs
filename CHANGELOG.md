@@ -4,6 +4,9 @@ All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
 
+## [0.9.4]
+- Synchronize messages to the report webview.
+
 ## [0.9.3]
 - Fixed timeSeriesReport not part of package.
 
