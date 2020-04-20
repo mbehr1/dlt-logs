@@ -15,6 +15,52 @@
             -moz-user-select: none;
             -webkit-user-select: none;
         }
+
+        checkbox {
+            color: var(--vscode-settings-checkboxForeground);
+            background: var(--vscode-settings-checkboxForeground);
+            border: var(--vscode-settings-checkboxBorder);
+        }
+
+        input {
+            height: 17px;
+            padding: 6px;
+            border: solid 1px;
+            font-size: var(--vscode-editor-font-size);
+            font-family: var(--vscode-editor-font-family);
+            color: var(--vscode-settings-textInputForeground);
+            background: var(--vscode-settings-textInputBackground);
+            border: 1px solid var(--vscode-settings-textInputBorder);
+        }
+
+        body {
+            color: var(--vscode-editor-foreground);
+            background-color: var(--vscode-editor-background);
+            font-family: var(--vscode-editor-font-family);
+            font-weight: var(--vscode-editor-font-weight);
+            font-size: var(--vscode-editor-font-size);
+
+        }
+
+        button {
+            color: var(--vscode-button-foreground);
+            background-color: var(--vscode-button-background);
+            border: solid 1px var(--vscode-contrastBorder);
+            padding: 6px 14px;
+        }
+
+        button:hover {
+            background-color: var(--vscode-button-hoverBackground);
+        }
+
+        button:focus {
+            outline: 1px solid -webkit-focus-ring-color;
+            outline-offset: 2px
+        }
+
+        button:active {
+            outline: none;
+        }
     </style>
 </head>
 
@@ -23,6 +69,8 @@
         <canvas id="report-canvas"></canvas>
     </div>
     <br>
+    <button id="toggleLifecycleStart">Toggle lifecycle start</button><br>
+
     <script>
         var config = {
             type: 'line',
@@ -57,10 +105,6 @@
                         ticks: {
                             source: 'labels',
                             minRotation: 30,
-                            major: {
-                                fontStyle: 'bold',
-                                fontColor: '#FF0000'
-                            }
                         }
                     }],
                     yAxes: [{
@@ -122,6 +166,19 @@
             } catch (err) {
                 vscode.postMessage({ message: 'update got err:' + err });
             }
+        });
+
+        let lcStartDate = undefined;
+
+        document.getElementById('toggleLifecycleStart').addEventListener('click', function () {
+            console.log("toggleLifecycleStart " + lcStartDate);
+            if (lcStartDate !== undefined) {
+                config.data.labels.unshift(lcStartDate);
+                lcStartDate = undefined;
+            } else {
+                lcStartDate = config.data.labels.shift();
+            }
+            window.myReport.update();
         });
     </script>
 
