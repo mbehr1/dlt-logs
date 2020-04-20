@@ -1115,7 +1115,7 @@ export class DltDocument {
         });
 
         // load template and set a html:
-        const htmlFile = fs.readFileSync(path.join(context.extensionPath, 'src', 'timeSeriesReport.html'));
+        const htmlFile = fs.readFileSync(path.join(context.extensionPath, 'media', 'timeSeriesReport.html'));
         if (htmlFile.length) {
             panel.webview.html = htmlFile.toString();
         } else {
