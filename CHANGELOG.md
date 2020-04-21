@@ -4,6 +4,9 @@ All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
 
+## [0.9.7]
+- Moved activity view into "Logs" (added new "logo") (so that it will appear with smart-logs in one view-container)
+
 ## [0.9.6]
 - Add "adjustTime" implementation including a "sync to last received time event".
 
