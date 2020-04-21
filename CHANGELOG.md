@@ -4,6 +4,9 @@ All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
 
+## [0.9.6]
+- Add "adjustTime" implementation including a "sync to last received time event".
+
 ## [0.9.5]
 - Add "toggle lifecycle start" button to reports that allow to remove the first part of the lifecycle that contains no log messages.
 

@@ -282,6 +282,53 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
             }
         }));
 
+        // register command for adjustTime
+        this._subscriptions.push(vscode.commands.registerTextEditorCommand("dlt-logs.adjustTime", async (textEditor) => {
+            console.log(`dlt-logs.adjustTime for ${textEditor.document.uri.toString()} called...`);
+            let doc = this._documents.get(textEditor.document.uri.toString());
+            if (doc) {
+                let curAdjustMs: number = doc.timeAdjustMs;
+
+                // check first whether we shall use the last received time event?
+                // we do this only if we didn't receive any timeSyncs (assuming that the next one will auto update anyhow so it makes no sense to change man.)
+                let doManualPrompt = true;
+                if (!doc.gotTimeSyncEvents && doc.lastSelectedTimeEv) {
+                    // determine current selected time:
+                    if (textEditor.selections.length === 1) {
+                        const line = textEditor.selections[0].active.line; // 0-based
+                        const time = doc.provideTimeByLine(line);
+                        if (time) {
+                            // calc adjust value:
+                            let selTimeAdjustValue = doc.lastSelectedTimeEv.valueOf() - time.valueOf();
+                            let response: string | undefined =
+                                await vscode.window.showInformationMessage(`Adjust based on last received time event (adjust by ${selTimeAdjustValue / 1000} secs)?`,
+                                    { modal: true }, "yes", "no");
+                            if (response === "yes") {
+                                doManualPrompt = false;
+                                doc.adjustTime(selTimeAdjustValue);
+                                if (doc.timeSyncs.length) {
+                                    this._onDidChangeSelectedTime.fire({ time: new Date(0), uri: doc.uri, timeSyncs: doc.timeSyncs });
+                                }
+                            } else if (!response) {
+                                doManualPrompt = false;
+                            }
+                        }
+                    }
+                }
+                if (doManualPrompt) {
+                    vscode.window.showInputBox({ prompt: `Enter time adjust in secs (cur = ${curAdjustMs / 1000}):`, value: (curAdjustMs / 1000).toString() }).then(async (value: string | undefined) => {
+                        if (value && doc) {
+                            let newAdjustMs: number = (+value) * 1000;
+                            doc.adjustTime(newAdjustMs);
+                            if (doc.timeSyncs.length) {
+                                this._onDidChangeSelectedTime.fire({ time: new Date(0), uri: doc.uri, timeSyncs: doc.timeSyncs });
+                            }
+                        }
+                    });
+                }
+            }
+        }));
+
         // visible range
         this._subscriptions.push(vscode.window.onDidChangeTextEditorVisibleRanges(util.throttle((e) => {
             if (e.visibleRanges.length === 1) {
@@ -491,6 +538,9 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                 console.log(`dlt-log.handleDidChangeSelectedTime got ev from uri=${ev.uri.toString()}`);
                 if (ev.time.valueOf() > 0) {
                     console.log(` trying to reveal ${ev.time.toLocaleTimeString()} at doc ${doc.uri.toString()}`);
+                    // store the last received time to be able to us this for the adjustTime command as reference:
+                    doc.lastSelectedTimeEv = ev.time;
+
                     let line = doc.lineCloseToDate(ev.time);
                     if (line >= 0 && doc.textEditors) {
                         const posRange = new vscode.Range(line, 0, line, 0);
@@ -533,6 +583,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                         const avgAdjust = adjustTimeBy.reduce((a, b) => a + b, 0) / adjustTimeBy.length;
                         console.log(`have ${adjustTimeBy.length} time adjustments with min=${minAdjust}, max=${maxAdjust}, avg=${avgAdjust} ms.`);
                         if (Math.abs(avgAdjust) > 100) {
+                            doc.gotTimeSyncEvents = true;
                             doc.adjustTime(avgAdjust);
                         }
                     } else

@@ -14,6 +14,7 @@ This Visual Studio Code(tm) extension adds support to open DLT (diagnostic log a
 - **Time sync** feature.
   - Calculates time for each line based on timestamp and reception/storage time.
   - An offset for the full time can be set via context menu item *adjust-time...*.
+  - If a time was received already the *adjust-time...* will propose to adjust/sync that line to the selected one.
   - Posts events of the selected time to other documents/plugins. (See ... <todo>).
 - Detects the lifecycles and shows them in a tree-view.
   - Lifecycles can be graphically decorated by defining *dlt-log.decorations* with id 'lifecycleEven' (for the lifecycles #0, #2,...) / 'lifecycleOdd' (for the lifecycles #1,#3,...). Default decorations contains light transparent green(dark)/gray(light) background for 'lifecycleOdd'. Only the ECU with the highest amount of messages will be decorated.
@@ -99,8 +100,6 @@ This extension contributes the following settings:
 Little testing especially on different endianess.
 
 * Marker filters only partially implemented yet. 3 hard-coded filters are highlighting log levels warning, error and fatal if the decorationIds "warning", "error" and "fatal" do exist.
-* Sometimes after changing filters at runtime decorations/markers don't become active. Workaround: switch to a different editor window and back.
-* Time adjust is not possible yet. (If you use it with **smart-log** adjust the time there if needed!)
 * Non-verbose support is missing yet.
 * Endianess is not tested/implemented! If you send me a DLT log with different endianess I'll implement it.
 

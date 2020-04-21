@@ -102,6 +102,10 @@ export class DltDocument {
     timeSyncs: TimeSyncData[] = [];
     // cachedTimes?: Array<Date>; // per line one date/time
     private _timeAdjustMs: number = 0; // adjust in ms
+    lastSelectedTimeEv: Date | undefined; // the last received time event that might have been used to reveal our line. used for adjustTime on last event feature.
+    gotTimeSyncEvents: boolean = false; // we've been at least once to sync time based on timeSync events
+
+    get timeAdjustMs(): number { return this._timeAdjustMs; } // read only. use adustTime to change
 
     private _realStat: fs.Stats;
 
