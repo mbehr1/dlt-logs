@@ -74,9 +74,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
     }
 
     private _dltLifecycleTreeView: vscode.TreeView<TreeViewNode> | undefined = undefined;
-    private _dltLifecycleRootNode: TreeViewNode = { label: "Detected lifecycles", uri: null, parent: null, children: [] };
-    private _dltFilterRootNode: TreeViewNode = { label: "Filters", uri: null, parent: null, children: [] };
-    private _dltPluginRootNode: TreeViewNode = { label: "Plugins", uri: null, parent: null, children: [] };
+    private _treeRootNodes: TreeViewNode[] = []; // one root node per document.
     private _onDidChangeTreeData: vscode.EventEmitter<TreeViewNode | null> = new vscode.EventEmitter<TreeViewNode | null>();
     readonly onDidChangeTreeData: vscode.Event<TreeViewNode | null> = this._onDidChangeTreeData.event;
 
@@ -131,7 +129,6 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                         }));
                     }
                     this._onDidChangeTreeData.fire();
-                    this._dltLifecycleTreeView.reveal(doc.lifecycleTreeNode, { focus: true, select: false, expand: true }); // { label: "", uri: null, parent: null, children: [] });
                 }
             }
         }));
@@ -147,38 +144,16 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                 if (doc.textDocument) {
                     console.log(`  deleting document with uri=${doc.textDocument.uri.toString()}`);
                     doc.textDocument = undefined;
-                    let childNode: TreeViewNode = doc.lifecycleTreeNode;
-                    for (let i = 0; i < this._dltLifecycleRootNode.children.length; ++i) {
-                        if (this._dltLifecycleRootNode.children[i] === childNode) {
-                            this._dltLifecycleRootNode.children.splice(i, 1);
+                    let childNode: TreeViewNode = doc.treeNode;
+                    for (let i = 0; i < this._treeRootNodes.length; ++i) {
+                        if (this._treeRootNodes[i] === childNode) {
+                            this._treeRootNodes.splice(i, 1);
                             console.log(`  deleting rootNode with #${i}`);
                             break;
                         }
                     }
-                    childNode = doc.filterTreeNode;
-                    for (let i = 0; i < this._dltFilterRootNode.children.length; ++i) {
-                        if (this._dltFilterRootNode.children[i] === childNode) {
-                            this._dltFilterRootNode.children.splice(i, 1);
-                            console.log(`  deleting filter rootNode with #${i}`);
-                            break;
-                        }
-                    }
-
-                    let childNodes = doc.pluginNodes;
-                    for (let i = 0; i < this._dltPluginRootNode.children.length; ++i) {
-                        for (let j = 0; j < childNodes.length; ++j) {
-                            if (this._dltPluginRootNode.children[i] === childNodes[j]) {
-                                this._dltPluginRootNode.children.splice(i, 1);
-                                console.log(`  deleting plugin rootNode with #${i}`);
-                                i--; // we modified dltPluginRootNode and need to continue from next one
-                                break;
-                            }
-                        }
-                    }
                     this._documents.delete(uriStr);
-                    this._onDidChangeTreeData.fire(this._dltLifecycleRootNode);
-                    this._onDidChangeTreeData.fire(this._dltFilterRootNode);
-                    this._onDidChangeTreeData.fire(this._dltPluginRootNode);
+                    this._onDidChangeTreeData.fire();
                 }
             }
         }));
@@ -188,8 +163,8 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
             console.log(`DltDocumentProvider onDidChangeTextDocument uri=${uriStr}`);
             let data = this._documents.get(uriStr);
             if (data) {
-                this._onDidChangeTreeData.fire(data.lifecycleTreeNode);
-                this._dltLifecycleTreeView?.reveal(data.lifecycleTreeNode, { select: false, focus: false, expand: true });
+                this._onDidChangeTreeData.fire(data.treeNode);
+                this._dltLifecycleTreeView?.reveal(data.treeNode, { select: false, focus: false, expand: true });
                 this.updateDecorations(data);
                 // time sync events?
                 if (data.timeSyncs.length) {
@@ -210,8 +185,8 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                         data.textEditors.push(activeTextEditor);
                     } // todo remove?
                     // or fire as well if the active one is not supported?
-                    this._onDidChangeTreeData.fire(data.lifecycleTreeNode.parent); // or parent and this child?
-                    this._dltLifecycleTreeView?.reveal(data.lifecycleTreeNode, { select: false, focus: true, expand: true });
+                    this._onDidChangeTreeData.fire(data.treeNode);
+                    this._dltLifecycleTreeView?.reveal(data.treeNode, { select: false, focus: true, expand: true });
                     //this.checkActiveTextEditor(data);
                     this.updateDecorations(data);
                 }
@@ -362,7 +337,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                     filterNode.label = filterNode.filter.name; // dirty. add to FilterNode class!
                     if (filterNode.filter.enabled) { filterNode.contextValue = 'filterEnabled'; } else { filterNode.contextValue = 'filterDisabled'; };
                     doc.onFilterChange(filterNode.filter);
-                    this._onDidChangeTreeData.fire(filterNode); // or parent and this child?
+                    this._onDidChangeTreeData.fire(filterNode);
                 }
             }
         }));
@@ -378,7 +353,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                     filterNode.label = filterNode.filter.name;
                     if (filterNode.filter.enabled) { filterNode.contextValue = 'filterEnabled'; } else { filterNode.contextValue = 'filterDisabled'; };
                     doc.onFilterChange(filterNode.filter);
-                    this._onDidChangeTreeData.fire(filterNode); // or parent and this child?
+                    this._onDidChangeTreeData.fire(filterNode);
                 }
             }
         }));
@@ -508,7 +483,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
 
     // lifecycle tree view support:
     public getTreeItem(element: TreeViewNode): vscode.TreeItem {
-        // console.log(`smart-log.getTreeItem(${element.label}, ${element.uri?.toString()}) called.`);
+        // console.log(`dlt-logs.getTreeItem(${element.label}, ${element.uri?.toString()}) called.`);
         return {
             label: element.label.length ? element.label : "Detected lifecycles",
             contextValue: element.contextValue,
@@ -519,16 +494,18 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
     }
 
     public getChildren(element?: TreeViewNode): TreeViewNode[] | Thenable<TreeViewNode[]> {
-        // console.log(`smart-log.getChildren(${element?.label}, ${element?.uri?.toString()}) this=${this} called.`);
+        // console.log(`dlt-logs.getChildren(${element?.label}, ${element?.uri?.toString()}) this=${this} called (#treeRootNode=${this._treeRootNodes.length}).`);
         if (!element) { // if no element we have to return the root element.
-            return [this._dltLifecycleRootNode, this._dltFilterRootNode, this._dltPluginRootNode];
+            // console.log(`dlt-logs.getChildren(undefined), returning treeRootNodes`);
+            return this._treeRootNodes;
         } else {
+            // console.log(`dlt-logs.getChildren(${element?.label}, returning children = ${element.children.length}`);
             return element.children;
         }
     }
 
     public getParent(element: TreeViewNode): vscode.ProviderResult<TreeViewNode> {
-        // console.log(`smart-log.getParent(${element.label}, ${element.uri?.toString()}) called.`);
+        // console.log(`dlt-logs.getParent(${element.label}, ${element.uri?.toString()}) = ${element.parent?.label} called.`);
         return element.parent;
     }
 
@@ -636,7 +613,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
         console.log(`dlt-logs.stat(uri=${uri.toString()})... isDirectory=${realStat.isDirectory()}}`);
         if (!document && realStat.isFile() && (true /* todo dlt extension */)) {
             try {
-                document = new DltDocument(uri, this._onDidChangeFile, this._onDidChangeTreeData, this._dltLifecycleRootNode, this._dltFilterRootNode, this._dltPluginRootNode, this._reporter);
+                document = new DltDocument(uri, this._onDidChangeFile, this._onDidChangeTreeData, this._treeRootNodes, this._reporter);
                 this._documents.set(uri.toString(), document);
             } catch (error) {
                 console.log(` dlt-logs.stat(uri=${uri.toString()}) returning realStat ${realStat.size} size.`);
@@ -661,7 +638,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
         let doc = this._documents.get(uri.toString());
         console.log(`dlt-logs.readFile(uri=${uri.toString()})...`);
         if (!doc) {
-            doc = new DltDocument(uri, this._onDidChangeFile, this._onDidChangeTreeData, this._dltLifecycleRootNode, this._dltFilterRootNode, this._dltPluginRootNode, this._reporter);
+            doc = new DltDocument(uri, this._onDidChangeFile, this._onDidChangeTreeData, this._treeRootNodes, this._reporter);
             this._documents.set(uri.toString(), doc);
         }
         return Buffer.from(doc.text);

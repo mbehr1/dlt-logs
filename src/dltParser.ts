@@ -275,7 +275,7 @@ export class DltMsg {
         }
     }
 
-    static emptyBuffer: Buffer = new Buffer(0);
+    static emptyBuffer: Buffer = Buffer.alloc(0);
 
     get payloadString(): string {
         if (this._payloadText) {

@@ -80,6 +80,7 @@ export class DltDocument {
         return this._text;
     }
 
+    treeNode: TreeViewNode;
     lifecycleTreeNode: TreeViewNode;
     filterTreeNode: TreeViewNode;
     pluginTreeNode: TreeViewNode; // this is from the parent = DltDocumentProvider
@@ -110,7 +111,7 @@ export class DltDocument {
     private _realStat: fs.Stats;
 
     constructor(uri: vscode.Uri, docEventEmitter: vscode.EventEmitter<vscode.FileChangeEvent[]>, treeEventEmitter: vscode.EventEmitter<TreeViewNode | null>,
-        parentTreeNode: TreeViewNode, filterParentTreeNode: TreeViewNode, pluginTreeNode: TreeViewNode, reporter?: TelemetryReporter) {
+        parentTreeNode: TreeViewNode[], reporter?: TelemetryReporter) {
         this.uri = uri;
         this._reporter = reporter;
         this._docEventEmitter = docEventEmitter;
@@ -133,9 +134,20 @@ export class DltDocument {
             });
         }
 
+        this.lifecycleTreeNode = { label: "Detected lifecycles", uri: this.uri, parent: null, children: [] };
+        this.filterTreeNode = { label: "Filters", uri: this.uri, parent: null, children: [] };
+        this.pluginTreeNode = { label: "Plugins", uri: this.uri, parent: null, children: [] };
+        this.treeNode = {
+            label: `${path.basename(this._fileUri.fsPath)}`, uri: this.uri, parent: null, children: [
+                this.lifecycleTreeNode,
+                this.filterTreeNode,
+                this.pluginTreeNode,
+            ]
+        };
+        this.treeNode.children.forEach((child) => { child.parent = this.treeNode; });
+        parentTreeNode.push(this.treeNode);
+
         // load filters: 
-        this.filterTreeNode = { label: `${path.basename(this._fileUri.fsPath)}`, uri: this.uri, parent: parentTreeNode, children: [] };
-        filterParentTreeNode.children.push(this.filterTreeNode);
 
         // todo add onDidChangeConfiguration handling to reflect filter changes at runtime
         {
@@ -146,15 +158,12 @@ export class DltDocument {
             const filterObjs = vscode.workspace.getConfiguration().get<Array<object>>("dlt-logs.filters");
             this.parseFilterConfigs(filterObjs);
         }
-        this.pluginTreeNode = pluginTreeNode;
         {
             // plugins:
             const pluginObjs = vscode.workspace.getConfiguration().get<Array<object>>("dlt-logs.plugins");
             this.parsePluginConfigs(pluginObjs);
         }
 
-        this.lifecycleTreeNode = { label: `${path.basename(this._fileUri.fsPath)}`, uri: this.uri, parent: parentTreeNode, children: [] };
-        parentTreeNode.children.push(this.lifecycleTreeNode);
 
         const maxNrMsgsConf = vscode.workspace.getConfiguration().get<number>('dlt-logs.maxNumberLogs');
         this._maxNrMsgs = maxNrMsgsConf ? maxNrMsgsConf : 1000000; // 1mio default
@@ -259,7 +268,7 @@ export class DltDocument {
                     switch (pluginName) {
                         case 'FileTransfer':
                             {
-                                let treeNode = { label: `File transfer from '${path.basename(this.uri.fsPath)}'`, uri: this.uri, parent: this.pluginTreeNode, children: [] };
+                                let treeNode = { label: `File transfers`, uri: this.uri, parent: this.pluginTreeNode, children: [] };
                                 const plugin = new DltFileTransferPlugin(this.uri, treeNode, this._treeEventEmitter, pluginObj);
                                 this.pluginNodes.push(treeNode);
                                 this.pluginTreeNode.children.push(treeNode);

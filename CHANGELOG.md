@@ -3,6 +3,9 @@
 All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
+## [0.9.8]
+- Sort the Dlt logs explorer tree view by files on first level and then by lifecycles, filters, plugins.
+- Fix the bug of multiple entries of same type in Dlt logs tree view.
 
 ## [0.9.7]
 - Moved activity view into "Logs" (added new "logo") (so that it will appear with smart-logs in one view-container)
