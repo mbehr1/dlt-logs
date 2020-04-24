@@ -33,7 +33,15 @@ export interface SelectedTimeData {
     timeSyncs?: Array<TimeSyncData>; // these are not specific to a selected line. Time will be 0 then.
 };
 
+let _nextUniqueId: number = 1;
+export function createUniqueId(): string {
+    const toRet = _nextUniqueId.toString();
+    _nextUniqueId++;
+    return toRet;
+}
+
 export interface TreeViewNode {
+    id: string; // unique id
     label: string;
     uri: vscode.Uri | null; // index provided as fragment #<index>
     parent: TreeViewNode | null;
@@ -43,6 +51,7 @@ export interface TreeViewNode {
 };
 
 export class FilterNode implements TreeViewNode {
+    id: string;
     label: string;
     //uri: vscode.Uri | null; // index provided as fragment #<index>
     //parent: TreeViewNode | null;
@@ -50,6 +59,7 @@ export class FilterNode implements TreeViewNode {
     contextValue: string;
     constructor(public uri: vscode.Uri | null, public parent: TreeViewNode | null, public filter: DltFilter) {
         this.children = [];
+        this.id = createUniqueId();
         this.label = filter.name;
         if (filter.isReport) {
             this.contextValue = 'filterReport';

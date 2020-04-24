@@ -6,7 +6,7 @@ import * as vscode from 'vscode';
 import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
-import { TreeViewNode } from './dltDocumentProvider';
+import { TreeViewNode, createUniqueId } from './dltDocumentProvider';
 import { DltFilter, DltFilterType } from './dltFilter';
 import { DltMsg, MSTP, MTIN_LOG, MTIN_CTRL } from './dltParser';
 import { SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS } from 'constants';
@@ -52,6 +52,7 @@ DLT_LOG(*fileContext, DLT_LOG_INFO,
 */
 
 export class DltFileTransfer implements TreeViewNode {
+    id: string;
     label: string;
     //uri: vscode.Uri | null; // index provided as fragment #<index>
     //parent: TreeViewNode | null;
@@ -67,6 +68,7 @@ export class DltFileTransfer implements TreeViewNode {
         public serial: number, public fileName: string, public fileSize: number | undefined, public fileCreationDate: string | undefined, public nrPackages: number | undefined, public bufferSize: number | undefined,
         public startMsg: DltMsg) {
         this.children = [];
+        this.id = createUniqueId();
         if (this.fileSize) {
             this.label = `Incomplete (0/${this.nrPackages}) file transfer '${this.fileName}' ${Math.ceil(this.fileSize / 1024)}kb`;
         } else {

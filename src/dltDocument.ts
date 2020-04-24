@@ -9,7 +9,7 @@ import * as path from 'path';
 import * as util from './util';
 import { DltParser, DltMsg, MSTP, MTIN_LOG, MTIN_CTRL, MTIN_CTRL_strs, MTIN_LOG_strs, MTIN_TRACE_strs, MTIN_NW_strs } from './dltParser';
 import { DltLifecycleInfo } from './dltLifecycle';
-import { TreeViewNode, FilterNode, TimeSyncData } from './dltDocumentProvider';
+import { TreeViewNode, FilterNode, TimeSyncData, createUniqueId } from './dltDocumentProvider';
 import { DltFilter, DltFilterType } from './dltFilter';
 import TelemetryReporter from 'vscode-extension-telemetry';
 import { DltFileTransferPlugin } from './dltFileTransfer';
@@ -134,10 +134,11 @@ export class DltDocument {
             });
         }
 
-        this.lifecycleTreeNode = { label: "Detected lifecycles", uri: this.uri, parent: null, children: [] };
-        this.filterTreeNode = { label: "Filters", uri: this.uri, parent: null, children: [] };
-        this.pluginTreeNode = { label: "Plugins", uri: this.uri, parent: null, children: [] };
+        this.lifecycleTreeNode = { id: createUniqueId(), label: "Detected lifecycles", uri: this.uri, parent: null, children: [] };
+        this.filterTreeNode = { id: createUniqueId(), label: "Filters", uri: this.uri, parent: null, children: [] };
+        this.pluginTreeNode = { id: createUniqueId(), label: "Plugins", uri: this.uri, parent: null, children: [] };
         this.treeNode = {
+            id: createUniqueId(),
             label: `${path.basename(this._fileUri.fsPath)}`, uri: this.uri, parent: null, children: [
                 this.lifecycleTreeNode,
                 this.filterTreeNode,
@@ -268,7 +269,7 @@ export class DltDocument {
                     switch (pluginName) {
                         case 'FileTransfer':
                             {
-                                let treeNode = { label: `File transfers`, uri: this.uri, parent: this.pluginTreeNode, children: [] };
+                                let treeNode = { id: createUniqueId(), label: `File transfers`, uri: this.uri, parent: this.pluginTreeNode, children: [] };
                                 const plugin = new DltFileTransferPlugin(this.uri, treeNode, this._treeEventEmitter, pluginObj);
                                 this.pluginNodes.push(treeNode);
                                 this.pluginTreeNode.children.push(treeNode);
@@ -1062,13 +1063,14 @@ export class DltDocument {
                     // update the lifecycleNode:
                     this.lifecycleTreeNode.children = [];
                     this.lifecycles.forEach((lcInfo, ecu) => {
-                        let ecuNode: TreeViewNode = { label: `ECU: ${ecu}`, parent: this.lifecycleTreeNode, children: [], uri: this.uri };
+                        let ecuNode: TreeViewNode = { id: createUniqueId(), label: `ECU: ${ecu}`, parent: this.lifecycleTreeNode, children: [], uri: this.uri };
                         this.lifecycleTreeNode.children.push(ecuNode);
                         console.log(`${ecuNode.label}`);
                         // add lifecycles
                         for (let i = 0; i < lcInfo.length; ++i) {
                             const lc = lcInfo[i];
                             let lcNode: TreeViewNode = {
+                                id: createUniqueId(),
                                 label: `${lc.lifecycleStart.toUTCString()}-${lc.lifecycleEnd.toUTCString()} #${lc.logMessages.length}`,
                                 parent: ecuNode, children: [], uri: this.uri.with({ fragment: lc.startIndex.toString() })
                             };
