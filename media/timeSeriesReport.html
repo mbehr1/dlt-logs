@@ -133,6 +133,9 @@
             var ctx = document.getElementById('report-canvas').getContext('2d');
             window.myReport = new Chart(ctx, config);
         };
+
+        let minDataPointTime = undefined;
+
         window.addEventListener('message', event => {
             try {
                 const message = event.data;
@@ -161,6 +164,7 @@
                         break;
                     case 'update labels':
                         config.data.labels = message.labels;
+                        minDataPointTime = message.minDataPointTime;
                         window.myReport.update();
                         vscode.postMessage({ message: 'update labels #' + message.labels.length });
                         break;
@@ -170,15 +174,24 @@
             }
         });
 
-        let lcStartDate = undefined;
+        let lcStartDate = [];
 
         document.getElementById('toggleLifecycleStart').addEventListener('click', function () {
             console.log("toggleLifecycleStart " + lcStartDate);
-            if (lcStartDate !== undefined) {
-                config.data.labels.unshift(lcStartDate);
-                lcStartDate = undefined;
+            if (lcStartDate.length > 0) {
+                config.data.labels.shift(); // remove minDataPointTime
+                for (let i = 0; i < lcStartDate.length; ++i) {
+                    config.data.labels.unshift(lcStartDate[i]);
+                }
+                lcStartDate = [];
             } else {
-                lcStartDate = config.data.labels.shift();
+                // remove labels <= minDataPointTime:
+                if (minDataPointTime) {
+                    while (config.data.labels.length > 0 && config.data.labels[0].valueOf() <= minDataPointTime.valueOf()) { lcStartDate.push(config.data.labels.shift()); }
+                    if (lcStartDate.length > 0) {
+                        config.data.labels.unshift(minDataPointTime); // add minDataPointTime
+                    }
+                }
             }
             window.myReport.update();
         });

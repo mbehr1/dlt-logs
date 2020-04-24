@@ -1163,8 +1163,15 @@ export class DltDocument {
 
         let dataSets = new Map<string, any[]>();
 
+        let minDataPointTime: Date | undefined = undefined;
+
         const insertDataPoint = function (label: string, time: Date, value: number) {
             let dataSet = dataSets.get(label);
+
+            if ((minDataPointTime === undefined) || minDataPointTime.valueOf() > time.valueOf()) {
+                minDataPointTime = time;
+            }
+
             const dataPoint = { x: time, y: value };
             if (!dataSet) {
                 dataSets.set(label, [dataPoint]);
@@ -1206,7 +1213,7 @@ export class DltDocument {
         }
         console.log(` have ${dataSets.size} data sets.`);
         if (dataSets.size) {
-            postMsgOnceAlive({ command: "update labels", labels: lcDates });
+            postMsgOnceAlive({ command: "update labels", labels: lcDates, minDataPointTime: minDataPointTime });
 
             // convert into an array object {label, data}
             let datasetArray: any[] = [];
