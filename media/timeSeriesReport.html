@@ -131,9 +131,42 @@
                     colorschemes: {
                         scheme: 'tableau.Tableau20'
                     }
-                }
+                },
+                onClick: handleClick
             }
         };
+
+        // safely handles circular references
+        // https://stackoverflow.com/questions/11616630/how-can-i-print-a-circular-structure-in-a-json-like-format
+        JSON.safeStringify = (obj, indent = 2) => {
+            let cache = [];
+            const retVal = JSON.stringify(
+                obj,
+                (key, value) =>
+                    typeof value === "object" && value !== null
+                        ? cache.includes(value)
+                            ? undefined
+                            : cache.push(value) && value
+                        : value,
+                indent
+            );
+            cache = null;
+            return retVal;
+        };
+
+        function handleClick(evt) {
+            try {
+                const clickedElement = window.myReport.getElementAtEvent(evt);
+                if (clickedElement && clickedElement.length > 0) {
+                    var smallElement = { _index: clickedElement[0]._index, _datasetIndex: clickedElement[0]._datasetIndex };
+                    // var label = window.myReport.data.xLabels[clickedElement[0]._index];
+                    var dataPoint = window.myReport.data.datasets[smallElement._datasetIndex].data[smallElement._index];
+                    vscode.postMessage({ message: 'clicked', dataPoint: dataPoint });
+                }
+            } catch (err) {
+                vscode.postMessage({ message: 'clicked got err ' + err });
+            }
+        }
 
         window.onload = function () {
             Chart.defaults.line.spanGaps = false;

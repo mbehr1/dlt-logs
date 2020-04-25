@@ -1151,6 +1151,23 @@ export class DltDocument {
                     });
                 }
             }
+            switch (e.message) {
+                case 'clicked':
+                    try {
+                        const dateClicked: Date = new Date(e.dataPoint.x);
+                        console.log(`report.onDidReceiveMessage clicked date e=${dateClicked}`);
+                        let line = this.lineCloseToDate(dateClicked);
+                        if (line >= 0 && this.textEditors) {
+                            const posRange = new vscode.Range(line, 0, line, 0);
+                            this.textEditors.forEach((value) => {
+                                value.revealRange(posRange, vscode.TextEditorRevealType.AtTop);
+                            });
+                        }
+                    } catch (err) {
+                        console.warn(`report.onDidReceiveMessage clicked got err=${err}`, e);
+                    }
+                    break;
+            }
         });
 
         // load template and set a html:
