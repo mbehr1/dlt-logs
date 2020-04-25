@@ -35,6 +35,9 @@ export class DltFilter {
     timeSyncId: string | undefined;
     timeSyncPrio: number | undefined;
 
+    // report options:
+    reportOptions: any | undefined;
+
     constructor(options: any) { // we do need at least the type
         if ('type' in options) {
             this.type = options["type"];
@@ -89,6 +92,12 @@ export class DltFilter {
                 this.filterColour = options.filterColour;
             } else {
                 this.filterColour = "blue"; // default to blue
+            }
+        }
+
+        if (this.isReport) {
+            if ('reportOptions' in options) {
+                this.reportOptions = options.reportOptions;
             }
         }
 

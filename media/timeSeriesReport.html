@@ -4,7 +4,7 @@
 <head>
     <title>Report</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.13.0/moment.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@2.8.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-colorschemes"></script>
     <script>
         const vscode = acquireVsCodeApi(); // acquireVsCodeApi can only be invoked once
@@ -110,10 +110,17 @@
                         }
                     }],
                     yAxes: [{
-                        display: true,
+                        display: 'auto',
                         scaleLabel: {
                             display: true,
                             labelString: 'values'
+                        }
+                    },
+                    {
+                        display: 'auto',
+                        type: 'category',
+                        ticks: {
+                            reverse: true
                         }
                     }]
                 },
@@ -147,11 +154,19 @@
                         for (let i = 0; i < message.data.length; ++i) {
                             if (i < config.data.datasets.length) {
                                 config.data.datasets[i].label = message.data[i].label;
-                                config.data.datasets[i].data = message.data[i].data;
+                                if (message.data[i].dataYLabels.yLabels !== undefined) {
+                                    vscode.postMessage({ message: 'update config.data.yLabels=' + config.data.yLabels + ' with ' + message.data[i].dataYLabels.yLabels });
+                                    const dsi = config.data.datasets[i];
+                                    config.data.datasets[i].yAxisID = 'y-axis-1';
+                                    config.data.datasets[i].lineTension = 0;
+                                    config.options.scales.yAxes[1].labels = message.data[i].dataYLabels.yLabels;
+                                    //vscode.postMessage({ message: 'config.options.scales=' + JSON.stringify(config.options.scales, null, 2) });
+                                }
+                                config.data.datasets[i].data = message.data[i].dataYLabels.data;
                             } else {
-                                config.data.datasets.push({
+                                config.data.datasets.push({ // todo check for multiple yLabels
                                     label: message.data[i].label,
-                                    data: message.data[i].data,
+                                    data: message.data[i].dataYLabels.data,
                                     fill: false,
                                     borderWidth: 1,
                                     pointRadius: 2
@@ -163,7 +178,7 @@
 
                         break;
                     case 'update labels':
-                        config.data.labels = message.labels;
+                        config.data.xLabels = message.labels;
                         minDataPointTime = message.minDataPointTime;
                         window.myReport.update();
                         vscode.postMessage({ message: 'update labels #' + message.labels.length });
@@ -177,19 +192,19 @@
         let lcStartDate = [];
 
         document.getElementById('toggleLifecycleStart').addEventListener('click', function () {
-            console.log("toggleLifecycleStart " + lcStartDate);
+            console.log("toggleLifecycleStart " + lcStartDate.length);
             if (lcStartDate.length > 0) {
-                config.data.labels.shift(); // remove minDataPointTime
-                for (let i = 0; i < lcStartDate.length; ++i) {
-                    config.data.labels.unshift(lcStartDate[i]);
+                config.data.xLabels.shift(); // remove minDataPointTime
+                for (let i = lcStartDate.length - 1; i >= 0; --i) {
+                    config.data.xLabels.unshift(lcStartDate[i]);
                 }
                 lcStartDate = [];
             } else {
                 // remove labels <= minDataPointTime:
                 if (minDataPointTime) {
-                    while (config.data.labels.length > 0 && config.data.labels[0].valueOf() <= minDataPointTime.valueOf()) { lcStartDate.push(config.data.labels.shift()); }
+                    while (config.data.xLabels.length > 0 && config.data.xLabels[0].valueOf() <= minDataPointTime.valueOf()) { lcStartDate.push(config.data.xLabels.shift()); }
                     if (lcStartDate.length > 0) {
-                        config.data.labels.unshift(minDataPointTime); // add minDataPointTime
+                        config.data.xLabels.unshift(minDataPointTime); // add minDataPointTime
                     }
                 }
             }

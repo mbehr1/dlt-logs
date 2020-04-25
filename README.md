@@ -59,7 +59,7 @@ This extension contributes the following settings:
    * **positive**: filter need to match to include the message in the view. If no positive filter exists all msgs are assumed matching.
    * **negative**: if filter matches the message will not be included in the view.
    * **marker**: if filter matches the messages will be "marked"/decorated.
-   * **event**: used for time-sync event detection or for report generation.
+   * **event**: used for time-sync event detection or for report generation. For reports the payloadRegex must be used and capture data. If the capture group name starts with "STATE_" distinct/"state"/"level" values are assumed. Otherwise linear (float-)values.
 
    Currently filter can match for:
    * **ecu**: the ECU identifier.
@@ -82,6 +82,11 @@ This extension contributes the following settings:
    * **timeSyncId**: id of the event that will be broadcasted.
    * **timeSyncPrio**: prio of the event.
    (todo describe time-sync feature with an example)
+
+   For report generation filter can contain:
+   * **reportOptions**: object that can contain:
+     * **valueMap**: object that can contain keys matching to the captured data names and the property is an array with objects { capturedName : newName }. 
+     E.g."reportOptions": { "valueMap": { "STATE_onOff": [ { "1": "on" }, { "0": "off" }, {"ff": "invalid" }]}}
 
    Filter configuration changes will be applied on next file open.
    Details see (todo...).
@@ -126,7 +131,7 @@ momentjs.com (2.13.0)
  - License: MIT
  - Source: https://momentjs.com
 
-chartjs.org (2.8.0)
+chartjs.org (2.9.3)
  - License: MIT https://github.com/chartjs/Chart.js/blob/master/LICENSE.md
  - Source: https://github.com/chartjs/Chart.js
 

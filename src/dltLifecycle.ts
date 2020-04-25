@@ -6,7 +6,10 @@
 import * as assert from 'assert';
 import { DltParser, DltMsg, MSTP, MTIN_CTRL } from './dltParser';
 
+let _nextLcUniqueId = 1;
+
 export class DltLifecycleInfo {
+    uniqueId: number;
     private _startTime: Date; // within log
     readonly startIndex: number;
     lifecycleStart: Date; // including timestamp calc. e.g. _startTime - timestamp
@@ -15,6 +18,7 @@ export class DltLifecycleInfo {
     allCtrlRequests: boolean = true; // this lifecycle consists of only ctrl requests.
 
     constructor(logMsg: DltMsg) {
+        this.uniqueId = _nextLcUniqueId++;
         // if its a control message from logger we ignore the timestamp:
         let timeStamp = logMsg.timeStamp;
         if (logMsg.mstp === MSTP.TYPE_CONTROL && logMsg.mtin === MTIN_CTRL.CONTROL_REQUEST) {

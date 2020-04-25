@@ -3,6 +3,10 @@
 All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
+## [0.10.0]
+- 'Toggle lifecycle start' now considers overlapping lifecycles.
+- Added support for "state" reports. Capture name must start with "STATE_". "reportOptions.valueMap" can be added to the filter to map captured values to shown state names.
+
 ## [0.9.8]
 - Sort the Dlt logs explorer tree view by files on first level and then by lifecycles, filters, plugins.
 - Fix the bug of multiple entries of same type in Dlt logs tree view.
