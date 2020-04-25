@@ -135,9 +135,17 @@ chartjs.org (2.9.3)
  - License: MIT https://github.com/chartjs/Chart.js/blob/master/LICENSE.md
  - Source: https://github.com/chartjs/Chart.js
 
- chartjs-plugin-colorschemes
+chartjs-plugin-colorschemes
   - License: MIT https://github.com/nagix/chartjs-plugin-colorschemes/blob/master/LICENSE.md
   - Source: https://github.com/nagix/chartjs-plugin-colorschemes
+
+chartjs-plugin-zoom (0.7.5)
+  - License: MIT https://github.com/chartjs/chartjs-plugin-zoom/blob/master/LICENSE.md
+  - Source: https://github.com/chartjs/chartjs-plugin-zoom
+
+hammer.js (2.0.8)
+  - License: MIT https://github.com/hammerjs/hammer.js/blob/master/LICENSE.md
+  - Source: https://github.com/hammerjs/hammer.js
 
 <!--
 * Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux)

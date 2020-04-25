@@ -1197,7 +1197,7 @@ export class DltDocument {
                 if (insertPrevState) {
                     // do we have a prev. state in same lifecycle?
                     const prevStateDP = { x: new Date(time.valueOf() - 1), y: dataSet.data[dataSet.data.length - 1].y, lcId: dataSet.data[dataSet.data.length - 1].lcId };
-                    if (prevStateDP.y !== dataPoint.y && dataPoint.lcId === prevStateDP.lcId) {
+                    if (prevStateDP.y !== dataPoint.y && dataPoint.lcId === prevStateDP.lcId && prevStateDP.x.valueOf() > dataSet.data[dataSet.data.length - 1].x.valueOf()) {
                         // console.log(`inserting prev state datapoint with y=${prevStateDP.y}`);
                         dataSet.data.push(prevStateDP);
                     }
@@ -1367,7 +1367,7 @@ export class DltDocument {
                                     const valB = b.x.valueOf();
                                     if (valA < valB) { return -1; }
                                     if (valA > valB) { return 1; }
-                                    return 0;
+                                    return data.data.indexOf(a) - data.data.indexOf(b); // if same time keep order!
                                 });
                             }
                         } else {
@@ -1382,7 +1382,7 @@ export class DltDocument {
                         const valB = b.x.valueOf();
                         if (valA < valB) { return -1; }
                         if (valA > valB) { return 1; }
-                        return 0;
+                        return data.data.indexOf(a) - data.data.indexOf(b);
                     });
                 }
 

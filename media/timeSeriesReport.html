@@ -6,9 +6,11 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.13.0/moment.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-colorschemes"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@0.7.5"></script>
+
     <script>
         const vscode = acquireVsCodeApi(); // acquireVsCodeApi can only be invoked once
-        vscode.postMessage({ message: 'hello from timeSeriesReport.html' });
     </script>
     <style>
         canvas {
@@ -62,6 +64,7 @@
             outline: none;
         }
     </style>
+    <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
 </head>
 
 <body>
@@ -69,11 +72,31 @@
         <canvas id="report-canvas"></canvas>
     </div>
     <br>
-    <button id="toggleLifecycleStart"
-        title="This toggles the display of the detected lifecycle start until the first message. So removing the leftmost empty time of the first lifecycle.">Toggle
-        lifecycle start</button><br>
+    <div id="buttons">
+        <div class="w3-row-padding">
+            <div class="w3-third" id="lifecycleOptions">
+                <button id="toggleLifecycleStart"
+                    title="This toggles the display of the detected lifecycle start until the first message. So removing the leftmost empty time of the first lifecycle.">Toggle
+                    lifecycle start</button>
+            </div>
+            <div class="w3-third" id="empty">
+                <br>
+            </div>
+            <div class="w3-third" id="reportSettings">
+                <button onclick="resetZoom()">Reset zoom</button>
+                <button id="drag-switch" onclick="toggleDragMode()"
+                    title="In drag mode you can select the area to zoom into by mouse. In non-drag mode you can zoom+pan with the mouse.">
+                    Enable drag mode</button>
+            </div>
+        </div>
+    </div>
 
     <script>
+
+        var dragOptions = {
+            animationDuration: 1000
+        };
+
         var config = {
             type: 'line',
             data: {
@@ -130,6 +153,18 @@
                 plugins: {
                     colorschemes: {
                         scheme: 'tableau.Tableau20'
+                    },
+                    zoom: {
+                        pan: {
+                            enabled: true,
+                            mode: 'x'
+                        },
+                        zoom: {
+                            enabled: true,
+                            drag: false,
+                            mode: 'x',
+                            speed: 0.05
+                        }
                     }
                 },
                 onClick: handleClick
@@ -243,6 +278,22 @@
             }
             window.myReport.update();
         });
+
+        window.resetZoom = function () {
+            window.myReport.resetZoom();
+        }
+
+        window.toggleDragMode = function () {
+            var zoomOptions = window.myReport.options.plugins.zoom.zoom;
+            zoomOptions.drag = zoomOptions.drag ? false : dragOptions;
+            window.myReport.options.plugins.zoom.pan.enabled = zoomOptions.drag ? false : true;
+
+            window.myReport.update();
+            document.getElementById('drag-switch').innerText = zoomOptions.drag ? "Disable drag mode" : "Enable drag mode";
+        }
+
+        vscode.postMessage({ message: 'hello from timeSeriesReport.html' });
+
     </script>
 
 </body>
