@@ -2,7 +2,7 @@
 	"name": "dlt-logs",
 	"displayName": "DLT-Logs",
 	"description": "Open DLT diagnostic log and trace files with lifecycle detection, filters, time-sync, etc.",
-	"version": "0.10.0",
+	"version": "0.11.0",
 	"license": "CC BY-NC-SA 4.0",
 	"publisher": "mbehr1",
 	"author": {
@@ -397,6 +397,11 @@
 				"icon": "$(graph)"
 			},
 			{
+				"command": "dlt-logs.openNewReport",
+				"title": "open as new report",
+				"icon": "$(expand-all)"
+			},
+			{
 				"command": "dlt-logs.fileTransferSave",
 				"title": "save as...",
 				"icon": "$(save-as)"
@@ -434,6 +439,7 @@
 				},
 				{
 					"command": "dlt-logs.openReport",
+					"alt": "dlt-logs.openNewReport",
 					"when": "view == dltLifecycleExplorer && viewItem == filterReport",
 					"group": "inline"
 				},

@@ -1099,21 +1099,32 @@ export class DltDocument {
     }
 
     private _reports: DltReport[] = [];
-    onOpenReport(context: vscode.ExtensionContext, filter: DltFilter) {
+    onOpenReport(context: vscode.ExtensionContext, filter: DltFilter, newReport: boolean = false) {
         console.log(`onOpenReport called...`);
 
-        // for now create a new report on each request:
-        let report = new DltReport(context, this, (r: DltReport) => {
-            console.log(`onOpenReport onDispose called... #reports=${this._reports.length}`);
-            const idx = this._reports.indexOf(r);
-            if (idx >= 0) {
-                this._reports.splice(idx, 1);
+        if (!newReport && this._reports.length > 0) {
+            // we do add to the report that was last active:
+            let report = this._reports[0];
+            let lastChangeActive = report.lastChangeActive;
+            for (let i = 1; i < this._reports.length; ++i) {
+                const r2 = this._reports[i];
+                if (lastChangeActive === undefined || (r2.lastChangeActive && (r2.lastChangeActive.valueOf() > lastChangeActive.valueOf()))) {
+                    report = r2;
+                    lastChangeActive = r2.lastChangeActive;
+                }
             }
-            console.log(`onOpenReport onDispose done #reports=${this._reports.length}`);
-        });;
-        this._reports.push(report); // todo implement Disposable for DltDocument as well so that closing a doc closes the report as well
-
-        report.openReport(filter);
-
+            report.addFilter(filter);
+        } else {
+            let report = new DltReport(context, this, (r: DltReport) => {
+                console.log(`onOpenReport onDispose called... #reports=${this._reports.length}`);
+                const idx = this._reports.indexOf(r);
+                if (idx >= 0) {
+                    this._reports.splice(idx, 1);
+                }
+                console.log(`onOpenReport onDispose done #reports=${this._reports.length}`);
+            });;
+            this._reports.push(report); // todo implement Disposable for DltDocument as well so that closing a doc closes the report as well
+            report.addFilter(filter);
+        }
     }
 };

@@ -380,6 +380,18 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
             }
         }));
 
+        context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.openNewReport', async (...args: any[]) => {
+            const filterNode = <FilterNode>args[0];
+            const parentUri = filterNode.parent?.uri;
+            if (parentUri) {
+                const doc = this._documents.get(parentUri.toString());
+                if (doc) {
+                    console.log(`openNewReport(${filterNode.label}) called for doc=${parentUri}`);
+                    doc.onOpenReport(context, filterNode.filter, true);
+                }
+            }
+        }));
+
         context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.fileTransferSave', async (...args: any[]) => {
             const fileTransfer = <DltFileTransfer>args[0];
             if (fileTransfer && fileTransfer.isComplete) {

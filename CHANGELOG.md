@@ -3,6 +3,11 @@
 All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
+
+## [0.11.0]
+- Report-filter are now added by default into the same (last active) view. So you can show multiple filter in same report.
+- Added alt/option command to add report-filter into a new report.
+
 ## [0.10.0]
 - 'Toggle lifecycle start' now considers overlapping lifecycles.
 - Added support for "state" reports. Capture name must start with "STATE_". "reportOptions.valueMap" can be added to the filter to map captured values to shown state names.
