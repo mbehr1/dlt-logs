@@ -1,0 +1,336 @@
+/* --------------------
+ * Copyright(C) Matthias Behr.
+ */
+
+import * as vscode from 'vscode';
+import * as assert from 'assert';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as util from './util';
+import { DltMsg } from './dltParser';
+import { DltLifecycleInfo } from './dltLifecycle';
+import { TreeViewNode } from './dltDocumentProvider';
+import { DltFilter, DltFilterType } from './dltFilter';
+import TelemetryReporter from 'vscode-extension-telemetry';
+import { DltDocument } from './dltDocument';
+
+export class DltReport implements vscode.Disposable {
+
+    panel: vscode.WebviewPanel | undefined;
+
+    constructor(private context: vscode.ExtensionContext, private doc: DltDocument, private callOnDispose: (r: DltReport) => any) {
+    }
+
+    dispose() {
+        console.log(`DltReport dispose called.`);
+        if (this.panel) {
+            this.panel.dispose();
+            this.panel = undefined;
+        }
+        this.callOnDispose(this);
+    }
+
+    openReport(filter: DltFilter) {
+        this.panel = vscode.window.createWebviewPanel("dlt-logs.report", `dlt-logs report for ${filter.name}`, vscode.ViewColumn.Beside,
+            { enableScripts: true });
+
+        this.panel.onDidDispose(() => {
+            console.log(`DltReport panel onDidDispose called.`);
+            this.panel = undefined;
+            this.dispose(); // we close now as well
+        });
+
+        // console.log(`webview.enableScripts=${this.panel.webview.options.enableScripts}`);
+
+        // determine the lifecycle labels so that we can use the grid to highlight lifecycle
+        // start/end
+        let lcDates: Date[] = [];
+        this.doc.lifecycles.forEach((lcInfos) => {
+            lcInfos.forEach((lcInfo) => {
+                lcDates.push(lcInfo.lifecycleStart);
+                lcDates.push(lcInfo.lifecycleEnd);
+            });
+        });
+        // sort them by ascending time
+        lcDates.sort((a, b) => {
+            const valA = a.valueOf();
+            const valB = b.valueOf();
+            if (valA < valB) { return -1; }
+            if (valA > valB) { return 1; }
+            return 0;
+        });
+
+        const lcStartDate: Date = lcDates[0];
+        const lcEndDate: Date = lcDates[lcDates.length - 1];
+        console.log(`lcStartDate=${lcStartDate}, lcEndDate=${lcEndDate}`);
+
+        let gotAlive = false;
+        let msgsToPost: any[] = [];
+        const postMsgOnceAlive = (msg: any) => {
+            if (gotAlive) { // send instantly
+                const msgCmd = msg.command;
+                this.panel?.webview.postMessage(msg).then((onFulFilled) => {
+                    console.log(`webview.postMessage(${msgCmd}) direct ${onFulFilled}`);
+                });
+            } else {
+                msgsToPost.push(msg);
+            }
+        };
+
+        this.panel.webview.onDidReceiveMessage((e) => {
+            console.log(`report.onDidReceiveMessage e=${e.message}`, e);
+            gotAlive = true;
+            // any messages to post?
+            if (msgsToPost.length) {
+                let msg: any;
+                while (msg = msgsToPost.pop()) {
+                    const msgCmd = msg.command;
+                    this.panel?.webview.postMessage(msg).then((onFulFilled) => {
+                        console.log(`webview.postMessage(${msgCmd}) queued ${onFulFilled}`);
+                    });
+                }
+            }
+            switch (e.message) {
+                case 'clicked':
+                    try {
+                        const dateClicked: Date = new Date(e.dataPoint.x);
+                        console.log(`report.onDidReceiveMessage clicked date e=${dateClicked}`);
+                        let line = this.doc.lineCloseToDate(dateClicked);
+                        if (line >= 0 && this.doc.textEditors) {
+                            const posRange = new vscode.Range(line, 0, line, 0);
+                            this.doc.textEditors.forEach((value) => {
+                                value.revealRange(posRange, vscode.TextEditorRevealType.AtTop);
+                            });
+                        }
+                    } catch (err) {
+                        console.warn(`report.onDidReceiveMessage clicked got err=${err}`, e);
+                    }
+                    break;
+            }
+        });
+
+        // load template and set a html:
+        const htmlFile = fs.readFileSync(path.join(this.context.extensionPath, 'media', 'timeSeriesReport.html'));
+        if (htmlFile.length) {
+            this.panel.webview.html = htmlFile.toString();
+        } else {
+            vscode.window.showErrorMessage(`couldn't load timeSeriesReport.html`);
+        }
+
+        let dataSets = new Map<string, { data: { x: Date, y: string | number, lcId: number }[], yLabels?: string[] }>();
+
+        let minDataPointTime: Date | undefined = undefined;
+
+        const insertDataPoint = function (lifecycle: DltLifecycleInfo, label: string, time: Date, value: number | string, insertPrevState = false) {
+            let dataSet = dataSets.get(label);
+
+            if ((minDataPointTime === undefined) || minDataPointTime.valueOf() > time.valueOf()) {
+                minDataPointTime = time;
+            }
+
+            const dataPoint = { x: time, y: value, lcId: lifecycle.uniqueId };
+            if (!dataSet) {
+                dataSet = { data: [dataPoint] };
+                dataSets.set(label, dataSet);
+            } else {
+                if (insertPrevState) {
+                    // do we have a prev. state in same lifecycle?
+                    const prevStateDP = { x: new Date(time.valueOf() - 1), y: dataSet.data[dataSet.data.length - 1].y, lcId: dataSet.data[dataSet.data.length - 1].lcId };
+                    if (prevStateDP.y !== dataPoint.y && dataPoint.lcId === prevStateDP.lcId && prevStateDP.x.valueOf() > dataSet.data[dataSet.data.length - 1].x.valueOf()) {
+                        // console.log(`inserting prev state datapoint with y=${prevStateDP.y}`);
+                        dataSet.data.push(prevStateDP);
+                    }
+                }
+                dataSet.data.push(dataPoint);
+            }
+            // yLabels?
+            if (typeof value === 'string') {
+                const label = `${value}`;
+                if (dataSet.yLabels === undefined) {
+                    dataSet.yLabels = ['', label];
+                    //console.log(`adding yLabel '${label}'`);
+                } else {
+                    const yLabels = dataSet.yLabels;
+                    if (!yLabels.includes(label)) { yLabels.push(label); /* console.log(`adding yLabel '${label}'`); */ }
+                }
+
+
+            }
+
+        };
+
+        const msgs = this.doc.msgs;
+        if (filter.isReport && (filter.payloadRegex !== undefined) && msgs.length) {
+            const wasEnabled = filter.enabled;
+            filter.enabled = true; // otherwise match doesn't work! (we might better give a warning here...?)
+            console.log(` matching regex '${filter.payloadRegex.source}' on ${msgs.length} msgs:`);
+            for (let i = 0; i < msgs.length; ++i) { // todo make async and report progress...
+                const msg = msgs[i];
+                if (filter.matches(msg) && msg.lifecycle !== undefined) {
+                    const time = this.doc.provideTimeByMsg(msg);
+                    if (time) {
+                        // get the value:
+                        const matches = filter.payloadRegex.exec(msg.payloadString);
+                        if (matches && matches.length > 0) {
+                            if (matches.groups) {
+                                Object.keys(matches.groups).forEach((valueName) => {
+                                    if (matches.groups) {
+                                        // console.log(` found ${valueName}=${matches.groups[valueName]}`);
+                                        if (valueName.startsWith("STATE_")) {
+                                            // if value name starts with STATE_ we make this a non-numeric value aka "state handling"
+                                            // represented as string
+                                            // as we will later use a line diagram we model a state behaviour here:
+                                            //  we insert the current state value directly before:
+                                            insertDataPoint(msg.lifecycle!, valueName, time, matches.groups[valueName], true);
+                                        } else {
+                                            const value: number = Number.parseFloat(matches.groups[valueName]);
+                                            insertDataPoint(msg.lifecycle!, valueName, time, value);
+                                        }
+                                    }
+                                });
+                            } else {
+                                const value: number = Number.parseFloat(matches[matches.length - 1]);
+                                // console.log(` event filter '${filter.name}' matched at index ${i} with value '${value}'`);
+                                insertDataPoint(msg.lifecycle, "values", time, value);
+                            }
+                        }
+                    }
+                }
+            }
+            filter.enabled = wasEnabled;
+        }
+        console.log(` have ${dataSets.size} data sets:`);
+        dataSets.forEach((data, key) => { console.log(`  ${key} with ${data.data.length} entries and ${data.yLabels?.length} yLabels`); });
+
+        if (filter.reportOptions) {
+            try {
+                if ('valueMap' in filter.reportOptions) {
+                    /*
+                    For valueMap we do expect an object where the keys/properties match to the dataset name
+                    and the property values are arrays with objects having one key/value property. E.g.
+                    "valueMap":{
+                        "STATE_a": [ // STATE_a is the name of the capture group from the regex capturing the value
+                            {"value1":"mapped value 1"},
+                            {"value2":"mapped value 2"}
+                        ] // so a captured value "value" will be mapped to "mapped value 2".
+                        // the y-axis will have the entries (from top): 
+                        //  mapped value 1
+                        //  mapped value 2
+                        //
+                    }
+                     */
+                    const valueMap = filter.reportOptions.valueMap;
+                    Object.keys(valueMap).forEach(((value) => {
+                        console.log(` got valueMap.${value} : ${JSON.stringify(valueMap[value], null, 2)}`);
+                        // do we have a dataSet with that label?
+                        const dataSet = dataSets.get(value);
+                        if (dataSet) {
+                            const valueMapMap: Array<any> = valueMap[value];
+                            console.log(`  got dataSet with matching label. Adjusting yLabels (name and order) and values`);
+                            if (dataSet.yLabels) {
+                                let newYLabels: string[] = [];
+                                // we add all the defined ones and '' (in reverse order so that order in settings object is the same as in the report)
+                                let mapValues = new Map<string, string>();
+                                for (let i = 0; i < valueMapMap.length; ++i) {
+                                    const mapping = valueMapMap[i]; // e.g. {"1" : "high"}
+                                    const key = Object.keys(mapping)[0];
+                                    const val = mapping[key];
+                                    newYLabels.unshift(val);
+                                    mapValues.set(key, val);
+                                }
+                                newYLabels.unshift('');
+                                // add the non-mapped labels as well:
+                                dataSet.yLabels.forEach((value) => {
+                                    const newY = mapValues.get(value);
+                                    if (!newY) {
+                                        if (!newYLabels.includes(value)) { newYLabels.push(value); }
+                                    }
+                                });
+                                // now change all dataPoint values:
+                                dataSet.data.forEach((data) => {
+                                    const newY = mapValues.get(<string>data.y);
+                                    if (newY) { data.y = newY; }
+                                });
+                                dataSet.yLabels = newYLabels;
+                            } else {
+                                console.log(`   dataSet got no yLabels?`);
+                            }
+                        }
+                    }));
+                }
+            } catch (err) {
+                console.log(`got error '${err}' processing reportOptions.`);
+            }
+        }
+
+        if (dataSets.size) {
+            postMsgOnceAlive({ command: "update labels", labels: lcDates, minDataPointTime: minDataPointTime });
+
+            const leftNeighbor = function (data: any[], x: Date, lcId: number): any | undefined {
+                // we assume data is sorted and contains x:Date and y: any
+                let i = 0;
+                for (i = 0; i < data.length; ++i) {
+                    if (data[i].x.valueOf() >= x.valueOf()) {
+                        break;
+                    }
+                }
+                if (i > 0 && data[i - 1].lcId === lcId) {
+                    return data[i - 1].y;
+                } else {
+                    return undefined;
+                }
+
+            };
+
+            // convert into an array object {label, data}
+            let datasetArray: any[] = [];
+            dataSets.forEach((data, label) => {
+                let dataNeedsSorting = false;
+
+                // add some NaN data at the end of each lifecycle to get real gaps (and not interpolated line)
+                this.doc.lifecycles.forEach((lcInfos) => {
+                    lcInfos.forEach((lcInfo) => {
+                        console.log(`checking lifecycle ${lcInfo.uniqueId}`);
+                        if (data.yLabels !== undefined) {
+                            // for STATE_ we want a different behaviour.
+                            // we treat datapoints/events as state changes that persists
+                            // until there is a new state.
+                            // search the last value:
+                            const lastState = leftNeighbor(data.data, lcInfo.lifecycleEnd, lcInfo.uniqueId);
+                            console.log(`got lastState = ${lastState}`);
+                            if (lastState !== undefined) {
+                                data.data.push({ x: new Date(lcInfo.lifecycleEnd.valueOf() - 1), y: lastState, lcId: lcInfo.uniqueId });
+                                data.data.push({ x: lcInfo.lifecycleEnd, y: '_unus_lbl_', lcId: lcInfo.uniqueId });
+                                // need to sort already here as otherwise those data points are found...
+                                data.data.sort((a, b) => {
+                                    const valA = a.x.valueOf();
+                                    const valB = b.x.valueOf();
+                                    if (valA < valB) { return -1; }
+                                    if (valA > valB) { return 1; }
+                                    return data.data.indexOf(a) - data.data.indexOf(b); // if same time keep order!
+                                });
+                            }
+                        } else {
+                            data.data.push({ x: lcInfo.lifecycleEnd, y: NaN, lcId: lcInfo.uniqueId }); // todo not quite might end at wrong lifecycle. rethink whether one dataset can come from multiple LCs
+                            dataNeedsSorting = true;
+                        }
+                    });
+                });
+                if (dataNeedsSorting) {
+                    data.data.sort((a, b) => {
+                        const valA = a.x.valueOf();
+                        const valB = b.x.valueOf();
+                        if (valA < valB) { return -1; }
+                        if (valA > valB) { return 1; }
+                        return data.data.indexOf(a) - data.data.indexOf(b);
+                    });
+                }
+
+                datasetArray.push({ label: label, dataYLabels: data });
+            });
+
+            postMsgOnceAlive({ command: "update", data: datasetArray });
+        }
+
+    }
+}
