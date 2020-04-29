@@ -12,7 +12,8 @@ export class DltLifecycleInfo {
     uniqueId: number;
     private _startTime: Date; // within log
     readonly startIndex: number;
-    lifecycleStart: Date; // including timestamp calc. e.g. _startTime - timestamp
+    adjustTimeMs: number;
+    private _lifecycleStart: Date; // including timestamp calc. e.g. _startTime - timestamp
     private _maxTimeStamp: number; // so _lifecycleStart + maxTimestamp defines the "end"
     readonly logMessages: DltMsg[]; // todo should be sorted... by timestamp? (without ctrl requests timestamps)
     allCtrlRequests: boolean = true; // this lifecycle consists of only ctrl requests.
@@ -27,17 +28,22 @@ export class DltLifecycleInfo {
             this.allCtrlRequests = false;
         }
         this._startTime = logMsg.time;
+        this.adjustTimeMs = 0;
         this.startIndex = logMsg.index;
-        this.lifecycleStart = new Date(this._startTime.valueOf() - (timeStamp / 10));
+        this._lifecycleStart = new Date(this._startTime.valueOf() - (timeStamp / 10));
         this._maxTimeStamp = timeStamp;
         this.logMessages = [logMsg];
         logMsg.lifecycle = this;
         // will be set later by _updateLines based on current filter
-        console.log(`DltLifecycleInfo() startTime=${this._startTime} lifecycleStart=${this.lifecycleStart}`);
+        console.log(`DltLifecycleInfo() startTime=${this._startTime} lifecycleStart=${this._lifecycleStart}`);
+    }
+
+    get lifecycleStart(): Date {
+        return new Date(this.adjustTimeMs + this._lifecycleStart.valueOf());
     }
 
     get lifecycleEnd(): Date {
-        return new Date(this.lifecycleStart.valueOf() + (this._maxTimeStamp / 10));
+        return new Date(this.adjustTimeMs + this._lifecycleStart.valueOf() + (this._maxTimeStamp / 10));
     }
 
     get endIndex(): number {
@@ -48,7 +54,14 @@ export class DltLifecycleInfo {
         }
     }
 
+    public getTreeNodeLabel(): string {
+        return `${this.lifecycleStart.toLocaleTimeString()}-${this.lifecycleEnd.toLocaleTimeString()} #${this.logMessages.length}`;
+    }
+
     public update(logMsg: DltMsg): boolean {
+        if (this.adjustTimeMs !== 0) {
+            console.error(`DltLifecycle.update adjustTimeMs<>0`); // todo implement
+        }
         /* this function has the tough part to decide whether the startTime, timestamp
         seem to extend this lifecycle or seem part of a new one (return false then)*/
 
@@ -85,7 +98,7 @@ export class DltLifecycleInfo {
             if (this.lifecycleStart.valueOf() - newLifecycleStart.valueOf() > 1000) { // only inform about jumps >1s
                 console.log(`DltLifecycleInfo:update new lifecycleStart from ${this.lifecycleStart} to ${newLifecycleStart} due to ${logMsg.index}`);
             }
-            this.lifecycleStart = newLifecycleStart;
+            this._lifecycleStart = newLifecycleStart;
         }
         if (logMsg.timeStamp > this._maxTimeStamp) {
             this._maxTimeStamp = logMsg.timeStamp;

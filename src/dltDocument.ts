@@ -296,13 +296,20 @@ export class DltDocument {
         this.timeSyncs.forEach((syncData) => {
             syncData.time = new Date(syncData.time.valueOf() + relOffset);
         });
-        // update lifecycle events?
-        // fire events? todo 
+        // update lifecycle events
+        this.lifecycles.forEach((lcInfos) => {
+            lcInfos.forEach((lcInfo) => { lcInfo.adjustTimeMs = this._timeAdjustMs; });
+        });
+        this.updateLifecycleTreeNode(); // todo decorations are wrong till next apply filter...
+        // fire events
+        this._treeEventEmitter.fire(this.lifecycleTreeNode);
+
     }
 
     onFilterChange(filter: DltFilter) { // todo this is really dirty. need to reconsider these arrays...
         console.log(`onFilterChange filter.name=${filter.name}`);
-        this.applyFilter(undefined);
+        return vscode.window.withProgress({ cancellable: false, location: vscode.ProgressLocation.Notification, title: "applying filter..." },
+            (progress) => this.applyFilter(progress));
     }
 
     /* todo clearFilter() {
@@ -329,195 +336,206 @@ export class DltDocument {
         return toRet;
     }
 
+    private _applyFilterRunning: boolean = false;
     async applyFilter(progress: vscode.Progress<{ increment?: number | undefined, message?: string | undefined, }> | undefined, applyEventFilter: boolean = false) {
-        this.filteredMsgs = [];
-        // we can in parallel check criteria todo
-        // but then add into filteredMsgs sequentially only
-
-        // todo need to optimize speed here.
-        // e.g. filter only until maxNrMsgs is there (and continue the rest in the background)
-        // apply decorations in the background
-
-        this._allDecorations = new Map<vscode.TextEditorDecorationType, vscode.DecorationOptions[]>();
-        // remove current ones from editor:
-        this.textEditors.forEach((editor) => {
-            this.decorations?.forEach((value, key) => {
-                editor.setDecorations(key, []);
-            });
-        });
-        this.decorations = undefined; // todo allDecorations?
-        let numberDecorations: number = 0;
-        const nrMsgs: number = this.msgs.length;
-        let startTime = process.hrtime();
-
-        if (applyEventFilter) {
-            this.timeSyncs = [];
+        if (this._applyFilterRunning) {
+            console.warn(`applyFilter called while running already. ignoring for now. todo!`); // do proper fix queuing this request or some promise magic.
+            return;
         }
-        // sort the filters here into the enabled pos and neg:
-        const [posFilters, negFilters, decFilters, eventFilters] = DltDocument.getFilter(this.allFilters, true, false);
-        // todo we don't support negBeforePos yet... (not needed for FileTransferPlugin and as long as we dont support )
-        for (let i = 0; i < nrMsgs; ++i) {
-            if (i % 1000 === 0) { // provide process and responsiveness for UI:
-                let curTime = process.hrtime(startTime);
-                if (curTime[1] / 1000000 > 100) { // 100ms passed
-                    if (progress) {
-                        progress.report({ message: `filter processed ${i}/${nrMsgs} msgs.` });
-                    }
-                    await util.sleep(10); // 10ms each 100ms
-                    startTime = process.hrtime();
-                }
-            }
-            const msg = this.msgs[i];
+        this._applyFilterRunning = true;
+        try {
+            this.filteredMsgs = [];
+            // we can in parallel check criteria todo
+            // but then add into filteredMsgs sequentially only
+
+            // todo need to optimize speed here.
+            // e.g. filter only until maxNrMsgs is there (and continue the rest in the background)
+            // apply decorations in the background
+
+            this._allDecorations = new Map<vscode.TextEditorDecorationType, vscode.DecorationOptions[]>();
+            // remove current ones from editor:
+            this.textEditors.forEach((editor) => {
+                this.decorations?.forEach((value, key) => {
+                    editor.setDecorations(key, []);
+                });
+            });
+            this.decorations = undefined; // todo allDecorations?
+            let numberDecorations: number = 0;
+            const nrMsgs: number = this.msgs.length;
+            let startTime = process.hrtime();
 
             if (applyEventFilter) {
-                // check for any events:
-                // currently timeSync only
-                if (eventFilters.length) {
-                    for (let j = 0; j < eventFilters.length; ++j) {
-                        const filter = eventFilters[j];
-                        // remove report filter here:
-                        if (!filter.isReport) {
-                            if (filter.matches(msg) && filter.payloadRegex) {
-                                // get the value: // todo try to abstract that... create REPORT as sep. type?
-                                const timeSyncMatch = filter.payloadRegex.exec(msg.payloadString);
-                                if (timeSyncMatch && timeSyncMatch.length > 0) {
-                                    const value = timeSyncMatch[timeSyncMatch.length - 1].toLowerCase();
-                                    console.log(` timeSync filter '${filter.name}' matched at index ${i} with value '${value}'`);
-                                    const time = this.provideTimeByMsg(msg);
-                                    if (time && filter.timeSyncId && filter.timeSyncPrio) {
-                                        this.timeSyncs.push({ time: time, id: filter.timeSyncId, prio: filter.timeSyncPrio, value: value });
+                this.timeSyncs = [];
+            }
+            // sort the filters here into the enabled pos and neg:
+            const [posFilters, negFilters, decFilters, eventFilters] = DltDocument.getFilter(this.allFilters, true, false);
+            // todo we don't support negBeforePos yet... (not needed for FileTransferPlugin and as long as we dont support )
+            for (let i = 0; i < nrMsgs; ++i) {
+                if (i % 1000 === 0) { // provide process and responsiveness for UI:
+                    let curTime = process.hrtime(startTime);
+                    if (curTime[1] / 1000000 > 100) { // 100ms passed
+                        if (progress) {
+                            progress.report({ message: `filter processed ${i}/${nrMsgs} msgs.` });
+                        }
+                        await util.sleep(10); // 10ms each 100ms
+                        startTime = process.hrtime();
+                    }
+                }
+                const msg = this.msgs[i];
+
+                if (applyEventFilter) {
+                    // check for any events:
+                    // currently timeSync only
+                    if (eventFilters.length) {
+                        for (let j = 0; j < eventFilters.length; ++j) {
+                            const filter = eventFilters[j];
+                            // remove report filter here:
+                            if (!filter.isReport) {
+                                if (filter.matches(msg) && filter.payloadRegex) {
+                                    // get the value: // todo try to abstract that... create REPORT as sep. type?
+                                    const timeSyncMatch = filter.payloadRegex.exec(msg.payloadString);
+                                    if (timeSyncMatch && timeSyncMatch.length > 0) {
+                                        const value = timeSyncMatch[timeSyncMatch.length - 1].toLowerCase();
+                                        console.log(` timeSync filter '${filter.name}' matched at index ${i} with value '${value}'`);
+                                        const time = this.provideTimeByMsg(msg);
+                                        if (time && filter.timeSyncId && filter.timeSyncPrio) {
+                                            this.timeSyncs.push({ time: time, id: filter.timeSyncId, prio: filter.timeSyncPrio, value: value });
+                                        }
                                     }
                                 }
                             }
                         }
                     }
                 }
-            }
 
-            // check for visibility:
-            // a msg is visible if:
-            // no negative filter matches and
-            // if any pos. filter exists: at least one positive filter matches (if no pos. filters exist -> treat as matching)
-            let foundAfterPosFilters: boolean = posFilters.length ? false : true;
-            if (posFilters.length) {
-                // check the pos filters, break on first match:
-                for (let j = 0; j < posFilters.length; ++j) {
-                    if (posFilters[j].matches(msg)) {
-                        foundAfterPosFilters = true;
-                        break;
+                // check for visibility:
+                // a msg is visible if:
+                // no negative filter matches and
+                // if any pos. filter exists: at least one positive filter matches (if no pos. filters exist -> treat as matching)
+                let foundAfterPosFilters: boolean = posFilters.length ? false : true;
+                if (posFilters.length) {
+                    // check the pos filters, break on first match:
+                    for (let j = 0; j < posFilters.length; ++j) {
+                        if (posFilters[j].matches(msg)) {
+                            foundAfterPosFilters = true;
+                            break;
+                        }
                     }
                 }
-            }
-            let foundAfterNegFilters: boolean = foundAfterPosFilters;
-            if (foundAfterNegFilters && negFilters.length) {
-                // check the neg filters, break on first match:
-                for (let j = 0; j < negFilters.length; ++j) {
-                    if (negFilters[j].matches(msg)) {
-                        foundAfterNegFilters = false;
-                        break;
-                    }
-                }
-            }
-
-            if (foundAfterNegFilters) {
-                this.filteredMsgs.push(msg);
-                // any decorations? todo remove log-level ones once filter are extended to MSTP, MTIN.
-
-                msg.decorations = [];
-                let gotDeco: boolean = false;
-                if (this.decWarning && msg.mstp === MSTP.TYPE_LOG && msg.mtin === MTIN_LOG.LOG_WARN) {
-                    msg.decorations.push([this.decWarning, [{ range: new vscode.Range(this.filteredMsgs.length - 1, 0, this.filteredMsgs.length - 1, 21), hoverMessage: new vscode.MarkdownString("$(warning) LOG_WARN", true) }]]);
-                    gotDeco = true;
-                }
-                if (!gotDeco && this.decError && msg.mstp === MSTP.TYPE_LOG && msg.mtin === MTIN_LOG.LOG_ERROR) {
-                    msg.decorations.push([this.decError, [{ range: new vscode.Range(this.filteredMsgs.length - 1, 0, this.filteredMsgs.length - 1, 21), hoverMessage: new vscode.MarkdownString("$(error) LOG_ERROR", true) }]]);
-                }
-                if (!gotDeco && this.decFatal && msg.mstp === MSTP.TYPE_LOG && msg.mtin === MTIN_LOG.LOG_FATAL) {
-                    msg.decorations.push([this.decFatal, [{ range: new vscode.Range(this.filteredMsgs.length - 1, 0, this.filteredMsgs.length - 1, 21), hoverMessage: `LOG_FATAL` }]]);
-                }
-
-                if (!gotDeco) {
-                    for (let d = 0; d < decFilters.length; ++d) {
-                        let decFilter = decFilters[d];
-                        if (decFilter.matches(msg)) {
-                            // get decoration for this filter:
-                            const decType = this.getDecorationFor(decFilter);
-                            if (decType) {
-                                msg.decorations.push([decType, [{ range: new vscode.Range(this.filteredMsgs.length - 1, 0, this.filteredMsgs.length - 1, 21), hoverMessage: `MARKER ${decFilter.name}` }]]);
-                                gotDeco = true;
-                                break;
-                            }
+                let foundAfterNegFilters: boolean = foundAfterPosFilters;
+                if (foundAfterNegFilters && negFilters.length) {
+                    // check the neg filters, break on first match:
+                    for (let j = 0; j < negFilters.length; ++j) {
+                        if (negFilters[j].matches(msg)) {
+                            foundAfterNegFilters = false;
+                            break;
                         }
                     }
                 }
 
-                for (let m = 0; m < msg.decorations.length; ++m) {
-                    const value = msg.decorations[m];
-                    if (!this._allDecorations?.has(value[0])) {
-                        this._allDecorations?.set(value[0], []);
+                if (foundAfterNegFilters) {
+                    this.filteredMsgs.push(msg);
+                    // any decorations? todo remove log-level ones once filter are extended to MSTP, MTIN.
+
+                    msg.decorations = [];
+                    let gotDeco: boolean = false;
+                    if (this.decWarning && msg.mstp === MSTP.TYPE_LOG && msg.mtin === MTIN_LOG.LOG_WARN) {
+                        msg.decorations.push([this.decWarning, [{ range: new vscode.Range(this.filteredMsgs.length - 1, 0, this.filteredMsgs.length - 1, 21), hoverMessage: new vscode.MarkdownString("$(warning) LOG_WARN", true) }]]);
+                        gotDeco = true;
                     }
-                    // adapt line here?
-                    for (let d = 0; d < value[1].length; ++d) {
-                        this._allDecorations?.get(value[0])?.push(value[1][d]);
-                        numberDecorations++;
+                    if (!gotDeco && this.decError && msg.mstp === MSTP.TYPE_LOG && msg.mtin === MTIN_LOG.LOG_ERROR) {
+                        msg.decorations.push([this.decError, [{ range: new vscode.Range(this.filteredMsgs.length - 1, 0, this.filteredMsgs.length - 1, 21), hoverMessage: new vscode.MarkdownString("$(error) LOG_ERROR", true) }]]);
+                    }
+                    if (!gotDeco && this.decFatal && msg.mstp === MSTP.TYPE_LOG && msg.mtin === MTIN_LOG.LOG_FATAL) {
+                        msg.decorations.push([this.decFatal, [{ range: new vscode.Range(this.filteredMsgs.length - 1, 0, this.filteredMsgs.length - 1, 21), hoverMessage: `LOG_FATAL` }]]);
+                    }
+
+                    if (!gotDeco) {
+                        for (let d = 0; d < decFilters.length; ++d) {
+                            let decFilter = decFilters[d];
+                            if (decFilter.matches(msg)) {
+                                // get decoration for this filter:
+                                const decType = this.getDecorationFor(decFilter);
+                                if (decType) {
+                                    msg.decorations.push([decType, [{ range: new vscode.Range(this.filteredMsgs.length - 1, 0, this.filteredMsgs.length - 1, 21), hoverMessage: `MARKER ${decFilter.name}` }]]);
+                                    gotDeco = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    for (let m = 0; m < msg.decorations.length; ++m) {
+                        const value = msg.decorations[m];
+                        if (!this._allDecorations?.has(value[0])) {
+                            this._allDecorations?.set(value[0], []);
+                        }
+                        // adapt line here?
+                        for (let d = 0; d < value[1].length; ++d) {
+                            this._allDecorations?.get(value[0])?.push(value[1][d]);
+                            numberDecorations++;
+                        }
                     }
                 }
             }
-        }
 
-        // create decorations for the lifecycles:
-        let lcDecos = [this._decorationTypes.get("lifecycleEven"), this._decorationTypes.get("lifecycleOdd")];
+            // create decorations for the lifecycles:
+            let lcDecos = [this._decorationTypes.get("lifecycleEven"), this._decorationTypes.get("lifecycleOdd")];
 
-        if (lcDecos[0] !== undefined) { this._allDecorations.set(lcDecos[0], []); }
-        if (lcDecos[1] !== undefined) { this._allDecorations.set(lcDecos[1], []); }
+            if (lcDecos[0] !== undefined) { this._allDecorations.set(lcDecos[0], []); }
+            if (lcDecos[1] !== undefined) { this._allDecorations.set(lcDecos[1], []); }
 
-        if (lcDecos[0] !== undefined || lcDecos[1] !== undefined) {
-            // we only decorate the ECU with the most messages. (not taking filters into account...)
-            // otherwise the decorations overlap too much
-            let lcMsgCntMap = new Map<string, number>();
-            this.lifecycles.forEach((lcs, ecu) => {
-                lcs.forEach((lcInfo) => {
-                    let msgCnt = lcMsgCntMap.get(ecu);
-                    if (!msgCnt) {
-                        lcMsgCntMap.set(ecu, lcInfo.logMessages.length);
-                    } else {
-                        lcMsgCntMap.set(ecu, msgCnt + lcInfo.logMessages.length);
+            if (lcDecos[0] !== undefined || lcDecos[1] !== undefined) {
+                // we only decorate the ECU with the most messages. (not taking filters into account...)
+                // otherwise the decorations overlap too much
+                let lcMsgCntMap = new Map<string, number>();
+                this.lifecycles.forEach((lcs, ecu) => {
+                    lcs.forEach((lcInfo) => {
+                        let msgCnt = lcMsgCntMap.get(ecu);
+                        if (!msgCnt) {
+                            lcMsgCntMap.set(ecu, lcInfo.logMessages.length);
+                        } else {
+                            lcMsgCntMap.set(ecu, msgCnt + lcInfo.logMessages.length);
+                        }
+                    });
+                });
+                let maxCnt = 0;
+                let maxEcu: string | undefined = undefined;
+                lcMsgCntMap.forEach((msgCnt, ecu) => {
+                    if (msgCnt > maxCnt) {
+                        maxCnt = msgCnt;
+                        maxEcu = ecu;
                     }
                 });
-            });
-            let maxCnt = 0;
-            let maxEcu: string | undefined = undefined;
-            lcMsgCntMap.forEach((msgCnt, ecu) => {
-                if (msgCnt > maxCnt) {
-                    maxCnt = msgCnt;
-                    maxEcu = ecu;
-                }
-            });
 
-            if (maxEcu) {
-                const lcs = this.lifecycles.get(maxEcu);
-                if (lcs) {
-                    // console.log(` applyFilter decorating lifecycles for ecu:'${ecu}'`);
-                    for (let lcCnt = 0; lcCnt < lcs.length; ++lcCnt) {
-                        const lc = lcs[lcCnt];
-                        console.log(` applyFilter decorating lifecycle ${maxEcu} #${lcCnt} '${lc.startIndex} - ${lc.endIndex}'`);
-                        const lcDec = lcDecos[lcCnt % 2];
-                        if (lcDec !== undefined) {
-                            const startLine: number = this.lineCloseTo(lc.startIndex, true);
-                            let endLine: number = this.lineCloseTo(lc.endIndex, true);
-                            if (!endLine) {
-                                endLine = this.staticLinesAbove.length + (this.filteredMsgs?.length ? this.filteredMsgs.length - 1 : 0);
+                if (maxEcu) {
+                    const lcs = this.lifecycles.get(maxEcu);
+                    if (lcs) {
+                        // console.log(` applyFilter decorating lifecycles for ecu:'${ecu}'`);
+                        for (let lcCnt = 0; lcCnt < lcs.length; ++lcCnt) {
+                            const lc = lcs[lcCnt];
+                            console.log(` applyFilter decorating lifecycle ${maxEcu} #${lcCnt} '${lc.startIndex} - ${lc.endIndex}'`);
+                            const lcDec = lcDecos[lcCnt % 2];
+                            if (lcDec !== undefined) {
+                                const startLine: number = this.lineCloseTo(lc.startIndex, true);
+                                let endLine: number = this.lineCloseTo(lc.endIndex, true);
+                                if (!endLine) {
+                                    endLine = this.staticLinesAbove.length + (this.filteredMsgs?.length ? this.filteredMsgs.length - 1 : 0);
+                                }
+                                console.log(`  decorating lifecycle ${maxEcu} #${lcCnt} '${startLine} - ${endLine}'`);
+                                const dec = { range: new vscode.Range(startLine, 0, endLine, 21), hoverMessage: `lifecycle: ${lc.lifecycleStart.toLocaleTimeString()}-${lc.lifecycleEnd.toLocaleTimeString()}` };
+                                this._allDecorations?.get(lcDec)?.push(dec);
                             }
-                            console.log(`  decorating lifecycle ${maxEcu} #${lcCnt} '${startLine} - ${endLine}'`);
-                            const dec = { range: new vscode.Range(startLine, 0, endLine, 21), hoverMessage: `lifecycle: ${lc.lifecycleStart.toLocaleTimeString()}-${lc.lifecycleEnd.toLocaleTimeString()}` };
-                            this._allDecorations?.get(lcDec)?.push(dec);
                         }
                     }
                 }
             }
-        }
 
-        console.log(`applyFilter got ${numberDecorations} decorations.`);
+            console.log(`applyFilter got ${numberDecorations} decorations.`);
+        } catch (err) {
+            console.error(`applyFilter got err='${err}'`);
+        }
+        this._applyFilterRunning = false;
         return this.renderLines(this._skipMsgs, progress);
     }
 
@@ -559,7 +577,8 @@ export class DltDocument {
 
     lineCloseToDate(date: Date): number {
         console.log(`DltDocument.lineCloseToDate(${date.toLocaleTimeString()})...`);
-        const dateValue = date.valueOf() - this._timeAdjustMs;
+        const dateValueLC = date.valueOf();
+        const dateValueNoLC = dateValueLC - this._timeAdjustMs;
 
         // todo optimize with binary/tree search. with filteredMsgs it gets tricky.
         // so for now do linear scan...
@@ -569,7 +588,7 @@ export class DltDocument {
             const logMsg = msgs[i];
             if (!(logMsg.mstp === MSTP.TYPE_CONTROL && logMsg.mtin === MTIN_CTRL.CONTROL_REQUEST)) {
                 const startDate = logMsg.lifecycle ? logMsg.lifecycle.lifecycleStart.valueOf() : logMsg.time.valueOf();
-                if (startDate + (logMsg.timeStamp / 10) >= dateValue) {
+                if (startDate + (logMsg.timeStamp / 10) >= (logMsg.lifecycle ? dateValueLC : dateValueNoLC)) {
                     console.log(`DltDocument.lineCloseToDate(${date.toLocaleTimeString()}) found line ${i}`);
                     return this.revealByMsgsIndex(i);
                 }
@@ -593,7 +612,7 @@ export class DltDocument {
             return;
         }
         if (msg.lifecycle) {
-            return new Date(this._timeAdjustMs + msg.lifecycle.lifecycleStart.valueOf() + (msg.timeStamp / 10));
+            return new Date(msg.lifecycle.lifecycleStart.valueOf() + (msg.timeStamp / 10));
         }
         return new Date(this._timeAdjustMs + msg.time.valueOf() + (msg.timeStamp / 10));
     }
@@ -780,7 +799,8 @@ export class DltDocument {
                             }
                         });
                     }
-                    this.applyFilter(undefined);
+                    return vscode.window.withProgress({ cancellable: false, location: vscode.ProgressLocation.Notification, title: "applying filter..." },
+                        (progress) => this.applyFilter(progress)).then(() => console.log(`DltDocument.configureColumns() applyFilter() done`));
                 } else { // we disallow unselecting all columns
                     vscode.window.showWarningMessage("At least one column need to be selected. Ignoring selection.");
                 }
@@ -1062,22 +1082,8 @@ export class DltDocument {
                     this.lifecycles.clear();
                     DltLifecycleInfo.updateLifecycles(this.msgs, this.lifecycles);
                     // update the lifecycleNode:
-                    this.lifecycleTreeNode.children = [];
-                    this.lifecycles.forEach((lcInfo, ecu) => {
-                        let ecuNode: TreeViewNode = { id: createUniqueId(), label: `ECU: ${ecu}`, parent: this.lifecycleTreeNode, children: [], uri: this.uri };
-                        this.lifecycleTreeNode.children.push(ecuNode);
-                        console.log(`${ecuNode.label}`);
-                        // add lifecycles
-                        for (let i = 0; i < lcInfo.length; ++i) {
-                            const lc = lcInfo[i];
-                            let lcNode: TreeViewNode = {
-                                id: createUniqueId(),
-                                label: `${lc.lifecycleStart.toUTCString()}-${lc.lifecycleEnd.toUTCString()} #${lc.logMessages.length}`,
-                                parent: ecuNode, children: [], uri: this.uri.with({ fragment: lc.startIndex.toString() })
-                            };
-                            ecuNode.children.push(lcNode);
-                        }
-                    });
+                    this.updateLifecycleTreeNode();
+
                     const lcEnd = process.hrtime(lcStart);
                     console.info('checkFileChanges lcUpdate took: %ds %dms', lcEnd[0], lcEnd[1] / 1000000);
                     progress.report({ message: `Got ${this.lifecycles.size} ECUs. Applying filter...` });
@@ -1096,6 +1102,25 @@ export class DltDocument {
         } else {
             console.log(`checkFileChanges no file size increase (size=${stats.size} vs ${this._parsedFileLen})`);
         }
+    }
+
+    private updateLifecycleTreeNode() {
+        this.lifecycleTreeNode.children = [];
+        this.lifecycles.forEach((lcInfo, ecu) => {
+            let ecuNode: TreeViewNode = { id: createUniqueId(), label: `ECU: ${ecu}`, parent: this.lifecycleTreeNode, children: [], uri: this.uri };
+            this.lifecycleTreeNode.children.push(ecuNode);
+            console.log(`${ecuNode.label}`);
+            // add lifecycles
+            for (let i = 0; i < lcInfo.length; ++i) {
+                const lc = lcInfo[i];
+                let lcNode: TreeViewNode = {
+                    id: createUniqueId(),
+                    label: lc.getTreeNodeLabel(),
+                    parent: ecuNode, children: [], uri: this.uri.with({ fragment: lc.startIndex.toString() })
+                };
+                ecuNode.children.push(lcNode);
+            }
+        });
     }
 
     private _reports: DltReport[] = [];

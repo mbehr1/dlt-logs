@@ -4,6 +4,10 @@ All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
 
+## [0.12.0]
+- Fix lifecycle times not adjusted on "adjust time..."
+- Avoid reentrance problem with applyFilter. For now will just ignore it. If you change filters quickly the last one will be ignored/not-visible! Proper fix to come.
+
 ## [0.11.0]
 - Report-filter are now added by default into the same (last active) view. So you can show multiple filter in same report.
 - Added alt/option command to add report-filter into a new report.
