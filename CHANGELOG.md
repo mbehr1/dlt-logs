@@ -4,6 +4,9 @@ All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
 
+## [0.12.1]
+- Delayed checkActiveExtensions a bit.
+
 ## [0.12.0]
 - Fix lifecycle times not adjusted on "adjust time..."
 - Avoid reentrance problem with applyFilter. For now will just ignore it. If you change filters quickly the last one will be ignored/not-visible! Proper fix to come.

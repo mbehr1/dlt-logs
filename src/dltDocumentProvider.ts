@@ -301,10 +301,10 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                     }
                 }
                 if (doManualPrompt) {
-                    vscode.window.showInputBox({ prompt: `Enter time adjust in secs (cur = ${curAdjustMs / 1000}):`, value: (curAdjustMs / 1000).toString() }).then(async (value: string | undefined) => {
+                    vscode.window.showInputBox({ prompt: `Enter new time adjust in secs (cur = ${curAdjustMs / 1000}):`, value: (curAdjustMs / 1000).toString() }).then(async (value: string | undefined) => {
                         if (value && doc) {
                             let newAdjustMs: number = (+value) * 1000;
-                            doc.adjustTime(newAdjustMs);
+                            doc.adjustTime(newAdjustMs - curAdjustMs);
                             if (doc.timeSyncs.length) {
                                 this._onDidChangeSelectedTime.fire({ time: new Date(0), uri: doc.uri, timeSyncs: doc.timeSyncs });
                             }
@@ -413,8 +413,10 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
         // time-sync feature: check other extensions for api onDidChangeSelectedTime and connect to them.
         // we do have to connect to ourself as well (in case of multiple smart-logs docs)
         this._subscriptions.push(vscode.extensions.onDidChange(() => {
-            console.log(`dlt-log.extensions.onDidChange #ext=${vscode.extensions.all.length}`);
-            this.checkActiveExtensions();
+            setTimeout(() => {
+                console.log(`dlt-log.extensions.onDidChange #ext=${vscode.extensions.all.length}`);
+                this.checkActiveExtensions();
+            }, 1500); // delay a bit. introduces a possible race on time-sync event reception. todo
         }));
         setTimeout(() => {
             this.checkActiveExtensions();
@@ -507,6 +509,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
     public getTreeItem(element: TreeViewNode): vscode.TreeItem {
         // console.log(`dlt-logs.getTreeItem(${element.label}, ${element.uri?.toString()}) called.`);
         return {
+            id: element.id,
             label: element.label.length ? element.label : "Detected lifecycles",
             contextValue: element.contextValue,
             command: element.command,
@@ -541,12 +544,16 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                     doc.lastSelectedTimeEv = ev.time;
 
                     let line = doc.lineCloseToDate(ev.time);
-                    if (line >= 0 && doc.textEditors) {
+                    if (line >= 0 && doc.textEditors.length > 0) {
                         const posRange = new vscode.Range(line, 0, line, 0);
                         doc.textEditors.forEach((value) => {
                             value.revealRange(posRange, vscode.TextEditorRevealType.AtTop);
                             // todo add/update decoration as well
                         });
+                    } else {
+                        if (line >= 0) {
+                            console.log(`dlt-log.handleDidChangeSelectedTime got no textEditors (${doc.textEditors.length}) for reveal of line ${line}. hidden?`);
+                        }
                     }
                 }
                 if (ev.timeSyncs?.length && doc.timeSyncs.length) {
@@ -602,7 +609,8 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                 value.dispose();
             }
         });
-        this._didChangeSelectedTimeSubscriptions = new Array<vscode.Disposable>();
+        this._didChangeSelectedTimeSubscriptions = [];
+        let newSubs = new Array<vscode.Disposable>();
 
         vscode.extensions.all.forEach((value) => {
             if (value.isActive) {
@@ -614,8 +622,8 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                             this.handleDidChangeSelectedTime(ev);
                         });
                         if (subscr !== undefined) {
-                            console.log(` got onDidChangeSelectedTime api from ${value.id}`);
-                            this._didChangeSelectedTimeSubscriptions.push(subscr);
+                            console.log(`dlt-log.got onDidChangeSelectedTime api from ${value.id}`);
+                            newSubs.push(subscr);
                         }
                     }
                 } catch (error) {
@@ -623,6 +631,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                 }
             }
         });
+        this._didChangeSelectedTimeSubscriptions = newSubs;
         console.log(`dlt-log.checkActiveExtensions: got ${this._didChangeSelectedTimeSubscriptions.length} subscriptions.`);
     }
 

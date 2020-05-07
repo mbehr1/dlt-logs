@@ -688,7 +688,7 @@ export class DltDocument {
                     console.log(` notifyVisibleRange(visible: [${triggerAboveLine}-${triggerBelowLine}]) current: [${this._skipMsgs}-${this._skipMsgs + this._maxNrMsgs}) triggerBelow`);
                     this._renderTriggered = true;
 
-                    if (this.textEditors && this.textEditors.length > 0) {
+                    if (this.textEditors.length > 0) {
                         this.textEditors.forEach((editor) => {
                             const shiftByLines = -this._maxNrMsgs * 0.5;
                             let newRange = new vscode.Range(triggerAboveLine + shiftByLines, range.start.character,
