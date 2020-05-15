@@ -93,7 +93,10 @@ export class DltMsg {
         let stdHeaderSize = MIN_STD_HEADER_SIZE;
 
         if (withEID) {
-            this.ecu = data.slice(DLT_STORAGE_HEADER_SIZE + stdHeaderSize, DLT_STORAGE_HEADER_SIZE + stdHeaderSize + 4).toString();
+            // stripNull... could use proper parser with stripNull:true as well
+            let ecuLenEndIdx = DLT_STORAGE_HEADER_SIZE + stdHeaderSize + 3;
+            while (data[ecuLenEndIdx] === 0x0 && (ecuLenEndIdx >= (DLT_STORAGE_HEADER_SIZE + stdHeaderSize))) { ecuLenEndIdx--; }
+            this.ecu = data.slice(DLT_STORAGE_HEADER_SIZE + stdHeaderSize, ecuLenEndIdx + 1).toString("ascii");
             stdHeaderSize += 4;
         } else {
             this.ecu = storageHeaderEcu;
