@@ -15,6 +15,41 @@ export function stringFormat(str: string, args: RegExpExecArray): string {
     });
 }
 
+/* return a printable string. unprintable chars get replace by replaceChar */
+export function printableAscii(buf: Buffer, replaceChar: string = '-'): string {
+    let res: string = '';
+    for (let i = 0; i < buf.length; ++i) {
+        if (buf[i] >= 0x20 /* space */ && buf[i] <= 0x7e) {
+            res += String.fromCharCode(buf[i]);
+        } else {
+            res += replaceChar;
+        }
+    }
+    return res;
+}
+
+function precalcHexArray(): string[] {
+    const toRet = [];
+    for (let i = 0; i <= 0xff; ++i) {
+        toRet.push(i.toString(16).padStart(2, '0'));
+    }
+    return toRet;
+}
+const hexArray = precalcHexArray();
+
+/*
+ output as hexdump in the simplest form: xx xx xx ...
+*/
+export function toHexString(buf: Buffer): string {
+    const tempHex: string[] = [];
+
+    for (let i = 0; i < buf.length; ++i) {
+        tempHex.push(hexArray[buf[i]]);
+    }
+
+    return tempHex.join(' ');
+}
+
 export function sleep(ms: number): Promise<void> {
     return new Promise(resolve => {
         setTimeout(resolve, ms);

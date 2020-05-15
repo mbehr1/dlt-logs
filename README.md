@@ -46,6 +46,7 @@ The extension uses telemetry with two events (`activate` (no parameters) and `op
 - Add editor for filter (e.g. via config extension) and allow changing filters at runtime.
 - Saving of logs/selections allowing e.g. to add comments as proper logs.
 - Use custom editor interface to be able to support regular file open mechanism.
+- Add full non-verbose support including mapping table and payload args.
 
 ## Extension Settings
 
@@ -106,7 +107,6 @@ This extension contributes the following settings:
 Little testing especially on different endianess.
 
 * Marker filters only partially implemented yet. 3 hard-coded filters are highlighting log levels warning, error and fatal if the decorationIds "warning", "error" and "fatal" do exist.
-* Non-verbose support is missing yet.
 * Endianess is not tested/implemented! If you send me a DLT log with different endianess I'll implement it.
 
 ## Contributions

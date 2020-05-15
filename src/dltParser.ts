@@ -6,6 +6,7 @@ import * as vscode from 'vscode';
 import * as assert from 'assert';
 import { DltLifecycleInfo } from './dltLifecycle';
 import { DltFilter } from './dltFilter';
+import { printableAscii, toHexString } from './util';
 
 const fs = require('fs');
 var Parser = require("binary-parser").Parser;
@@ -227,8 +228,13 @@ export class DltMsg {
                             assert.equal(this.noar, this.payloadArgs.length, "noars != payloadArgs.length");
                             //this._payloadArgs = []; // todo to see how much faster it gets
                         } else {
-                            console.log(`no non-verbose support yet for TYPE_LOG mstp=${this.mstp}! todo`);
                             this._payloadArgs = [];
+                            const payloadLen = this._payloadData.length;
+                            if (payloadLen >= 4) {
+                                const messageId: number = this._payloadData.readUInt32LE(0);
+                                // output in the same form as dlt viewer:
+                                this._payloadText += `[${messageId}] ${printableAscii(this._payloadData.slice(4))}|${toHexString(this._payloadData.slice(4))}`;
+                            }
                             break;
                         }
                     }
