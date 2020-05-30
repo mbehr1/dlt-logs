@@ -43,6 +43,7 @@ export function createUniqueId(): string {
 export interface TreeViewNode {
     id: string; // unique id
     label: string;
+    tooltip: string | undefined;
     uri: vscode.Uri | null; // index provided as fragment #<index>
     parent: TreeViewNode | null;
     children: TreeViewNode[];
@@ -53,6 +54,7 @@ export interface TreeViewNode {
 export class FilterNode implements TreeViewNode {
     id: string;
     label: string;
+    tooltip: string | undefined;
     //uri: vscode.Uri | null; // index provided as fragment #<index>
     //parent: TreeViewNode | null;
     children: TreeViewNode[];
@@ -511,6 +513,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
         return {
             id: element.id,
             label: element.label.length ? element.label : "Detected lifecycles",
+            tooltip: element.tooltip,
             contextValue: element.contextValue,
             command: element.command,
             collapsibleState: element.children.length ? vscode.TreeItemCollapsibleState.Collapsed : void 0,

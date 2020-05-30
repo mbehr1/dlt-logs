@@ -4,7 +4,7 @@
 
 // import * as vscode from 'vscode';
 import * as assert from 'assert';
-import { DltParser, DltMsg, MSTP, MTIN_CTRL } from './dltParser';
+import { DltParser, DltMsg, MSTP, MTIN_CTRL, CTRL_SERVICE_ID } from './dltParser';
 
 let _nextLcUniqueId = 1;
 
@@ -17,6 +17,7 @@ export class DltLifecycleInfo {
     private _maxTimeStamp: number; // so _lifecycleStart + maxTimestamp defines the "end"
     readonly logMessages: DltMsg[]; // todo should be sorted... by timestamp? (without ctrl requests timestamps)
     allCtrlRequests: boolean = true; // this lifecycle consists of only ctrl requests.
+    private _swVersions: string[] = [];
 
     constructor(logMsg: DltMsg) {
         this.uniqueId = _nextLcUniqueId++;
@@ -34,6 +35,7 @@ export class DltLifecycleInfo {
         this._maxTimeStamp = timeStamp;
         this.logMessages = [logMsg];
         logMsg.lifecycle = this;
+        this.parseMessage(logMsg);
         // will be set later by _updateLines based on current filter
         console.log(`DltLifecycleInfo() startTime=${this._startTime} lifecycleStart=${this._lifecycleStart}`);
     }
@@ -56,6 +58,14 @@ export class DltLifecycleInfo {
 
     public getTreeNodeLabel(): string {
         return `${this.lifecycleStart.toLocaleTimeString()}-${this.lifecycleEnd.toLocaleTimeString()} #${this.logMessages.length}`;
+    }
+
+    get tooltip(): string {
+        return `SW:${this._swVersions.join(',')}`;
+    }
+
+    get swVersions() {
+        return this._swVersions;
     }
 
     public update(logMsg: DltMsg): boolean {
@@ -108,8 +118,26 @@ export class DltLifecycleInfo {
         this.logMessages.push(logMsg);
         logMsg.lifecycle = this;
         this.allCtrlRequests = false;
+        this.parseMessage(logMsg);
 
         return true; // part of this one
+    }
+
+    private parseMessage(msg: DltMsg) {
+        if (msg.mstp === MSTP.TYPE_CONTROL && msg.mtin === MTIN_CTRL.CONTROL_RESPONSE) {
+            if (msg.noar === 1) {
+                if (msg.payloadArgs[0].v === CTRL_SERVICE_ID.GET_SW_VERSION) {
+                    const swVStr = msg.payloadString;
+                    if (swVStr.startsWith("get_software_version, ok,")) { // hackish...
+                        const swV = swVStr.slice(25);
+                        if (!this._swVersions.includes(swV)) {
+                            this._swVersions.push(swV);
+                            console.log(`parseMessage swVersions='${this._swVersions.join(',')}'`);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     static updateLifecycles(msgs: DltMsg[], lifecycles: Map<string, DltLifecycleInfo[]>) {

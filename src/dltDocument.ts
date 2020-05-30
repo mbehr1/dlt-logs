@@ -135,16 +135,17 @@ export class DltDocument {
             });
         }
 
-        this.lifecycleTreeNode = { id: createUniqueId(), label: "Detected lifecycles", uri: this.uri, parent: null, children: [] };
-        this.filterTreeNode = { id: createUniqueId(), label: "Filters", uri: this.uri, parent: null, children: [] };
-        this.pluginTreeNode = { id: createUniqueId(), label: "Plugins", uri: this.uri, parent: null, children: [] };
+        this.lifecycleTreeNode = { id: createUniqueId(), label: "Detected lifecycles", uri: this.uri, parent: null, children: [], tooltip: undefined };
+        this.filterTreeNode = { id: createUniqueId(), label: "Filters", uri: this.uri, parent: null, children: [], tooltip: undefined };
+        this.pluginTreeNode = { id: createUniqueId(), label: "Plugins", uri: this.uri, parent: null, children: [], tooltip: undefined };
         this.treeNode = {
             id: createUniqueId(),
             label: `${path.basename(this._fileUri.fsPath)}`, uri: this.uri, parent: null, children: [
                 this.lifecycleTreeNode,
                 this.filterTreeNode,
                 this.pluginTreeNode,
-            ]
+            ],
+            tooltip: undefined
         };
         this.treeNode.children.forEach((child) => { child.parent = this.treeNode; });
         parentTreeNode.push(this.treeNode);
@@ -270,7 +271,7 @@ export class DltDocument {
                     switch (pluginName) {
                         case 'FileTransfer':
                             {
-                                let treeNode = { id: createUniqueId(), label: `File transfers`, uri: this.uri, parent: this.pluginTreeNode, children: [] };
+                                let treeNode = { id: createUniqueId(), label: `File transfers`, uri: this.uri, parent: this.pluginTreeNode, children: [], tooltip: undefined };
                                 const plugin = new DltFileTransferPlugin(this.uri, treeNode, this._treeEventEmitter, pluginObj);
                                 this.pluginNodes.push(treeNode);
                                 this.pluginTreeNode.children.push(treeNode);
@@ -1110,7 +1111,10 @@ export class DltDocument {
     private updateLifecycleTreeNode() {
         this.lifecycleTreeNode.children = [];
         this.lifecycles.forEach((lcInfo, ecu) => {
-            let ecuNode: TreeViewNode = { id: createUniqueId(), label: `ECU: ${ecu}`, parent: this.lifecycleTreeNode, children: [], uri: this.uri };
+            // determine SW names:
+            let sw: string[] = [];
+            lcInfo.forEach(lc => lc.swVersions.forEach(lsw => { if (!sw.includes(lsw)) { sw.push(lsw); } }));
+            let ecuNode: TreeViewNode = { id: createUniqueId(), label: `ECU: ${ecu}, SW${sw.length > 1 ? `(${sw.length}):` : `:`} ${sw.join(' and ')}`, parent: this.lifecycleTreeNode, children: [], uri: this.uri, tooltip: undefined };
             this.lifecycleTreeNode.children.push(ecuNode);
             console.log(`${ecuNode.label}`);
             // add lifecycles
@@ -1119,6 +1123,7 @@ export class DltDocument {
                 let lcNode: TreeViewNode = {
                     id: createUniqueId(),
                     label: lc.getTreeNodeLabel(),
+                    tooltip: lc.tooltip,
                     parent: ecuNode, children: [], uri: this.uri.with({ fragment: lc.startIndex.toString() })
                 };
                 ecuNode.children.push(lcNode);

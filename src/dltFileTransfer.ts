@@ -54,6 +54,7 @@ DLT_LOG(*fileContext, DLT_LOG_INFO,
 export class DltFileTransfer implements TreeViewNode {
     id: string;
     label: string;
+    tooltip: string | undefined;
     //uri: vscode.Uri | null; // index provided as fragment #<index>
     //parent: TreeViewNode | null;
     children: TreeViewNode[];
