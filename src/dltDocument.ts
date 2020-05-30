@@ -543,6 +543,16 @@ export class DltDocument {
         return this.renderLines(this._skipMsgs, progress);
     }
 
+    updateStatusBarItem(item: vscode.StatusBarItem) {
+        item.text = this.filteredMsgs !== undefined ? `${this.filteredMsgs.length}/${this.msgs.length} msgs` : `${this.msgs.length} msgs`;
+        let nrEnabledFilters: number = 0;
+        this.allFilters.forEach(filter => {
+            if (!filter.atLoadTime && filter.enabled && (filter.type === DltFilterType.POSITIVE || filter.type === DltFilterType.NEGATIVE)) { nrEnabledFilters++; }
+        });
+        const nrAllFilters = this.allFilters.length;
+        item.tooltip = `DLT: ${this._fileUri.fsPath}, showing max ${this._maxNrMsgs} msgs, ${this._timeAdjustMs / 1000}s time-adjust, ${this.timeSyncs.length} time-sync events, ${nrEnabledFilters}/${nrAllFilters} enabled filters`;
+    }
+
     lineCloseTo(index: number, ignoreSkip = false): number {
         // provides the line number "close" to the index 
         // todo this causes problems once we do sort msgs (e.g. by timestamp)

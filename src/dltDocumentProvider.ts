@@ -96,6 +96,8 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
 
     private _autoTimeSync = false; // todo config
 
+    private _statusBarItem: vscode.StatusBarItem | undefined;
+
     constructor(context: vscode.ExtensionContext, reporter?: TelemetryReporter) {
         console.log(`dlt-logs.DltDocumentProvider()...`);
         this._reporter = reporter;
@@ -141,6 +143,11 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                         }));
                     }
                     this._onDidChangeTreeData.fire();
+                    if (!this._statusBarItem) {
+                        this._statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right);
+                    }
+                    doc.updateStatusBarItem(this._statusBarItem);
+                    this._statusBarItem.show();
                 }
             }
         }));
@@ -166,6 +173,9 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                     }
                     this._documents.delete(uriStr);
                     this._onDidChangeTreeData.fire();
+                    if (this._documents.size === 0 && this._statusBarItem) {
+                        this._statusBarItem.hide();
+                    }
                 }
             }
         }));
@@ -183,12 +193,16 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                     console.log(`dlt-logs.onDidChangeTextDocument broadcasting ${data.timeSyncs.length} time-syncs.`);
                     this._onDidChangeSelectedTime.fire({ time: new Date(0), uri: data.uri, timeSyncs: data.timeSyncs });
                 }
+                if (this._statusBarItem) {
+                    data.updateStatusBarItem(this._statusBarItem);
+                }
             }
         }));
 
         // on change of active text editor update calculated decorations:
         this._subscriptions.push(vscode.window.onDidChangeActiveTextEditor(async (event: vscode.TextEditor | undefined) => {
             let activeTextEditor = event;
+            let hideStatusBar = true;
             if (activeTextEditor) {
                 console.log(`DltDocumentProvider.onDidChangeActiveTextEditor ${activeTextEditor.document.uri.toString()} column=${activeTextEditor.viewColumn}`);
                 if (this._documents.has(activeTextEditor.document.uri.toString())) {
@@ -201,7 +215,16 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                     this._dltLifecycleTreeView?.reveal(data.treeNode, { select: false, focus: true, expand: true });
                     //this.checkActiveTextEditor(data);
                     this.updateDecorations(data);
+
+                    if (this._statusBarItem) {
+                        hideStatusBar = false;
+                        data.updateStatusBarItem(this._statusBarItem);
+                        this._statusBarItem.show();
+                    }
                 }
+            }
+            if (hideStatusBar) {
+                this._statusBarItem?.hide();
             }
         }));
 
@@ -493,6 +516,11 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
         if (this._dltLifecycleTreeView) {
             this._dltLifecycleTreeView.dispose();
             this._dltLifecycleTreeView = undefined;
+        }
+        if (this._statusBarItem) {
+            this._statusBarItem.hide();
+            this._statusBarItem.dispose();
+            this._statusBarItem = undefined;
         }
         this._didChangeSelectedTimeSubscriptions.forEach((value) => {
             if (value !== undefined) {

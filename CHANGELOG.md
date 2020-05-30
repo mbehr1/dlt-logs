@@ -4,6 +4,9 @@ All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
 
+## [0.15.0]
+- Show status bar with number of msgs with current filter / all messages and tooltip with more info.
+
 ## [0.14.1]
 - Added list of SW versions to the detected lifecycles ECU line and as tooltip for the lifecycles.
 - Made lifecycle decoration one line smaller. As usually if filters are active otherwise the first line from next one is decorated.
