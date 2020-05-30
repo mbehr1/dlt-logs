@@ -521,6 +521,9 @@ export class DltDocument {
                                 let endLine: number = this.lineCloseTo(lc.endIndex, true);
                                 if (!endLine) {
                                     endLine = this.staticLinesAbove.length + (this.filteredMsgs?.length ? this.filteredMsgs.length - 1 : 0);
+                                } else {
+                                    // decrease by one as lineCloseTo usually selects the next one (>=) if the end is not visible and we better make it one smaller than one too large
+                                    if (endLine > startLine) { endLine--; }
                                 }
                                 console.log(`  decorating lifecycle ${maxEcu} #${lcCnt} '${startLine} - ${endLine}'`);
                                 const dec = { range: new vscode.Range(startLine, 0, endLine, 21), hoverMessage: `lifecycle: ${lc.lifecycleStart.toLocaleTimeString()}-${lc.lifecycleEnd.toLocaleTimeString()}` };
