@@ -39,6 +39,7 @@ The extension uses telemetry with two events (`activate` (no parameters) and `op
 - Check whether revaling the line on broadcasted time is possible if document is hidden/not visible.
 - Sort msgs within lifecycles by timestamp (maintaining orig index as e.g. hover info)
 - Add status bar info with e.g. number of msgs with current filter/total.
+- Add sw version into the lifecycles (and probably status line)
 - Support easier splitting of huge files into files per lifecycle and offer "assistant" at opening of huge files.
 - Support time synchronized split-view between e.g. two APIDs from within one DLT log file.
 - Use the outline view for lifecycles, errors,...

@@ -33,6 +33,7 @@ export const MTIN_NW_strs: string[] = ["", "ipc", "can", "flexray", "most", "vfb
 export const MTIN_CTRL_strs: string[] = ["", "request", "response", "time", "", "", "", "", "", "", "", "", "", "", "", ""];
 export const MTIN_CTRL_RESPONSE_strs: string[] = ["ok", "not_supported", "error", "", "", "", "", "", "no_matching_context_id"];
 
+export enum CTRL_SERVICE_ID { GET_LOG_INFO = 0x03, GET_SW_VERSION = 0x13 };
 export const serviceIds: string[] = ["", "set_log_level", "set_trace_status", "get_log_info", "get_default_log_level", "store_config", "reset_to_factory_default",
     "set_com_interface_status", "set_com_interface_max_bandwidth", "set_verbose_mode", "set_message_filtering", "set_timing_packets",
     "get_local_time", "use_ecu_id", "use_session_id", "use_timestamp", "use_extended_header", "set_default_log_level", "set_default_trace_status",
@@ -93,10 +94,7 @@ export class DltMsg {
         let stdHeaderSize = MIN_STD_HEADER_SIZE;
 
         if (withEID) {
-            // stripNull... could use proper parser with stripNull:true as well
-            let ecuLenEndIdx = DLT_STORAGE_HEADER_SIZE + stdHeaderSize + 3;
-            while (data[ecuLenEndIdx] === 0x0 && (ecuLenEndIdx >= (DLT_STORAGE_HEADER_SIZE + stdHeaderSize))) { ecuLenEndIdx--; }
-            this.ecu = data.slice(DLT_STORAGE_HEADER_SIZE + stdHeaderSize, ecuLenEndIdx + 1).toString("ascii");
+            this.ecu = DltParser.char4Parser.parse(data.slice(DLT_STORAGE_HEADER_SIZE + stdHeaderSize, DLT_STORAGE_HEADER_SIZE + stdHeaderSize + 4))["text"];
             stdHeaderSize += 4;
         } else {
             this.ecu = storageHeaderEcu;
@@ -264,9 +262,94 @@ export class DltMsg {
                                         this._payloadText += `, ${String(respCode.toString(16)).padStart(2, '0')}`;
                                     }
                                     remOffset++;
+                                    switch (serviceId) {
+                                        case CTRL_SERVICE_ID.GET_LOG_INFO: { // response status:uint8, applicationIds, reserved
+                                            switch (respCode) {
+                                                case 3:
+                                                case 4:
+                                                case 5:
+                                                case 6:
+                                                case 7: // info about reg. appids and ctids with log level and trace status info and all text. descr. 
+                                                    { // todo could use few binaryparser here...
+                                                        const hasLogLevel: boolean = (respCode === 4) || (respCode === 6) || (respCode === 7);
+                                                        const hasTraceStatus: boolean = (respCode === 5) || (respCode === 6) || (respCode === 7);
+                                                        const hasDescr: boolean = (respCode === 7);
+                                                        if (this._payloadData.length - remOffset >= 2 + (hasDescr ? 2 : 0)) {
+                                                            const nrApids = isBigEndian ? this._payloadData.readUInt16BE(remOffset) : this._payloadData.readUInt16LE(remOffset);
+                                                            remOffset += 2;
+                                                            for (let a = 0; a < nrApids; ++a) {
+                                                                if (this._payloadData.length - remOffset < 6) { break; }
+                                                                const apid = DltParser.char4Parser.parse(this._payloadData.slice(remOffset))["text"];
+                                                                remOffset += 4;
+                                                                const nrCtids = isBigEndian ? this._payloadData.readUInt16BE(remOffset) : this._payloadData.readUInt16LE(remOffset);
+                                                                remOffset += 2;
+                                                                for (let c = 0; c < nrCtids; ++c) {
+                                                                    if (this._payloadData.length - remOffset < (4 + (hasLogLevel ? 1 : 0) + (hasTraceStatus ? 1 : 0) + (hasDescr ? 2 : 0))) { break; }
+                                                                    const ctid = DltParser.char4Parser.parse(this._payloadData.slice(remOffset))["text"];
+                                                                    remOffset += 4;
+                                                                    let logLevel: number = 0xff;
+                                                                    if (hasLogLevel) {
+                                                                        logLevel = this._payloadData.readUInt8(remOffset);
+                                                                        remOffset += 1;
+                                                                    }
+                                                                    let traceStatus: number = 0xff;
+                                                                    if (hasTraceStatus) {
+                                                                        traceStatus = this._payloadData.readUInt8(remOffset);
+                                                                        remOffset += 1;
+                                                                    }
+                                                                    let ctDescLen: number = 0;
+                                                                    if (hasDescr) {
+                                                                        ctDescLen = isBigEndian ? this._payloadData.readUInt16BE(remOffset) : this._payloadData.readUInt16LE(remOffset);
+                                                                        remOffset += 2;
+                                                                    }
+                                                                    this._payloadText += ` ctid:'${ctid}'(`;
+                                                                    if (ctDescLen && this._payloadData.length - remOffset >= ctDescLen) {
+                                                                        this._payloadText += `${printableAscii(this._payloadData.slice(remOffset, remOffset + ctDescLen))}`;
+                                                                        remOffset += ctDescLen;
+                                                                    }
+                                                                    this._payloadText += `)`;
+                                                                    if (hasLogLevel) { this._payloadText += ` log level=${logLevel.toString(16)}`; }
+                                                                    if (hasTraceStatus) { this._payloadText += ` trace status=${traceStatus.toString(16)}`; }
+                                                                }
+                                                                let aDescLen: number = 0;
+                                                                if (hasDescr) {
+                                                                    aDescLen = isBigEndian ? this._payloadData.readUInt16BE(remOffset) : this._payloadData.readUInt16LE(remOffset);
+                                                                    remOffset += 2;
+                                                                }
+                                                                this._payloadText += ` apid:'${apid}'(`;
+                                                                if (aDescLen && this._payloadData.length - remOffset >= aDescLen) {
+                                                                    this._payloadText += `${printableAscii(this._payloadData.slice(remOffset, remOffset + aDescLen))}`;
+                                                                    remOffset += aDescLen;
+                                                                }
+                                                                this._payloadText += `) `;
+                                                            }
+                                                        }
+                                                        remOffset += 4; // skip reserved (request handle alike)
+                                                    }
+                                                    break;
+                                            }
+                                        }
+                                            break;
+                                        case CTRL_SERVICE_ID.GET_SW_VERSION: // 2nd param uint32 len, 3, sw version
+                                            {
+                                                if (this._payloadData.length - remOffset >= 4) {
+                                                    const swVersionLen = isBigEndian ? this._payloadData.readUInt32BE(remOffset) : this._payloadData.readUInt32LE(remOffset);
+                                                    remOffset += 4;
+                                                    if (swVersionLen) {
+                                                        this._payloadText += `,${printableAscii(this._payloadData.slice(remOffset, remOffset + swVersionLen))}`;
+                                                        remOffset += swVersionLen;
+                                                    }
+                                                }
+                                            }
+                                            break;
+                                        default:
+                                            break;
+                                    }
                                 }
-                                const rawd = this._payloadData.slice(remOffset);
-                                this._payloadText += ', ' + rawd.toString("hex");
+                                if (this._payloadData.length - remOffset > 0) {
+                                    const rawd = this._payloadData.slice(remOffset);
+                                    this._payloadText += ', ' + rawd.toString("hex");
+                                }
                             }
                         } else {
                             console.log(`CONTROL_MSG with noar=${this.noar} and serviceId=${serviceId}`);
@@ -304,7 +387,8 @@ export class DltMsg {
 }
 
 export class DltParser {
-    static storageHeaderParser = new Parser().endianess("little").uint32("pattern").uint32("secs").int32("micros").string("ecu", { encoding: "ascii", length: 4, stripNull: true });//.uint32("ecu");
+    static char4Parser = new Parser().string("text", { encoding: "ascii", length: 4, stripNull: true });
+    static storageHeaderParser = new Parser().endianess("little").uint32("pattern").uint32("secs").int32("micros").string("ecu", { encoding: "ascii", length: 4, stripNull: true });
     static stdHeaderParser = new Parser().endianess("little").uint8("htyp").uint8("mcnt").uint16be("len");
     static extHeaderParser = new Parser().endianess("little").bit1("verb").bit3("mstp").bit4("mtin").uint8("noar").string("apid", { encoding: "ascii", length: 4, stripNull: true }).string("ctid", { encoding: "ascii", length: 4, stripNull: true });
 

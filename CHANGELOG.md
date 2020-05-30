@@ -4,6 +4,9 @@ All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
 
+## [0.14.0]
+- Added parsing of control response get_sw_version and get_log_info
+
 ## [0.13.1]
 - Remove trailing zeros from ECU.
 
