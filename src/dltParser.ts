@@ -277,12 +277,14 @@ export class DltMsg {
                                                         if (this._payloadData.length - remOffset >= 2 + (hasDescr ? 2 : 0)) {
                                                             const nrApids = isBigEndian ? this._payloadData.readUInt16BE(remOffset) : this._payloadData.readUInt16LE(remOffset);
                                                             remOffset += 2;
+                                                            const apids = [];
                                                             for (let a = 0; a < nrApids; ++a) {
                                                                 if (this._payloadData.length - remOffset < 6) { break; }
                                                                 const apid = DltParser.char4Parser.parse(this._payloadData.slice(remOffset))["text"];
                                                                 remOffset += 4;
                                                                 const nrCtids = isBigEndian ? this._payloadData.readUInt16BE(remOffset) : this._payloadData.readUInt16LE(remOffset);
                                                                 remOffset += 2;
+                                                                const ctids = [];
                                                                 for (let c = 0; c < nrCtids; ++c) {
                                                                     if (this._payloadData.length - remOffset < (4 + (hasLogLevel ? 1 : 0) + (hasTraceStatus ? 1 : 0) + (hasDescr ? 2 : 0))) { break; }
                                                                     const ctid = DltParser.char4Parser.parse(this._payloadData.slice(remOffset))["text"];
@@ -303,10 +305,13 @@ export class DltMsg {
                                                                         remOffset += 2;
                                                                     }
                                                                     this._payloadText += ` ctid:'${ctid}'(`;
+                                                                    let ctDesc = '';
                                                                     if (ctDescLen && this._payloadData.length - remOffset >= ctDescLen) {
-                                                                        this._payloadText += `${printableAscii(this._payloadData.slice(remOffset, remOffset + ctDescLen))}`;
+                                                                        ctDesc = printableAscii(this._payloadData.slice(remOffset, remOffset + ctDescLen));
+                                                                        this._payloadText += ctDesc;
                                                                         remOffset += ctDescLen;
                                                                     }
+                                                                    ctids.push({ ctid: ctid, desc: ctDesc });
                                                                     this._payloadText += `)`;
                                                                     if (hasLogLevel) { this._payloadText += ` log level=${logLevel.toString(16)}`; }
                                                                     if (hasTraceStatus) { this._payloadText += ` trace status=${traceStatus.toString(16)}`; }
@@ -316,13 +321,17 @@ export class DltMsg {
                                                                     aDescLen = isBigEndian ? this._payloadData.readUInt16BE(remOffset) : this._payloadData.readUInt16LE(remOffset);
                                                                     remOffset += 2;
                                                                 }
+                                                                let aDesc = '';
                                                                 this._payloadText += ` apid:'${apid}'(`;
                                                                 if (aDescLen && this._payloadData.length - remOffset >= aDescLen) {
-                                                                    this._payloadText += `${printableAscii(this._payloadData.slice(remOffset, remOffset + aDescLen))}`;
+                                                                    aDesc = printableAscii(this._payloadData.slice(remOffset, remOffset + aDescLen));
+                                                                    this._payloadText += aDesc;
                                                                     remOffset += aDescLen;
                                                                 }
                                                                 this._payloadText += `) `;
+                                                                apids.push({ apid: apid, ctids: ctids, desc: aDesc });
                                                             }
+                                                            this.payloadArgs.push(apids);
                                                         }
                                                         remOffset += 4; // skip reserved (request handle alike)
                                                     }
@@ -354,7 +363,7 @@ export class DltMsg {
                         } else {
                             console.log(`CONTROL_MSG with noar=${this.noar} and serviceId=${serviceId}`);
                         }
-                        assert.equal(this.noar, this.payloadArgs.length, "TYPE_CONTROL noars != payloadArgs.length");
+                        assert.ok(this.noar <= this.payloadArgs.length, "TYPE_CONTROL noars > payloadArgs.length"); // for some (e.g. get_log_info) we add more payloadArgs
                     }
                         break;
                     default:

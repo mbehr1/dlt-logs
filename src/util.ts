@@ -95,3 +95,27 @@ export const throttle = <F extends (...args: any[]) => any>(func: F, waitFor: nu
             }
         });
 };
+
+
+export function updateConfiguration(section: string, newValue: any) {
+    // we should try to update first:
+    // workspaceFolderValue
+    // workspaceValue
+    // globalValue
+
+    try {
+        console.log(`util.updateConfiguration(section=${section})...`);
+        const config = vscode.workspace.getConfiguration();
+        //const curSet = config.inspect(section);
+        //console.log(`curSet.workspaceFolderValue = ${curSet?.workspaceFolderValue}`);
+        //console.log(`curSet.workspaceValue = ${curSet?.workspaceValue}`);
+        //console.log(`curSet.globalValue = ${curSet?.globalValue}`);
+        // todo check which ones exist and add there
+        // for now add only to globalValue...
+
+        return config.update(section, newValue, true);
+    } catch (err) {
+        console.error(`err ${err} at updating configuration '${section}'`);
+    }
+
+}

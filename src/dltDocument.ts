@@ -307,10 +307,53 @@ export class DltDocument {
 
     }
 
-    onFilterChange(filter: DltFilter) { // todo this is really dirty. need to reconsider these arrays...
+    onFilterChange(filter: DltFilter) { // the filter might not be part of allFilters anylonger (e.g. after deleteFilter)
         console.log(`onFilterChange filter.name=${filter.name}`);
         return vscode.window.withProgress({ cancellable: false, location: vscode.ProgressLocation.Notification, title: "applying filter..." },
             (progress) => this.applyFilter(progress));
+    }
+
+    onFilterAdd(filter: DltFilter) {
+        this.filterTreeNode.children.push(new FilterNode(null, this.filterTreeNode, filter));
+        this.allFilters.push(filter);
+        this._treeEventEmitter.fire(this.filterTreeNode);
+        return this.onFilterChange(filter);
+    }
+
+    onFilterEdit(filter: DltFilter) {
+        // update filterNode needs to be done by caller. a bit messy...
+        return this.onFilterChange(filter);
+    }
+
+    onFilterDelete(filter: DltFilter) {
+        filter.enabled = false; // just in case
+
+        // remove from list of allFilters and from filterTreeNode
+        let found = false;
+        for (let i = 0; i < this.allFilters.length; ++i) {
+            if (this.allFilters[i] === filter) {
+                this.allFilters.splice(i, 1);
+                found = true;
+                break;
+            }
+        }
+        if (found) {
+            found = false;
+            for (let i = 0; i < this.filterTreeNode.children.length; ++i) {
+                let node = this.filterTreeNode.children[i];
+                if (node instanceof FilterNode && node.filter === filter) {
+                    this.filterTreeNode.children.splice(i, 1);
+                    found = true;
+                    break;
+                }
+            }
+
+        }
+        if (!found) {
+            vscode.window.showErrorMessage(`didn't found nodes to delete filter ${filter.name}`);
+        }
+        this._treeEventEmitter.fire(this.filterTreeNode);
+        return this.onFilterChange(filter);
     }
 
     /* todo clearFilter() {
@@ -649,7 +692,20 @@ export class DltDocument {
         }
         const posTime = this.provideTimeByMsg(msg);
         if (posTime) {
-            return new vscode.Hover({ language: "dlt-log", value: `calculated time: ${posTime.toLocaleTimeString()}.${String(posTime.valueOf() % 1000).padStart(3, "0")} index#=${msg.index} timestamp=${msg.timeStamp} reception time=${msg.time.toLocaleTimeString()} mtin=${msg.mtin}` });
+            let mdString = new vscode.MarkdownString(`${posTime.toLocaleTimeString()}.${String(posTime.valueOf() % 1000).padStart(3, "0")} index#=${msg.index} timestamp=${msg.timeStamp} reception time=${msg.time.toLocaleTimeString()} mtin=${msg.mtin}`, true);
+            mdString.appendMarkdown(`\n\n---\n\n`);
+            mdString.appendMarkdown(`| calculated time | ${posTime.toLocaleTimeString()}.${String(posTime.valueOf() % 1000).padStart(3, "0")}|\n|:---|:---|
+            |lifecycle|${msg.lifecycle?.getTreeNodeLabel()}|
+            |timestamp|${msg.timeStamp}|
+            |reception time|${msg.time.toLocaleTimeString()}|
+            | index# | ${msg.index}|\n`);
+            mdString.appendMarkdown(`\n\n---\n\n`);
+            const args = [{ uri: this.uri }, { mstp: msg.mstp, ecu: msg.ecu, apid: msg.apid, ctid: msg.ctid, payload: msg.payloadString }];
+            const addCommandUri = vscode.Uri.parse(`command:dlt-logs.addFilter?${encodeURIComponent(JSON.stringify(args))}`);
+
+            mdString.appendMarkdown(`[$(filter) add filter...](${addCommandUri})`);
+            mdString.isTrusted = true;
+            return new vscode.Hover(mdString);
         } else {
             return new vscode.Hover({ language: "dlt-log", value: `calculated time: <none> index#=${msg.index} timestamp=${msg.timeStamp} reception time=${msg.time.toLocaleTimeString()}` });
         }

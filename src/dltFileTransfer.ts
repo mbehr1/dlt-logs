@@ -171,7 +171,7 @@ export class DltFileTransferPlugin extends DltFilter {
     public allowSave: boolean = true;
 
     constructor(uri: vscode.Uri, public treeViewNode: TreeViewNode, treeEventEmitter: vscode.EventEmitter<TreeViewNode | null>, options: any) {
-        super({ type: DltFilterType.NEGATIVE });
+        super({ type: DltFilterType.NEGATIVE }, false); // don't allow Edit from treeViewExplorer for these
         if ('enabled' in options) {
             this.enabled = options.enabled;
         } else {

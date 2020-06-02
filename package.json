@@ -2,7 +2,7 @@
 	"name": "dlt-logs",
 	"displayName": "DLT-Logs",
 	"description": "Open DLT diagnostic log and trace files with lifecycle detection, filters, time-sync, etc.",
-	"version": "0.15.0",
+	"version": "0.16.0",
 	"license": "CC BY-NC-SA 4.0",
 	"publisher": "mbehr1",
 	"author": {
@@ -382,6 +382,20 @@
 				"icon": "$(sync-ignored)"
 			},
 			{
+				"command": "dlt-logs.addFilter",
+				"title": "add filter..."
+			},
+			{
+				"command": "dlt-logs.editFilter",
+				"title": "edit filter...",
+				"icon": "$(edit)"
+			},
+			{
+				"command": "dlt-logs.deleteFilter",
+				"title": "delete filter...",
+				"icon": "$(trash)"
+			},
+			{
 				"command": "dlt-logs.enableFilter",
 				"title": "enable",
 				"icon": "$(debug-start)"
@@ -428,20 +442,26 @@
 			"view/item/context": [
 				{
 					"command": "dlt-logs.enableFilter",
-					"when": "view == dltLifecycleExplorer && viewItem == filterDisabled",
+					"when": "view == dltLifecycleExplorer && viewItem =~ /^filterDisabled/",
 					"group": "inline",
 					"args": "2"
 				},
 				{
 					"command": "dlt-logs.disableFilter",
-					"when": "view == dltLifecycleExplorer && viewItem == filterEnabled",
+					"when": "view == dltLifecycleExplorer && viewItem =~ /^filterEnabled/",
 					"group": "inline"
 				},
 				{
 					"command": "dlt-logs.openReport",
 					"alt": "dlt-logs.openNewReport",
-					"when": "view == dltLifecycleExplorer && viewItem == filterReport",
+					"when": "view == dltLifecycleExplorer && viewItem =~ /^filterReport/",
 					"group": "inline"
+				},
+				{
+					"command": "dlt-logs.editFilter",
+					"alt": "dlt-logs.deleteFilter",
+					"when": "view == dltLifecycleExplorer && viewItem =~ /filterAllowEdit/",
+					"group": "inline@2"
 				},
 				{
 					"command": "dlt-logs.fileTransferSave",
@@ -513,6 +533,7 @@
 	},
 	"dependencies": {
 		"binary-parser": "^1.5.0",
+		"color-name": "^1.1.4",
 		"vscode-extension-telemetry": "^0.1.2"
 	}
 }

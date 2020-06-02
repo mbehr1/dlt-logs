@@ -2,17 +2,14 @@
  * Copyright(C) Matthias Behr.
  */
 
-import * as vscode from 'vscode';
-import * as assert from 'assert';
-import * as fs from 'fs';
-import * as path from 'path';
+//import * as vscode from 'vscode';
+//import * as assert from 'assert';
 import { DltMsg, MSTP, MTIN_LOG, MTIN_CTRL, MSTP_strs, MTIN_LOG_strs } from './dltParser';
-// import { DltLifecycleInfo } from './dltLifecycle';
 
 export enum DltFilterType { POSITIVE, NEGATIVE, MARKER, EVENT };
 
 export class DltFilter {
-    readonly type: DltFilterType;
+    type: DltFilterType;
     enabled: boolean = true;
     atLoadTime: boolean = false; // this filter gets used a load/opening the dlt file already (thus can't be deactivated later). Not possible with MARKER.
     beforePositive: boolean = false; // for neg. (todo later for marker?): match this before the pos. filters. mainly used for plugins like FileTransfer
@@ -38,12 +35,17 @@ export class DltFilter {
     // report options:
     reportOptions: any | undefined;
 
-    constructor(options: any) { // we do need at least the type
+    // the options used to create the object.
+    // asConfiguration() modifies this one based on current values
+    configOptions: any | undefined;
+
+    constructor(options: any, readonly allowEdit = true) { // we do need at least the type
         if ('type' in options) {
             this.type = options["type"];
         } else {
             throw Error("type missing for DltFilter");
         }
+        this.configOptions = options;
         if ('enabled' in options) {
             this.enabled = options.enabled;
         }
@@ -101,6 +103,29 @@ export class DltFilter {
             }
         }
 
+    }
+
+    asConfiguration() { // to persist new Filters into configuration setting
+        if (this.configOptions === undefined) { this.configOptions = { type: this.type }; }
+        const obj = this.configOptions;
+        obj.type = this.type;
+        obj.enabled = this.enabled ? undefined : false; // default to true. don't store to make the config small, readable
+        obj.atLoadTime = this.atLoadTime ? true : undefined; // default to false
+        obj.mstp = this.mstp;
+        obj.ecu = this.ecu;
+        obj.apid = this.apid;
+        obj.ctid = this.ctid;
+        obj.logLevelMin = this.logLevelMin;
+        obj.logLevelMax = this.logLevelMax;
+        obj.payload = this.payload;
+        obj.payloadRegex = this.payloadRegex !== undefined ? this.payloadRegex.source : undefined; // todo check source?
+        obj.timeSyncId = this.timeSyncId;
+        obj.timeSyncPrio = this.timeSyncPrio;
+        obj.decorationId = this.decorationId;
+        obj.filterColour = this.filterColour; // or remove blue?
+        obj.reportOptions = this.reportOptions;
+
+        return obj;
     }
 
     matches(msg: DltMsg): boolean {

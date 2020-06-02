@@ -4,6 +4,10 @@ All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
 
+## [0.16.0]
+- add filter..., edit filter and delete filter features.
+- enhanced hover text to provide "add filter..." command and tabluar view.
+
 ## [0.15.0]
 - Show status bar with number of msgs with current filter / all messages and tooltip with more info.
 

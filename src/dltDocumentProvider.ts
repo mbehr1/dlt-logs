@@ -12,7 +12,7 @@ import { DltDocument } from './dltDocument';
 import TelemetryReporter from 'vscode-extension-telemetry';
 import { DltFilter } from './dltFilter';
 import { DltFileTransfer } from './dltFileTransfer';
-import { pathToFileURL } from 'url';
+import { addFilter, editFilter, deleteFilter } from './dltAddEditFilter';
 
 function sleep(ms: number): Promise<void> {
     return new Promise(resolve => {
@@ -58,19 +58,28 @@ export class FilterNode implements TreeViewNode {
     //uri: vscode.Uri | null; // index provided as fragment #<index>
     //parent: TreeViewNode | null;
     children: TreeViewNode[];
-    contextValue: string;
+    _contextValue: string;
+    get contextValue() { return this._contextValue; } // readonly 
+
     constructor(public uri: vscode.Uri | null, public parent: TreeViewNode | null, public filter: DltFilter) {
         this.children = [];
         this.id = createUniqueId();
-        this.label = filter.name;
-        if (filter.isReport) {
-            this.contextValue = 'filterReport';
+        this.label = ''; // will be updated properly on onFilterUpdate
+        this._contextValue = '';
+        this.onFilterUpdate();
+    }
+    onFilterUpdate() {
+        this.label = this.filter.name;
+        if (this.filter.isReport) {
+            this._contextValue = 'filterReport';
         } else
-            if (filter.atLoadTime) {
-                this.contextValue = 'filterLoadTime';
+            if (this.filter.atLoadTime) {
+                this._contextValue = 'filterLoadTime';
             } else
-                if (filter.enabled) { this.contextValue = 'filterEnabled'; } else { this.contextValue = 'filterDisabled'; };
-
+                if (this.filter.enabled) { this._contextValue = 'filterEnabled'; } else { this._contextValue = 'filterDisabled'; };
+        if (this.filter.allowEdit) {
+            this._contextValue += ' filterAllowEdit';
+        }
     }
 };
 
@@ -361,6 +370,56 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
             }
         }));
 
+        this._subscriptions.push(vscode.commands.registerCommand("dlt-logs.addFilter", async (...args) => {
+            args.forEach(a => { console.log(` arg='${JSON.stringify(a)}'`); });
+            if (args.length < 2) { return; }
+            // first arg should contain uri
+            const uri = args[0].uri;
+            if (uri) {
+                const doc = this._documents.get(uri.toString());
+                if (doc) {
+                    addFilter(doc, args[1]);
+                }
+            }
+        }));
+
+        context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.editFilter', async (...args: any[]) => {
+            const filterNode = <FilterNode>args[0];
+            const parentUri = filterNode.parent?.uri;
+            if (parentUri) {
+                const doc = this._documents.get(parentUri.toString());
+                if (doc) {
+                    console.log(`editFilter(${filterNode.label}) called for doc=${parentUri}`);
+                    editFilter(doc, filterNode.filter).then(() => {
+                        console.log(`editFilter resolved...`);
+                        filterNode.onFilterUpdate();
+                        this._onDidChangeTreeData.fire(filterNode);
+                    });
+                }
+            }
+        }));
+
+        context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.deleteFilter', async (...args: any[]) => {
+            const filterNode = <FilterNode>args[0];
+            const parentUri = filterNode.parent?.uri;
+            if (parentUri) {
+                const doc = this._documents.get(parentUri.toString());
+                if (doc) {
+                    console.log(`deleteFilter(${filterNode.label}) called for doc=${parentUri}`);
+                    let parentNode = filterNode.parent;
+                    vscode.window.showWarningMessage(`Do you want to delete the filter '${filterNode.filter.name}'? This cannot be undone!`,
+                        { modal: true }, 'Delete').then((value) => {
+                            if (value === 'Delete') {
+                                deleteFilter(doc, filterNode.filter).then(() => {
+                                    console.log(`deleteFilter resolved...`);
+                                    this._onDidChangeTreeData.fire(parentNode);
+                                });
+                            }
+                        });
+                }
+            }
+        }));
+
         context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.enableFilter', async (...args: any[]) => {
             const filterNode = <FilterNode>args[0];
             const parentUri = filterNode.parent?.uri;
@@ -369,8 +428,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                 if (doc) {
                     console.log(`enableFilter(${filterNode.label}) called for doc=${parentUri}`);
                     filterNode.filter.enabled = true;
-                    filterNode.label = filterNode.filter.name; // dirty. add to FilterNode class!
-                    if (filterNode.filter.enabled) { filterNode.contextValue = 'filterEnabled'; } else { filterNode.contextValue = 'filterDisabled'; };
+                    filterNode.onFilterUpdate();
                     doc.onFilterChange(filterNode.filter);
                     this._onDidChangeTreeData.fire(filterNode);
                 }
@@ -385,8 +443,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                 if (doc) {
                     console.log(`disableFilter(${filterNode.label}) called for doc=${parentUri}`);
                     filterNode.filter.enabled = false;
-                    filterNode.label = filterNode.filter.name;
-                    if (filterNode.filter.enabled) { filterNode.contextValue = 'filterEnabled'; } else { filterNode.contextValue = 'filterDisabled'; };
+                    filterNode.onFilterUpdate();
                     doc.onFilterChange(filterNode.filter);
                     this._onDidChangeTreeData.fire(filterNode);
                 }

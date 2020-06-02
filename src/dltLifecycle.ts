@@ -19,6 +19,8 @@ export class DltLifecycleInfo {
     allCtrlRequests: boolean = true; // this lifecycle consists of only ctrl requests.
     private _swVersions: string[] = [];
 
+    apidInfos: Map<string, { apid: string, desc: string, ctids: Map<string, string> }> = new Map(); // map with apids/ctid infos
+
     constructor(logMsg: DltMsg) {
         this.uniqueId = _nextLcUniqueId++;
         // if its a control message from logger we ignore the timestamp:
@@ -135,7 +137,31 @@ export class DltLifecycleInfo {
                             console.log(`parseMessage swVersions='${this._swVersions.join(',')}'`);
                         }
                     }
-                }
+                } else
+                    if (msg.payloadArgs[0].v === CTRL_SERVICE_ID.GET_LOG_INFO) {
+                        if (msg.payloadArgs.length > msg.noar) {
+                            // the first one is the array of apid infos:
+                            const apids = msg.payloadArgs[msg.noar];
+                            for (let i = 0; i < apids.length; ++i) {
+                                const apidInfo = apids[i];
+                                if (!this.apidInfos.has(apidInfo.apid)) {
+                                    this.apidInfos.set(apidInfo.apid, { apid: apids.apid, desc: apidInfo.desc, ctids: new Map<string, string>() });
+                                    //console.log(`get_log_info added apid = ${apidInfo.apid}`);
+                                }
+                                const knownApidInfo = this.apidInfos.get(apidInfo.apid);
+                                if (knownApidInfo !== undefined) {
+                                    for (let c = 0; c < apidInfo.ctids.length; ++c) {
+                                        const ctidObj = apidInfo.ctids[c];
+                                        // check whether ctid is known:
+                                        if (!knownApidInfo.ctids.has(ctidObj.ctid)) {
+                                            knownApidInfo.ctids.set(ctidObj.ctid, ctidObj.desc);
+                                            //console.log(`get_log_info added apid/ctid = ${apidInfo.apid}/${ctidObj.ctid}`);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
             }
         }
     }

@@ -1,0 +1,176 @@
+/* --------------------
+ * Copyright(C) Matthias Behr, 2020.
+ */
+
+// todo export into module and unite/combine with the one from vsc.webshark
+
+import * as vscode from 'vscode';
+
+export class PickItem implements vscode.QuickPickItem {
+    // name: string; // like label but icon will be added in front
+    icon: string | undefined;
+    description: string | undefined;
+    detail: string | undefined;
+    data: any;
+
+    constructor(public name: string) { }
+    get label() {
+        if (this.icon) {
+            return `${this.icon} ${this.name}`;
+        } else {
+            return this.name;
+        }
+    }
+
+    get alwaysShow() { return true; }
+};
+
+class QuickButton implements vscode.QuickInputButton {
+    constructor(public iconPath: vscode.Uri | { dark: vscode.Uri, light: vscode.Uri } | vscode.ThemeIcon) { }
+}
+
+export class QuickInputHelper {
+
+    static createQuickPick<T extends vscode.QuickPickItem>(title: string, step: number | undefined, totalSteps: number | undefined, buttons?: vscode.QuickInputButton[]): vscode.QuickPick<T> {
+        const quickPick = vscode.window.createQuickPick<T>();
+        quickPick.title = title;
+        quickPick.ignoreFocusOut = true; // todo add cancel button?
+        quickPick.canSelectMany = true;
+        quickPick.matchOnDescription = true;
+        quickPick.step = step;
+        quickPick.totalSteps = totalSteps;
+
+        quickPick.buttons = [
+            ...((step !== undefined && step > 1) ? [vscode.QuickInputButtons.Back] : []),
+            ...(buttons || [])
+        ];
+
+        return quickPick;
+    }
+
+    static async show<T extends vscode.QuickPickItem>(quickPick: vscode.QuickPick<T>, isValid?: ((value: string) => boolean)) {
+        const disposables: vscode.Disposable[] = [];
+        try {
+
+            return await new Promise<readonly T[] | string>((resolve, reject) => {
+                let ignoreNextAccept: boolean = false;
+                disposables.push(quickPick.onDidAccept(() => {
+                    if (ignoreNextAccept) {
+                        console.log(`show onDidAccept() ignoring`);
+                        ignoreNextAccept = false;
+                        return;
+                    }
+                    if (true || quickPick.canSelectMany) { // only via quickInputButton
+                        quickPick.busy = true;
+                        console.log(`show onDidAccept() got selectedItems.length=${quickPick.selectedItems.length} and value='${quickPick.value}'`);
+                        quickPick.enabled = false; // no hide here. done by dispose
+                        resolve(quickPick.selectedItems.length ? quickPick.selectedItems : quickPick.value);
+                    } else { // todo need to find a way to allow arbitrary values and on selecting an item not sending accept!
+                        // on accept we check whether 
+                        console.log(`show onDidAccept() got selectedItems.length=${quickPick.selectedItems.length} and value='${quickPick.value}'`);
+                    }
+                }));
+                disposables.push(quickPick.onDidChangeActive((actives) => {
+                    // active on is the one highlighted (changing with cursor up down)
+                    //console.log(`show onDidChangeActive() got actives.length=${actives.length} and value='${quickPick.value}'`);
+                    //actives.forEach(a => console.log(` a=${a.label} picked=${a.picked}`));
+                }));
+
+                disposables.push(quickPick.onDidChangeValue((value) => {
+                    //console.log(`show onDidChangeValue() got value='${value}'`);
+                    if (isValid !== undefined) {
+                        quickPick.enabled = isValid(value);
+                    }
+                }));
+
+                disposables.push(quickPick.onDidChangeSelection((selections) => {
+                    //console.log(`show onDidChangeSelection() got selections.length='${selections.length}'`);
+                    //selections.forEach(a => console.log(` s=${a.label} picked=${a.picked}`));
+                    if (!quickPick.canSelectMany) {
+                        // we copy the value and unselect:
+                        if (selections.length === 1) {
+                            if (quickPick.value !== selections[0].label) {
+                                quickPick.value = selections[0].label;
+                                quickPick.selectedItems = [];
+                                ignoreNextAccept = true;
+                            }
+                        }
+                    }
+                }));
+
+                disposables.push(quickPick.onDidTriggerButton(button => {
+                    if (button === vscode.QuickInputButtons.Back) {
+                        reject(vscode.QuickInputButtons.Back);
+                    } else
+                        if (button instanceof QuickButton) {
+                            console.log(`show onDidTrigger() QuickButton`);
+                            quickPick.busy = true;
+                            quickPick.enabled = false;
+                            resolve(quickPick.value);
+                        } else {
+                            console.log(`show onDidTrigger() != known button`);
+                        }
+                }));
+
+                disposables.push(quickPick.onDidHide(() => {
+                    console.log(`show onDidHide()...`);
+                    reject();
+                }));
+
+                quickPick.show();
+            });
+
+        } finally {
+            disposables.forEach(d => d.dispose());
+        }
+    }
+}
+
+export class MultiStepInput {
+
+    constructor(private _title: string,
+        private _steps: readonly {
+            iconPath?: string,
+            items: PickItem[] | (() => PickItem[]), title?: string, initialValue?: () => string | undefined, placeholder?: string,
+            onValue: ((v: string) => void),
+            isValid?: ((v: string) => boolean)
+        }[],
+        public options?: { canSelectMany: boolean }) {
+    }
+
+    public async run() {
+
+        return new Promise<null>(async (resolve, reject) => {
+            let doCancel = false;
+            for (let s = 0; s < this._steps.length; ++s) {
+                const stepData = this._steps[s];
+                let doBack = false;
+                const buttons = [new QuickButton(new vscode.ThemeIcon(stepData.iconPath !== undefined ? stepData.iconPath : (s === this._steps.length - 1 ? 'menu-selection' : 'arrow-right')))];
+                const quickPick = QuickInputHelper.createQuickPick(`${this._title} ${stepData.title ? stepData.title : ''}`, s + 1, this._steps.length, buttons);
+                if (this.options !== undefined) {
+                    quickPick.canSelectMany = this.options.canSelectMany;
+                }
+                quickPick.items = stepData.items instanceof Array ? stepData.items : stepData.items();
+                if (stepData.initialValue !== undefined) {
+                    let t = stepData.initialValue();
+                    if (t) { quickPick.value = t; }
+                }
+                if (stepData.placeholder) { quickPick.placeholder = stepData.placeholder; };
+
+                await QuickInputHelper.show(quickPick, stepData.isValid).then((selectedItems) => {
+                    stepData.onValue(quickPick.value);
+                }).catch(err => {
+                    if (err === vscode.QuickInputButtons.Back) {
+                        doBack = true;
+                    } else {
+                        doCancel = true;
+                    }
+                });
+                quickPick.dispose();
+                if (doCancel) { break; }
+                if (doBack) { s -= 2; }
+            }
+            if (doCancel) { reject(); } else { resolve(); }
+        });
+    }
+}

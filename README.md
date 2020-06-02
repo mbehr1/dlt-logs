@@ -24,7 +24,11 @@ This Visual Studio Code(tm) extension adds support to open DLT (diagnostic log a
   - CTID
   - MSTP
   - log level min/max
-  - payload (by "contains" simple string or regex match)
+  - payload (by "contains" simple string or regex match).
+
+- Filters can be *added* based on the hover text of a log line. The filter settings will be prefilled with ECU, APID, CTID.
+- Filters can be *edited* and *deleted* (press option key at the edit icon) from the *filters* tree view.
+- Adding or editing filters menu allows to select ECUs, APIDs, CTIDs from the descriptions found in the loaded log file.
 
 - Support **DLT file transfer** file extraction (and automatic filtering of FLDA msgs). Shows the file transfers and allows to save any file.
 - **Quickly configurable columns**. Simply press the "select columns..." button in upper right corner of the document and select which one to show. The changes get stored permanently as global settings `dlt-logs.columns`.
@@ -36,13 +40,14 @@ The extension uses telemetry with two events (`activate` (no parameters) and `op
 
 ## Planned features
 
+- Allow filter add/edit for report, timesync, MSTP and log levels (currently only possible via JSON configuration)
 - Check whether revaling the line on broadcasted time is possible if document is hidden/not visible.
 - Sort msgs within lifecycles by timestamp (maintaining orig index as e.g. hover info)
 - Support easier splitting of huge files into files per lifecycle and offer "assistant" at opening of huge files.
 - Support time synchronized split-view between e.g. two APIDs from within one DLT log file.
 - Use the outline view for lifecycles, errors,...
 - Add support for file changes (growing) and load/update automatically.
-- Add editor for filter (e.g. via config extension) and allow changing filters at runtime.
+- Allow changing filter configurations manually at runtime.
 - Saving of logs/selections allowing e.g. to add comments as proper logs.
 - Use custom editor interface to be able to support regular file open mechanism.
 - Add full non-verbose support including mapping table and payload args.
@@ -89,7 +94,8 @@ This extension contributes the following settings:
      * **valueMap**: object that can contain keys matching to the captured data names and the property is an array with objects { capturedName : newName }. 
      E.g."reportOptions": { "valueMap": { "STATE_onOff": [ { "1": "on" }, { "0": "off" }, {"ff": "invalid" }]}}
 
-   Filter configuration changes will be applied on next file open.
+   Filter configuration changes will be applied on next file open. If you use *add filter...*, *edit filter...*, *delete filter...* menu items they will be applied instantly to the configuration. You should not mix manual editing the config files with usage of the menu items as long as a dlt file is opened.
+
    Details see (todo...).
 * `dlt-logs.plugins`: Allows configuration of plugins. Currently one plugin is supported:
   * **name** : **"FileTransfer"** plugin
@@ -146,6 +152,10 @@ chartjs-plugin-zoom (0.7.5)
 hammer.js (2.0.8)
   - License: MIT https://github.com/hammerjs/hammer.js/blob/master/LICENSE.md
   - Source: https://github.com/hammerjs/hammer.js
+
+color-name (1.1.4)
+ - Licence: MIT https://github.com/colorjs/color-name/blob/master/LICENSE
+ - Source: https://github.com/colorjs/color-name
 
 <!--
 * Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux)
