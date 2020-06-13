@@ -5,6 +5,7 @@
 import * as vscode from 'vscode';
 import TelemetryReporter from 'vscode-extension-telemetry';
 import * as dltDocument from './dltDocumentProvider';
+// import { DltLogCustomReadonlyEditorProvider } from './dltCustomEditorProvider';
 
 const extensionId = 'mbehr1.dlt-logs';
 const dltScheme = 'dlt-log';
@@ -49,6 +50,11 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 		);
 	}));
+
+	// register custom editor to allow easier file open (hacking...)
+	/* not working yet. see dltCustomEditorProvider.ts
+	context.subscriptions.push(vscode.window.registerCustomEditorProvider('dlt-log', new DltLogCustomReadonlyEditorProvider));
+	*/
 
 	let smartLogApi = {
 		onDidChangeSelectedTime(listener: any) { return dltProvider.onDidChangeSelectedTime(listener); }
