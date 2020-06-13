@@ -41,9 +41,12 @@ The extension uses telemetry with two events (`activate` (no parameters) and `op
 ## Planned features
 
 - Allow filter add/edit for report, timesync, MSTP and log levels (currently only possible via JSON configuration)
+- Make filters configurable per file or "use-case".
 - Check whether revaling the line on broadcasted time is possible if document is hidden/not visible.
 - Sort msgs within lifecycles by timestamp (maintaining orig index as e.g. hover info)
 - Support easier splitting of huge files into files per lifecycle and offer "assistant" at opening of huge files.
+- Allow merging/opening of multiple DLT files.
+- Check default colors on multiple color themes. Check color contrast to background.
 - Support time synchronized split-view between e.g. two APIDs from within one DLT log file.
 - Use the outline view for lifecycles, errors,...
 - Add support for file changes (growing) and load/update automatically.
@@ -129,7 +132,7 @@ See [Changelog](./CHANGELOG.md)
 
 This project leverages the following third party content.
 
-binary-parser (1.5.0)
+binary-parser (1.6.2)
  - License: MIT https://github.com/keichi/binary-parser/blob/master/LICENSE.md
  - Source: https://github.com/keichi/binary-parser
 

@@ -2,7 +2,7 @@
 	"name": "dlt-logs",
 	"displayName": "DLT-Logs",
 	"description": "Open DLT diagnostic log and trace files with lifecycle detection, filters, time-sync, etc.",
-	"version": "0.16.0",
+	"version": "0.16.1",
 	"license": "CC BY-NC-SA 4.0",
 	"publisher": "mbehr1",
 	"author": {
@@ -519,21 +519,21 @@
 		"test": "node ./out/test/runTest.js"
 	},
 	"devDependencies": {
-		"@types/glob": "^7.1.1",
+		"@types/glob": "^7.1.2",
 		"@types/mocha": "^7.0.1",
-		"@types/node": "^12.11.7",
+		"@types/node": "^12.12.47",
 		"@types/vscode": "^1.43.0",
-		"eslint": "^6.8.0",
-		"@typescript-eslint/parser": "^2.18.0",
-		"@typescript-eslint/eslint-plugin": "^2.18.0",
+		"@typescript-eslint/eslint-plugin": "^3.2.0",
+		"@typescript-eslint/parser": "^3.2.0",
+		"eslint": "^7.2.0",
 		"glob": "^7.1.6",
-		"mocha": "^7.0.1",
-		"typescript": "^3.7.5",
-		"vscode-test": "^1.3.0"
+		"mocha": "^7.2.0",
+		"typescript": "^3.9.5",
+		"vscode-test": "^1.4.0"
 	},
 	"dependencies": {
-		"binary-parser": "^1.5.0",
+		"binary-parser": "^1.6.2",
 		"color-name": "^1.1.4",
-		"vscode-extension-telemetry": "^0.1.2"
+		"vscode-extension-telemetry": "^0.1.6"
 	}
 }

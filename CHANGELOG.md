@@ -4,6 +4,10 @@ All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
 
+## [0.16.1]
+- made parser more robust towards wrong (too small) len info in standard header.
+- updated dependencies to newer versions.
+
 ## [0.16.0]
 - add filter..., edit filter and delete filter features.
 - enhanced hover text to provide "add filter..." command and tabluar view.

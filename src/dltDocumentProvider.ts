@@ -151,7 +151,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                             }
                         }));
                     }
-                    this._onDidChangeTreeData.fire();
+                    this._onDidChangeTreeData.fire(null);
                     if (!this._statusBarItem) {
                         this._statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right);
                     }
@@ -181,7 +181,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                         }
                     }
                     this._documents.delete(uriStr);
-                    this._onDidChangeTreeData.fire();
+                    this._onDidChangeTreeData.fire(null);
                     if (this._documents.size === 0 && this._statusBarItem) {
                         this._statusBarItem.hide();
                     }
