@@ -76,6 +76,7 @@ export class DltMsg {
         this._data = data;
 
         // the following code could be moved into a function to allow parallel/delayed processing
+        // assert(data.length >= DLT_STORAGE_HEADER_SIZE + MIN_STD_HEADER_SIZE);
         const stdHdr = DltParser.stdHeaderParser.parse(data.slice(DLT_STORAGE_HEADER_SIZE, DLT_STORAGE_HEADER_SIZE + MIN_STD_HEADER_SIZE));
         this.mcnt = stdHdr["mcnt"];
         this._htyp = stdHdr["htyp"];
@@ -407,6 +408,7 @@ export class DltParser {
         let nrMsgs: number = 0; let offset = startOffset;
         const startIndex: number = msgs.length ? (msgs[msgs.length - 1].index + 1) : 0; // our first index to use is either prev one +1 or 0 as start value
         while (remaining >= MIN_DLT_MSG_SIZE) {
+            //assert(buf.length >= offset + DLT_STORAGE_HEADER_SIZE);
             let storageHeader = DltParser.storageHeaderParser.parse(buf.slice(offset, offset + DLT_STORAGE_HEADER_SIZE));
             if (storageHeader["pattern"] === DLT_STORAGE_HEADER_PATTERN) {
                 const msgOffset = offset;
@@ -414,47 +416,53 @@ export class DltParser {
                 let time = new Date((storageHeader["secs"] * 1000) + (storageHeader["micros"] / 1000));
                 let stdHeader = DltParser.stdHeaderParser.parse(buf.slice(offset, offset + MIN_STD_HEADER_SIZE));
                 // do we have the remaining data in buf?
-                const len = stdHeader["len"];
+                const len: number = stdHeader["len"];
+                // assert(len >= 0);
                 if (remaining - ((offset + len) - msgOffset) >= 0) {
                     offset += len;
 
-                    let newMsg = new DltMsg(storageHeader["ecu"], startIndex + nrMsgs, time, buf.slice(msgOffset, offset));
-                    // do we need to filter this one?
-                    let keepAfterNegBeforePosFilters: boolean = true;
-                    if (negBeforePosFilters?.length) {
-                        for (let i = 0; i < negBeforePosFilters.length; ++i) {
-                            if (negBeforePosFilters[i].matches(newMsg)) {
-                                keepAfterNegBeforePosFilters = false;
-                                break;
+                    if (len >= MIN_STD_HEADER_SIZE) {
+                        let newMsg = new DltMsg(storageHeader["ecu"], startIndex + nrMsgs, time, buf.slice(msgOffset, offset));
+                        // do we need to filter this one?
+                        let keepAfterNegBeforePosFilters: boolean = true;
+                        if (negBeforePosFilters?.length) {
+                            for (let i = 0; i < negBeforePosFilters.length; ++i) {
+                                if (negBeforePosFilters[i].matches(newMsg)) {
+                                    keepAfterNegBeforePosFilters = false;
+                                    break;
+                                }
                             }
                         }
-                    }
 
-                    if (keepAfterNegBeforePosFilters) {
-                        let foundAfterPosFilters: boolean = posFilters?.length ? false : true;
-                        if (posFilters?.length) {
-                            // check the pos filters, break on first match:
-                            for (let i = 0; i < posFilters.length; ++i) {
-                                if (posFilters[i].matches(newMsg)) {
-                                    foundAfterPosFilters = true;
-                                    break;
+                        if (keepAfterNegBeforePosFilters) {
+                            let foundAfterPosFilters: boolean = posFilters?.length ? false : true;
+                            if (posFilters?.length) {
+                                // check the pos filters, break on first match:
+                                for (let i = 0; i < posFilters.length; ++i) {
+                                    if (posFilters[i].matches(newMsg)) {
+                                        foundAfterPosFilters = true;
+                                        break;
+                                    }
                                 }
                             }
-                        }
-                        let foundAfterNegFilters: boolean = foundAfterPosFilters;
-                        if (foundAfterNegFilters && negFilters?.length) {
-                            // check the neg filters, break on first match:
-                            for (let i = 0; i < negFilters.length; ++i) {
-                                if (negFilters[i].matches(newMsg)) {
-                                    foundAfterNegFilters = false;
-                                    break;
+                            let foundAfterNegFilters: boolean = foundAfterPosFilters;
+                            if (foundAfterNegFilters && negFilters?.length) {
+                                // check the neg filters, break on first match:
+                                for (let i = 0; i < negFilters.length; ++i) {
+                                    if (negFilters[i].matches(newMsg)) {
+                                        foundAfterNegFilters = false;
+                                        break;
+                                    }
                                 }
                             }
+                            if (foundAfterNegFilters) {
+                                msgs.push(newMsg);
+                                nrMsgs++; // todo or should we always keep the orig index here?
+                            }
                         }
-                        if (foundAfterNegFilters) {
-                            msgs.push(newMsg);
-                            nrMsgs++; // todo or should we always keep the orig index here?
-                        }
+                    } else {
+                        skipped += len;
+                        console.log(`got a STORAGE_HEADER with len < MIN_STD_HEADER_SIZE! Skipped len=${len} storageHeader=${JSON.stringify(storageHeader)} stdHeader=${JSON.stringify(stdHeader)} remaining=${remaining}`);
                     }
                     remaining -= (offset - msgOffset);
                 } else {
