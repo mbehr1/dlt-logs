@@ -133,7 +133,8 @@ export class MultiStepInput {
             iconPath?: string,
             items: PickItem[] | (() => PickItem[]), title?: string, initialValue?: () => string | undefined, placeholder?: string,
             onValue: ((v: string) => void),
-            isValid?: ((v: string) => boolean)
+            isValid?: ((v: string) => boolean),
+            skipStep?: (() => boolean)
         }[],
         public options?: { canSelectMany: boolean }) {
     }
@@ -144,6 +145,7 @@ export class MultiStepInput {
             let doCancel = false;
             for (let s = 0; s < this._steps.length; ++s) {
                 const stepData = this._steps[s];
+                if (stepData.skipStep !== undefined && stepData.skipStep()) { continue; }
                 let doBack = false;
                 const buttons = [new QuickButton(new vscode.ThemeIcon(stepData.iconPath !== undefined ? stepData.iconPath : (s === this._steps.length - 1 ? 'menu-selection' : 'arrow-right')))];
                 const quickPick = QuickInputHelper.createQuickPick(`${this._title} ${stepData.title ? stepData.title : ''}`, s + 1, this._steps.length, buttons);

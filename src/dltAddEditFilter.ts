@@ -152,6 +152,12 @@ export function editFilter(doc: DltDocument, newFilter: DltFilter, optArgs?: { p
         const filterTypesByNumber = new Map<number, string>([[0, 'POSITIVE'], [1, 'NEGATIVE'], [2, 'MARKER']]);
         const filterTypesByName = new Map<string, number>([['POSITIVE', 0], ['NEGATIVE', 1], ['MARKER', 2]]);
 
+        let colorItems: PickItem[] = [];
+        const colors: any = require('color-name'); // object with e.g. "blue":[0,0,255]
+        try {
+            Object.keys(colors).forEach(value => colorItems.push(new PickItem(value)));
+        } catch (err) { console.error(`colors got err=${err}`); }
+
         let stepInput = new MultiStepInput(`${isAdd ? 'add' : 'edit'} filter...`, [
             { title: `filter on ECU?`, items: ecus, initialValue: () => { return newFilter.ecu; }, placeholder: 'enter or select the ECU to filter (if any)', onValue: (v) => { newFilter.ecu = v.length ? v : undefined; }, isValid: (v => (v.length <= 4)) },
             { title: `filter on APID?`, items: apids, initialValue: () => { return newFilter.apid; }, onValue: (v) => { newFilter.apid = v.length ? v : undefined; }, isValid: (v => (v.length <= 4)) },
@@ -159,28 +165,11 @@ export function editFilter(doc: DltDocument, newFilter: DltFilter, optArgs?: { p
             { title: `filter on payload?`, items: optArgs !== undefined && optArgs.payload !== undefined ? [new PickItem(optArgs.payload)] : [], initialValue: () => { return newFilter.payload; }, onValue: (v) => { newFilter.payload = v.length ? v : undefined; } },
             { title: `filter on payloadRegex?`, items: optArgs !== undefined && optArgs.payload !== undefined ? [new PickItem(optArgs.payload)] : [], initialValue: () => { return newFilter.payloadRegex?.source; }, onValue: (v) => { newFilter.payloadRegex = v.length ? new RegExp(v) : undefined; }, isValid: (v => { try { let r = new RegExp(v); return true; } catch (err) { return false; } }) },
             { iconPath: isAdd ? 'add' : 'edit', title: `filter type?`, items: [new PickItem(filterTypesByNumber.get(0)!), new PickItem(filterTypesByNumber.get(1)!), new PickItem(filterTypesByNumber.get(2)!)], initialValue: () => { return filterTypesByNumber.get(newFilter.type); }, onValue: (v) => { let t = filterTypesByName.get(v); if (t !== undefined) { newFilter.type = t; } }, isValid: (v => (filterTypesByName.has(v))) },
-
+            { iconPath: isAdd ? 'add' : 'edit', title: `choose marker colour`, items: colorItems, initialValue: () => { return newFilter.filterColour; }, onValue: (v) => { newFilter.filterColour = v.length ? v : "blue"; }, isValid: (v => { return colors[v] !== undefined; }), skipStep: () => newFilter.type !== DltFilterType.MARKER } // todo add hex codes support
 
         ], { canSelectMany: false });
         stepInput.run().then(() => {
-            // for filter type MARKER we do need to set the colour:
-            if (newFilter.type === DltFilterType.MARKER) {
-                let colorItems: PickItem[] = [];
-                const colors: any = require('color-name'); // object with e.g. "blue":[0,0,255]
-                try {
-                    Object.keys(colors).forEach(value => colorItems.push(new PickItem(value)));
-                } catch (err) { console.error(`colors got err=${err}`); }
-
-                let colorInput = new MultiStepInput(`choose marker colour`, [
-                    { items: colorItems, initialValue: () => { return newFilter.filterColour; }, onValue: (v) => { newFilter.filterColour = v.length ? v : "blue"; }, isValid: (v => { return colors[v] !== undefined; }) } // todo add hex codes
-                ], { canSelectMany: false });
-                colorInput.run().then(() => {
-                    updateFilterConfig(doc, newFilter, isAdd);
-                });
-            } else {
-                updateFilterConfig(doc, newFilter, isAdd);
-            }
-
+            updateFilterConfig(doc, newFilter, isAdd);
         }).catch(err => {
             console.log(`dlt-log.editFilter input cancelled...`);
         });
