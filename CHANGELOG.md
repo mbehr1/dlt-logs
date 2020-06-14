@@ -4,6 +4,10 @@ All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
 
+## [0.17.0]
+- added "configs" feature.
+- added icons for dlt logs explorer for files, lifecycles, filter, configs, plugins.
+
 ## [0.16.1]
 - made parser more robust towards wrong (too small) len info in standard header.
 - updated dependencies to newer versions.

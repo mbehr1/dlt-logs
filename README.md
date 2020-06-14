@@ -29,6 +29,28 @@ This Visual Studio Code(tm) extension adds support to open DLT (diagnostic log a
 - Filters can be *added* based on the hover text of a log line. The filter settings will be prefilled with ECU, APID, CTID.
 - Filters can be *edited* and *deleted* (press option key at the edit icon) from the *filters* tree view.
 - Adding or editing filters menu allows to select ECUs, APIDs, CTIDs from the descriptions found in the loaded log file.
+- Filters can be added to **configs**. If a filter is part of a config it will be:
+  - disabled by default on opening a file.
+  - be enabled/disabled if the config is enabled/disabled
+  - positive filters get enabled if the config "zoom in" button is used and vice versa on "zoom out"
+  - negative filters will be disabled if the config "zoom in" button is used  and vice versa on "zoom out"
+- **Configs** can be automatically enabled if lifecycles with a specific ECUs are detected. To enable this set the "autoEnableIf" regex for that config to e.g. "ecu1|ecu2". Configs allow to quickly configure different configurations or use-cases/scenes for that you want to use different filter configurations. E.g.
+  - ECU1
+    - generic (this config can be referred to as "ECU1/generic")
+    - crashes
+    - lifecycle
+    - app1
+    - app2
+    - known defects
+      - defect1
+      - ...
+  - ECU2
+    - ...
+- If you enable one config the whole tree below gets enabled as well. In the tree view you can:
+  - enable: enable all filters assigned to this config and all configs below.
+  - disable: disable all filters assigned to this config and all configs below.
+  - zoom in: enable all positive filters and disable all neg. filters (so provide more details/logs)
+  - zoom out: disable all positive filters and enable all neg. filters (so provide less details/logs)
 
 - Support **DLT file transfer** file extraction (and automatic filtering of FLDA msgs). Shows the file transfers and allows to save any file.
 - **Quickly configurable columns**. Simply press the "select columns..." button in upper right corner of the document and select which one to show. The changes get stored permanently as global settings `dlt-logs.columns`.
@@ -40,8 +62,9 @@ The extension uses telemetry with two events (`activate` (no parameters) and `op
 
 ## Planned features
 
+- Add button to edit configs.
+- Show info regarding APID/CTID in the hover info of a message.
 - Allow filter add/edit for report, timesync, MSTP and log levels (currently only possible via JSON configuration)
-- Make filters configurable per file or "use-case".
 - Check whether revaling the line on broadcasted time is possible if document is hidden/not visible.
 - Sort msgs within lifecycles by timestamp (maintaining orig index as e.g. hover info)
 - Support easier splitting of huge files into files per lifecycle and offer "assistant" at opening of huge files.
@@ -109,6 +132,10 @@ This extension contributes the following settings:
   * **ctid**: restrict searching for file transfer message to this CTID. Can be empty (as by spec). 
   
 * `dlt-logs.decorations`: Definition of the decoration types supported for marker filters.
+* `dlt-logs.configs`: Definition of **Configs**. A config consists of a:
+  * **name**: Name of that config
+  * **autoEnableIf**: Optional regex that gets matched against the ECUs from the detected lifecycles.
+  * Filters can be added to configs by using the **configs** array of that filter (or by using **edit filter** assistant).
 
 ## Known Issues
 

@@ -9,7 +9,7 @@ import * as path from 'path';
 import * as util from './util';
 import { DltParser, DltMsg, MSTP, MTIN_LOG, MTIN_CTRL, MTIN_CTRL_strs, MTIN_LOG_strs, MTIN_TRACE_strs, MTIN_NW_strs } from './dltParser';
 import { DltLifecycleInfo } from './dltLifecycle';
-import { TreeViewNode, FilterNode, TimeSyncData, createUniqueId } from './dltDocumentProvider';
+import { TreeViewNode, FilterNode, TimeSyncData, createUniqueId, ConfigNode } from './dltDocumentProvider';
 import { DltFilter, DltFilterType } from './dltFilter';
 import TelemetryReporter from 'vscode-extension-telemetry';
 import { DltFileTransferPlugin } from './dltFileTransfer';
@@ -84,10 +84,13 @@ export class DltDocument {
     treeNode: TreeViewNode;
     lifecycleTreeNode: TreeViewNode;
     filterTreeNode: TreeViewNode;
+    configTreeNode: TreeViewNode;
     pluginTreeNode: TreeViewNode; // this is from the parent = DltDocumentProvider
     pluginNodes: TreeViewNode[] = [];
 
     private _treeEventEmitter: vscode.EventEmitter<TreeViewNode | null>;
+
+    private _didAutoEnableConfigs: boolean; // we do enable once we do know the lifecycles
 
     textEditors: Array<vscode.TextEditor> = []; // don't use in here!
 
@@ -135,17 +138,20 @@ export class DltDocument {
             });
         }
 
-        this.lifecycleTreeNode = { id: createUniqueId(), label: "Detected lifecycles", uri: this.uri, parent: null, children: [], tooltip: undefined };
-        this.filterTreeNode = { id: createUniqueId(), label: "Filters", uri: this.uri, parent: null, children: [], tooltip: undefined };
-        this.pluginTreeNode = { id: createUniqueId(), label: "Plugins", uri: this.uri, parent: null, children: [], tooltip: undefined };
+        this.lifecycleTreeNode = { id: createUniqueId(), label: "Detected lifecycles", uri: this.uri, parent: null, children: [], tooltip: undefined, iconPath: new vscode.ThemeIcon('list-selection') };
+        this.filterTreeNode = { id: createUniqueId(), label: "Filters", uri: this.uri, parent: null, children: [], tooltip: undefined, iconPath: new vscode.ThemeIcon('filter') };
+        this.configTreeNode = { id: createUniqueId(), label: "Configs", uri: this.uri, parent: null, children: [], tooltip: undefined, iconPath: new vscode.ThemeIcon('references') };
+        this.pluginTreeNode = { id: createUniqueId(), label: "Plugins", uri: this.uri, parent: null, children: [], tooltip: undefined, iconPath: new vscode.ThemeIcon('package') };
         this.treeNode = {
             id: createUniqueId(),
             label: `${path.basename(this._fileUri.fsPath)}`, uri: this.uri, parent: null, children: [
                 this.lifecycleTreeNode,
                 this.filterTreeNode,
+                this.configTreeNode,
                 this.pluginTreeNode,
             ],
-            tooltip: undefined
+            tooltip: undefined,
+            iconPath: new vscode.ThemeIcon('file')
         };
         this.treeNode.children.forEach((child) => { child.parent = this.treeNode; });
         parentTreeNode.push(this.treeNode);
@@ -166,7 +172,22 @@ export class DltDocument {
             const pluginObjs = vscode.workspace.getConfiguration().get<Array<object>>("dlt-logs.plugins");
             this.parsePluginConfigs(pluginObjs);
         }
-
+        { // configs (we might decide to load those before the filters but filters can add configs as well)
+            // here we mainly parse the "autoEnableIf":
+            const configObjs = vscode.workspace.getConfiguration().get<Array<object>>('dlt-logs.configs');
+            this.parseConfigs(configObjs);
+            // now disable by default all filters in all configs and recheck once we do know the lifecycles:
+            // so we do keep the filters that are not part of a config with there current values.
+            {
+                // iterate through all config nodes:
+                this.configTreeNode.children.forEach(node => {
+                    if (node instanceof ConfigNode) {
+                        node.updateAllFilter('disable');
+                    }
+                });
+            }
+            this._didAutoEnableConfigs = false;
+        }
 
         const maxNrMsgsConf = vscode.workspace.getConfiguration().get<number>('dlt-logs.maxNumberLogs');
         this._maxNrMsgs = maxNrMsgsConf ? maxNrMsgsConf : 1000000; // 1mio default
@@ -243,6 +264,191 @@ export class DltDocument {
         console.log(`dlt-logs.parseDecorationsConfig got ${this._decorationTypes.size} decorations!`);
     }
 
+    getConfigNode(name: string, create = true): TreeViewNode | undefined {
+        if (name.length === 0) { return undefined; }
+        const confStr = name.split('/');
+        let parentNode: TreeViewNode | undefined = this.configTreeNode;
+        for (let l = 0; l < confStr.length; ++l) {
+            const confPart = confStr[l];
+            if (confPart.length === 0) { return undefined; }
+            let child: ConfigNode | undefined = undefined;
+            // search for confPart within parentNode/children
+            for (let n = 0; n < parentNode.children.length; ++n) {
+                if (parentNode.children[n].label === confPart) { child = parentNode.children[n] as ConfigNode; break; }
+            }
+            if (create && (child === undefined)) {
+                // create new child
+                child = new ConfigNode(parentNode.uri, parentNode, confPart);
+                const filterChild = new ConfigNode(child.uri, child, '');
+                filterChild.iconPath = new vscode.ThemeIcon('list-flat');
+                filterChild.description = "list of assigned filters";
+                child.children.push(filterChild);
+                parentNode.children.push(child);
+                console.log(`getConfigNode created child ${child.label}`);
+                this._treeEventEmitter.fire(this.configTreeNode);
+            }
+            parentNode = child;
+            if (parentNode === undefined) { break; }
+        }
+        return parentNode;
+    }
+
+    updateConfigs(filter: DltFilter) {
+        // we do need to handle a few use-cases:
+        // 1. adding a new filter
+        // 2. editing a filter that has changed configs
+        // 3. editing a filter that has now no configs any more
+
+        const configContainsFilterDirectly = function (node: ConfigNode, filter: DltFilter) {
+            // see whether "filterChild" contains the filter:
+            if (node.children.length < 1) { return false; }
+            const filterChild = node.children[0];
+            if (filterChild instanceof ConfigNode) {
+                for (let f = 0; f < filterChild.children.length; ++f) {
+                    const filterNode = filterChild.children[f];
+                    if (filterNode instanceof FilterNode) {
+                        if (filterNode.filter === filter) { return true; }
+                    }
+                }
+            }
+            return false;
+        };
+
+        const confCopy = filter.configs;
+        console.log(`updateConfigs for filter '${filter.name}' with configs='${confCopy.join(',')}'`);
+
+        const shouldBeInConfigNodes: ConfigNode[] = [];
+
+        for (let c = 0; c < confCopy.length; ++c) {
+            const configNode = this.getConfigNode(confCopy[c], true); // allow create
+            if (configNode !== undefined) {
+                if (configNode instanceof ConfigNode) {
+                    shouldBeInConfigNodes.push(configNode);
+                    if (!configContainsFilterDirectly(configNode, filter)) {
+                        console.log(`updateConfigs adding filter '${filter.name}' to '${configNode.label}'`);
+                        if (configNode.tooltip) {
+                            configNode.tooltip += `\n${filter.name}`;
+                        } else {
+                            configNode.tooltip = `filter:\n${filter.name}`;
+                        }
+                        // and add this filter as a child to the filters:
+                        let filterNode = new FilterNode(configNode.uri, configNode.children[0], filter);
+                        configNode.children[0].children.push(filterNode);
+                    } else {
+                        console.log(`filter already in configNode ${configNode.label}`);
+                    }
+                }
+            }
+        }
+        // do we need to remove this filter from configs?
+        // remove from all ConfigNodes not part of shouldBeInConfigNodes:
+        const checkAndRemoveNode = function (node: ConfigNode, shouldBeInConfigNodes: readonly ConfigNode[]) {
+            if (shouldBeInConfigNodes.includes(node)) {
+                //assert(configContainsFilterDirectly(node, filter));
+            } else {
+                if (configContainsFilterDirectly(node, filter)) {
+                    // remove
+                    for (let i = 0; i < node.children[0].children.length; ++i) {
+                        const filterNode = node.children[0].children[i];
+                        if (filterNode instanceof FilterNode) {
+                            if (filterNode.filter === filter) {
+                                console.log(`removing FilterNode(id=${filterNode.id}, label=${filterNode.label}) with ${filterNode.children.length} children`);
+                                node.children[0].children.splice(i, 1);
+                                break; // we add filters only once
+                            }
+                        }
+                    }
+                    // we keep nodes with empty filters as well
+                }
+            }
+
+            // now check for all children:
+            node.children.forEach(c => {
+                if (c instanceof ConfigNode) {
+                    if (c.label.length > 0) {
+                        checkAndRemoveNode(c, shouldBeInConfigNodes);
+                    }
+                }
+            });
+        };
+
+        this.configTreeNode.children.forEach(node => {
+            if (node instanceof ConfigNode) { checkAndRemoveNode(node, shouldBeInConfigNodes); }
+        });
+
+    }
+
+    parseConfigs(configObjs: Object[] | undefined) {
+        console.log(`parseConfigs: have ${configObjs?.length} configs to parse...`);
+        if (configObjs) {
+            for (let i = 0; i < configObjs.length; ++i) {
+                try {
+                    const conf: any = configObjs[i];
+                    const configNode = this.getConfigNode(conf.name);
+                    if (configNode !== undefined && configNode instanceof ConfigNode) {
+                        configNode.autoEnableIf = conf.autoEnableIf;
+                        if (configNode.tooltip) {
+                            configNode.tooltip += `\nAutoEnableIf:${configNode.autoEnableIf}`;
+                        } else {
+                            configNode.tooltip = `AutoEnableIf:${configNode.autoEnableIf}`;
+                        }
+                    }
+                } catch (error) {
+                    console.warn(`dlt-logs.parseConfigs error:${error}`);
+                }
+            }
+        }
+    }
+
+    autoEnableConfigs() {
+        if (!this._didAutoEnableConfigs && this.lifecycles.size > 0) {
+            let ecus: string[] = [];
+            this.lifecycles.forEach((lci, ecu) => ecus.push(ecu));
+            console.log(`autoEnableConfigs with ${ecus.length} ECUs: ${ecus.join(',')}`);
+
+            // now iterate through all configs and autoEnable if it matches a regex:
+            let enabled: number = 0;
+
+            const checkNode = (node: TreeViewNode) => {
+                if (node instanceof ConfigNode) {
+                    let didEnable: boolean = false;
+                    if (node.autoEnableIf !== undefined) {
+                        try {
+                            let regEx = new RegExp(node.autoEnableIf);
+                            for (let e = 0; e < ecus.length; ++e) {
+                                const ecu = ecus[e];
+                                if (regEx.test(ecu)) {
+                                    didEnable = true;
+                                    enabled++;
+                                    console.log(`autoEnableConfigs enabling ${node.label} due to ECU:${ecu} `);
+                                    node.updateAllFilter('enable');
+                                    break;
+                                }
+                            }
+                        } catch (error) {
+                            console.warn(`autoEnableConfigs got error:${error}`);
+                        }
+                    }
+                    // if we didn't enable it we have to check the children:
+                    // otherwise we dont have to as the 'enable' enabled the children already anyhow
+                    if (!didEnable) {
+                        node.children.forEach(n => checkNode(n));
+                    }
+                }
+            };
+
+            this.configTreeNode.children.forEach(node => {
+                checkNode(node);
+            });
+
+            console.log(`autoEnableConfigs enabled ${enabled} configs.`);
+            if (enabled > 0) {
+                // we don't need this as applyFilter will be called anyhow (might better add a parameter) 
+                // this.onFilterChange(undefined);
+            }
+            this._didAutoEnableConfigs = true;
+        }
+    }
 
     parseFilterConfigs(filterObjs: Object[] | undefined) {
         console.log(`parseFilterConfigs: have ${filterObjs?.length} filters to parse...`);
@@ -251,6 +457,9 @@ export class DltDocument {
                 try {
                     let filterConf = filterObjs[i];
                     let newFilter = new DltFilter(filterConf);
+                    if (newFilter.configs.length > 0) {
+                        this.updateConfigs(newFilter);
+                    }
                     this.filterTreeNode.children.push(new FilterNode(null, this.filterTreeNode, newFilter));
                     this.allFilters.push(newFilter);
                     console.log(` got filter: type=${newFilter.type}, enabled=${newFilter.enabled}, atLoadTime=${newFilter.atLoadTime}`, newFilter);
@@ -271,7 +480,7 @@ export class DltDocument {
                     switch (pluginName) {
                         case 'FileTransfer':
                             {
-                                let treeNode = { id: createUniqueId(), label: `File transfers`, uri: this.uri, parent: this.pluginTreeNode, children: [], tooltip: undefined };
+                                let treeNode = { id: createUniqueId(), label: `File transfers`, uri: this.uri, parent: this.pluginTreeNode, children: [], tooltip: undefined, iconPath: new vscode.ThemeIcon('files') };
                                 const plugin = new DltFileTransferPlugin(this.uri, treeNode, this._treeEventEmitter, pluginObj);
                                 this.pluginNodes.push(treeNode);
                                 this.pluginTreeNode.children.push(treeNode);
@@ -307,14 +516,19 @@ export class DltDocument {
 
     }
 
-    onFilterChange(filter: DltFilter) { // the filter might not be part of allFilters anylonger (e.g. after deleteFilter)
-        console.log(`onFilterChange filter.name=${filter.name}`);
+    onFilterChange(filter: DltFilter | undefined) { // the filter might not be part of allFilters anylonger (e.g. after deleteFilter)
+        console.log(`onFilterChange filter.name=${filter?.name}`);
         return vscode.window.withProgress({ cancellable: false, location: vscode.ProgressLocation.Notification, title: "applying filter..." },
             (progress) => this.applyFilter(progress));
     }
 
     onFilterAdd(filter: DltFilter) {
         this.filterTreeNode.children.push(new FilterNode(null, this.filterTreeNode, filter));
+        if (filter.configs.length > 0) {
+            this.updateConfigs(filter);
+            this._treeEventEmitter.fire(this.configTreeNode);
+        }
+
         this.allFilters.push(filter);
         this._treeEventEmitter.fire(this.filterTreeNode);
         return this.onFilterChange(filter);
@@ -322,6 +536,11 @@ export class DltDocument {
 
     onFilterEdit(filter: DltFilter) {
         // update filterNode needs to be done by caller. a bit messy...
+
+        // we dont know whether configs have changed so lets recheck/update:
+        this.updateConfigs(filter);
+        //dont call this or a strange warning occurs. not really clear why. this._treeEventEmitter.fire(this.configTreeNode);
+
         return this.onFilterChange(filter);
     }
 
@@ -1195,6 +1414,7 @@ export class DltDocument {
                 ecuNode.children.push(lcNode);
             }
         });
+        this.autoEnableConfigs();
     }
 
     private _reports: DltReport[] = [];

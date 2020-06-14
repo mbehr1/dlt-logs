@@ -35,6 +35,9 @@ export class DltFilter {
     // report options:
     reportOptions: any | undefined;
 
+    // configs:
+    configs: string[] = [];
+
     // the options used to create the object.
     // asConfiguration() modifies this one based on current values
     configOptions: any | undefined;
@@ -103,13 +106,18 @@ export class DltFilter {
             }
         }
 
+        if ('configs' in options && Array.isArray(options.configs)) {
+            this.configs.push(...options.configs);
+        }
+
     }
 
     asConfiguration() { // to persist new Filters into configuration setting
         if (this.configOptions === undefined) { this.configOptions = { type: this.type }; }
         const obj = this.configOptions;
         obj.type = this.type;
-        obj.enabled = this.enabled ? undefined : false; // default to true. don't store to make the config small, readable
+        // we don't store/change enabled. As we do use configs for runtime changes. 
+        // obj.enabled = this.enabled ? undefined : false; // default to true. don't store to make the config small, readable
         obj.atLoadTime = this.atLoadTime ? true : undefined; // default to false
         obj.mstp = this.mstp;
         obj.ecu = this.ecu;
@@ -118,12 +126,13 @@ export class DltFilter {
         obj.logLevelMin = this.logLevelMin;
         obj.logLevelMax = this.logLevelMax;
         obj.payload = this.payload;
-        obj.payloadRegex = this.payloadRegex !== undefined ? this.payloadRegex.source : undefined; // todo check source?
+        obj.payloadRegex = this.payloadRegex !== undefined ? this.payloadRegex.source : undefined;
         obj.timeSyncId = this.timeSyncId;
         obj.timeSyncPrio = this.timeSyncPrio;
         obj.decorationId = this.decorationId;
         obj.filterColour = this.filterColour; // or remove blue?
         obj.reportOptions = this.reportOptions;
+        obj.configs = this.configs.length > 0 ? this.configs : undefined;
 
         return obj;
     }

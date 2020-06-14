@@ -10,7 +10,7 @@ import * as path from 'path';
 import * as util from './util';
 import { DltDocument } from './dltDocument';
 import TelemetryReporter from 'vscode-extension-telemetry';
-import { DltFilter } from './dltFilter';
+import { DltFilter, DltFilterType } from './dltFilter';
 import { DltFileTransfer } from './dltFileTransfer';
 import { addFilter, editFilter, deleteFilter } from './dltAddEditFilter';
 
@@ -49,39 +49,121 @@ export interface TreeViewNode {
     children: TreeViewNode[];
     contextValue?: string;
     command?: vscode.Command;
+    description?: string;
+    iconPath?: vscode.ThemeIcon;
 };
 
 export class FilterNode implements TreeViewNode {
     id: string;
-    label: string;
     tooltip: string | undefined;
     //uri: vscode.Uri | null; // index provided as fragment #<index>
     //parent: TreeViewNode | null;
     children: TreeViewNode[];
-    _contextValue: string;
-    get contextValue() { return this._contextValue; } // readonly 
+
+    get label(): string {
+        return this.filter.name;
+    }
+
+    get contextValue() {
+        let ctxV: string;
+        if (this.filter.isReport) {
+            ctxV = 'filterReport';
+        } else
+            if (this.filter.atLoadTime) {
+                ctxV = 'filterLoadTime';
+            } else
+                if (this.filter.enabled) { ctxV = 'filterEnabled'; } else { ctxV = 'filterDisabled'; };
+        if (this.filter.allowEdit) {
+            ctxV += ' filterAllowEdit';
+        }
+        return ctxV;
+    } // readonly 
 
     constructor(public uri: vscode.Uri | null, public parent: TreeViewNode | null, public filter: DltFilter) {
         this.children = [];
         this.id = createUniqueId();
-        this.label = ''; // will be updated properly on onFilterUpdate
-        this._contextValue = '';
-        this.onFilterUpdate();
-    }
-    onFilterUpdate() {
-        this.label = this.filter.name;
-        if (this.filter.isReport) {
-            this._contextValue = 'filterReport';
-        } else
-            if (this.filter.atLoadTime) {
-                this._contextValue = 'filterLoadTime';
-            } else
-                if (this.filter.enabled) { this._contextValue = 'filterEnabled'; } else { this._contextValue = 'filterDisabled'; };
-        if (this.filter.allowEdit) {
-            this._contextValue += ' filterAllowEdit';
-        }
     }
 };
+
+export class ConfigNode implements TreeViewNode {
+    id: string;
+    tooltip: string | undefined;
+    children: TreeViewNode[] = [];
+    description?: string;
+    iconPath?: vscode.ThemeIcon;
+    autoEnableIf?: string;
+
+    constructor(public uri: vscode.Uri | null, public parent: TreeViewNode | null, public label: string) {
+        this.id = createUniqueId();
+    }
+
+    anyFilterWith(enabled: boolean, options?: { type?: DltFilterType }): boolean {
+        for (let i = 0; i < this.children.length; ++i) {
+            const c = this.children[i];
+            if (c instanceof FilterNode) {
+                if (options !== undefined && options.type !== undefined) {
+                    if (c.filter.type !== options.type) { continue; }
+                }
+                if (c.filter.enabled === enabled) { return true; }
+            } else
+                if (c instanceof ConfigNode) {
+                    let val = c.anyFilterWith(enabled, options);
+                    if (val) { return true; }
+                }
+        }
+        return false;
+    }
+
+
+    get contextValue(): string {
+        let anyEnabled: boolean = this.anyFilterWith(true);
+        let anyDisabled: boolean = this.anyFilterWith(false);
+
+        // we do allow "zoom in" to provide more details.
+        // this is if we can enable pos. or disable neg. filters
+        let canZoomIn: boolean =
+            this.anyFilterWith(false, { type: DltFilterType.POSITIVE }) ||
+            this.anyFilterWith(true, { type: DltFilterType.NEGATIVE });
+
+        let canZoomOut: boolean =
+            this.anyFilterWith(true, { type: DltFilterType.POSITIVE }) ||
+            this.anyFilterWith(false, { type: DltFilterType.NEGATIVE });
+
+        return `${anyEnabled ? 'filterEnabled ' : ''}${anyDisabled ? 'filterDisabled ' : ''}${canZoomIn ? 'canZoomIn ' : ''}${canZoomOut ? 'canZoomOut ' : ''}`;
+    }
+
+    updateAllFilter(command: string) {
+        this.children.forEach(c => {
+            if (c instanceof FilterNode) {
+                switch (command) {
+                    case 'enable':
+                        c.filter.enabled = true; break;
+                    case 'disable':
+                        c.filter.enabled = false; break;
+                    case 'zoomIn':
+                        switch (c.filter.type) {
+                            case DltFilterType.POSITIVE:
+                                c.filter.enabled = true; break;
+                            case DltFilterType.NEGATIVE:
+                                c.filter.enabled = false; break;
+                        }
+                        break;
+                    case 'zoomOut':
+                        switch (c.filter.type) {
+                            case DltFilterType.POSITIVE:
+                                c.filter.enabled = false; break;
+                            case DltFilterType.NEGATIVE:
+                                c.filter.enabled = true; break;
+                        }
+                        break;
+                }
+            } else
+                if (c instanceof ConfigNode) {
+                    c.updateAllFilter(command);
+                }
+        });
+    }
+}
 
 export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode>, vscode.FileSystemProvider,
     vscode.DocumentSymbolProvider, vscode.Disposable {
@@ -392,7 +474,6 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                     console.log(`editFilter(${filterNode.label}) called for doc=${parentUri}`);
                     editFilter(doc, filterNode.filter).then(() => {
                         console.log(`editFilter resolved...`);
-                        filterNode.onFilterUpdate();
                         this._onDidChangeTreeData.fire(filterNode);
                     });
                 }
@@ -420,34 +501,50 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
             }
         }));
 
-        context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.enableFilter', async (...args: any[]) => {
-            const filterNode = <FilterNode>args[0];
-            const parentUri = filterNode.parent?.uri;
+        const modifyNode = async (node: TreeViewNode, command: string) => {
+            const treeviewNode = node;
+            const filterNode = node instanceof FilterNode ? <FilterNode>node : undefined;
+            const configNode = node instanceof ConfigNode ? <ConfigNode>node : undefined;
+            const parentUri = treeviewNode.parent?.uri;
             if (parentUri) {
                 const doc = this._documents.get(parentUri.toString());
                 if (doc) {
-                    console.log(`enableFilter(${filterNode.label}) called for doc=${parentUri}`);
-                    filterNode.filter.enabled = true;
-                    filterNode.onFilterUpdate();
-                    doc.onFilterChange(filterNode.filter);
-                    this._onDidChangeTreeData.fire(filterNode);
+                    console.log(`${command} Filter(${treeviewNode.label}) called for doc=${parentUri} with filterNode=${filterNode}, configNode=${configNode}`);
+                    if (filterNode !== undefined) {
+                        switch (command) {
+                            case 'enable':
+                                filterNode.filter.enabled = true; break;
+                            case 'disable':
+                                filterNode.filter.enabled = false; break;
+                        }
+                        doc.onFilterChange(filterNode.filter);
+                        this._onDidChangeTreeData.fire(doc.treeNode); // as filters in config might be impacted as well! 
+                    } else
+                        if (configNode !== undefined) {
+                            // enable/disable all child filters:
+                            configNode.updateAllFilter(command);
+                            doc.onFilterChange(undefined);
+                            this._onDidChangeTreeData.fire(doc.treeNode); // as filters in config might be impacted as well! 
+                        }
                 }
             }
+
+        };
+
+        context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.enableFilter', async (...args: any[]) => {
+            modifyNode(args[0], 'enable');
         }));
 
         context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.disableFilter', async (...args: any[]) => {
-            const filterNode = <FilterNode>args[0];
-            const parentUri = filterNode.parent?.uri;
-            if (parentUri) {
-                const doc = this._documents.get(parentUri.toString());
-                if (doc) {
-                    console.log(`disableFilter(${filterNode.label}) called for doc=${parentUri}`);
-                    filterNode.filter.enabled = false;
-                    filterNode.onFilterUpdate();
-                    doc.onFilterChange(filterNode.filter);
-                    this._onDidChangeTreeData.fire(filterNode);
-                }
-            }
+            modifyNode(args[0], 'disable');
+        }));
+
+        context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.zoomIn', async (...args: any[]) => {
+            modifyNode(args[0], 'zoomIn');
+        }));
+
+        context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.zoomOut', async (...args: any[]) => {
+            modifyNode(args[0], 'zoomOut');
         }));
 
         context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.openReport', async (...args: any[]) => {
@@ -597,12 +694,13 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
         // console.log(`dlt-logs.getTreeItem(${element.label}, ${element.uri?.toString()}) called.`);
         return {
             id: element.id,
-            label: element.label.length ? element.label : "Detected lifecycles",
+            label: element.label,
             tooltip: element.tooltip,
             contextValue: element.contextValue,
             command: element.command,
             collapsibleState: element.children.length ? vscode.TreeItemCollapsibleState.Collapsed : void 0,
-            iconPath: /* (element.children.length === 0 && element.label.startsWith("xy")) ? path.join(__filename, '..', '..', 'media', 'root-folder.svg') : */ undefined // todo!
+            iconPath: element.iconPath,
+            description: element.description
         };
     }
 

@@ -2,7 +2,7 @@
 	"name": "dlt-logs",
 	"displayName": "DLT-Logs",
 	"description": "Open DLT diagnostic log and trace files with lifecycle detection, filters, time-sync, etc.",
-	"version": "0.16.1",
+	"version": "0.17.0",
 	"license": "CC-BY-NC-SA-4.0",
 	"publisher": "mbehr1",
 	"author": {
@@ -221,10 +221,35 @@
 								"timeSyncPrio": {
 									"type": "integer",
 									"description": "Optional (needed if timeSyncId is used) priority of the time-sync event. As two documents exchange their events by this prio they decide on who will adjust the time. The event with the highest prio (lowest number) will be used."
+								},
+								"configs": {
+									"type": "array",
+									"items": {
+										"type": "string",
+										"description": "Name of the config the filter is part of. The name can be like a 'path' using e.g. <highest-level-config>/<next-level-config> and will be added to the lowest level."
+									},
+									"description": "List of configs this filter is part of."
 								}
 							}
 						},
 						"default": []
+					},
+					"dlt-logs.configs": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"title": "config",
+							"properties": {
+								"name": {
+									"type": "string",
+									"description": "Name of this config. Can be 'path' alike using <highest-level-config>/<next-level-config>/... e.g. 'ECU1/generic'"
+								},
+								"autoEnableIf": {
+									"type": "string",
+									"description": "Regex on ECU-ID to determine when to enable this config automatically. Can be empty or .* for always enable. If missing the config is by default disabled i.e. all filters part of this config will be disabled."
+								}
+							}
+						}
 					},
 					"dlt-logs.plugins": {
 						"type": "array",
@@ -406,6 +431,16 @@
 				"icon": "$(debug-pause)"
 			},
 			{
+				"command": "dlt-logs.zoomIn",
+				"title": "provide more details",
+				"icon": "$(zoom-in)"
+			},
+			{
+				"command": "dlt-logs.zoomOut",
+				"title": "hide details",
+				"icon": "$(zoom-out)"
+			},
+			{
 				"command": "dlt-logs.openReport",
 				"title": "open report",
 				"icon": "$(graph)"
@@ -442,13 +477,12 @@
 			"view/item/context": [
 				{
 					"command": "dlt-logs.enableFilter",
-					"when": "view == dltLifecycleExplorer && viewItem =~ /^filterDisabled/",
-					"group": "inline",
-					"args": "2"
+					"when": "view == dltLifecycleExplorer && viewItem =~ /filterDisabled/",
+					"group": "inline"
 				},
 				{
 					"command": "dlt-logs.disableFilter",
-					"when": "view == dltLifecycleExplorer && viewItem =~ /^filterEnabled/",
+					"when": "view == dltLifecycleExplorer && viewItem =~ /filterEnabled/",
 					"group": "inline"
 				},
 				{
@@ -466,6 +500,16 @@
 				{
 					"command": "dlt-logs.fileTransferSave",
 					"when": "view == dltLifecycleExplorer && viewItem == fileTransferComplete",
+					"group": "inline"
+				},
+				{
+					"command": "dlt-logs.zoomIn",
+					"when": "view == dltLifecycleExplorer && viewItem =~ /canZoomIn/",
+					"group": "inline"
+				},
+				{
+					"command": "dlt-logs.zoomOut",
+					"when": "view == dltLifecycleExplorer && viewItem =~ /canZoomOut/",
 					"group": "inline"
 				}
 			],
