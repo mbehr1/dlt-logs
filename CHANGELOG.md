@@ -4,6 +4,10 @@ All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
 
+## [0.17.1]
+- Hotfix to improve load performance (and running out of memory). Seems caused by newer binary-parser version. Rolled that back to 1.5.0.
+- Improved progress output on loading to better readable values.
+
 ## [0.17.0]
 - added "configs" feature.
 - added icons for dlt logs explorer for files, lifecycles, filter, configs, plugins.

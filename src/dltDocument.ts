@@ -1338,8 +1338,9 @@ export class DltDocument {
                     do {
                         read = fs.readSync(fd, data, 0, chunkSize, this._parsedFileLen);
                         if (read) {
+                            const copiedBuf = Buffer.from(data.slice(0, read)); // have to create a copy of Buffer here!
                             // parse data:
-                            let parseInfo = DltDocument.dltP.parseDltFromBuffer(Buffer.from(data.slice(0, read)), 0, this.msgs, posFilters, negFilters, negBeforePosFilters); // have to create a copy of Buffer here!
+                            const parseInfo = DltDocument.dltP.parseDltFromBuffer(copiedBuf, 0, this.msgs, posFilters, negFilters, negBeforePosFilters);
                             if (parseInfo[0] > 0) {
                                 console.log(`checkFileChanges skipped ${parseInfo[0]} bytes.`);
                             }
@@ -1350,7 +1351,7 @@ export class DltDocument {
                                 this._parsedFileLen += read - parseInfo[1];
                                 let curTime = process.hrtime(startTime);
                                 if (curTime[1] / 1000000 > 100) { // 100ms passed
-                                    progress.report({ message: `processed ${this._parsedFileLen} from ${stats.size} bytes` });
+                                    progress.report({ message: `processed ${Number(100 * this._parsedFileLen / stats.size).toFixed(1)}%: ${Number(this._parsedFileLen / 1000000).toFixed(1)}/${Number(stats.size / 1000000).toFixed(1)}MB` });
                                     await util.sleep(10); // 10ms each 100ms
                                     startTime = process.hrtime();
                                 }
