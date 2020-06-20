@@ -915,7 +915,7 @@ export class DltDocument {
             mdString.appendMarkdown(`\n\n---\n\n`);
             mdString.appendMarkdown(`| calculated time | ${posTime.toLocaleTimeString()}.${String(posTime.valueOf() % 1000).padStart(3, "0")}|\n|:---|:---|
             |lifecycle|${msg.lifecycle?.getTreeNodeLabel()}|
-            |timestamp|${msg.timeStamp}|
+            |timestamp|${msg.timeStamp / 10000}s|
             |reception time|${msg.timeAsDate.toLocaleTimeString()}|
             | index# | ${msg.index}|\n`);
             mdString.appendMarkdown(`\n\n---\n\n`);
