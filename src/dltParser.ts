@@ -419,6 +419,7 @@ export class DltParser {
                 const msgOffset = offset;
                 offset += DLT_STORAGE_HEADER_SIZE;
                 const timeAsNumber = (storageHeader["secs"] * 1000) + (storageHeader["micros"] / 1000);
+                const stdHeader = DltParser.stdHeaderParser.parse(buf.slice(offset, offset + MIN_STD_HEADER_SIZE));
                 // do we have the remaining data in buf?
                 const len: number = stdHeader["len"];
                 // assert(len >= 0);
