@@ -8,16 +8,12 @@ import { DltLifecycleInfo } from './dltLifecycle';
 import { DltFilter } from './dltFilter';
 import { printableAscii, toHexString } from './util';
 
-const fs = require('fs');
-var Parser = require("binary-parser").Parser;
-
 const DLT_STORAGE_HEADER_PATTERN: number = 0x01544c44; // DLT\01 0x444c5401
 const DLT_STORAGE_HEADER_SIZE: number = 4 * 4;
 const MIN_STD_HEADER_SIZE: number = 1 + 1 + 2;
 const MIN_DLT_MSG_SIZE: number = DLT_STORAGE_HEADER_SIZE + MIN_STD_HEADER_SIZE;
 const DLT_EXT_HEADER_SIZE: number = 10;
 const MIN_PAYLOAD_ARG_LEN: number = 4;
-
 
 export enum MSTP { TYPE_LOG, TYPE_APP_TRACE, TYPE_NW_TRACE, TYPE_CONTROL };
 export enum MTIN_LOG { LOG_FATAL = 1, LOG_ERROR, LOG_WARN, LOG_INFO, LOG_DEBUG, LOG_VERBOSE }; // 7-15 reserved
@@ -59,12 +55,12 @@ export class DltMsg {
     readonly mcnt: number;
     private _htyp: number;
     readonly ecu: string;
-    readonly sessionId: number = 0;
-    readonly timeStamp: number = 0;
+    readonly sessionId: number;
+    readonly timeStamp: number;
     readonly verbose: boolean;
-    readonly mstp: MSTP = 0; // message type from MSIN (message info)
-    readonly mtin: number = 0; // message type info from MSIN
-    readonly noar: number = 0; // number of arguments
+    readonly mstp: MSTP; // message type from MSIN (message info)
+    readonly mtin: number; // message type info from MSIN
+    readonly noar: number; // number of arguments
     readonly apid: string;
     readonly ctid: string;
     private _payloadData: Buffer;
@@ -95,7 +91,7 @@ export class DltMsg {
         let stdHeaderSize = MIN_STD_HEADER_SIZE;
 
         if (withEID) {
-            this.ecu = DltParser.char4Parser.parse(data.slice(DLT_STORAGE_HEADER_SIZE + stdHeaderSize, DLT_STORAGE_HEADER_SIZE + stdHeaderSize + 4))["text"];
+            this.ecu = dltParseChar4(data, DLT_STORAGE_HEADER_SIZE + stdHeaderSize);
             stdHeaderSize += 4;
         } else {
             this.ecu = storageHeaderEcu;
@@ -103,22 +99,29 @@ export class DltMsg {
         if (withSID) {
             this.sessionId = data.readUInt32BE(DLT_STORAGE_HEADER_SIZE + stdHeaderSize);
             stdHeaderSize += 4;
+        } else {
+            this.sessionId = 0;
         }
         if (withTMS) {
             this.timeStamp = data.readUInt32BE(DLT_STORAGE_HEADER_SIZE + stdHeaderSize);
             stdHeaderSize += 4;
+        } else {
+            this.timeStamp = 0;
         }
         if (useExtHeader) {
             const extHeaderOffset = DLT_STORAGE_HEADER_SIZE + stdHeaderSize;
-            let extHeader = DltParser.extHeaderParser.parse(data.slice(extHeaderOffset, extHeaderOffset + DLT_EXT_HEADER_SIZE));
-            this.verbose = extHeader["verb"] ? true : false;
-            this.mstp = extHeader["mstp"];
-            this.mtin = extHeader["mtin"];
-            this.noar = extHeader["noar"];
-            this.apid = extHeader["apid"];
-            this.ctid = extHeader["ctid"];
+            const extHeader = dltParseExtHeader(data, extHeaderOffset);
+            this.verbose = extHeader.verb;
+            this.mstp = extHeader.mstp;
+            this.mtin = extHeader.mtin;
+            this.noar = extHeader.noar;
+            this.apid = extHeader.apid;
+            this.ctid = extHeader.ctid;
         } else {
             this.verbose = false;
+            this.mstp = 0;
+            this.mtin = 0;
+            this.noar = 0;
             this.apid = "";
             this.ctid = "";
         }
@@ -285,14 +288,14 @@ export class DltMsg {
                                                             const apids = [];
                                                             for (let a = 0; a < nrApids; ++a) {
                                                                 if (this._payloadData.length - remOffset < 6) { break; }
-                                                                const apid = DltParser.char4Parser.parse(this._payloadData.slice(remOffset))["text"];
+                                                                const apid = dltParseChar4(this._payloadData, remOffset);
                                                                 remOffset += 4;
                                                                 const nrCtids = isBigEndian ? this._payloadData.readUInt16BE(remOffset) : this._payloadData.readUInt16LE(remOffset);
                                                                 remOffset += 2;
                                                                 const ctids = [];
                                                                 for (let c = 0; c < nrCtids; ++c) {
                                                                     if (this._payloadData.length - remOffset < (4 + (hasLogLevel ? 1 : 0) + (hasTraceStatus ? 1 : 0) + (hasDescr ? 2 : 0))) { break; }
-                                                                    const ctid = DltParser.char4Parser.parse(this._payloadData.slice(remOffset))["text"];
+                                                                    const ctid = dltParseChar4(this._payloadData, remOffset);
                                                                     remOffset += 4;
                                                                     let logLevel: number = 0xff;
                                                                     if (hasLogLevel) {
@@ -401,11 +404,65 @@ export class DltMsg {
 
 }
 
+/*
+    some manual parser functions */
+
+export function dltParseChar4(buffer: Buffer, offset: number = 0): string {
+    let endIdx = offset + 4;
+    while (endIdx > offset && buffer[endIdx - 1] === 0x0) { endIdx--; }
+    return buffer.toString('ascii', offset, endIdx);
+};
+
+interface DltStorageHeader {
+    pattern: number,
+    secs: number,
+    micros: number,
+    ecu: string
+}
+
+function dltParseStorageHeader(buffer: Buffer, offset: number): DltStorageHeader {
+    return {
+        pattern: buffer.readUInt32LE(offset),
+        secs: buffer.readUInt32LE(offset + 4),
+        micros: buffer.readInt32LE(offset + 8),
+        ecu: dltParseChar4(buffer, offset + 12)
+    };
+};
+
+interface DltStdHeader {
+    htyp: number;
+    mcnt: number;
+    len: number;
+}
+function dltParseStdHeader(buffer: Buffer, offset: number): DltStdHeader {
+    return {
+        htyp: buffer.readUInt8(offset),
+        mcnt: buffer.readUInt8(offset + 1),
+        len: buffer.readUInt16BE(offset + 2)
+    };
+}
+
+interface DltExtHeader {
+    verb: boolean,
+    mstp: number,
+    mtin: number,
+    noar: number,
+    apid: string,
+    ctid: string
+}
+function dltParseExtHeader(buffer: Buffer, offset: number): DltExtHeader {
+    const tmp = buffer.readUInt8(offset);
+    return {
+        verb: (tmp & 1) ? true : false,
+        mstp: (tmp >> 1) & 0x7,
+        mtin: (tmp >> 4) & 0xf,
+        noar: buffer.readUInt8(offset + 1),
+        apid: dltParseChar4(buffer, offset + 2),
+        ctid: dltParseChar4(buffer, offset + 6)
+    };
+}
+
 export class DltParser {
-    static char4Parser = new Parser().string("text", { encoding: "ascii", length: 4, stripNull: true });
-    static storageHeaderParser = new Parser().endianess("little").uint32("pattern").uint32("secs").int32("micros").string("ecu", { encoding: "ascii", length: 4, stripNull: true });
-    static stdHeaderParser = new Parser().endianess("little").uint8("htyp").uint8("mcnt").uint16be("len");
-    static extHeaderParser = new Parser().endianess("little").bit1("verb").bit3("mstp").bit4("mtin").uint8("noar").string("apid", { encoding: "ascii", length: 4, stripNull: true }).string("ctid", { encoding: "ascii", length: 4, stripNull: true });
 
     parseDltFromBuffer(buf: Buffer, startOffset: number, msgs: Array<DltMsg>, posFilters?: DltFilter[], negFilters?: DltFilter[], negBeforePosFilters?: DltFilter[]) { // todo make async
         let skipped: number = 0;
@@ -413,21 +470,20 @@ export class DltParser {
         let nrMsgs: number = 0; let offset = startOffset;
         const startIndex: number = msgs.length ? (msgs[msgs.length - 1].index + 1) : 0; // our first index to use is either prev one +1 or 0 as start value
         while (remaining >= MIN_DLT_MSG_SIZE) {
-            //assert(buf.length >= offset + DLT_STORAGE_HEADER_SIZE);
-            let storageHeader = DltParser.storageHeaderParser.parse(buf.slice(offset, offset + DLT_STORAGE_HEADER_SIZE));
-            if (storageHeader["pattern"] === DLT_STORAGE_HEADER_PATTERN) {
+            const storageHeader = dltParseStorageHeader(buf, offset);
+            if (storageHeader.pattern === DLT_STORAGE_HEADER_PATTERN) {
                 const msgOffset = offset;
                 offset += DLT_STORAGE_HEADER_SIZE;
-                const timeAsNumber = (storageHeader["secs"] * 1000) + (storageHeader["micros"] / 1000);
-                const stdHeader = DltParser.stdHeaderParser.parse(buf.slice(offset, offset + MIN_STD_HEADER_SIZE));
+                const timeAsNumber = (storageHeader.secs * 1000) + (storageHeader.micros / 1000);
+                const stdHeader = dltParseStdHeader(buf, offset);
                 // do we have the remaining data in buf?
-                const len: number = stdHeader["len"];
+                const len: number = stdHeader.len;
                 // assert(len >= 0);
                 if (remaining - ((offset + len) - msgOffset) >= 0) {
                     offset += len;
 
                     if (len >= MIN_STD_HEADER_SIZE) {
-                        const newMsg = new DltMsg(storageHeader["ecu"], stdHeader, startIndex + nrMsgs, timeAsNumber, buf.slice(msgOffset, offset));// buf.slice(msgOffset, offset));
+                        const newMsg = new DltMsg(storageHeader.ecu, stdHeader, startIndex + nrMsgs, timeAsNumber, buf.slice(msgOffset, offset));
                         // do we need to filter this one?
                         let keepAfterNegBeforePosFilters: boolean = true;
                         if (negBeforePosFilters?.length) {
