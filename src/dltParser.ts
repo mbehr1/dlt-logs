@@ -50,8 +50,11 @@ export const serviceIds: string[] = ["", "set_log_level", "set_trace_status", "g
 
 export class DltMsg {
     readonly index: number; // index/nr of this msg inside orig file/stream/buffer
-    readonly time: Date; // storage/reception time
-    //private _data: Buffer; // raw data incl. storageheader
+    readonly timeAsNumber: number; // time in ms. Date uses more memory!
+    get timeAsDate(): Date {
+        return new Date(this.timeAsNumber);
+    }
+
     // parsed from data:
     readonly mcnt: number;
     private _htyp: number;
@@ -70,14 +73,11 @@ export class DltMsg {
     lifecycle: DltLifecycleInfo | undefined = undefined;
     decorations: Array<[vscode.TextEditorDecorationType, Array<vscode.DecorationOptions>]> = [];
 
-    constructor(storageHeaderEcu: string, index: number, time: Date, data: Buffer) {
+    constructor(storageHeaderEcu: string, stdHdr: any, index: number, timeAsNumber: number, data: Buffer) {
         this.index = index;
-        this.time = time;
-        //this._data = data;
+        this.timeAsNumber = timeAsNumber;
 
         // the following code could be moved into a function to allow parallel/delayed processing
-        // assert(data.length >= DLT_STORAGE_HEADER_SIZE + MIN_STD_HEADER_SIZE);
-        const stdHdr = DltParser.stdHeaderParser.parse(data.slice(DLT_STORAGE_HEADER_SIZE, DLT_STORAGE_HEADER_SIZE + MIN_STD_HEADER_SIZE));
         this.mcnt = stdHdr["mcnt"];
         this._htyp = stdHdr["htyp"];
         // htyp:
@@ -418,8 +418,7 @@ export class DltParser {
             if (storageHeader["pattern"] === DLT_STORAGE_HEADER_PATTERN) {
                 const msgOffset = offset;
                 offset += DLT_STORAGE_HEADER_SIZE;
-                const time = new Date((storageHeader["secs"] * 1000) + (storageHeader["micros"] / 1000));
-                const stdHeader = DltParser.stdHeaderParser.parse(buf.slice(offset, offset + MIN_STD_HEADER_SIZE));
+                const timeAsNumber = (storageHeader["secs"] * 1000) + (storageHeader["micros"] / 1000);
                 // do we have the remaining data in buf?
                 const len: number = stdHeader["len"];
                 // assert(len >= 0);
@@ -427,7 +426,7 @@ export class DltParser {
                     offset += len;
 
                     if (len >= MIN_STD_HEADER_SIZE) {
-                        let newMsg = new DltMsg(storageHeader["ecu"], startIndex + nrMsgs, time, buf.slice(msgOffset, offset));
+                        const newMsg = new DltMsg(storageHeader["ecu"], stdHeader, startIndex + nrMsgs, timeAsNumber, buf.slice(msgOffset, offset));// buf.slice(msgOffset, offset));
                         // do we need to filter this one?
                         let keepAfterNegBeforePosFilters: boolean = true;
                         if (negBeforePosFilters?.length) {

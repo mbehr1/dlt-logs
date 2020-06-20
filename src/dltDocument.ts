@@ -863,7 +863,7 @@ export class DltDocument {
         for (let i = 0; i < msgs.length; ++i) {
             const logMsg = msgs[i];
             if (!(logMsg.mstp === MSTP.TYPE_CONTROL && logMsg.mtin === MTIN_CTRL.CONTROL_REQUEST)) {
-                const startDate = logMsg.lifecycle ? logMsg.lifecycle.lifecycleStart.valueOf() : logMsg.time.valueOf();
+                const startDate = logMsg.lifecycle ? logMsg.lifecycle.lifecycleStart.valueOf() : logMsg.timeAsNumber;
                 if (startDate + (logMsg.timeStamp / 10) >= (logMsg.lifecycle ? dateValueLC : dateValueNoLC)) {
                     console.log(`DltDocument.lineCloseToDate(${date.toLocaleTimeString()}) found line ${i}`);
                     return this.revealByMsgsIndex(i);
@@ -890,7 +890,7 @@ export class DltDocument {
         if (msg.lifecycle) {
             return new Date(msg.lifecycle.lifecycleStart.valueOf() + (msg.timeStamp / 10));
         }
-        return new Date(this._timeAdjustMs + msg.time.valueOf() + (msg.timeStamp / 10));
+        return new Date(this._timeAdjustMs + msg.timeAsNumber + (msg.timeStamp / 10));
     }
 
     provideTimeByLine(line: number): Date | undefined {
@@ -911,12 +911,12 @@ export class DltDocument {
         }
         const posTime = this.provideTimeByMsg(msg);
         if (posTime) {
-            let mdString = new vscode.MarkdownString(`${posTime.toLocaleTimeString()}.${String(posTime.valueOf() % 1000).padStart(3, "0")} index#=${msg.index} timestamp=${msg.timeStamp} reception time=${msg.time.toLocaleTimeString()} mtin=${msg.mtin}`, true);
+            let mdString = new vscode.MarkdownString(`${posTime.toLocaleTimeString()}.${String(posTime.valueOf() % 1000).padStart(3, "0")} index#=${msg.index} timestamp=${msg.timeStamp} reception time=${msg.timeAsDate.toLocaleTimeString()} mtin=${msg.mtin}`, true);
             mdString.appendMarkdown(`\n\n---\n\n`);
             mdString.appendMarkdown(`| calculated time | ${posTime.toLocaleTimeString()}.${String(posTime.valueOf() % 1000).padStart(3, "0")}|\n|:---|:---|
             |lifecycle|${msg.lifecycle?.getTreeNodeLabel()}|
             |timestamp|${msg.timeStamp}|
-            |reception time|${msg.time.toLocaleTimeString()}|
+            |reception time|${msg.timeAsDate.toLocaleTimeString()}|
             | index# | ${msg.index}|\n`);
             mdString.appendMarkdown(`\n\n---\n\n`);
             const args = [{ uri: this.uri }, { mstp: msg.mstp, ecu: msg.ecu, apid: msg.apid, ctid: msg.ctid, payload: msg.payloadString }];
@@ -926,7 +926,7 @@ export class DltDocument {
             mdString.isTrusted = true;
             return new vscode.Hover(mdString);
         } else {
-            return new vscode.Hover({ language: "dlt-log", value: `calculated time: <none> index#=${msg.index} timestamp=${msg.timeStamp} reception time=${msg.time.toLocaleTimeString()}` });
+            return new vscode.Hover({ language: "dlt-log", value: `calculated time: <none> index#=${msg.index} timestamp=${msg.timeStamp} reception time=${msg.timeAsDate.toLocaleTimeString()}` });
         }
     }
 
@@ -1240,7 +1240,7 @@ export class DltDocument {
             const msg = msgs[j];
             try {
                 if (showIndex) { toRet += String(msg.index).padStart(maxIndexLength) + ' '; }
-                if (showTime) { toRet += msg.time.toLocaleTimeString() + ' '; } // todo pad to one len?
+                if (showTime) { toRet += msg.timeAsDate.toLocaleTimeString() + ' '; } // todo pad to one len?
                 if (showTimestamp) { toRet += String(msg.timeStamp).padStart(8) + ' '; }
                 if (showMcnt) { toRet += String(msg.mcnt).padStart(3) + ' '; }
                 if (showEcu) { toRet += String(msg.ecu).padEnd(5); } // 5 as we need a space anyhow

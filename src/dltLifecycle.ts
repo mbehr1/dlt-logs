@@ -10,10 +10,10 @@ let _nextLcUniqueId = 1;
 
 export class DltLifecycleInfo {
     uniqueId: number;
-    private _startTime: Date; // within log
+    private _startTime: number; // in ms / within log
     readonly startIndex: number;
     adjustTimeMs: number;
-    private _lifecycleStart: Date; // including timestamp calc. e.g. _startTime - timestamp
+    private _lifecycleStart: number; // in ms including timestamp calc. e.g. _startTime - timestamp
     private _maxTimeStamp: number; // so _lifecycleStart + maxTimestamp defines the "end"
     readonly logMessages: DltMsg[]; // todo should be sorted... by timestamp? (without ctrl requests timestamps)
     allCtrlRequests: boolean = true; // this lifecycle consists of only ctrl requests.
@@ -30,10 +30,10 @@ export class DltLifecycleInfo {
         } else {
             this.allCtrlRequests = false;
         }
-        this._startTime = logMsg.time;
+        this._startTime = logMsg.timeAsNumber;
         this.adjustTimeMs = 0;
         this.startIndex = logMsg.index;
-        this._lifecycleStart = new Date(this._startTime.valueOf() - (timeStamp / 10));
+        this._lifecycleStart = this._startTime - (timeStamp / 10);
         this._maxTimeStamp = timeStamp;
         this.logMessages = [logMsg];
         logMsg.lifecycle = this;
@@ -43,11 +43,11 @@ export class DltLifecycleInfo {
     }
 
     get lifecycleStart(): Date {
-        return new Date(this.adjustTimeMs + this._lifecycleStart.valueOf());
+        return new Date(this.adjustTimeMs + this._lifecycleStart);
     }
 
     get lifecycleEnd(): Date {
-        return new Date(this.adjustTimeMs + this._lifecycleStart.valueOf() + (this._maxTimeStamp / 10));
+        return new Date(this.adjustTimeMs + this._lifecycleStart + (this._maxTimeStamp / 10));
     }
 
     get endIndex(): number {
@@ -94,20 +94,20 @@ export class DltLifecycleInfo {
 
 
         // calc _lifecycleStart for this one:
-        let newLifecycleStart = new Date(logMsg.time.valueOf() - (logMsg.timeStamp / 10));
+        let newLifecycleStart: number = logMsg.timeAsNumber - (logMsg.timeStamp / 10);
         // if newLifecycleStart is later than current end _lifecycleStart+_maxTimestamp
-        if ((newLifecycleStart.valueOf() - (this.lifecycleStart.valueOf() + (this._maxTimeStamp / 10))) > 1000) {
+        if ((newLifecycleStart - ((this.adjustTimeMs + this._lifecycleStart) + (this._maxTimeStamp / 10)) > 1000)) {
             // todo 1s, after a longer lifecycle we can reduce this to e.g. 50ms... but for short (~4s) lifecycles not (10773, 11244)
             // we could as well afterwards in a 2nd step merge the lifecycles again (visible with roughly same lifecycleStart...)
-            console.log(`DltLifecycleInfo:update (logMsg(index=${logMsg.index} at ${logMsg.time}:${logMsg.timeStamp}) not part of this lifecycle(startIndex=${this.startIndex} end=${this.lifecycleEnd} ) `);
+            console.log(`DltLifecycleInfo:update (logMsg(index=${logMsg.index} at ${logMsg.timeAsDate}:${logMsg.timeStamp}) not part of this lifecycle(startIndex=${this.startIndex} end=${this.lifecycleEnd} ) `);
             return false; // treat as new lifecycle
         }
-        if (logMsg.time.valueOf() < this._startTime.valueOf()) {
-            console.log("DltLifecycleInfo:update new starttime earlier? ", this._startTime, logMsg.time);
+        if (logMsg.timeAsNumber < this._startTime) {
+            console.log("DltLifecycleInfo:update new starttime earlier? ", this._startTime, logMsg.timeAsNumber);
         }
-        if (newLifecycleStart.valueOf() < this.lifecycleStart.valueOf()) {
+        if (newLifecycleStart < (this.adjustTimeMs + this._lifecycleStart)) {
             // update new lifecycle start:
-            if (this.lifecycleStart.valueOf() - newLifecycleStart.valueOf() > 1000) { // only inform about jumps >1s
+            if ((this.adjustTimeMs + this._lifecycleStart) - newLifecycleStart > 1000) { // only inform about jumps >1s
                 console.log(`DltLifecycleInfo:update new lifecycleStart from ${this.lifecycleStart} to ${newLifecycleStart} due to ${logMsg.index}`);
             }
             this._lifecycleStart = newLifecycleStart;
@@ -172,13 +172,13 @@ export class DltLifecycleInfo {
             const msg = msgs[i];
             const ecu = msg.ecu;
             if (!lifecycles.has(ecu)) {
-                console.log(`updateLifecycles: added ${ecu} from ${msg.index}:${msg.time}`);
+                console.log(`updateLifecycles: added ${ecu} from ${msg.index}:${msg.timeAsDate}`);
                 lifecycles.set(ecu, [new DltLifecycleInfo(msg)]);
             } else {
                 let lcInfos = lifecycles.get(ecu)!;
                 let lastLc = lcInfos[lcInfos?.length - 1]; // there is at least one
                 if (!lastLc.update(msg)) {
-                    console.log(`updateLifecycles: added  ${ecu} from ${msg.index}:${msg.time}`);
+                    console.log(`updateLifecycles: added  ${ecu} from ${msg.index}:${msg.timeAsDate}`);
                     lcInfos.push(new DltLifecycleInfo(msg));
                 }
             }
