@@ -4,6 +4,9 @@ All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
 
+## [0.18.1]
+- More memory optimization (ECU/APID/CTID strings)
+
 ## [0.18.0]
 - Memory load/usage optimizations.
 - Removed binary-parser.

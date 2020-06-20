@@ -44,25 +44,71 @@ export const serviceIds: string[] = ["", "set_log_level", "set_trace_status", "g
 #define DLT_SERVICE_ID_CALLSW_CINJECTION              0xFFF < Service ID: Message Injection (minimal ID)
 */
 
+// map ecu/apid/ctids
+interface EAC {
+    e: string,
+    a: string,
+    c: string
+}
+
+// we store it in one direction as a map idx -> EAC
+// and in the other direction as a map(ECU) of map(APID) of map(CTID) -> idx
+// so we store each combination exactly once.
+// and allows us to store inside the DltMsg just one object reference
+// we do so as we otherwise store lots of similar strings that use a high
+// amount of memory... (3x24 bytes each vs. one reference)
+
+const mapEAC: Map<number, EAC> = new Map();
+const maprEAC: Map<string, Map<string, Map<string, number>>> = new Map();
+let maxEAC: number = 0;
+
+function getIdxFromEAC(eac: EAC): number {
+    let eMap = maprEAC.get(eac.e);
+    if (eMap === undefined) {
+        eMap = new Map<string, Map<string, number>>();
+        maprEAC.set(eac.e, eMap);
+    }
+    let aMap = eMap.get(eac.a);
+    if (aMap === undefined) {
+        aMap = new Map<string, number>();
+        eMap.set(eac.a, aMap);
+    }
+    let idx = aMap.get(eac.c);
+    if (idx !== undefined) {
+        return idx;
+    } else {
+        idx = ++maxEAC;
+        aMap.set(eac.c, idx);
+        mapEAC.set(idx, eac);
+        console.log(`new eac(idx=${idx}):${JSON.stringify(eac)}`);
+
+        return idx;
+    }
+}
+function getEACFromIdx(idx: number): EAC | undefined {
+    const eac = mapEAC.get(idx);
+    return eac;
+}
+
 export class DltMsg {
     readonly index: number; // index/nr of this msg inside orig file/stream/buffer
     readonly timeAsNumber: number; // time in ms. Date uses more memory!
-    get timeAsDate(): Date {
-        return new Date(this.timeAsNumber);
-    }
+    get timeAsDate(): Date { return new Date(this.timeAsNumber); }
 
     // parsed from data:
     readonly mcnt: number;
     private _htyp: number;
-    readonly ecu: string;
+    //readonly ecu: string; // this leads to lots of same strings. thus pointing to one object that has the ECU/APID/CTID combination
+    get ecu(): string { return this._eac.e; }
     readonly sessionId: number;
     readonly timeStamp: number;
     readonly verbose: boolean;
     readonly mstp: MSTP; // message type from MSIN (message info)
     readonly mtin: number; // message type info from MSIN
     readonly noar: number; // number of arguments
-    readonly apid: string;
-    readonly ctid: string;
+    get apid(): string { return this._eac.a; }
+    get ctid(): string { return this._eac.c; }
+    private _eac: EAC;
     private _payloadData: Buffer;
     private _payloadArgs: Array<any> | undefined = undefined;
     private _payloadText: string | undefined = undefined;
@@ -90,11 +136,12 @@ export class DltMsg {
 
         let stdHeaderSize = MIN_STD_HEADER_SIZE;
 
+        const eac: any = {};
         if (withEID) {
-            this.ecu = dltParseChar4(data, DLT_STORAGE_HEADER_SIZE + stdHeaderSize);
+            eac.e = dltParseChar4(data, DLT_STORAGE_HEADER_SIZE + stdHeaderSize);
             stdHeaderSize += 4;
         } else {
-            this.ecu = storageHeaderEcu;
+            eac.e = storageHeaderEcu;
         }
         if (withSID) {
             this.sessionId = data.readUInt32BE(DLT_STORAGE_HEADER_SIZE + stdHeaderSize);
@@ -115,16 +162,18 @@ export class DltMsg {
             this.mstp = extHeader.mstp;
             this.mtin = extHeader.mtin;
             this.noar = extHeader.noar;
-            this.apid = extHeader.apid;
-            this.ctid = extHeader.ctid;
+            eac.a = extHeader.apid;
+            eac.c = extHeader.ctid;
         } else {
             this.verbose = false;
             this.mstp = 0;
             this.mtin = 0;
             this.noar = 0;
-            this.apid = "";
-            this.ctid = "";
+            eac.a = "";
+            eac.c = "";
         }
+        this._eac = getEACFromIdx(getIdxFromEAC(eac)) || eac;
+
         const payloadOffset = DLT_STORAGE_HEADER_SIZE + stdHeaderSize + (useExtHeader ? DLT_EXT_HEADER_SIZE : 0);
         this._payloadData = data.slice(payloadOffset);
         assert.equal(this._payloadData.byteLength, stdHdr["len"] - (payloadOffset - DLT_STORAGE_HEADER_SIZE));
