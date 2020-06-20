@@ -159,10 +159,6 @@ See [Changelog](./CHANGELOG.md)
 
 This project leverages the following third party content.
 
-binary-parser (1.6.2)
- - License: MIT https://github.com/keichi/binary-parser/blob/master/LICENSE.md
- - Source: https://github.com/keichi/binary-parser
-
 momentjs.com (2.13.0)
  - License: MIT
  - Source: https://momentjs.com

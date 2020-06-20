@@ -4,6 +4,11 @@ All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
 
+## [0.18.0]
+- Memory load/usage optimizations.
+- Removed binary-parser.
+- Format timestamp in secs in hover.
+
 ## [0.17.1]
 - Hotfix to improve load performance (and running out of memory). Seems caused by newer binary-parser version. Rolled that back to 1.5.0.
 - Improved progress output on loading to better readable values.
