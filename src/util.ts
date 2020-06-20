@@ -15,17 +15,19 @@ export function stringFormat(str: string, args: RegExpExecArray): string {
     });
 }
 
-/* return a printable string. unprintable chars get replace by replaceChar */
-export function printableAscii(buf: Buffer, replaceChar: string = '-'): string {
-    let res: string = '';
+/* return a printable string. unprintable chars get replace by replaceChar 
+   we do need to avoid string += operator here as this leads to lots of small strings
+   that get referenced as sliced strings... */
+export function printableAscii(buf: Buffer, replaceChar: number = 45 /*'-'*/): string {
+    let res = Buffer.allocUnsafe(buf.length);
     for (let i = 0; i < buf.length; ++i) {
         if (buf[i] >= 0x20 /* space */ && buf[i] <= 0x7e) {
-            res += String.fromCharCode(buf[i]);
+            res[i] = buf[i]; // access as UInt8Array
         } else {
-            res += replaceChar;
+            res[i] = replaceChar;
         }
     }
-    return res;
+    return res.toString();
 }
 
 function precalcHexArray(): string[] {
