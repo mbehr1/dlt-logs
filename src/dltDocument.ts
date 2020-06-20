@@ -1322,7 +1322,7 @@ export class DltDocument {
             }
             const fd = fs.openSync(this._fileUri.fsPath, "r");
             let read: number = 0;
-            let chunkSize = 10 * 1024 * 1024; // todo config
+            let chunkSize = 40 * 1024 * 1024; // todo config
             if ((stats.size - this._parsedFileLen) < chunkSize) {
                 chunkSize = stats.size - this._parsedFileLen;
             }
