@@ -51,19 +51,19 @@ export const serviceIds: string[] = ["", "set_log_level", "set_trace_status", "g
 export class DltMsg {
     readonly index: number; // index/nr of this msg inside orig file/stream/buffer
     readonly time: Date; // storage/reception time
-    private _data: Buffer; // raw data incl. storageheader
+    //private _data: Buffer; // raw data incl. storageheader
     // parsed from data:
     readonly mcnt: number;
     private _htyp: number;
     readonly ecu: string;
     readonly sessionId: number = 0;
     readonly timeStamp: number = 0;
-    readonly verbose: boolean = false;
+    readonly verbose: boolean;
     readonly mstp: MSTP = 0; // message type from MSIN (message info)
     readonly mtin: number = 0; // message type info from MSIN
     readonly noar: number = 0; // number of arguments
-    readonly apid: string = "";
-    readonly ctid: string = "";
+    readonly apid: string;
+    readonly ctid: string;
     private _payloadData: Buffer;
     private _payloadArgs: Array<any> | undefined = undefined;
     private _payloadText: string | undefined = undefined;
@@ -73,7 +73,7 @@ export class DltMsg {
     constructor(storageHeaderEcu: string, index: number, time: Date, data: Buffer) {
         this.index = index;
         this.time = time;
-        this._data = data;
+        //this._data = data;
 
         // the following code could be moved into a function to allow parallel/delayed processing
         // assert(data.length >= DLT_STORAGE_HEADER_SIZE + MIN_STD_HEADER_SIZE);
@@ -117,6 +117,10 @@ export class DltMsg {
             this.noar = extHeader["noar"];
             this.apid = extHeader["apid"];
             this.ctid = extHeader["ctid"];
+        } else {
+            this.verbose = false;
+            this.apid = "";
+            this.ctid = "";
         }
         const payloadOffset = DLT_STORAGE_HEADER_SIZE + stdHeaderSize + (useExtHeader ? DLT_EXT_HEADER_SIZE : 0);
         this._payloadData = data.slice(payloadOffset);
@@ -183,11 +187,11 @@ export class DltMsg {
                                     assert(!(typeInfo & 0x100), "no aray support for FLOA");
                                     switch (tyle) {
                                         case 3: // single 32bit
-                                            this.payloadArgs.push({ type: Number, v: this._payloadData.readFloatLE(argOffset) }); // todo endianess
+                                            this._payloadArgs.push({ type: Number, v: this._payloadData.readFloatLE(argOffset) }); // todo endianess
                                             argOffset += 4;
                                             break;
                                         case 4: // double 64bit
-                                            this.payloadArgs.push({ type: Number, v: this._payloadData.readDoubleLE(argOffset) }); // todo endianess
+                                            this._payloadArgs.push({ type: Number, v: this._payloadData.readDoubleLE(argOffset) }); // todo endianess
                                             argOffset += 8;
                                             break;
                                         default:
@@ -211,7 +215,7 @@ export class DltMsg {
                                         let strText = this._payloadData.toString((scod === 1 ? "utf8" : "latin1"), argOffset, argOffset + strLenInclTerm - 1);
                                         // replace CRLF with ' '
                                         // todo assemble payloadAsText ... msgText += strText.replace(/(\r\n|\n|\r)/gm, " "); // this is slow...
-                                        this.payloadArgs.push({ type: String, v: strText });
+                                        this._payloadArgs.push({ type: String, v: strText });
                                         this._payloadText += `${strText.replace(/\r?\n|\r/g, " ")} `;
                                     } else {
                                         console.log("ignored strlen due to sanity check!");
@@ -221,13 +225,13 @@ export class DltMsg {
                                     const lenRaw: number = this._payloadData.readUInt16LE(argOffset);
                                     argOffset += 2;
                                     const rawd = this._payloadData.slice(argOffset, argOffset + lenRaw);
-                                    this.payloadArgs.push({ type: Buffer, v: rawd });
+                                    this._payloadArgs.push({ type: Buffer, v: Buffer.from(rawd) }); // we make a copy here to avoid referencing the payloadData that we want to release/gc afterwards
                                     this._payloadText += rawd.toString("hex");
                                     argOffset += lenRaw;
                                 } else { break; } // todo VARI, FIXP, TRAI, STRU
                             }
                             assert.equal(argOffset, this._payloadData.byteLength, "didn't process all payloadData"); // all data processed
-                            assert.equal(this.noar, this.payloadArgs.length, "noars != payloadArgs.length");
+                            assert.equal(this.noar, this._payloadArgs.length, "noars != payloadArgs.length");
                             //this._payloadArgs = []; // todo to see how much faster it gets
                         } else {
                             this._payloadArgs = [];
@@ -332,7 +336,7 @@ export class DltMsg {
                                                                 this._payloadText += `) `;
                                                                 apids.push({ apid: apid, ctids: ctids, desc: aDesc });
                                                             }
-                                                            this.payloadArgs.push(apids);
+                                                            this._payloadArgs.push(apids);
                                                         }
                                                         remOffset += 4; // skip reserved (request handle alike)
                                                     }
@@ -364,7 +368,7 @@ export class DltMsg {
                         } else {
                             console.log(`CONTROL_MSG with noar=${this.noar} and serviceId=${serviceId}`);
                         }
-                        assert.ok(this.noar <= this.payloadArgs.length, "TYPE_CONTROL noars > payloadArgs.length"); // for some (e.g. get_log_info) we add more payloadArgs
+                        assert.ok(this.noar <= this._payloadArgs.length, "TYPE_CONTROL noars > payloadArgs.length"); // for some (e.g. get_log_info) we add more payloadArgs
                     }
                         break;
                     default:
@@ -373,6 +377,7 @@ export class DltMsg {
                 }
                 if (this._payloadText.endsWith(' ')) { this._payloadText = this._payloadText.slice(0, -1); } // this is not quite right. if ' ' was part of the payload text...
             }
+            this._payloadText = Buffer.from(this._payloadText).toString(); // reduce the number of strings...
             return this._payloadArgs;
         }
     }

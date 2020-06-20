@@ -1301,7 +1301,7 @@ export class DltDocument {
         this._docEventEmitter.fire([{ type: vscode.FileChangeType.Changed, uri: this.uri }]);
         await util.sleep(100);
 
-        this._text = toRet;
+        this._text = Buffer.from(toRet).toString(); // to reduce number of strings/sliced strings
         const fnEnd = process.hrtime(fnStart);
         console.info('DltDocument.renderLines() took: %ds %dms', fnEnd[0], fnEnd[1] / 1000000);
         await util.sleep(10); // todo not needed anylonger?
