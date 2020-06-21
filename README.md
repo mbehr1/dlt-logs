@@ -10,7 +10,7 @@ This Visual Studio Code(tm) extension adds support to open DLT (diagnostic log a
 
 ## Features
 
-- Open DLT files without any size restriction. (Tested with ~500MB files)
+- Open DLT files without any size restriction. (Tested with ~1500MB files). With files of approx 2GB you get out of memory problems. A "load time filter assistant..." helps you in reducing number of messages while opening files >512MB.
 - **Time sync** feature.
   - Calculates time for each line based on timestamp and reception/storage time.
   - An offset for the full time can be set via context menu item *adjust-time...*.
@@ -67,7 +67,7 @@ The extension uses telemetry with two events (`activate` (no parameters) and `op
 - Allow filter add/edit for report, timesync, MSTP and log levels (currently only possible via JSON configuration)
 - Check whether revaling the line on broadcasted time is possible if document is hidden/not visible.
 - Sort msgs within lifecycles by timestamp (maintaining orig index as e.g. hover info)
-- Support easier splitting of huge files into files per lifecycle and offer "assistant" at opening of huge files.
+- Support easier splitting of huge files into files per lifecycle.
 - Allow merging/opening of multiple DLT files.
 - Check default colors on multiple color themes. Check color contrast to background.
 - Support time synchronized split-view between e.g. two APIDs from within one DLT log file.

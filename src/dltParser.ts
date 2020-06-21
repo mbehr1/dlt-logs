@@ -80,8 +80,6 @@ function getIdxFromEAC(eac: EAC): number {
         idx = ++maxEAC;
         aMap.set(eac.c, idx);
         mapEAC.set(idx, eac);
-        console.log(`new eac(idx=${idx}):${JSON.stringify(eac)}`);
-
         return idx;
     }
 }

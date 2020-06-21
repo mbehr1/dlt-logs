@@ -132,9 +132,11 @@ export class MultiStepInput {
         private _steps: readonly {
             iconPath?: string,
             items: PickItem[] | (() => PickItem[]), title?: string, initialValue?: () => string | undefined, placeholder?: string,
-            onValue: ((v: string) => void),
+            onValue?: ((v: string) => void),
+            onValues?: ((v: readonly PickItem[] | string) => void),
             isValid?: ((v: string) => boolean),
-            skipStep?: (() => boolean)
+            skipStep?: (() => boolean),
+            onMoreItems?: ((cancel: vscode.CancellationToken) => vscode.Event<PickItem[] | undefined>)
         }[],
         public options?: { canSelectMany: boolean }) {
     }
@@ -148,7 +150,7 @@ export class MultiStepInput {
                 if (stepData.skipStep !== undefined && stepData.skipStep()) { continue; }
                 let doBack = false;
                 const buttons = [new QuickButton(new vscode.ThemeIcon(stepData.iconPath !== undefined ? stepData.iconPath : (s === this._steps.length - 1 ? 'menu-selection' : 'arrow-right')))];
-                const quickPick = QuickInputHelper.createQuickPick(`${this._title} ${stepData.title ? stepData.title : ''}`, s + 1, this._steps.length, buttons);
+                const quickPick = QuickInputHelper.createQuickPick<PickItem>(`${this._title} ${stepData.title ? stepData.title : ''}`, s + 1, this._steps.length, buttons);
                 if (this.options !== undefined) {
                     quickPick.canSelectMany = this.options.canSelectMany;
                 }
@@ -159,8 +161,39 @@ export class MultiStepInput {
                 }
                 if (stepData.placeholder) { quickPick.placeholder = stepData.placeholder; };
 
-                await QuickInputHelper.show(quickPick, stepData.isValid).then((selectedItems) => {
-                    stepData.onValue(quickPick.value);
+                let cancelMoreItems: vscode.CancellationTokenSource | undefined = undefined;
+                if (stepData.onMoreItems !== undefined) {
+                    cancelMoreItems = new vscode.CancellationTokenSource();
+                    const onMoreItemsEvent = stepData.onMoreItems(cancelMoreItems.token);
+                    quickPick.busy = true;
+                    onMoreItemsEvent((items: PickItem[] | undefined) => {
+                        if (items === undefined) {
+                            // this indicates that no more data is there
+                            quickPick.busy = false;
+                        } else {
+                            // we want to keep the selected ones:
+                            const newSelItems: PickItem[] = [];
+                            quickPick.selectedItems.forEach((selItem) => {
+                                const itemIdx = items.findIndex((newVal) => {
+                                    if (newVal.label === selItem.label) { return true; }
+                                    return false;
+                                });
+                                if (itemIdx !== -1) { newSelItems.push(items[itemIdx]); }
+                            });
+                            quickPick.items = items;
+                            quickPick.selectedItems = newSelItems;
+                        }
+                    });
+                }
+
+                await QuickInputHelper.show<PickItem>(quickPick, stepData.isValid).then((selectedItems) => {
+                    if (stepData.onValues !== undefined) {
+                        stepData.onValues(selectedItems);
+                    } else {
+                        if (stepData.onValue !== undefined) { stepData.onValue(quickPick.value); } else {
+                            //assert(false, "neither onValue nor onValues defined");
+                        }
+                    }
                 }).catch(err => {
                     if (err === vscode.QuickInputButtons.Back) {
                         doBack = true;
@@ -168,6 +201,7 @@ export class MultiStepInput {
                         doCancel = true;
                     }
                 });
+                cancelMoreItems?.cancel();
                 quickPick.dispose();
                 if (doCancel) { break; }
                 if (doBack) { s -= 2; }

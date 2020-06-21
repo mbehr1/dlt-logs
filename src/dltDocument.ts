@@ -14,6 +14,7 @@ import { DltFilter, DltFilterType } from './dltFilter';
 import TelemetryReporter from 'vscode-extension-telemetry';
 import { DltFileTransferPlugin } from './dltFileTransfer';
 import { DltReport } from './dltReport';
+import { loadTimeFilterAssistant } from './dltLoadTimeAssistant';
 
 class ColumnConfig implements vscode.QuickPickItem {
     name: string;
@@ -1320,6 +1321,29 @@ export class DltDocument {
             if (this._reporter && this._parsedFileLen === 0) {
                 this._reporter.sendTelemetryEvent("open file", undefined, { 'fileSize': stats.size });
             }
+
+            const LOAD_TIME_ASSIST_TRIGGER_SIZE = 512 * 1024 * 1024; // 512mb todo config
+            if (this._parsedFileLen === 0 && stats.size > LOAD_TIME_ASSIST_TRIGGER_SIZE) {
+                await vscode.window.showWarningMessage(`The file is quite large (${Number(stats.size / 1000000).toFixed(0)}MB). Do you want to check load time filters?`,
+                    { modal: true }, 'Check').then(async (value) => {
+                        if (value === 'Check') {
+                            await loadTimeFilterAssistant(this._fileUri, this.allFilters).then((removedApids) => {
+                                console.log(`loadTimeFilterAssistant resolved ${removedApids}`);
+                                if (Array.isArray(removedApids) && removedApids.length > 0) {
+                                    // add the filterTreeNode for the newly added ones... ( a bit dirty... todo should move inside loadTimeFilterAssistant?)
+                                    // for now we assume it's the last ones...
+                                    for (let i = 0; i < removedApids.length; ++i) {
+                                        this.filterTreeNode.children.push(new FilterNode(null, this.filterTreeNode, this.allFilters[this.allFilters.length - removedApids.length + i]));
+                                    }
+                                    this._treeEventEmitter.fire(this.filterTreeNode);
+                                }
+                            }).catch(err => {
+                                console.log(`cancelled loadTimeFilterAssistant. todo cancel loading?`);
+                            });
+                        }
+                    });
+            }
+
             const fd = fs.openSync(this._fileUri.fsPath, "r");
             let read: number = 0;
             let chunkSize = 40 * 1024 * 1024; // todo config

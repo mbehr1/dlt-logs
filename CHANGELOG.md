@@ -4,6 +4,9 @@ All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
 
+## [0.19.0]
+- Added load time filter assistant that helps removing messages via APID filters at opening of files >512MB.
+
 ## [0.18.1]
 - More memory optimization (ECU/APID/CTID strings)
 
