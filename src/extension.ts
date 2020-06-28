@@ -5,6 +5,7 @@
 import * as vscode from 'vscode';
 import TelemetryReporter from 'vscode-extension-telemetry';
 import * as dltDocument from './dltDocumentProvider';
+import { exportDlt } from './dltExport';
 // import { DltLogCustomReadonlyEditorProvider } from './dltCustomEditorProvider';
 
 const extensionId = 'mbehr1.dlt-logs';
@@ -37,7 +38,7 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.workspace.registerFileSystemProvider(dltScheme, dltProvider, { isReadonly: false, isCaseSensitive: true }));
 
 	// register our command to open dlt files as "dlt-logs":
-	context.subscriptions.push(vscode.commands.registerCommand('extension.dltOpenFile', async () => {
+	context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.dltOpenFile', async () => {
 		return vscode.window.showOpenDialog({ canSelectFiles: true, canSelectFolders: false, canSelectMany: false, filters: { 'DLT Logs': <Array<string>>(vscode.workspace.getConfiguration().get("dlt-logs.fileExtensions")) }, openLabel: 'Select DLT file to open...' }).then(
 			async (uris: vscode.Uri[] | undefined) => {
 				if (uris) {
@@ -46,6 +47,17 @@ export function activate(context: vscode.ExtensionContext) {
 						let dltUri = uri.with({ scheme: dltScheme });
 						vscode.workspace.openTextDocument(dltUri).then((value) => { vscode.window.showTextDocument(value, { preview: false }); });
 					});
+				}
+			}
+		);
+	}));
+
+	// register our command to open dlt files as "dlt-logs":
+	context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.dltExportFile', async () => {
+		return vscode.window.showOpenDialog({ canSelectFiles: true, canSelectFolders: false, canSelectMany: true, filters: { 'DLT Logs': <Array<string>>(vscode.workspace.getConfiguration().get("dlt-logs.fileExtensions")) }, openLabel: 'Select DLT files to filter/export...' }).then(
+			async (uris: vscode.Uri[] | undefined) => {
+				if (uris && uris.length > 0) {
+					exportDlt(uris);
 				}
 			}
 		);

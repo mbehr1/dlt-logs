@@ -511,7 +511,7 @@ function dltParseExtHeader(buffer: Buffer, offset: number): DltExtHeader {
 
 export class DltParser {
 
-    parseDltFromBuffer(buf: Buffer, startOffset: number, msgs: Array<DltMsg>, posFilters?: DltFilter[], negFilters?: DltFilter[], negBeforePosFilters?: DltFilter[]) { // todo make async
+    parseDltFromBuffer(buf: Buffer, startOffset: number, msgs: Array<DltMsg>, posFilters?: DltFilter[], negFilters?: DltFilter[], negBeforePosFilters?: DltFilter[], msgOffsets?: number[], msgLengths?: number[]) { // todo make async
         let skipped: number = 0;
         let remaining: number = buf.byteLength - startOffset;
         let nrMsgs: number = 0; let offset = startOffset;
@@ -530,43 +530,51 @@ export class DltParser {
                     offset += len;
 
                     if (len >= MIN_STD_HEADER_SIZE) {
-                        const newMsg = new DltMsg(storageHeader.ecu, stdHeader, startIndex + nrMsgs, timeAsNumber, buf.slice(msgOffset, offset));
-                        // do we need to filter this one?
-                        let keepAfterNegBeforePosFilters: boolean = true;
-                        if (negBeforePosFilters?.length) {
-                            for (let i = 0; i < negBeforePosFilters.length; ++i) {
-                                if (negBeforePosFilters[i].matches(newMsg)) {
-                                    keepAfterNegBeforePosFilters = false;
-                                    break;
+                        try {
+                            const newMsg = new DltMsg(storageHeader.ecu, stdHeader, startIndex + nrMsgs, timeAsNumber, buf.slice(msgOffset, offset));
+                            // do we need to filter this one?
+                            let keepAfterNegBeforePosFilters: boolean = true;
+                            if (negBeforePosFilters?.length) {
+                                for (let i = 0; i < negBeforePosFilters.length; ++i) {
+                                    if (negBeforePosFilters[i].matches(newMsg)) {
+                                        keepAfterNegBeforePosFilters = false;
+                                        break;
+                                    }
                                 }
                             }
-                        }
 
-                        if (keepAfterNegBeforePosFilters) {
-                            let foundAfterPosFilters: boolean = posFilters?.length ? false : true;
-                            if (posFilters?.length) {
-                                // check the pos filters, break on first match:
-                                for (let i = 0; i < posFilters.length; ++i) {
-                                    if (posFilters[i].matches(newMsg)) {
-                                        foundAfterPosFilters = true;
-                                        break;
+                            if (keepAfterNegBeforePosFilters) {
+                                let foundAfterPosFilters: boolean = posFilters?.length ? false : true;
+                                if (posFilters?.length) {
+                                    // check the pos filters, break on first match:
+                                    for (let i = 0; i < posFilters.length; ++i) {
+                                        if (posFilters[i].matches(newMsg)) {
+                                            foundAfterPosFilters = true;
+                                            break;
+                                        }
                                     }
                                 }
-                            }
-                            let foundAfterNegFilters: boolean = foundAfterPosFilters;
-                            if (foundAfterNegFilters && negFilters?.length) {
-                                // check the neg filters, break on first match:
-                                for (let i = 0; i < negFilters.length; ++i) {
-                                    if (negFilters[i].matches(newMsg)) {
-                                        foundAfterNegFilters = false;
-                                        break;
+                                let foundAfterNegFilters: boolean = foundAfterPosFilters;
+                                if (foundAfterNegFilters && negFilters?.length) {
+                                    // check the neg filters, break on first match:
+                                    for (let i = 0; i < negFilters.length; ++i) {
+                                        if (negFilters[i].matches(newMsg)) {
+                                            foundAfterNegFilters = false;
+                                            break;
+                                        }
                                     }
                                 }
+                                if (foundAfterNegFilters) {
+                                    msgs.push(newMsg);
+                                    if (msgOffsets) { msgOffsets.push(msgOffset); }
+                                    if (msgLengths) { msgLengths.push(offset - msgOffset); }
+                                    nrMsgs++; // todo or should we always keep the orig index here?
+                                }
                             }
-                            if (foundAfterNegFilters) {
-                                msgs.push(newMsg);
-                                nrMsgs++; // todo or should we always keep the orig index here?
-                            }
+                        } catch (err) {
+                            // most likely not enough data for the DltMsg constructor
+                            console.log(`constructing DltMsg failed with: '${err}'`);
+                            skipped += len;
                         }
                     } else {
                         skipped += len;

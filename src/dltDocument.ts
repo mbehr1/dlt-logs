@@ -581,7 +581,7 @@ export class DltDocument {
         this._docEventEmitter.fire([{ type: vscode.FileChangeType.Changed, uri: this.uri }]); // todo needs renderLines first!
     } */
 
-    static getFilter(allFilters: DltFilter[], enabled: boolean, atLoadTime: boolean, negBeforePos: boolean = false) {
+    static getFilter(allFilters: readonly DltFilter[], enabled: boolean, atLoadTime: boolean, negBeforePos: boolean = false) {
         let toRet: DltFilter[][] = [];
         for (let i = DltFilterType.POSITIVE; i <= DltFilterType.EVENT + 1; ++i) { // +1 for NEGATIVE_BEFORE_POSITIVE
             toRet.push([]);
@@ -914,12 +914,25 @@ export class DltDocument {
         if (posTime) {
             let mdString = new vscode.MarkdownString(`${posTime.toLocaleTimeString()}.${String(posTime.valueOf() % 1000).padStart(3, "0")} index#=${msg.index} timestamp=${msg.timeStamp} reception time=${msg.timeAsDate.toLocaleTimeString()} mtin=${msg.mtin}`, true);
             mdString.appendMarkdown(`\n\n---\n\n`);
-            mdString.appendMarkdown(`| calculated time | ${posTime.toLocaleTimeString()}.${String(posTime.valueOf() % 1000).padStart(3, "0")}|\n|:---|:---|
-            |lifecycle|${msg.lifecycle?.getTreeNodeLabel()}|
-            |timestamp|${msg.timeStamp / 10000}s|
-            |reception time|${msg.timeAsDate.toLocaleTimeString()}|
-            | index# | ${msg.index}|\n`);
-            mdString.appendMarkdown(`\n\n---\n\n`);
+            let apidDesc = '';
+            let ctidDesc = '';
+            if (msg.lifecycle !== undefined) {
+                const apidInfos = msg.lifecycle.apidInfos.get(msg.apid); // todo might get this from all lifecycles...
+                if (apidInfos !== undefined) {
+                    apidDesc = `: ${apidInfos.desc.replace(/\|/g, '\\|')}`;
+                    const ctidInfo = apidInfos.ctids.get(msg.ctid);
+                    if (ctidInfo !== undefined) { ctidDesc = `: ${ctidInfo}`; }
+                }
+            }
+            mdString.appendMarkdown(`| calculated time | ${posTime.toLocaleTimeString()}.${String(posTime.valueOf() % 1000).padStart(3, "0")}|\n |: ---|: ---|
+            | lifecycle | ${ msg.lifecycle?.getTreeNodeLabel()}|
+            | ecu session id | ${msg.ecu} ${msg.sessionId} |
+            | timestamp | ${ msg.timeStamp / 10000} s |
+            | reception time | ${ msg.timeAsDate.toLocaleTimeString()}.${String(Number(msg.timeAsNumber % 1000).toFixed(0)).padStart(3, '0')} |
+            | apid | ${msg.apid}${apidDesc} |
+            | ctid | ${msg.ctid}${ctidDesc} |
+            | index# | ${ msg.index}|\n`);
+            mdString.appendMarkdown(`\n\n-- -\n\n`);
             const args = [{ uri: this.uri }, { mstp: msg.mstp, ecu: msg.ecu, apid: msg.apid, ctid: msg.ctid, payload: msg.payloadString }];
             const addCommandUri = vscode.Uri.parse(`command:dlt-logs.addFilter?${encodeURIComponent(JSON.stringify(args))}`);
 

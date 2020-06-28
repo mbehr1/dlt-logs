@@ -21,7 +21,7 @@ export class DltLifecycleInfo {
 
     apidInfos: Map<string, { apid: string, desc: string, ctids: Map<string, string> }> = new Map(); // map with apids/ctid infos
 
-    constructor(logMsg: DltMsg) {
+    constructor(logMsg: DltMsg, storeMsg: boolean = true) {
         this.uniqueId = _nextLcUniqueId++;
         // if its a control message from logger we ignore the timestamp:
         let timeStamp = logMsg.timeStamp;
@@ -35,7 +35,7 @@ export class DltLifecycleInfo {
         this.startIndex = logMsg.index;
         this._lifecycleStart = this._startTime - (timeStamp / 10);
         this._maxTimeStamp = timeStamp;
-        this.logMessages = [logMsg];
+        this.logMessages = storeMsg ? [logMsg] : [];
         logMsg.lifecycle = this;
         this.parseMessage(logMsg);
         // will be set later by _updateLines based on current filter
@@ -70,7 +70,7 @@ export class DltLifecycleInfo {
         return this._swVersions;
     }
 
-    public update(logMsg: DltMsg): boolean {
+    public update(logMsg: DltMsg, storeMsg: boolean): boolean {
         if (this.adjustTimeMs !== 0) {
             console.error(`DltLifecycle.update adjustTimeMs<>0`); // todo implement
         }
@@ -79,7 +79,7 @@ export class DltLifecycleInfo {
 
         // if its a control message from logger we ignore it:
         if (logMsg.mstp === MSTP.TYPE_CONTROL && logMsg.mtin === MTIN_CTRL.CONTROL_REQUEST) {
-            this.logMessages.push(logMsg); // todo we might check the time and add it as a new lifecycle as well!
+            if (storeMsg) { this.logMessages.push(logMsg); }
             logMsg.lifecycle = this;
             return true;
         }
@@ -87,17 +87,41 @@ export class DltLifecycleInfo {
         // if timestamp info is missing, we do ignore (aka treat as part of this lifecycle):
         if (logMsg.timeStamp === 0) {
             this.allCtrlRequests = false;
-            this.logMessages.push(logMsg);
+            if (storeMsg) { this.logMessages.push(logMsg); }
             logMsg.lifecycle = this;
             return true;
         }
 
 
-        // calc _lifecycleStart for this one:
-        let newLifecycleStart: number = logMsg.timeAsNumber - (logMsg.timeStamp / 10);
+        // current values of this lifecycle without the new msg:
+        const lifecycleStartTime = (this.adjustTimeMs + this._lifecycleStart);
+        const lifecycleEndTime = lifecycleStartTime + (this._maxTimeStamp / 10);
+
+        // calc _lifecycleStart for the new msg:
+        let newLifecycleStart: number = logMsg.timeAsNumber - (logMsg.timeStamp / 10); // - unknown bufferingDelay_msg
+
+        const bufferingDelay_b = newLifecycleStart - lifecycleStartTime;
+
+        const realTime_b = lifecycleStartTime + (logMsg.timeStamp / 10);
+        const realTime_c = newLifecycleStart + (logMsg.timeStamp / 10); // same as logMsg.timeAsNumber
+
+        const timeToTimeStr = (timeAsNumber: number) => {
+            return `${new Date(timeAsNumber).toLocaleTimeString()}.${Number(timeAsNumber % 1000).toFixed(1).padStart(3, '0')}`;
+        };
+
+
+        if (newLifecycleStart > lifecycleEndTime) {
+            //console.warn(`msg #${logMsg.index} bufferingDelay_b=${Number(bufferingDelay_b).toFixed(1)}ms, newStart-EndTime=${Number(newLifecycleStart - lifecycleEndTime).toFixed(1)}ms maxTimestamp=${(this._maxTimeStamp / 10)} newTimestamp=${logMsg.timeStamp / 10} realTime_b=${timeToTimeStr(realTime_b)} realTime_c=${timeToTimeStr(realTime_c)}`);
+        }
+
         // if newLifecycleStart is later than current end _lifecycleStart+_maxTimestamp
-        if ((newLifecycleStart - ((this.adjustTimeMs + this._lifecycleStart) + (this._maxTimeStamp / 10)) > 1000)) {
             // todo 1s, after a longer lifecycle we can reduce this to e.g. 50ms... but for short (~4s) lifecycles not (10773, 11244)
+        let newLifecycleDistanceMs = 1000; // default 1s
+        if (this._maxTimeStamp > 100 * 1000 * 10) { newLifecycleDistanceMs = 10; } else // 10ms for lc >100s
+            if (this._maxTimeStamp > 30 * 1000 * 10) { newLifecycleDistanceMs = 250; } else // 250ms for lc>30s
+                if (this._maxTimeStamp > 10 * 1000 * 10) { newLifecycleDistanceMs = 500; } // 500ms for lc>10s
+
+        if ((newLifecycleStart - lifecycleEndTime > newLifecycleDistanceMs)) {
             // we could as well afterwards in a 2nd step merge the lifecycles again (visible with roughly same lifecycleStart...)
             console.log(`DltLifecycleInfo:update (logMsg(index=${logMsg.index} at ${logMsg.timeAsDate}:${logMsg.timeStamp}) not part of this lifecycle(startIndex=${this.startIndex} end=${this.lifecycleEnd} ) `);
             return false; // treat as new lifecycle
@@ -105,19 +129,19 @@ export class DltLifecycleInfo {
         if (logMsg.timeAsNumber < this._startTime) {
             console.log("DltLifecycleInfo:update new starttime earlier? ", this._startTime, logMsg.timeAsNumber);
         }
-        if (newLifecycleStart < (this.adjustTimeMs + this._lifecycleStart)) {
+        if (newLifecycleStart < lifecycleStartTime) { // this is (R1) from above.
             // update new lifecycle start:
-            if ((this.adjustTimeMs + this._lifecycleStart) - newLifecycleStart > 1000) { // only inform about jumps >1s
+            if (lifecycleStartTime - newLifecycleStart > 1000) { // only inform about jumps >1s
                 console.log(`DltLifecycleInfo:update new lifecycleStart from ${this.lifecycleStart} to ${newLifecycleStart} due to ${logMsg.index}`);
             }
-            this._lifecycleStart = newLifecycleStart;
+            this._lifecycleStart = newLifecycleStart; // todo or with adjustTimeMs? (well for now adjustTimeMs is anyhow 0 at start)
         }
         if (logMsg.timeStamp > this._maxTimeStamp) {
             this._maxTimeStamp = logMsg.timeStamp;
         }
         // todo we might have to update startIndex based on current index. currently we assume they are strong monotonically increasing
 
-        this.logMessages.push(logMsg);
+        if (storeMsg) { this.logMessages.push(logMsg); }
         logMsg.lifecycle = this;
         this.allCtrlRequests = false;
         this.parseMessage(logMsg);
@@ -166,20 +190,20 @@ export class DltLifecycleInfo {
         }
     }
 
-    static updateLifecycles(msgs: DltMsg[], lifecycles: Map<string, DltLifecycleInfo[]>) {
+    static updateLifecycles(msgs: DltMsg[], lifecycles: Map<string, DltLifecycleInfo[]>, storeMsgs: boolean = true) {
         // iterate over all ecus (not in parallel, only for each ecu in parallel possible)
         for (let i = 0; i < msgs.length; ++i) {
             const msg = msgs[i];
             const ecu = msg.ecu;
             if (!lifecycles.has(ecu)) {
                 console.log(`updateLifecycles: added ${ecu} from ${msg.index}:${msg.timeAsDate}`);
-                lifecycles.set(ecu, [new DltLifecycleInfo(msg)]);
+                lifecycles.set(ecu, [new DltLifecycleInfo(msg, storeMsgs)]);
             } else {
                 let lcInfos = lifecycles.get(ecu)!;
                 let lastLc = lcInfos[lcInfos?.length - 1]; // there is at least one
-                if (!lastLc.update(msg)) {
+                if (!lastLc.update(msg, storeMsgs)) {
                     console.log(`updateLifecycles: added  ${ecu} from ${msg.index}:${msg.timeAsDate}`);
-                    lcInfos.push(new DltLifecycleInfo(msg));
+                    lcInfos.push(new DltLifecycleInfo(msg, storeMsgs));
                 }
             }
         }

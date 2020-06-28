@@ -2,7 +2,7 @@
 	"name": "dlt-logs",
 	"displayName": "DLT-Logs",
 	"description": "Open DLT diagnostic log and trace files with lifecycle detection, filters, time-sync, etc.",
-	"version": "0.19.0",
+	"version": "0.20.0",
 	"license": "CC-BY-NC-SA-4.0",
 	"publisher": "mbehr1",
 	"author": {
@@ -24,7 +24,8 @@
 	],
 	"activationEvents": [
 		"onFileSystem:dlt-log",
-		"onCommand:extension.dltOpenFile"
+		"onCommand:dlt-logs.dltOpenFile",
+		"onCommand::dlt-logs.dltExportFile"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
@@ -384,7 +385,11 @@
 		],
 		"commands": [
 			{
-				"command": "extension.dltOpenFile",
+				"command": "dlt-logs.dltExportFile",
+				"title": "Export/filter DLT file..."
+			},
+			{
+				"command": "dlt-logs.dltOpenFile",
 				"title": "Open DLT file..."
 			},
 			{

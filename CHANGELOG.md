@@ -4,6 +4,10 @@ All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
 
+## [0.20.0]
+- Added export/filter dlt assistant that allows to: merge dlt files and reorder msgs by calculated time.
+- Provide more info in msg hover incl. description of APID/CTID (if available)
+
 ## [0.19.0]
 - Added load time filter assistant that helps removing messages via APID filters at opening of files >512MB.
 
