@@ -57,7 +57,11 @@ export function activate(context: vscode.ExtensionContext) {
 		return vscode.window.showOpenDialog({ canSelectFiles: true, canSelectFolders: false, canSelectMany: true, filters: { 'DLT Logs': <Array<string>>(vscode.workspace.getConfiguration().get("dlt-logs.fileExtensions")) }, openLabel: 'Select DLT files to filter/export...' }).then(
 			async (uris: vscode.Uri[] | undefined) => {
 				if (uris && uris.length > 0) {
-					exportDlt(uris);
+					exportDlt(uris).then(() => {
+						console.log(`exportDlt finished`);
+					}).catch((err) => {
+						console.log(`exportDlt cancelled/error=${err}`);
+					});
 				}
 			}
 		);
