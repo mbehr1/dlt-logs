@@ -412,7 +412,7 @@ export class DltMsg {
                                 }
                                 if (this._payloadData.length - remOffset > 0) {
                                     const rawd = this._payloadData.slice(remOffset);
-                                    this._payloadText += ', ' + rawd.toString("hex");
+                                    this._payloadText += ', ' + rawd.toString("hex"); // todo dlt viewer writes them with , and sep. by space e.g. [get_software_version] 3a 00 ...
                                 }
                             }
                         } else {
@@ -460,6 +460,10 @@ export function dltParseChar4(buffer: Buffer, offset: number = 0): string {
     return buffer.toString('ascii', offset, endIdx);
 };
 
+export function dltWriteChar4(buffer: Buffer, offset: number, char4: string) {
+    buffer.write(char4.padEnd(4, '\0'), offset, 4, "ascii");
+}
+
 interface DltStorageHeader {
     pattern: number,
     secs: number,
@@ -476,10 +480,19 @@ function dltParseStorageHeader(buffer: Buffer, offset: number): DltStorageHeader
     };
 };
 
+function dltWriteStorageHeader(buffer: Buffer, offset: number, header: DltStorageHeader) {
+    buffer.writeUInt32LE(header.pattern, offset);
+    buffer.writeUInt32LE(header.secs, offset + 4);
+    buffer.writeInt32LE(header.micros, offset + 8);
+    dltWriteChar4(buffer, offset + 12, header.ecu);
+}
+
 interface DltStdHeader {
     htyp: number;
     mcnt: number;
     len: number;
+    ecu?: string;
+    timeStamp?: number;
 }
 function dltParseStdHeader(buffer: Buffer, offset: number): DltStdHeader {
     return {
@@ -487,6 +500,29 @@ function dltParseStdHeader(buffer: Buffer, offset: number): DltStdHeader {
         mcnt: buffer.readUInt8(offset + 1),
         len: buffer.readUInt16BE(offset + 2)
     };
+}
+
+function dltWriteStdHeader(buffer: Buffer, offset: number, stdH: DltStdHeader): number {
+    buffer.writeUInt8(stdH.htyp, offset);
+    buffer.writeUInt8(stdH.mcnt, offset + 1);
+    buffer.writeUInt16BE(stdH.len, offset + 2);
+    const withEID: boolean = (stdH.htyp & 0x04) ? true : false;
+    const withSID: boolean = (stdH.htyp & 0x08) ? true : false;
+    const withTMS: boolean = (stdH.htyp & 0x10) ? true : false;
+    let nextOff = offset + 4;
+    if (withEID) {
+        dltWriteChar4(buffer, nextOff, stdH.ecu !== undefined ? stdH.ecu : "UNKN");
+        nextOff += 4;
+    }
+    if (withSID) {
+        buffer.writeUInt32BE(0, nextOff); // todo
+        nextOff += 4;
+    }
+    if (withTMS) {
+        buffer.writeUInt32BE(stdH.timeStamp !== undefined ? stdH.timeStamp : 0, nextOff);
+        nextOff += 4;
+    }
+    return nextOff - offset;
 }
 
 interface DltExtHeader {
@@ -507,6 +543,12 @@ function dltParseExtHeader(buffer: Buffer, offset: number): DltExtHeader {
         apid: dltParseChar4(buffer, offset + 2),
         ctid: dltParseChar4(buffer, offset + 6)
     };
+}
+function dltWriteExtHeader(buffer: Buffer, offset: number, extH: DltExtHeader) {
+    buffer.writeUInt8((extH.verb ? 1 : 0) + (extH.mstp << 1) + (extH.mtin << 4), offset);
+    buffer.writeUInt8(extH.noar, offset + 1);
+    dltWriteChar4(buffer, offset + 2, extH.apid);
+    dltWriteChar4(buffer, offset + 6, extH.ctid);
 }
 
 export class DltParser {
@@ -592,4 +634,61 @@ export class DltParser {
         }
         return [skipped, remaining, nrMsgs];
     }
+}
+
+export function createStorageMsgAsBuffer(msgParams: { time: number, timeStamp: number, mstp: MSTP, mtin: number, serviceId?: number, ecu: string, apid: string, ctid: string, text: string }): Buffer {
+    // todo dirty function to create a msg...
+    const buf = Buffer.alloc(0xffff); // we are lazy and use a big enough buffer instead of calc. the proper size
+    const storageHeader: DltStorageHeader = {
+        pattern: DLT_STORAGE_HEADER_PATTERN,
+        ecu: msgParams.ecu,
+        secs: Math.floor(msgParams.time / 1000),
+        micros: Math.floor((msgParams.time % 1000) * 1000)
+    };
+    const stdHeader: DltStdHeader = {
+        htyp: 0x01 + 0x04 + 0x10, // useExtHeader|withEID|withTMS
+        mcnt: 0,
+        len: 0, // will be updated later
+        ecu: msgParams.ecu,
+        timeStamp: msgParams.timeStamp
+    };
+    const extH: DltExtHeader = {
+        verb: true,
+        mstp: msgParams.mstp,
+        mtin: msgParams.mtin,
+        noar: 1,
+        apid: msgParams.apid,
+        ctid: msgParams.ctid
+    };
+
+    dltWriteStorageHeader(buf, 0, storageHeader);
+    const stdHeaderSize = dltWriteStdHeader(buf, DLT_STORAGE_HEADER_SIZE, stdHeader);
+    dltWriteExtHeader(buf, DLT_STORAGE_HEADER_SIZE + stdHeaderSize, extH);
+
+    let nextOff = DLT_STORAGE_HEADER_SIZE + stdHeaderSize + DLT_EXT_HEADER_SIZE;
+    // write payload...
+    if (extH.mstp === MSTP.TYPE_LOG) {
+        buf.writeUInt32LE(0x200 + (1 << 15), nextOff); // type info STRG scod UTF8
+        nextOff += 4;
+        buf.writeUInt16LE(msgParams.text.length + 1, nextOff); // strLenInclTerm
+        nextOff += 2;
+        nextOff += buf.write(msgParams.text, nextOff, "utf8");
+        buf.writeUInt8(0, nextOff);
+        nextOff += 1;
+    } else
+        if (extH.mstp === MSTP.TYPE_CONTROL) {
+            const serviceId = msgParams.serviceId !== undefined ? msgParams.serviceId : 0xff42ff42;
+            buf.writeUInt32LE(serviceId, nextOff);
+            nextOff += 4;
+            buf.writeUInt32LE(msgParams.text.length + 1, nextOff); // data length
+            nextOff += 4;
+            nextOff += buf.write(msgParams.text, nextOff, "ascii");
+            buf.writeUInt8(0, nextOff);
+            nextOff += 1;
+        }
+    // need to update the len in stdHeader...
+    stdHeader.len = nextOff - DLT_STORAGE_HEADER_SIZE;
+    dltWriteStdHeader(buf, DLT_STORAGE_HEADER_SIZE, stdHeader);
+
+    return buf.slice(0, nextOff);
 }

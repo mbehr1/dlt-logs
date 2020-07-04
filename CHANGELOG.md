@@ -4,6 +4,11 @@ All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
 
+## [0.21.0]
+- Export/filter: Add function to export only selected lifecycles.
+- Export/filter: Write filter settings used as log msgs into the generated log file. Apid: "VsDl", Ctid: "Info".
+- Export/filter: Fix command not activating the extension.
+
 ## [0.20.0]
 - Added export/filter dlt assistant that allows to: merge dlt files and reorder msgs by calculated time.
 - Provide more info in msg hover incl. description of APID/CTID (if available)

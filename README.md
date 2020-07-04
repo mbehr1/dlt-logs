@@ -22,6 +22,7 @@ This Visual Studio Code(tm) extension adds support to open DLT (diagnostic log a
   - Merge multiple DLT files into on file.
   - Sort msgs within lifecycles by timestamp (**reorder msgs by calculated time?**)
   - Rewrite received time with the calculated time (**rewrite msg times by calculated times?**). For more details see here (todo wiki page with background on lifecycle detection model explaining the different times (recorded time vs. timestamp vs. real time and buffering delay)).
+  - Allows to export selected lifecycles only.
 
 - Allows to filter for:
   - ECUID

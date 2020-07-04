@@ -9,7 +9,7 @@ import { DltDocument } from './dltDocument';
 import { DltLifecycleInfo } from './dltLifecycle';
 import * as util from './util';
 import * as fs from 'fs';
-import { DltMsg, MSTP, MTIN_CTRL } from './dltParser';
+import { DltMsg, MSTP, MTIN_CTRL, createStorageMsgAsBuffer, MTIN_LOG } from './dltParser';
 import { basename } from 'path';
 import { assert } from 'console';
 
@@ -18,7 +18,7 @@ import { assert } from 'console';
 [x] multiple files (src) are sorted by the first msg times (w.o. considering lifecycles) if reorder msgs by timestamp is not used
 [x] rewrite timestamps
 [x] reorder msgs by calculated time/timestamp
-[ ] select/filter on lifecycles (might be indirectly by time from...to)
+[x] select/filter on lifecycles (might be indirectly by time from...to)
 [ ] include xx secs from prev lifecycle
 [ ] choose from existing filters
 [ ] exclude apids
@@ -321,6 +321,7 @@ async function doExport(exportOptions: ExportDltOptions) {
                     console.log(`pass2: creating ${exportOptions.dstUri.fsPath}`);
                     const saveFileFd = fs.openSync(exportOptions.dstUri.fsPath, "w");
                     //console.log(`created ${exportOptions.dstUri.fsPath}`);
+                    let wroteFirstMsg = false;
                     try {
                         let lastIncrement = 50;
                         for (let m = 0; m < minMsgInfos.length; ++m) {
@@ -329,26 +330,48 @@ async function doExport(exportOptions: ExportDltOptions) {
                                 // if not keepAllLcs we remove msgs without lifecycles. Those are main CTRL_REQUEST msgs
                                 // skipping that msg
                             } else {
-                            const data = pass2GetData(minMsgInfo);
-                            if (exportOptions.rewriteMsgTimes) {
-                                // replace storage header secs/micros with the lifecycleStart + timeStamp calculated time:
-                                // we can only do so if we do know the lifecycle
-                                if (minMsgInfo.lifecycle) {
-                                    const ms: number = Math.floor(minMsgInfo.lifecycle.lifecycleStart.valueOf() + (minMsgInfo.timeStamp / 10));
-                                    const secs: number = Math.floor(ms / 1000);
-                                    const micros: number = Math.round(((ms % 1000) * 1000) + ((minMsgInfo.timeStamp % 10) * 100));
+                                const data = pass2GetData(minMsgInfo);
 
-                                    const msCalc = (secs * 1000) + (micros / 1000);
-                                    // we should be off by +[0,1)ms
-                                    assert(msCalc < (ms + 1) && msCalc >= ms, `new time calc wrong: ${msCalc}!==${ms} by ${msCalc - ms}`);
-                                    data.writeUInt32LE(secs, 4);
-                                    data.writeInt32LE(micros, 8);
+                                // write the first msg with infos about the conversion:
+                                if (!wroteFirstMsg && minMsgInfo.lifecycle !== undefined) { // we need info from first proper message to not influence lifecycle calc.
+                                    const extension = vscode.extensions.getExtension('mbehr1.dlt-logs'); // todo use const from extension.ts
+                                    let ecu = minMsgInfo.lifecycle.ecu;
+                                    let timeMs = minMsgInfo.timeAsNumber;
+                                    if (exportOptions.rewriteMsgTimes) {
+                                        timeMs = Math.floor(minMsgInfo.lifecycle.lifecycleStart.valueOf() + (minMsgInfo.timeStamp / 10));
+                                    }
+                                    let infoMsg = createStorageMsgAsBuffer({ time: timeMs, timeStamp: minMsgInfo.timeStamp, mstp: MSTP.TYPE_LOG, mtin: MTIN_LOG.LOG_INFO, ecu: ecu, apid: 'VsDl', ctid: 'Info', text: `File created by VS-Code extension ${extension?.packageJSON.id} v${extension !== undefined ? extension.packageJSON.version : 'unknown'} on ${new Date().toUTCString()}` });
+                                    let written = fs.writeSync(saveFileFd, infoMsg);
+                                    if (written !== infoMsg.byteLength) { throw Error(`couldn't write ${infoMsg.byteLength} bytes. Wrote ${written}.`); }
+                                    infoMsg = createStorageMsgAsBuffer({ time: timeMs, timeStamp: minMsgInfo.timeStamp, mstp: MSTP.TYPE_LOG, mtin: MTIN_LOG.LOG_INFO, ecu: ecu, apid: 'VsDl', ctid: 'Info', text: `Export settings used: 'reorder msgs'=${exportOptions.reorderMsgsByTime ? 'yes' : 'no'}, 'rewrite msg time'=${exportOptions.rewriteMsgTimes ? 'yes' : 'no'}, src files='${exportOptions.srcUris.map(u => basename(u.fsPath)).join(',')}'` });
+                                    written = fs.writeSync(saveFileFd, infoMsg);
+                                    if (written !== infoMsg.byteLength) { throw Error(`couldn't write ${infoMsg.byteLength} bytes. Wrote ${written}.`); }
+                                    infoMsg = createStorageMsgAsBuffer({ time: timeMs, timeStamp: minMsgInfo.timeStamp, mstp: MSTP.TYPE_LOG, mtin: MTIN_LOG.LOG_INFO, ecu: ecu, apid: 'VsDl', ctid: 'Info', text: `Lifecycles kept=${keepAllLcs ? 'all' : exportOptions.lcsToKeep.map(l => `'ECU:${l.ecu}, ${l.lifecycleStart.toUTCString()} - ${l.lifecycleEnd.toUTCString()}'`).join(' and ')}` });
+                                    written = fs.writeSync(saveFileFd, infoMsg);
+                                    if (written !== infoMsg.byteLength) { throw Error(`couldn't write ${infoMsg.byteLength} bytes. Wrote ${written}.`); }
+
+                                    wroteFirstMsg = true;
                                 }
-                            }
-                            const written = fs.writeSync(saveFileFd, data);
-                            if (written !== data.byteLength) {
-                                throw Error(`couldn't write ${data.byteLength} bytes. Wrote ${written}.`);
-                            }
+
+                                if (exportOptions.rewriteMsgTimes) {
+                                    // replace storage header secs/micros with the lifecycleStart + timeStamp calculated time:
+                                    // we can only do so if we do know the lifecycle
+                                    if (minMsgInfo.lifecycle) {
+                                        const ms: number = Math.floor(minMsgInfo.lifecycle.lifecycleStart.valueOf() + (minMsgInfo.timeStamp / 10));
+                                        const secs: number = Math.floor(ms / 1000);
+                                        const micros: number = Math.round(((ms % 1000) * 1000) + ((minMsgInfo.timeStamp % 10) * 100));
+
+                                        const msCalc = (secs * 1000) + (micros / 1000);
+                                        // we should be off by +[0,1)ms
+                                        assert(msCalc < (ms + 1) && msCalc >= ms, `new time calc wrong: ${msCalc}!==${ms} by ${msCalc - ms}`);
+                                        data.writeUInt32LE(secs, 4);
+                                        data.writeInt32LE(micros, 8);
+                                    }
+                                }
+                                const written = fs.writeSync(saveFileFd, data);
+                                if (written !== data.byteLength) {
+                                    throw Error(`couldn't write ${data.byteLength} bytes. Wrote ${written}.`);
+                                }
                             }
                             let curTime = process.hrtime(pass2StartTime);
                             if (curTime[1] / 1000000 > 100) { // 100ms passed
@@ -464,4 +487,3 @@ const pass1ReadUri = async (
     if (!cancel.isCancellationRequested && progressCallback !== undefined) { progressCallback(); }
     console.log(`pass1ReadUri(uri=${fileUri.toString()}) finished.`);
 };
-
