@@ -18,7 +18,7 @@ export class DltLifecycleInfo {
     readonly logMessages: DltMsg[]; // todo should be sorted... by timestamp? (without ctrl requests timestamps)
     allCtrlRequests: boolean = true; // this lifecycle consists of only ctrl requests.
     private _swVersions: string[] = [];
-
+    readonly ecu: string; // from first msg
     apidInfos: Map<string, { apid: string, desc: string, ctids: Map<string, string> }> = new Map(); // map with apids/ctid infos
 
     constructor(logMsg: DltMsg, storeMsg: boolean = true) {
@@ -30,6 +30,7 @@ export class DltLifecycleInfo {
         } else {
             this.allCtrlRequests = false;
         }
+        this.ecu = logMsg.ecu;
         this._startTime = logMsg.timeAsNumber;
         this.adjustTimeMs = 0;
         this.startIndex = logMsg.index;
