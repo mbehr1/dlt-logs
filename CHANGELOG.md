@@ -4,6 +4,9 @@ All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
 
+## [0.22.0]
+- Export/filter: Add function to filter export by time range: from-to.
+
 ## [0.21.0]
 - Export/filter: Add function to export only selected lifecycles.
 - Export/filter: Write filter settings used as log msgs into the generated log file. Apid: "VsDl", Ctid: "Info".

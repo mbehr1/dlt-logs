@@ -35,6 +35,8 @@ interface ExportDltOptions {
     reorderMsgsByTime: boolean;
     rewriteMsgTimes: boolean;
     lcsToKeep: DltLifecycleInfo[]; // empty = all,
+    timeFrom?: number,
+    timeTo?: number
 }
 
 const srcUriMap = new Map<string, number>();
@@ -121,13 +123,18 @@ export async function exportDlt(srcUris: vscode.Uri[], allFilters: DltFilter[] |
     if (srcUris.length === 0) { return; }
     return new Promise((resolveAssistant, cancelAssistant) => {
 
-        if (srcUris.length > 1) {
+        let firstMsgTime: number | undefined = undefined;
+
+        if (srcUris.length > 0) { // we do this even with just one file to get the firstMsgTime:
             // let's sort the srcUris by first msg time. eases lifecycle calculation (assumes ascending recording times)
             const minSrcMsgTimes = new Map<string, number>();
             for (let i = 0; i < srcUris.length; ++i) {
                 const firstMsg = getFirstMsg(srcUris[i]);
                 if (firstMsg !== undefined) {
                     minSrcMsgTimes.set(srcUris[i].toString(), firstMsg.timeAsNumber);
+                    if (firstMsgTime === undefined || firstMsgTime > firstMsg.timeAsNumber) {
+                        firstMsgTime = firstMsg.timeAsNumber;
+                    }
                 } else {
                     console.log(`no msg from ${srcUris[i].toString()}`); // todo might consider to remove it...
                 }
@@ -169,8 +176,110 @@ export async function exportDlt(srcUris: vscode.Uri[], allFilters: DltFilter[] |
 
         // todo keep selection on going back...
 
+        // time restriction:
+        const timeRestrictInitialValue = (): string => {
+            let v = '';
+            if (exportOptions.timeFrom !== undefined) {
+                const timeFrom = new Date(exportOptions.timeFrom);
+                v = `${timeFrom.getHours().toString().padStart(2, '0')}:${timeFrom.getMinutes().toString().padStart(2, '0')}-`;
+            }
+            if (exportOptions.timeTo !== undefined) {
+                if (v.length === 0) { v = '-'; }
+                const timeTo = new Date(exportOptions.timeTo);
+                v += `${timeTo.getHours().toString().padStart(2, '0')}:${timeTo.getMinutes().toString().padStart(2, '0')}`;
+            }
+            return v;
+        };
+
+        const timeRestrictPIs: PickItem[] = [new PickItem('')];
+        const timeRestrictItems = (): PickItem[] => {
+            const val = timeRestrictInitialValue();
+            timeRestrictUpdateHint(val,
+                exportOptions.timeFrom !== undefined ? new Date(exportOptions.timeFrom) : undefined,
+                exportOptions.timeTo !== undefined ? new Date(exportOptions.timeTo) : undefined,
+                val.length === 0 ? `enter time range like: from-to as 'hh:mm-hh:mm'. From or to can be empty.` : ''
+            );
+            return timeRestrictPIs; // todo fill with infos from lifecycles or first/last msg
+        };
+
+        const timeRestrictOnValue = (v: string) => {
+            //console.log(`got timeRestrict value='${v}'`);
+            timeRestrictIsValid(v, true);
+        };
+
+        const timeRestrictRegExp = new RegExp(/^([0-2]\d:[0-5]\d)?\-([0-2]\d:[0-5]\d)?$/);
+        const timeRestrictMoreItemsEvent: vscode.EventEmitter<PickItem[] | undefined> = new vscode.EventEmitter<PickItem[] | undefined>();
+
+        const timeRestrictUpdateHint = (v: string, timeFrom: Date | undefined, timeTo: Date | undefined, hint?: string, error: boolean = false) => {
+            timeRestrictPIs[0].name = v;
+            timeRestrictPIs[0].description = `${hint !== undefined ? `${error ? 'Error: ' : ''}${hint} ` : ''}${timeFrom !== undefined ? timeFrom.toLocaleString() : ''}-${timeTo !== undefined ? timeTo.toLocaleString() : ''}`;
+            timeRestrictMoreItemsEvent.fire(timeRestrictPIs);
+        };
+
+        const timeRestrictIsValid = (v: string, storeValue: boolean = false): boolean => {
+            //console.log(`got timeRestrict value='${v}'`);
+            if (!v.length) {
+                if (storeValue) {
+                    exportOptions.timeFrom = undefined;
+                    exportOptions.timeTo = undefined;
+                }
+                else {
+                    timeRestrictUpdateHint(v, undefined, undefined, `enter time range like: from-to as 'hh:mm-hh:mm'. From or to can be empty.`);
+                } return true;
+            }
+            const rTest = timeRestrictRegExp.test(v);
+            //console.log(`got timeRestrict value='${v}' tests ${rTest}`);
+            if (!rTest) { timeRestrictUpdateHint('', undefined, undefined, `not matching 'hh:mm-hh-mm'`, true); return false; }
+            // parse the two times:
+            const timeR = timeRestrictRegExp.exec(v);
+            if (timeR !== null) {
+                //console.log(`got timeRestrict value='${v}' exec 0 = '${timeR[0]}'`);
+                //console.log(`got timeRestrict value='${v}' exec 1 = '${timeR[1]}'`);
+                //console.log(`got timeRestrict value='${v}' exec 2 = '${timeR[2]}'`);
+                const gotTimeFrom = timeR[1] !== undefined;
+                const gotTimeTo = timeR[2] !== undefined;
+                if (!gotTimeFrom && !gotTimeTo) { timeRestrictUpdateHint('', undefined, undefined, `at least 'from' or 'to' needed`, true); return false; }
+
+                // determine min/max times from either lcsToKeep or the first msg (not last as not so easy to determine)
+                const minTime = firstMsgTime !== undefined ? firstMsgTime : 0;
+
+                const timeFrom = new Date(minTime);
+                if (gotTimeFrom) {
+                    timeFrom.setHours(Number(timeR[1].split(':')[0]), Number(timeR[1].split(':')[1]), 0);
+                    if (timeFrom.valueOf() < minTime) {
+                        timeFrom.setTime(timeFrom.valueOf() + (1000 * 60 * 60 * 24)); // advance by one day
+                    }
+                }
+                const timeTo = new Date(timeFrom.valueOf());
+                if (gotTimeTo) {
+                    timeTo.setHours(Number(timeR[2].split(':')[0]), Number(timeR[2].split(':')[1]), 0);
+                    if (timeTo.valueOf() < timeFrom.valueOf()) {
+                        timeTo.setTime(timeTo.valueOf() + (1000 * 60 * 60 * 24)); // advance by one day
+                    }
+                }
+                //console.log(`got timeFrom=${gotTimeFrom ? timeFrom.toLocaleString() : '<none>'} timeTo=${gotTimeTo ? timeTo.toLocaleString() : '<none>'}`);
+                if (gotTimeTo && gotTimeFrom) {
+                    if (timeFrom.valueOf() > timeTo.valueOf()) { timeRestrictUpdateHint('', undefined, undefined, `'from' later than 'to'`, true); return false; }
+                }
+                if (storeValue) {
+                    exportOptions.timeFrom = gotTimeFrom ? timeFrom.valueOf() : undefined;
+                    exportOptions.timeTo = gotTimeTo ? timeTo.valueOf() : undefined;
+                } else {
+                    timeRestrictUpdateHint(v, gotTimeFrom ? timeFrom : undefined, gotTimeTo ? timeTo : undefined);
+                }
+                return true;
+            } else { return false; }
+        };
+
+        const timeRestrictOnMoreItems = (cancel: vscode.CancellationToken) => {
+            // we do this to get an event to trigger the items update at timeRestrictIsValid...
+            setTimeout(() => timeRestrictMoreItemsEvent.fire(undefined), 10);
+            return timeRestrictMoreItemsEvent.event;
+        };
+
         let stepInput = new MultiStepInput(`Export/filter dlt file assistant...`, [
             { title: `select all lifecycles to keep (none=keep all)`, items: lcs, onValues: onLcsValues, onMoreItems: (cancel) => { return calcLifecycles(lcs, exportOptions, cancel); } },
+            { title: `restrict export by time (from-to)`, initialValue: timeRestrictInitialValue, items: timeRestrictItems, isValid: timeRestrictIsValid, onValue: timeRestrictOnValue, onMoreItems: timeRestrictOnMoreItems, canSelectMany: false },
             // { title: `select all APIDs that can be removed`, items: apids, onValues: (v) => { if (Array.isArray(v)) { removeApids = v.map(v => v.name); } else { removeApids = v.length ? [<string>v] : []; } }, onMoreItems: loadMoreApids }
             { title: `reorder msgs by calculated time?`, initialValue: () => exportOptions.reorderMsgsByTime ? 'yes' : 'no', items: yesNoItems, onValue: (v) => { exportOptions.reorderMsgsByTime = v === 'yes'; }, canSelectMany: false },
             { title: `rewrite msg times by calculated times?`, initialValue: () => exportOptions.rewriteMsgTimes ? 'yes' : 'no', items: yesNoItems, onValue: (v) => { exportOptions.rewriteMsgTimes = v === 'yes'; }, canSelectMany: false }
@@ -322,13 +431,20 @@ async function doExport(exportOptions: ExportDltOptions) {
                     const saveFileFd = fs.openSync(exportOptions.dstUri.fsPath, "w");
                     //console.log(`created ${exportOptions.dstUri.fsPath}`);
                     let wroteFirstMsg = false;
+                    const minTime = exportOptions.timeFrom !== undefined ? exportOptions.timeFrom : 0;
+                    const maxTime = exportOptions.timeTo !== undefined ? exportOptions.timeTo : Number.MAX_SAFE_INTEGER;
+                    const rewriteMsgTimes = exportOptions.rewriteMsgTimes;
+
                     try {
                         let lastIncrement = 50;
                         for (let m = 0; m < minMsgInfos.length; ++m) {
                             const minMsgInfo = minMsgInfos[m];
+                            const msgTimeMs: number = (rewriteMsgTimes && minMsgInfo.lifecycle !== undefined) ? Math.floor(minMsgInfo.lifecycle.lifecycleStart.valueOf() + (minMsgInfo.timeStamp / 10)) : minMsgInfo.timeAsNumber;
                             if (!keepAllLcs && (minMsgInfo.lifecycle === undefined || !lcsToKeep.has(minMsgInfo.lifecycle))) {
                                 // if not keepAllLcs we remove msgs without lifecycles. Those are main CTRL_REQUEST msgs
                                 // skipping that msg
+                            } else if ((msgTimeMs < minTime) || (msgTimeMs > maxTime)) {
+                                // remove msg due to time restriction
                             } else {
                                 const data = pass2GetData(minMsgInfo);
 
@@ -349,21 +465,25 @@ async function doExport(exportOptions: ExportDltOptions) {
                                     infoMsg = createStorageMsgAsBuffer({ time: timeMs, timeStamp: minMsgInfo.timeStamp, mstp: MSTP.TYPE_LOG, mtin: MTIN_LOG.LOG_INFO, ecu: ecu, apid: 'VsDl', ctid: 'Info', text: `Lifecycles kept=${keepAllLcs ? 'all' : exportOptions.lcsToKeep.map(l => `'ECU:${l.ecu}, ${l.lifecycleStart.toUTCString()} - ${l.lifecycleEnd.toUTCString()}'`).join(' and ')}` });
                                     written = fs.writeSync(saveFileFd, infoMsg);
                                     if (written !== infoMsg.byteLength) { throw Error(`couldn't write ${infoMsg.byteLength} bytes. Wrote ${written}.`); }
-
+                                    if (exportOptions.timeFrom !== undefined || exportOptions.timeTo !== undefined) {
+                                        infoMsg = createStorageMsgAsBuffer({ time: timeMs, timeStamp: minMsgInfo.timeStamp, mstp: MSTP.TYPE_LOG, mtin: MTIN_LOG.LOG_INFO, ecu: ecu, apid: 'VsDl', ctid: 'Info', text: `Restricted times=${exportOptions.timeFrom !== undefined ? `${new Date(exportOptions.timeFrom).toUTCString()}` : ''}-${exportOptions.timeTo !== undefined ? `${new Date(exportOptions.timeTo).toUTCString()}` : ''}` });
+                                        written = fs.writeSync(saveFileFd, infoMsg);
+                                        if (written !== infoMsg.byteLength) { throw Error(`couldn't write ${infoMsg.byteLength} bytes. Wrote ${written}.`); }
+                                    }
                                     wroteFirstMsg = true;
                                 }
 
-                                if (exportOptions.rewriteMsgTimes) {
+                                if (rewriteMsgTimes) {
                                     // replace storage header secs/micros with the lifecycleStart + timeStamp calculated time:
                                     // we can only do so if we do know the lifecycle
                                     if (minMsgInfo.lifecycle) {
-                                        const ms: number = Math.floor(minMsgInfo.lifecycle.lifecycleStart.valueOf() + (minMsgInfo.timeStamp / 10));
+                                        const ms: number = msgTimeMs;// Math.floor(minMsgInfo.lifecycle.lifecycleStart.valueOf() + (minMsgInfo.timeStamp / 10));
                                         const secs: number = Math.floor(ms / 1000);
                                         const micros: number = Math.round(((ms % 1000) * 1000) + ((minMsgInfo.timeStamp % 10) * 100));
 
                                         const msCalc = (secs * 1000) + (micros / 1000);
                                         // we should be off by +[0,1)ms
-                                        assert(msCalc < (ms + 1) && msCalc >= ms, `new time calc wrong: ${msCalc}!==${ms} by ${msCalc - ms}`);
+                                        //assert(msCalc < (ms + 1) && msCalc >= ms, `new time calc wrong: ${msCalc}!==${ms} by ${msCalc - ms}`);
                                         data.writeUInt32LE(secs, 4);
                                         data.writeInt32LE(micros, 8);
                                     }

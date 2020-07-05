@@ -23,6 +23,7 @@ This Visual Studio Code(tm) extension adds support to open DLT (diagnostic log a
   - Sort msgs within lifecycles by timestamp (**reorder msgs by calculated time?**)
   - Rewrite received time with the calculated time (**rewrite msg times by calculated times?**). For more details see here (todo wiki page with background on lifecycle detection model explaining the different times (recorded time vs. timestamp vs. real time and buffering delay)).
   - Allows to export selected lifecycles only.
+  - Allows to export by time range.
 
 - Allows to filter for:
   - ECUID
@@ -69,11 +70,10 @@ The extension uses telemetry with two events (`activate` (no parameters) and `op
 ## Planned features
 
 - Add button to edit configs.
-- Show info regarding APID/CTID in the hover info of a message.
 - Allow filter add/edit for report, timesync, MSTP and log levels (currently only possible via JSON configuration)
 - Check whether revaling the line on broadcasted time is possible if document is hidden/not visible.
-- Support easier splitting of huge files into files per lifecycle.
-- Allow merging/opening of multiple DLT files.
+- Support easier splitting of huge files into files per lifecycle. Currently only possible to restrict to lifecycles via Export/filter...
+- Allow merging/opening of multiple DLT files. Currently only possible via Export/filter ...
 - Check default colors on multiple color themes. Check color contrast to background.
 - Support time synchronized split-view between e.g. two APIDs from within one DLT log file.
 - Use the outline view for lifecycles, errors,...

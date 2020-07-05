@@ -131,7 +131,8 @@ export class MultiStepInput {
     constructor(private _title: string,
         private _steps: readonly {
             iconPath?: string,
-            items: PickItem[] | (() => PickItem[]), title?: string, initialValue?: () => string | undefined, placeholder?: string,
+            items: PickItem[] | (() => PickItem[]), title?: string,
+            initialValue?: () => string | undefined, placeholder?: string,
             onValue?: ((v: string) => void),
             onValues?: ((v: readonly PickItem[] | string) => void),
             isValid?: ((v: string) => boolean),
