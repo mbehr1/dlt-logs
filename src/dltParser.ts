@@ -298,7 +298,7 @@ export class DltMsg {
                     case MSTP.TYPE_CONTROL: {
                         const serviceId = isBigEndian ? this._payloadData.readUInt32BE(0) : this._payloadData.readUInt32LE(0);
                         this._payloadArgs = [];
-                        if (this.noar === 1) {
+                        if (this.noar >= 1) {
                             this._payloadArgs.push({ type: Number, v: serviceId });
                             if (serviceId > 0 && serviceId < serviceIds.length) {
                                 this._payloadText += serviceIds[serviceId];
@@ -416,9 +416,11 @@ export class DltMsg {
                                 }
                             }
                         } else {
-                            console.log(`CONTROL_MSG with noar=${this.noar} and serviceId=${serviceId}`);
+                            console.log(`CONTROL_MSG with noar=${this.noar} and serviceId=${serviceId}: payloadData=${toHexString(this._payloadData.slice(4))}`);
                         }
-                        assert.ok(this.noar <= this._payloadArgs.length, "TYPE_CONTROL noars > payloadArgs.length"); // for some (e.g. get_log_info) we add more payloadArgs
+                        // we dont really parse all args. so if noars < #payloadArgs ignore it for now.
+                        // e.g. some logger send CTRL REQ with no args equal to the params (e.g. serviceId=0x11, noar=2,  "04  00 00 00 00")
+                        // assert.ok(this.noar <= this._payloadArgs.length, "TYPE_CONTROL noars > payloadArgs.length"); // for some (e.g. get_log_info) we add more payloadArgs
                     }
                         break;
                     default:

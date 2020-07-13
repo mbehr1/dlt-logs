@@ -19,7 +19,7 @@ import { assert } from 'console';
 [x] rewrite timestamps
 [x] reorder msgs by calculated time/timestamp
 [x] select/filter on lifecycles (might be indirectly by time from...to)
-[ ] include xx secs from prev lifecycle
+[x] (replaced by time...) include xx secs from prev lifecycle
 [ ] choose from existing filters
 [ ] exclude apids
 [ ] select ECUids
