@@ -1439,7 +1439,46 @@ export class DltDocument {
             lcInfo.forEach(lc => lc.swVersions.forEach(lsw => { if (!sw.includes(lsw)) { sw.push(lsw); } }));
             let ecuNode: TreeViewNode = { id: createUniqueId(), label: `ECU: ${ecu}, SW${sw.length > 1 ? `(${sw.length}):` : `:`} ${sw.join(' and ')}`, parent: this.lifecycleTreeNode, children: [], uri: this.uri, tooltip: undefined };
             this.lifecycleTreeNode.children.push(ecuNode);
-            console.log(`${ecuNode.label}`);
+            //console.log(`${ecuNode.label}`);
+            // we do add one node with the APIDs/CTIDs:
+            {
+                // collect all APIDs for that ecu:
+                let apidSet = new Map<string, { desc: string, ctids: Map<string, { desc: string }> }>();
+                lcInfo.forEach((l => {
+                    l.apidInfos.forEach((v, k) => {
+                        let apidInfo = apidSet.get(k);
+                        if (apidInfo === undefined) {
+                            apidInfo = { desc: v.desc, ctids: new Map<string, { desc: string }>() };
+                            // console.log(`updateLifecycleTreeNode apidSet.set(${k},${JSON.stringify(apidInfo)}) `);
+                            apidSet.set(k, apidInfo);
+                        } else {
+                            if (apidInfo.desc.length === 0 && v.desc.length > 0) { apidInfo.desc = v.desc; }
+                        }
+                        v.ctids.forEach((desc, ctid) => {
+                            let ctidInfo = apidInfo!.ctids.get(ctid);
+                            if (ctidInfo === undefined) {
+                                ctidInfo = { desc: desc };
+                                apidInfo!.ctids.set(ctid, ctidInfo);
+                            } else {
+                                if (ctidInfo.desc.length === 0 && desc.length > 0) { ctidInfo.desc = desc; }
+                            }
+                        });
+                    });
+                }));
+
+                const apidsNode: TreeViewNode = { iconPath: new vscode.ThemeIcon(`symbol-misc`), id: createUniqueId(), label: `APIDs (${apidSet.size}) / CTIDs`, uri: null, parent: ecuNode, children: [], tooltip: undefined };
+                apidSet.forEach((info, key) => {
+                    const apidNode: TreeViewNode = { id: createUniqueId(), label: `'${key}'(${info.ctids.size})${info.desc.length ? `: ${info.desc}` : ''}`, uri: null, parent: apidsNode, children: [], tooltip: `desc='${info.desc}', apid = 0x${Buffer.from(key).toString("hex")}` };
+                    info.ctids.forEach((ctidInfo, ctid) => {
+                        const ctidNode: TreeViewNode = { id: createUniqueId(), label: `'${ctid}'${ctidInfo.desc.length ? `: ${ctidInfo.desc} ` : ''}`, uri: null, parent: apidNode, children: [], tooltip: `desc='${ctidInfo.desc}', ctid = 0x${Buffer.from(ctid).toString("hex")}` };
+                        apidNode.children.push(ctidNode);
+                    });
+                    apidNode.children.sort((a, b) => { return a.label.localeCompare(b.label); });
+                    apidsNode.children.push(apidNode);
+                });
+                apidsNode.children.sort((a, b) => { return a.label.localeCompare(b.label); });
+                ecuNode.children.push(apidsNode);
+            }
             // add lifecycles
             for (let i = 0; i < lcInfo.length; ++i) {
                 const lc = lcInfo[i];

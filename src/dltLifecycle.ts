@@ -151,6 +151,32 @@ export class DltLifecycleInfo {
     }
 
     private parseMessage(msg: DltMsg) {
+
+        // add apid/ctid to apidInfos:
+        {
+            const apid = msg.apid;
+            if (apid.length > 0) {
+                const ctid = msg.ctid;
+                let knownApidInfo = this.apidInfos.get(apid);
+                if (knownApidInfo === undefined) {
+                    const ctids = new Map<string, string>();
+                    if (ctid.length > 0) {
+                        ctids.set(ctid, '');
+                    }
+                    knownApidInfo = { apid: apid, desc: '', ctids: ctids };
+                    //console.log(`get_log_info added apid = ${knownApidInfo.apid} wo desc=${knownApidInfo.desc}`);
+                    this.apidInfos.set(apid, knownApidInfo);
+                }
+                // add ctid
+                if (ctid.length > 0) {
+                    const ctidInfo = knownApidInfo.ctids.get(ctid);
+                    if (ctidInfo === undefined || ctidInfo.length === 0) {
+                        knownApidInfo.ctids.set(ctid, '');
+                    }
+                }
+            }
+        }
+
         if (msg.mstp === MSTP.TYPE_CONTROL && msg.mtin === MTIN_CTRL.CONTROL_RESPONSE) {
             if (msg.noar === 1) {
                 if (msg.payloadArgs[0].v === CTRL_SERVICE_ID.GET_SW_VERSION) {
@@ -170,22 +196,28 @@ export class DltLifecycleInfo {
                             for (let i = 0; i < apids.length; ++i) {
                                 const apidInfo = apids[i];
                                 if (!this.apidInfos.has(apidInfo.apid)) {
-                                    this.apidInfos.set(apidInfo.apid, { apid: apids.apid, desc: apidInfo.desc, ctids: new Map<string, string>() });
-                                    //console.log(`get_log_info added apid = ${apidInfo.apid}`);
+                                    const aiObj = { apid: apidInfo.apid, desc: apidInfo.desc, ctids: new Map<string, string>() };
+                                    this.apidInfos.set(apidInfo.apid, aiObj);
+                                    //console.log(`get_log_info added apid = ${apidInfo.apid}, ${JSON.stringify(aiObj)}`);
                                 }
                                 const knownApidInfo = this.apidInfos.get(apidInfo.apid);
                                 if (knownApidInfo !== undefined) {
+                                    if (knownApidInfo.desc.length === 0 && apidInfo.desc.length > 0) {
+                                        console.log(`overwriting apidInfo ${apidInfo.apid} ${knownApidInfo.desc} with ${apidInfo.desc}`);
+                                        knownApidInfo.desc = apidInfo.desc;
+                                    }
                                     for (let c = 0; c < apidInfo.ctids.length; ++c) {
                                         const ctidObj = apidInfo.ctids[c];
                                         // check whether ctid is known:
-                                        if (!knownApidInfo.ctids.has(ctidObj.ctid)) {
+                                        const ctid = knownApidInfo.ctids.get(ctidObj.ctid);
+                                        if (ctid === undefined || ctid.length === 0) {
                                             knownApidInfo.ctids.set(ctidObj.ctid, ctidObj.desc);
                                             //console.log(`get_log_info added apid/ctid = ${apidInfo.apid}/${ctidObj.ctid}`);
                                         }
                                     }
                                 }
                             }
-                        }
+                        } else { console.warn(`GET_LOG_INFO with msg.noar=${msg.noar} <= msg.payloadArgs.length=${msg.payloadArgs.length}`); }
                     }
             }
         }
