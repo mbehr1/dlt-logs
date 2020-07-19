@@ -4,6 +4,9 @@ All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
 
+## [0.23.1]
+- Updated dependencies (after github security advisory)
+
 ## [0.23.0]
 - Added APID/CTID list into lifecycle tree view. (Next version will add filtering directly on those.)
 
