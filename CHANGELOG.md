@@ -4,6 +4,9 @@ All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
 
+## [0.24.0]
+- Improved lifecycle detection (mergeing overlapping LCs from same ecu)
+
 ## [0.23.1]
 - Updated dependencies (after github security advisory)
 

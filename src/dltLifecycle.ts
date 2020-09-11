@@ -20,6 +20,7 @@ export class DltLifecycleInfo {
     private _swVersions: string[] = [];
     readonly ecu: string; // from first msg
     apidInfos: Map<string, { apid: string, desc: string, ctids: Map<string, string> }> = new Map(); // map with apids/ctid infos
+    private _mergedIntoLc: DltLifecycleInfo | undefined = undefined;
 
     constructor(logMsg: DltMsg, storeMsg: boolean = true) {
         this.uniqueId = _nextLcUniqueId++;
@@ -71,7 +72,43 @@ export class DltLifecycleInfo {
         return this._swVersions;
     }
 
-    public update(logMsg: DltMsg, storeMsg: boolean): boolean {
+    get finalLifecycle(): DltLifecycleInfo {
+        return (this._mergedIntoLc !== undefined) ? this._mergedIntoLc.finalLifecycle : this;
+    }
+
+    public merge(otherLc: DltLifecycleInfo) {
+        assert(otherLc._mergedIntoLc === undefined);
+        // if the otherLc has messages:
+        if (otherLc.logMessages.length > 0) {
+            for (let i = 0; i < otherLc.logMessages.length; ++i) {
+                // todo this doesn't work for storeMsgs = false!
+                const msgToMove = otherLc.logMessages[i];
+                this.update(msgToMove, true, true);
+            }
+        } else {
+            // storeMsgs = false was used, so we only update the
+            // lifecycleStart and maxTimeStamp
+            if (otherLc._lifecycleStart < this._lifecycleStart) { this._lifecycleStart = otherLc._lifecycleStart; }
+            if (otherLc._maxTimeStamp > this._maxTimeStamp) { this._maxTimeStamp = otherLc._maxTimeStamp; }
+            if (!otherLc.allCtrlRequests) { this.allCtrlRequests = false; }
+
+            otherLc._swVersions.forEach(swV => {
+                if (!this._swVersions.includes(swV)) {
+                    this._swVersions.push(swV);
+                }
+            });
+
+            // todo merge with oterhLc.apidInfos
+
+            // as the otherLc doesn't know which messages are referring to it
+            // we do need to store the info in otherLc that it has been merged
+            // with this one.
+            // later one the msgInfos need to query the finalLifecycle()
+        }
+        otherLc._mergedIntoLc = this;
+    }
+
+    public update(logMsg: DltMsg, storeMsg: boolean, forceAdd: boolean): boolean {
         if (this.adjustTimeMs !== 0) {
             console.error(`DltLifecycle.update adjustTimeMs<>0`); // todo implement
         }
@@ -122,7 +159,7 @@ export class DltLifecycleInfo {
             if (this._maxTimeStamp > 30 * 1000 * 10) { newLifecycleDistanceMs = 250; } else // 250ms for lc>30s
                 if (this._maxTimeStamp > 10 * 1000 * 10) { newLifecycleDistanceMs = 500; } // 500ms for lc>10s
 
-        if ((newLifecycleStart - lifecycleEndTime > newLifecycleDistanceMs)) {
+        if (!forceAdd && (newLifecycleStart - lifecycleEndTime > newLifecycleDistanceMs)) {
             // we could as well afterwards in a 2nd step merge the lifecycles again (visible with roughly same lifecycleStart...)
             console.log(`DltLifecycleInfo:update (logMsg(index=${logMsg.index} at ${logMsg.timeAsDate}:${logMsg.timeStamp}) not part of this lifecycle(startIndex=${this.startIndex} end=${this.lifecycleEnd} ) `);
             return false; // treat as new lifecycle
@@ -234,10 +271,22 @@ export class DltLifecycleInfo {
                 lcInfos = [new DltLifecycleInfo(msg, storeMsgs)];
                 lifecycles.set(ecu, lcInfos);
             } else {
-                let lastLc = lcInfos[lcInfos?.length - 1]; // there is at least one
-                if (!lastLc.update(msg, storeMsgs)) {
+                const prevLC = lcInfos.length > 1 ? lcInfos[lcInfos.length - 2] : undefined;
+                let lastLc = lcInfos[lcInfos.length - 1]; // there is at least one
+                if (!lastLc.update(msg, storeMsgs, false)) {
                     console.log(`updateLifecycles: added  ${ecu} from ${msg.index}:${msg.timeAsDate}`);
                     lcInfos.push(new DltLifecycleInfo(msg, storeMsgs));
+                } else {
+                    if (prevLC !== undefined) {
+                        // need to check whether the lifecycle now moved to earlier and overlaps
+                        // with the prev. one:
+                        if (prevLC.lifecycleEnd > lastLc.lifecycleStart) {
+                            console.log(`overlap detected! Merging this lifecycle with the prev one`);
+                            prevLC.merge(lastLc);
+                            // now delete lastLc
+                            lcInfos.pop();
+                        }
+                    }
                 }
             }
         }

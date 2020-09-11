@@ -418,13 +418,14 @@ async function doExport(exportOptions: ExportDltOptions) {
                     const timeB = (b.lifecycle === undefined ? b.timeAsNumber : (b.lifecycle.lifecycleStart.valueOf() + (b.timeStamp / 10)));
                     return timeA - timeB;
                 });
-                console.log(`sorted msgs`);
+                console.log(`sorted ${minMsgInfos.length} msgs`);
                 progress.report({ message: `sorted ${minMsgInfos.length} messages` });
                 await util.sleep(10); // 10ms each 100ms    
             }
 
             // pass 2:
             if (!cancelToken.isCancellationRequested) {
+                let wroteMsgs = 0;
                 let pass2StartTime = process.hrtime();
                 try {
                     console.log(`pass2: creating ${exportOptions.dstUri.fsPath}`);
@@ -492,6 +493,7 @@ async function doExport(exportOptions: ExportDltOptions) {
                                 if (written !== data.byteLength) {
                                     throw Error(`couldn't write ${data.byteLength} bytes. Wrote ${written}.`);
                                 }
+                                wroteMsgs++;
                             }
                             let curTime = process.hrtime(pass2StartTime);
                             if (curTime[1] / 1000000 > 100) { // 100ms passed
@@ -512,7 +514,7 @@ async function doExport(exportOptions: ExportDltOptions) {
                     console.log(`pass 2: create file got error: '${err}'`);
                     progress.report({ message: `pass 2: create file got error: '${err}'` });
                 }
-                console.log(`pass2: finished writing to ${exportOptions.dstUri.fsPath}`);
+                console.log(`pass2: finished writing ${wroteMsgs} msgs to ${exportOptions.dstUri.fsPath}`);
             }
             closeAllReadFds();
         }
@@ -604,6 +606,28 @@ const pass1ReadUri = async (
 
         }
     } while (read > 0 && !cancel.isCancellationRequested);
+
+    // need to update minMsgInfos here to point to finalLifecycles as some lifecycles might have been merged
+    /*    const findLc = (lifecycle: DltLifecycleInfo): boolean => {
+            const lcInfo = lifecycles.get(lifecycle.ecu);
+            if (!lcInfo) { return false; }
+            return lcInfo.includes(lifecycle);
+        };*/
+
+    for (let i = 0; i < minMsgInfos.length; ++i) {
+        let msgI = minMsgInfos[i];
+        if (msgI.lifecycle !== undefined) {
+            const newLC = msgI.lifecycle.finalLifecycle;
+            msgI.lifecycle = newLC;
+            /* assert(msgI.lifecycle !== undefined, "lifecycle undefined");
+            // and we need to find that lifecycle:
+            if (!findLc(msgI.lifecycle)) {
+                assert(false, `cant find lifecycle ${msgI.lifecycle.ecu} ${msgI.lifecycle.lifecycleStart}-${msgI.lifecycle.lifecycleEnd}`);
+                break;
+            }*/
+        }
+    }
+
     if (!cancel.isCancellationRequested && progressCallback !== undefined) { progressCallback(); }
     console.log(`pass1ReadUri(uri=${fileUri.toString()}) finished.`);
 };
