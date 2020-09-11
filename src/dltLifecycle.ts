@@ -228,11 +228,12 @@ export class DltLifecycleInfo {
         for (let i = 0; i < msgs.length; ++i) {
             const msg = msgs[i];
             const ecu = msg.ecu;
-            if (!lifecycles.has(ecu)) {
+            let lcInfos = lifecycles.get(ecu)!;
+            if (lcInfos === undefined) {
                 console.log(`updateLifecycles: added ${ecu} from ${msg.index}:${msg.timeAsDate}`);
-                lifecycles.set(ecu, [new DltLifecycleInfo(msg, storeMsgs)]);
+                lcInfos = [new DltLifecycleInfo(msg, storeMsgs)];
+                lifecycles.set(ecu, lcInfos);
             } else {
-                let lcInfos = lifecycles.get(ecu)!;
                 let lastLc = lcInfos[lcInfos?.length - 1]; // there is at least one
                 if (!lastLc.update(msg, storeMsgs)) {
                     console.log(`updateLifecycles: added  ${ecu} from ${msg.index}:${msg.timeAsDate}`);
