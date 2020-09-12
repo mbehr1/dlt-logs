@@ -218,10 +218,14 @@ export class DltReport implements vscode.Disposable {
                                                     // as we will later use a line diagram we model a state behaviour here:
                                                     //  we insert the current state value directly before:
                                                     insertDataPoint(msg.lifecycle!, valueName, time, matches.groups[valueName], true);
-                                                } else {
-                                                    const value: number = Number.parseFloat(matches.groups[valueName]);
-                                                    insertDataPoint(msg.lifecycle!, valueName, time, value);
-                                                }
+                                                } else
+                                                    if (valueName.startsWith("INT_")) {
+                                                        const value: number = Number.parseInt(matches.groups[valueName]);
+                                                        insertDataPoint(msg.lifecycle!, valueName, time, value);
+                                                    } else {
+                                                        const value: number = Number.parseFloat(matches.groups[valueName]);
+                                                        insertDataPoint(msg.lifecycle!, valueName, time, value);
+                                                    }
                                             }
                                         });
                                     } else {

@@ -4,6 +4,9 @@ All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
 
+## [0.24.1]
+- Added INT_ to report capture name to convert directly with parseInt. This needs to be used e.g. for hex values.
+
 ## [0.24.0]
 - Improved lifecycle detection (mergeing overlapping LCs from same ecu)
 
