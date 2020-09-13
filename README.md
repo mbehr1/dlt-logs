@@ -96,7 +96,7 @@ This extension contributes the following settings:
    * **positive**: filter need to match to include the message in the view. If no positive filter exists all msgs are assumed matching.
    * **negative**: if filter matches the message will not be included in the view.
    * **marker**: if filter matches the messages will be "marked"/decorated.
-   * **event**: used for time-sync event detection or for report generation. For reports the payloadRegex must be used and capture data. If the capture group name starts with "STATE_" distinct/"state"/"level" values are assumed. Otherwise linear (float-)values. By default report filters are added into the last active report window. If you want to add another report window use the "alt/option".
+   * **event**: used for time-sync event detection or for report generation. For reports the payloadRegex must be used and capture data. If the capture group name starts with "STATE_" distinct/"state"/"level" values are assumed. If the capture group name starts with "INT_" the value is parsed as integer and can e.g be in hex (0x...). Otherwise linear (float-)values. By default report filters are added into the last active report window. If you want to add another report window use the "alt/option".
 
    Currently filter can match for:
    * **ecu**: the ECU identifier.
