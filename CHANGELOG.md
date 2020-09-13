@@ -4,6 +4,9 @@ All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
 
+## [0.25.0]
+- Added reportOptions.conversionFunction to map or calclate more complex values or add constants to the reports.
+
 ## [0.24.1]
 - Added INT_ to report capture name to convert directly with parseInt. This needs to be used e.g. for hex values.
 

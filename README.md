@@ -122,6 +122,7 @@ This extension contributes the following settings:
 
    For report generation filter can contain:
    * **reportOptions**: object that can contain:
+     * **conversionFunction**: can be used to modify the captured values for that event. Needs to be a JS function returning an array of objects { valueName: value } gets the regex matches as parameter. E.g. "return {'limit':42};" for a static value.
      * **valueMap**: object that can contain keys matching to the captured data names and the property is an array with objects { capturedName : newName }. 
      E.g."reportOptions": { "valueMap": { "STATE_onOff": [ { "1": "on" }, { "0": "off" }, {"ff": "invalid" }]}}
 

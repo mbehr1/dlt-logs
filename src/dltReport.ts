@@ -197,6 +197,9 @@ export class DltReport implements vscode.Disposable {
         const msgs = this.doc.msgs;
         if (msgs.length) {
             console.log(` matching ${this.filter.length} filter on ${msgs.length} msgs:`);
+
+            const convFunctionCache = new Map<DltFilter, Function | undefined>();
+
             for (let i = 0; i < msgs.length; ++i) { // todo make async and report progress...
                 const msg = msgs[i];
                 if (msg.lifecycle !== undefined) {
@@ -207,26 +210,41 @@ export class DltReport implements vscode.Disposable {
                             if (time) {
                                 // get the value:
                                 const matches = filter.payloadRegex?.exec(msg.payloadString);
+                                // if we have a conversion function we apply that:
+                                var convValuesFunction: Function | undefined;
+                                if (convFunctionCache.has(filter)) {
+                                    convValuesFunction = convFunctionCache.get(filter);
+                                } else {
+                                    if (filter.reportOptions?.conversionFunction !== undefined) {
+                                        convValuesFunction = Function("matches", filter.reportOptions.conversionFunction);
+                                        console.warn(` using conversionFunction = '${convValuesFunction}'`);
+                                        convFunctionCache.set(filter, convValuesFunction);
+                                    } else {
+                                        convFunctionCache.set(filter, undefined);
+                                    }
+                                }
+
                                 if (matches && matches.length > 0) {
-                                    if (matches.groups) {
-                                        Object.keys(matches.groups).forEach((valueName) => {
-                                            if (matches.groups) {
-                                                // console.log(` found ${valueName}=${matches.groups[valueName]}`);
-                                                if (valueName.startsWith("STATE_")) {
-                                                    // if value name starts with STATE_ we make this a non-numeric value aka "state handling"
-                                                    // represented as string
-                                                    // as we will later use a line diagram we model a state behaviour here:
-                                                    //  we insert the current state value directly before:
-                                                    insertDataPoint(msg.lifecycle!, valueName, time, matches.groups[valueName], true);
-                                                } else
-                                                    if (valueName.startsWith("INT_")) {
-                                                        const value: number = Number.parseInt(matches.groups[valueName]);
-                                                        insertDataPoint(msg.lifecycle!, valueName, time, value);
-                                                    } else {
-                                                        const value: number = Number.parseFloat(matches.groups[valueName]);
-                                                        insertDataPoint(msg.lifecycle!, valueName, time, value);
-                                                    }
-                                            }
+                                    let convertedMatches = undefined;
+                                    if (convValuesFunction !== undefined) { convertedMatches = convValuesFunction(matches); }
+                                    if (convertedMatches !== undefined || matches.groups) {
+                                        const groups = convertedMatches !== undefined ? convertedMatches : matches.groups;
+                                        Object.keys(groups).forEach((valueName) => {
+                                            // console.log(` found ${valueName}=${matches.groups[valueName]}`);
+                                            if (valueName.startsWith("STATE_")) {
+                                                // if value name starts with STATE_ we make this a non-numeric value aka "state handling"
+                                                // represented as string
+                                                // as we will later use a line diagram we model a state behaviour here:
+                                                //  we insert the current state value directly before:
+                                                insertDataPoint(msg.lifecycle!, valueName, time, groups[valueName], true);
+                                            } else
+                                                if (valueName.startsWith("INT_")) {
+                                                    const value: number = Number.parseInt(groups[valueName]);
+                                                    insertDataPoint(msg.lifecycle!, valueName, time, value);
+                                                } else {
+                                                    const value: number = Number.parseFloat(groups[valueName]);
+                                                    insertDataPoint(msg.lifecycle!, valueName, time, value);
+                                                }
                                         });
                                     } else {
                                         const value: number = Number.parseFloat(matches[matches.length - 1]);
