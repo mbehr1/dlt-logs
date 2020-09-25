@@ -4,6 +4,9 @@ All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
 
+## [0.25.1]
+- For export logs: removed assumption to lifecycle only grow to start/end for updating the description.
+
 ## [0.25.0]
 - Added reportOptions.conversionFunction to map or calclate more complex values or add constants to the reports.
 

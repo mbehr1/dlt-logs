@@ -97,9 +97,12 @@ const calcLifecycles = (lcs: PickItem[], options: ExportDltOptions, cancelToken:
                             };
                         }
                         // update desc:
-                        if (lcInfo.lifecycleStart.valueOf() < lcI.data.lifecycleStart.valueOf()) { lcI.data.lifecycleStart = lcInfo.lifecycleStart; didChange = true; }
-                        if (lcInfo.lifecycleEnd.valueOf() > lcI.data.lifecycleEnd.valueOf()) { lcI.data.lifecycleEnd = lcInfo.lifecycleEnd; didChange = true; }
-                        if (didChange) { lcI.description = `${lcI.data.lifecycleStart.toLocaleString()}-${lcI.data.lifecycleEnd.toLocaleString()}`; }
+                        const oldDesc = `${lcI.data.lifecycleStart.toLocaleString()}-${lcI.data.lifecycleEnd.toLocaleString()}`;
+                        lcI.data.lifecycleStart = lcInfo.lifecycleStart;
+                        lcI.data.lifecycleEnd = lcInfo.lifecycleEnd;
+                        const newDesc = `${lcI.data.lifecycleStart.toLocaleString()}-${lcI.data.lifecycleEnd.toLocaleString()}`;
+                        if (oldDesc !== newDesc) { didChange = true; }
+                        if (didChange) { lcI.description = newDesc; };
                     };
                 });
                 if (didChange) { onMoreItems.fire(lcs); }
