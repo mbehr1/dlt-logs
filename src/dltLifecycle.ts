@@ -264,7 +264,7 @@ export class DltLifecycleInfo {
         // iterate over all ecus (not in parallel, only for each ecu in parallel possible)
         for (let i = 0; i < msgs.length; ++i) {
             const msg = msgs[i];
-            const ecu = msg.ecu;
+            const ecu = msg.withEID ? msg.ecu : `<SH>_${msg.ecu}`; // indicate whether ECU is only from storageheader. Dont mix msgs with storage header and without into same lifecylce
             let lcInfos = lifecycles.get(ecu)!;
             if (lcInfos === undefined) {
                 console.log(`updateLifecycles: added ${ecu} from ${msg.index}:${msg.timeAsDate}`);

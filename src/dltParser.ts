@@ -106,6 +106,7 @@ export class DltMsg {
     readonly noar: number; // number of arguments
     get apid(): string { return this._eac.a; }
     get ctid(): string { return this._eac.c; }
+    get withEID(): boolean { return (this._htyp & 0x04) ? true : false; }
     private _eac: EAC;
     private _payloadData: Buffer;
     private _payloadArgs: Array<any> | undefined = undefined;

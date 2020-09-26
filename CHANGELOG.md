@@ -4,6 +4,9 @@ All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
 
+## [0.26.0]
+- Lifecycle detection now doesn't mix lifecycles where the ECU id is coming from storageheader and msg header. Lifecycles with ECU from storageheader are prepended with a \<SH\_\>.
+
 ## [0.25.1]
 - For export logs: removed assumption to lifecycle only grow to start/end for updating the description.
 
