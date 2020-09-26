@@ -61,7 +61,7 @@ export class DltLifecycleInfo {
     }
 
     public getTreeNodeLabel(): string {
-        return `${this.lifecycleStart.toLocaleTimeString()}-${this.lifecycleEnd.toLocaleTimeString()} #${this.logMessages.length}`;
+        return `${this.lifecycleStart.toLocaleString()}-${this.lifecycleEnd.toLocaleTimeString()} #${this.logMessages.length}`;
     }
 
     get tooltip(): string {
@@ -167,15 +167,28 @@ export class DltLifecycleInfo {
         if (logMsg.timeAsNumber < this._startTime) {
             console.log("DltLifecycleInfo:update new starttime earlier? ", this._startTime, logMsg.timeAsNumber);
         }
+
+        // if the timestamp is too high (+10min) we treat it as not plausible:
+        const timeStampTooHigh = (logMsg.timeStamp > this._maxTimeStamp) && (logMsg.timeStamp - this._maxTimeStamp > 10 * 60 * 10);
+        if (timeStampTooHigh) {
+            // we treat it as corrupted/weird if its >10mins diff.
+            // otherwise this moves the lifecycle start to a lot earlier
+            console.warn(`DltLifecycleInfo: timeStampTooHigh: ignoring maxTimeStamp ${logMsg.timeStamp}, keeping ${this._maxTimeStamp} and lifecycleStart`);
+        }
+
         if (newLifecycleStart < lifecycleStartTime) { // this is (R1) from above.
+            if (!timeStampTooHigh) {
             // update new lifecycle start:
             if (lifecycleStartTime - newLifecycleStart > 1000) { // only inform about jumps >1s
                 console.log(`DltLifecycleInfo:update new lifecycleStart from ${this.lifecycleStart} to ${newLifecycleStart} due to ${logMsg.index}`);
             }
             this._lifecycleStart = newLifecycleStart; // todo or with adjustTimeMs? (well for now adjustTimeMs is anyhow 0 at start)
         }
+        }
         if (logMsg.timeStamp > this._maxTimeStamp) {
+            if (!timeStampTooHigh) {
             this._maxTimeStamp = logMsg.timeStamp;
+        }
         }
         // todo we might have to update startIndex based on current index. currently we assume they are strong monotonically increasing
 

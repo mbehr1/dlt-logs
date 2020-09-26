@@ -4,6 +4,10 @@ All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
 
+## [0.26.1]
+- Ignoring timeStamp jumps > 10mins for lifecycle detection.
+- Print lifecycle start time with date.
+
 ## [0.26.0]
 - Lifecycle detection now doesn't mix lifecycles where the ECU id is coming from storageheader and msg header. Lifecycles with ECU from storageheader are prepended with a \<SH\_\>.
 
