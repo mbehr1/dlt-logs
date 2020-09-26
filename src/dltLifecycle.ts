@@ -169,7 +169,7 @@ export class DltLifecycleInfo {
         }
 
         // if the timestamp is too high (+10min) we treat it as not plausible:
-        const timeStampTooHigh = (logMsg.timeStamp > this._maxTimeStamp) && (logMsg.timeStamp - this._maxTimeStamp > 10 * 60 * 10);
+        const timeStampTooHigh = (logMsg.timeStamp > this._maxTimeStamp) && ((logMsg.timeStamp - this._maxTimeStamp) > (10 * 60 * 10000));
         if (timeStampTooHigh) {
             // we treat it as corrupted/weird if its >10mins diff.
             // otherwise this moves the lifecycle start to a lot earlier

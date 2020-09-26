@@ -3,6 +3,8 @@
 All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
+## [0.26.2]
+- timeStamp jumps should be > 10 mins not just a few secs.
 
 ## [0.26.1]
 - Ignoring timeStamp jumps > 10mins for lifecycle detection.

@@ -602,7 +602,7 @@ const pass1ReadUri = async (
             if ((curTime[0] * 1000 + (curTime[1] / 1000000)) > progressTimeout) {
                 lastUpdateTime = process.hrtime();
                 const increment = Math.round(expectedIncrement * (parsedFileLen / stats.size));
-                progress?.report({ increment: increment - lastIncrement, message: `pass 1: processing file '${basename(fileUri.fsPath)}' got ${lifecycles.size} ECU and ${Number(minMsgInfos.length / 1000).toFixed(0)}k msgs` });
+                progress?.report({ increment: increment - lastIncrement, message: `pass 1: processing file '${basename(fileUri.fsPath)}' got ${lifecycles.size} ECUs and ${Number(minMsgInfos.length / 1000).toFixed(0)}k msgs` });
                 lastIncrement = increment;
                 if (progressCallback !== undefined) { progressCallback(); }
             }
