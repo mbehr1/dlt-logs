@@ -3,6 +3,10 @@
 All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
+
+## [0.27.0]
+- added "params" to conversionFunction for report filters. Keys are "msg", "localObj" and "reportObj".
+
 ## [0.26.2]
 - timeStamp jumps should be > 10 mins not just a few secs.
 

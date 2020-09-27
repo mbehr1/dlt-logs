@@ -198,7 +198,8 @@ export class DltReport implements vscode.Disposable {
         if (msgs.length) {
             console.log(` matching ${this.filter.length} filter on ${msgs.length} msgs:`);
 
-            const convFunctionCache = new Map<DltFilter, Function | undefined>();
+            const convFunctionCache = new Map<DltFilter, [Function | undefined, Object]>();
+            const reportObj = {}; // an object to store e.g. settings per report from a filter
 
             for (let i = 0; i < msgs.length; ++i) { // todo make async and report progress...
                 const msg = msgs[i];
@@ -211,22 +212,25 @@ export class DltReport implements vscode.Disposable {
                                 // get the value:
                                 const matches = filter.payloadRegex?.exec(msg.payloadString);
                                 // if we have a conversion function we apply that:
-                                var convValuesFunction: Function | undefined;
+                                var convValuesFunction: Function | undefined = undefined;
+                                var convValuesObj: Object;
                                 if (convFunctionCache.has(filter)) {
-                                    convValuesFunction = convFunctionCache.get(filter);
+                                    [convValuesFunction, convValuesObj] = convFunctionCache.get(filter) || [undefined, {}];
                                 } else {
                                     if (filter.reportOptions?.conversionFunction !== undefined) {
-                                        convValuesFunction = Function("matches", filter.reportOptions.conversionFunction);
+                                        convValuesFunction = Function("matches,params", filter.reportOptions.conversionFunction);
+                                        convValuesObj = {};
                                         console.warn(` using conversionFunction = '${convValuesFunction}'`);
-                                        convFunctionCache.set(filter, convValuesFunction);
+                                        convFunctionCache.set(filter, [convValuesFunction, convValuesObj]);
                                     } else {
-                                        convFunctionCache.set(filter, undefined);
+                                        convValuesObj = {};
+                                        convFunctionCache.set(filter, [undefined, convValuesObj]);
                                     }
                                 }
 
                                 if (matches && matches.length > 0) {
                                     let convertedMatches = undefined;
-                                    if (convValuesFunction !== undefined) { convertedMatches = convValuesFunction(matches); }
+                                    if (convValuesFunction !== undefined) { convertedMatches = convValuesFunction(matches, { msg: msg, localObj: convValuesObj, reportObj: reportObj }); }
                                     if (convertedMatches !== undefined || matches.groups) {
                                         const groups = convertedMatches !== undefined ? convertedMatches : matches.groups;
                                         Object.keys(groups).forEach((valueName) => {
