@@ -4,6 +4,10 @@ All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
 
+## [0.28.0]
+- Added icons for filter in tree view.
+- Filters now support the config option "name" to provide an optional name to ease readability.
+
 ## [0.27.0]
 - added "params" to conversionFunction for report filters. Keys are "msg", "localObj" and "reportObj".
 

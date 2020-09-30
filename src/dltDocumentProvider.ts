@@ -83,6 +83,11 @@ export class FilterNode implements TreeViewNode {
         this.children = [];
         this.id = createUniqueId();
     }
+
+    get iconPath(): vscode.ThemeIcon | undefined {
+        return this.filter.iconPath;
+    }
+
 };
 
 export class ConfigNode implements TreeViewNode {

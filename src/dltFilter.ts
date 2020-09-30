@@ -2,13 +2,14 @@
  * Copyright(C) Matthias Behr.
  */
 
-//import * as vscode from 'vscode';
+import { ThemeIcon } from 'vscode';
 //import * as assert from 'assert';
 import { DltMsg, MSTP, MTIN_LOG, MTIN_CTRL, MSTP_strs, MTIN_LOG_strs } from './dltParser';
 
 export enum DltFilterType { POSITIVE, NEGATIVE, MARKER, EVENT };
 
 export class DltFilter {
+    filterName: string | undefined; // maps to "name" from config
     type: DltFilterType;
     enabled: boolean = true;
     atLoadTime: boolean = false; // this filter gets used a load/opening the dlt file already (thus can't be deactivated later). Not possible with MARKER.
@@ -49,6 +50,9 @@ export class DltFilter {
             throw Error("type missing for DltFilter");
         }
         this.configOptions = options;
+        if ('name' in options) {
+            this.filterName = options.name;
+        }
         if ('enabled' in options) {
             this.enabled = options.enabled;
         }
@@ -118,6 +122,7 @@ export class DltFilter {
         obj.type = this.type;
         // we don't store/change enabled. As we do use configs for runtime changes. 
         // obj.enabled = this.enabled ? undefined : false; // default to true. don't store to make the config small, readable
+        obj.name = this.filterName;
         obj.atLoadTime = this.atLoadTime ? true : undefined; // default to false
         obj.mstp = this.mstp;
         obj.ecu = this.ecu;
@@ -155,10 +160,21 @@ export class DltFilter {
         return true;
     }
 
+    get iconPath(): ThemeIcon | undefined {
+        if (this.isReport) {
+            return new ThemeIcon('graph');
+        } else if (!this.enabled) {
+            return new ThemeIcon('stop-circle');
+        } else {
+            return new ThemeIcon('play');
+        }
+        return undefined;
+    }
+
     get name(): string {
         let enabled: string = this.enabled ? "" : "disabled: ";
-        if (this.isReport) {
-            enabled = "report "; // we ignore enabled for report
+        if (this.filterName) {
+            enabled += this.filterName + ' ';
         }
         let type: string;
         switch (this.type) {
