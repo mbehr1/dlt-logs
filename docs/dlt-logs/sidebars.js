@@ -1,6 +1,6 @@
 module.exports = {
   someSidebar: {
-    'dlt-logs': ['genericSettings', 'filterReference', 'configsReference'],
+    'dlt-logs': ['installFirstUse', 'genericSettings', 'filterReference', 'configsReference'],
     Features: ['timeSync', 'reports', 'fileTransfer']
   },
 };
