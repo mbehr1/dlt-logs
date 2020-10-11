@@ -8,6 +8,8 @@ This Visual Studio Code(tm) extension adds support to open DLT (diagnostic log a
 
 **Note:** It works well with [![Version](https://vsmarketplacebadge.apphb.com/version/mbehr1.smart-log.svg)](https://marketplace.visualstudio.com/items?itemName=mbehr1.smart-log) **smart-log** extension and supports the "time-sync" feature. (todo picture/animation...)
 
+A more detailed documentation is available here: [Docs](https://mbehr1.github.io/dlt-logs/). 
+
 ## Features
 
 - Open DLT files without any size restriction. (Tested with ~1500MB files). With files of approx 2GB you get out of memory problems. A "load time filter assistant..." helps you in reducing number of messages while opening files >512MB.
@@ -82,6 +84,7 @@ The extension uses telemetry with two events (`activate` (no parameters) and `op
 - Saving of logs/selections allowing e.g. to add comments as proper logs.
 - Use custom editor interface to be able to support regular file open mechanism.
 - Add full non-verbose support including mapping table and payload args.
+- support for: charts.red, charts.blue, charts.yellow, charts.orange, charts.green, charts.purple, charts.foreground, charts.lines: Colors intended to be used by data visualization extensions.
 
 ## Extension Settings
 
