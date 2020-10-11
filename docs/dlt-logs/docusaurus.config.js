@@ -1,5 +1,5 @@
 module.exports = {
-  title: 'dlt-logs Visual Studio Code Extension',
+  title: 'DLT-Logs Visual Studio Code Extension',
   tagline: 'Work with DLT files in VS Code',
   url: 'https://mbehr1.github.io',
   baseUrl: '/dlt-logs/',
@@ -13,9 +13,9 @@ module.exports = {
       trackingID: 'UA-180286216-1',
     },
     navbar: {
-      title: 'dlt-logs',
+      title: 'DLT-Logs',
       logo: {
-        alt: 'dlt-logs logo',
+        alt: 'DLT-Logs logo',
         src: 'img/logs.svg', // todo improve color...
       },
       items: [

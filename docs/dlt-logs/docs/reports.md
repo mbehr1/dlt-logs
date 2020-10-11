@@ -19,7 +19,7 @@ and you do want to create a graph of the three values.
 ### Define the filter
 
 Open **Preferences: Open Settings (JSON)** and add a filter:
-```
+```json {3,6}
 "dlt-logs.filters":[
   {
       "type": 3,
@@ -75,12 +75,12 @@ value | name
 
 An easy way is to define a `valueMap` by adding a it to the `reportOptions`object for the filter:
 
-```
+```json {7}
 {
   "type": 3,
   "apid": "...",
   "ctid": "...",
-  "payloadRegex": "^value =  (?<STATE_a>.*)$",
+  "payloadRegex": "^value = (?<STATE_a>.*)$",
   "reportOptions": {
       "valueMap": {
           "STATE_a": [
@@ -101,7 +101,81 @@ An easy way is to define a `valueMap` by adding a it to the `reportOptions`objec
 
 ### using a function to calculate values
 
-todo ... incl. liveeditor
+For more versatile changes a `conversionFunction`can be added to the `reportOptions`object:
+
+#### conversionFunction example
+
+```json
+{
+  ...
+  "payloadRegex": "Idle0\\s+.*\\s(.*)%",
+  "reportOptions": {
+    "conversionFunction": "return { 'cpu_idle0': matches[1],'INT_limit':'0x64' }"
+  }
+}
+```
+in this example the `conversionFunction`is returning two values: cpu\_idle0 as the captured value and a 2nd value INT\_limit with const value 100.
+
+#### conversionFunction prototype and parameters
+
+The `conversionFunction` should accept two parameters `matches`and `params` and return an object. E.g. as typescript prototype:
+
+```typescript
+(matches: RegExpExecArray | null | undefined, params: {} ) : Object
+```
+
+it will be created as function like this
+
+```javascript
+convValuesFunction = Function("matches,params", filter.reportOptions.conversionFunction);                                        
+```
+
+`matches`is the return value from the corresponding RegExp.exec(...) (see ...).
+`params`is an Object like
+
+```javascript
+params = {
+  localObj : {}, // will be exclusive for this filter. Initially empty obj.
+  reportObj : {} // will be shared between all filters for this report
+  msg : { // message object that matched the filter.
+    // currently as "stable api" only the following properties should be accessed:
+    timeStamp : Number // timeStamp of the msg in 0.1ms resolution
+    lifecycle : {} // Object per lifecycle detected (see ...)
+  }
+}
+```
+
+#### usage
+
+The `conversionFunction`can be used to modify the captured values for that event or to add new values.
+
+It can store values/properties in either the localObj to e.g. do calculations like "max" or even reportObj to exchange data between filters and their corresponding conversion functions.
+
+It needs to be a JS function returning an array of objects { valueName: value } and gets the regex 'matches' as parameter. Additional parameter is "params" which is an object with msg, localObj and reportObj. E.g. "return {'limit':42};" for a static value. or "return {'timeStamp': params.msg.timeStamp/10000};". 
+
+`localObj` is initially an empty Object {} that can be used to store properties for that filter (e.g. interims data for calculations).  `reportObj` is an Object similar to localObj but shared between all filters.
+
+:::note
+As `reportObj` is shared between all filters you do need to take care for property name clashes! Use reportObj only if you really want to share data between filters.
+:::
+
+:::note
+Currently the conversionFunction is only called if the payloadRegEx matches the payload. This will be changed in a upcoming version.
+:::
+
+:::note
+Via the params.msg.lifecycle object you can e.g. check whether the msg belongs to a new lifecycle and reset e.g. some variables inside the localObj.
+E.g.
+```javascript
+let lastLc = params.localObj['lifecycle'];
+if (lastLc !== params.msg.lifecycle) {
+  params.localObj['lifecycle'] = params.msg.lifecycle;
+  ... // do other stuff on new lifecycle...
+}
+```
+:::
+
+todo ... add liveeditor to convert a function into the json string repr.
 
 ### Opening one report or multiple reports in one graph
 
