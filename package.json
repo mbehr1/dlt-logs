@@ -2,7 +2,7 @@
 	"name": "dlt-logs",
 	"displayName": "DLT-Logs",
 	"description": "Open DLT diagnostic log and trace files with lifecycle detection, filters, time-sync, etc.",
-	"version": "0.28.0",
+	"version": "0.28.1",
 	"license": "CC-BY-NC-SA-4.0",
 	"publisher": "mbehr1",
 	"author": {
@@ -16,6 +16,7 @@
 	"bugs": {
 		"url": "https://github.com/mbehr1/dlt-logs/issues"
 	},
+	"homepage": "https://mbehr1.github.io/dlt-logs/",
 	"engines": {
 		"vscode": "^1.43.0"
 	},

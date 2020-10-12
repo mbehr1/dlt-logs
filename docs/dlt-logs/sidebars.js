@@ -1,6 +1,18 @@
 module.exports = {
-  someSidebar: {
-    'DLT-Logs': ['installFirstUse', 'genericSettings', 'filterReference', 'configsReference'],
-    Features: ['timeSync', 'reports', 'fileTransfer']
-  },
+  dltLogsSideBar: {
+    'DLT-Logs':
+      [
+        {
+          "type": "category",
+          "label": "Guides",
+          "items": ['installFirstUse', 'genericSettings', 'filterReference', 'configsReference'],
+        },
+        {
+          "type": "category",
+          "label": "Features",
+          "items": ['lifecycleDetection', 'timeSync', 'reports', 'exportAndFilter', 'fileTransfer'],
+          "collapsed": false
+        }
+      ]
+  }
 };
