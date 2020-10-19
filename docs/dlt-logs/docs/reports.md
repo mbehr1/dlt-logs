@@ -58,8 +58,17 @@ By default all captures needs will be parsed as float numbers. You can change th
 value name | excected type | comment
 ---------- | ------------- | -------
 STATE_* | enum | Used to represent distinct states. Will use 2nd axix. Can be ints or strings. See reportOptions/valueMap on how to map to better readable names.
+EVENT_* | float | will use scatter/event - dot based and not line based chart.
 INT_* | int | will use parseInt(). Can be used if e.g. hex values should be converted.
 other | float | will use parseFloat().
+
+:::note
+STATE_ and EVENT_ logically exclude each other as you do either want to draw a state diagram or a scatter/point diagram. But INT_ logically would fit as well for STATE_ or EVENT_ but this can't be encoded using the value name. So e.g. if you need to convert hex values this is possible using a **conversionFunction** that converts the value already. E.g. 
+
+```json
+return { 'STATE_foo': Number.parseInt(matches[1])};
+```
+:::
 
 Grid lines for lifecycle start/ends are automatically added. 
 

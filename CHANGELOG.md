@@ -3,6 +3,9 @@
 All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
+## [0.29.0]
+
+- Added "EVENT_" / event/scatter reports using single dots and not lines in the reports. See issue/feature request #3.
 
 ## [0.28.1]
 - Updated readme to point to the new [Docs](https://mbehr1.github.io/dlt-logs/) containing more info for reports (currently).

@@ -393,7 +393,7 @@ export class DltReport implements vscode.Disposable {
                     });
                 }
 
-                datasetArray.push({ label: label, dataYLabels: data });
+                datasetArray.push({ label: label, dataYLabels: data, type: label.startsWith('EVENT_') ? 'scatter' : 'line' });
             });
 
             this.postMsgOnceAlive({ command: "update", data: datasetArray });
