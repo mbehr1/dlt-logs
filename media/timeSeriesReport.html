@@ -226,6 +226,7 @@
 
                             if (i >= config.data.datasets.length) {
                                 config.data.datasets.push({ // todo check for multiple yLabels
+                                    type: ('type' in message.data[i]) ? message.data[i].type : 'line',
                                     label: message.data[i].label,
                                     data: message.data[i].dataYLabels.data,
                                     fill: false,
@@ -236,6 +237,7 @@
 
                             if (i < config.data.datasets.length) {
                                 config.data.datasets[i].label = message.data[i].label;
+                                config.data.datasets[i].type = ('type' in message.data[i]) ? message.data[i].type : 'line';
                                 if (message.data[i].dataYLabels.yLabels !== undefined) {
                                     vscode.postMessage({ message: 'update config.data.yLabels=' + config.data.yLabels + ' with ' + message.data[i].dataYLabels.yLabels });
                                     const dsi = config.data.datasets[i];
