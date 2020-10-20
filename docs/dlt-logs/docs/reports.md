@@ -63,7 +63,9 @@ INT_* | int | will use parseInt(). Can be used if e.g. hex values should be conv
 other | float | will use parseFloat().
 
 :::note
-STATE_ and EVENT_ logically exclude each other as you do either want to draw a state diagram or a scatter/point diagram. But INT_ logically would fit as well for STATE_ or EVENT_ but this can't be encoded using the value name. So e.g. if you need to convert hex values this is possible using a **conversionFunction** that converts the value already. E.g. 
+STATE\_ and EVENT\_ logically exclude each other as you do either want to draw a state diagram or a scatter/point diagram.
+
+INT\_ logically would fit as well for STATE\_ or EVENT˜_ but this can't be encoded using the value name. So e.g. if you need to convert hex values this is possible using a **conversionFunction** that converts the value already. E.g. 
 
 ```json
 return { 'STATE_foo': Number.parseInt(matches[1])};
