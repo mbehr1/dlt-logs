@@ -3,6 +3,9 @@
 All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
+## [0.29.2]
+- Removed some wrong package dependencies that lead to a big install package.
+
 ## [0.29.1]
 - Update outdated packages. 
 

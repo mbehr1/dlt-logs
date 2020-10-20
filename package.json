@@ -2,7 +2,7 @@
 	"name": "dlt-logs",
 	"displayName": "DLT-Logs",
 	"description": "Open DLT diagnostic log and trace files with lifecycle detection, filters, time-sync, etc.",
-	"version": "0.29.1",
+	"version": "0.29.2",
 	"license": "CC-BY-NC-SA-4.0",
 	"publisher": "mbehr1",
 	"author": {
@@ -601,7 +601,6 @@
 	},
 	"dependencies": {
 		"color-name": "^1.1.4",
-		"lodash": "^4.17.20",
 		"vscode-extension-telemetry": "^0.1.6"
 	}
 }
