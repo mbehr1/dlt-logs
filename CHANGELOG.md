@@ -3,6 +3,9 @@
 All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
+## [0.29.3]
+- added (yet empty) restQuery api.
+
 ## [0.29.2]
 - Removed some wrong package dependencies that lead to a big install package.
 

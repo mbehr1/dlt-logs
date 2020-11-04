@@ -73,7 +73,8 @@ export function activate(context: vscode.ExtensionContext) {
 	*/
 
 	let smartLogApi = {
-		onDidChangeSelectedTime(listener: any) { return dltProvider.onDidChangeSelectedTime(listener); }
+		onDidChangeSelectedTime(listener: any) { return dltProvider.onDidChangeSelectedTime(listener); },
+		restQuery(query: string) { console.log(`dlt-logs.restQuery(${query}) called. nyi`); return JSON.stringify({ 'errors': [{ 'title': 'not yet implemented' }] }); }
 	};
 
 	return smartLogApi;
