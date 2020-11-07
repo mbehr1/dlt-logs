@@ -15,6 +15,7 @@ import TelemetryReporter from 'vscode-extension-telemetry';
 import { DltFileTransferPlugin } from './dltFileTransfer';
 import { DltReport } from './dltReport';
 import { loadTimeFilterAssistant } from './dltLoadTimeAssistant';
+import { v4 as uuidv4 } from 'uuid';
 
 class ColumnConfig implements vscode.QuickPickItem {
     name: string;
@@ -165,7 +166,34 @@ export class DltDocument {
             this.parseDecorationsConfigs(decorationsObjs);
         }
         {
-            const filterObjs = vscode.workspace.getConfiguration().get<Array<object>>("dlt-logs.filters");
+            const filterSection = "dlt-logs.filters";
+            let filterObjs = vscode.workspace.getConfiguration().get<Array<object>>(filterSection);
+
+            // we add here some migration logic for <0.30 to >=0.30 as we introduced "id" (uuid) for identifying
+            // filter configs:
+            if (filterObjs) {
+                let migrated = false;
+                try {
+                    for (let i = 0; i < filterObjs.length; ++i) {
+                        let filterConf: any = filterObjs[i];
+                        if (!('id' in filterConf)) {
+                            const newId = uuidv4();
+                            console.log(` got filter: type=${filterConf?.type} without id. Assigning new one: ${newId}`);
+                            filterConf.id = newId;
+                            migrated = true;
+                        }
+                    }
+                    if (migrated) {
+                        // update config:
+                        util.updateConfiguration(filterSection, filterObjs);
+                        // sadly we can't wait here...
+                        vscode.window.showInformationMessage('Migration to new version: added ids to your existing filters.');
+                    }
+                } catch (error) {
+                    console.log(`dlt-logs migrate 0.30 add id/uuid error:${error}`);
+                    vscode.window.showErrorMessage('Migration to new version: failed to add ids to your existing filters. Please add manually (id fields with uuids.). Modification of filters via UI not possible until this is resolve.');
+                }
+            }
             this.parseFilterConfigs(filterObjs);
         }
         {
@@ -523,7 +551,7 @@ export class DltDocument {
             (progress) => this.applyFilter(progress));
     }
 
-    onFilterAdd(filter: DltFilter) {
+    onFilterAdd(filter: DltFilter, callonFilterChange: boolean = true) {
         this.filterTreeNode.children.push(new FilterNode(null, this.filterTreeNode, filter));
         if (filter.configs.length > 0) {
             this.updateConfigs(filter);
@@ -531,6 +559,7 @@ export class DltDocument {
         }
 
         this.allFilters.push(filter);
+        if (!callonFilterChange) { return; }
         this._treeEventEmitter.fire(this.filterTreeNode);
         return this.onFilterChange(filter);
     }
@@ -545,7 +574,7 @@ export class DltDocument {
         return this.onFilterChange(filter);
     }
 
-    onFilterDelete(filter: DltFilter) {
+    onFilterDelete(filter: DltFilter, callonFilterChange: boolean = true) {
         filter.enabled = false; // just in case
 
         // remove from list of allFilters and from filterTreeNode
@@ -572,6 +601,7 @@ export class DltDocument {
         if (!found) {
             vscode.window.showErrorMessage(`didn't found nodes to delete filter ${filter.name}`);
         }
+        if (!callonFilterChange) { return; }
         this._treeEventEmitter.fire(this.filterTreeNode);
         return this.onFilterChange(filter);
     }
@@ -1523,4 +1553,179 @@ export class DltDocument {
             report.addFilter(filter);
         }
     }
+
+    /**
+     * 
+     * @param cmd get|patch|delete
+     * @param paths docs/<id>/filters[...]
+     * @param options e.g. here we do allow the following commands:
+     *  - enableAll|disableAll=pos|neg|view(pos&neg)|marker|all
+     *  - patch={id:{..attributes to match the ones to patch...}, attributes: {...attrs to change with new value...}}
+     *  - add={attributes:{... new attrs...}}
+     *  - delete={id:...}
+     *  - deleteAllWith={attributes: {... if all attrs match, the filter will be deleted...}}
+     *  The commands are executed in sequence.
+     * @param doc DltDocument identified by <id>
+     * @param retObj output: key errors or data has to be filled
+     */
+    restQueryDocsFilters(cmd: string, paths: string[], options: string, retObj: { error?: object[], data?: object[] | object }) {
+        if (paths.length === 3) { // .../filters
+
+            let didModifyAnyFilter = false;
+
+            const optionArr = options ? options.split('&') : []; // todo how to ensure that & is not part of it? need to percent encode.... need to uridecode/encode the options...
+            for (const commandStr of optionArr) {
+                const eqIdx = commandStr.indexOf('=');
+                const command = commandStr.slice(0, eqIdx);
+                const commandParams = commandStr.slice(eqIdx + 1);
+                console.log(`restQueryDocsFilters: executing command = '${command}' with params='${commandParams}'`);
+
+                switch (command) {
+                    case 'enableAll':
+                    case 'disableAll': {
+                        const enable = command === 'enableAll';
+                        let disablePos = false;
+                        let disableNeg = false;
+                        let disableMarker = false;
+
+                        switch (commandParams) {
+                            case 'pos': disablePos = true; break;
+                            case 'neg': disableNeg = true; break;
+                            case 'view': disablePos = true; disableNeg = true; break;
+                            case 'marker': disableMarker = true; break;
+                            case 'all': disablePos = true; disableNeg = true; disableMarker = true; break;
+                            default:
+                                console.warn(`restQueryDocsFilters ${command}=${commandParams} unknown!`);
+                                break;
+                        }
+
+                        this.allFilters.forEach((filter) => {
+                            if (!filter.atLoadTime) {
+                                if (
+                                    (filter.type === DltFilterType.POSITIVE && disablePos) ||
+                                    (filter.type === DltFilterType.NEGATIVE && disableNeg) ||
+                                    (filter.type === DltFilterType.MARKER && disableMarker)
+                                ) {
+                                    if (filter.enabled && !enable) {
+                                        filter.enabled = false;
+                                        didModifyAnyFilter = true;
+                                    }
+                                    if ((!filter.enabled) && enable) {
+                                        filter.enabled = true;
+                                        didModifyAnyFilter = true;
+                                    }
+                                }
+                            }
+                        });
+                    }
+                        break;
+                    case 'add': { // todo add support for persistent storage!
+                        try {
+                            const filterAttribs = JSON.parse(commandParams);
+                            console.log(`filterAttribs=`, filterAttribs);
+
+                            const filter = new DltFilter(filterAttribs, false); // don't allow edit for now as we keep them temp.
+                            this.onFilterAdd(filter, false);
+                            didModifyAnyFilter = true;
+                        } catch (e) {
+                            // todo set error!
+                            if (!Array.isArray(retObj.error)) { retObj.error = []; }
+                            retObj.error?.push({ title: `add failed due to error e=${e}` });
+                        }
+                    }
+                        break;
+                    case 'delete': {
+                        try {
+                            const filterAttribs = JSON.parse(commandParams);
+                            console.log(`filterAttribs=`, filterAttribs);
+
+                            if (Object.keys(filterAttribs).length > 0) {
+                                // all filters that match all criteria will be deleted:
+                                const filtersToDelete: DltFilter[] = [];
+                                this.allFilters.forEach((filter) => {
+
+                                    let allMatch = true;
+                                    const filterParams = filter.configOptions !== undefined ? filter.configOptions : filter;
+                                    Object.keys(filterAttribs).forEach((key) => {
+                                        // does the keys exist in filterParams?
+                                        if (!(key in filterParams && filterParams[key] === filterAttribs[key])) {
+                                            allMatch = false; // could break here... but not possible...
+                                        }
+                                    });
+                                    if (allMatch) {
+                                        console.log(`restQueryDocsFilters ${command}=${commandParams} delete filter ${filter.name}`);
+                                        filtersToDelete.push(filter);
+                                    }
+                                });
+                                filtersToDelete.forEach((filter) => {
+                                    this.onFilterDelete(filter, false);
+                                    didModifyAnyFilter = true;
+                                });
+                            } else {
+                                if (!Array.isArray(retObj.error)) { retObj.error = []; }
+                                retObj.error?.push({ title: `delete failed as no keys provided!` });
+                            }
+                        } catch (e) {
+                            if (!Array.isArray(retObj.error)) { retObj.error = []; }
+                            retObj.error?.push({ title: `add failed due to error e=${e}` });
+                        }
+                    }
+                        break;
+                    case 'patch': {
+                        try {
+                            const patchAttribs = JSON.parse(commandParams);
+                            const filterAttribs = patchAttribs.id;
+                            const newAttribs = patchAttribs.attributes;
+                            console.log(`patch filterAttribs=`, filterAttribs);
+                            console.log(`patch newAttribs=`, newAttribs);
+
+                            if (Object.keys(filterAttribs).length > 0 && Object.keys(newAttribs).length > 0) {
+                                // all filters that match all criteria will be deleted:
+                                const filtersToDelete: DltFilter[] = [];
+                                this.allFilters.forEach((filter) => {
+
+                                    let allMatch = true;
+                                    const filterParams = filter.configOptions !== undefined ? filter.configOptions : filter;
+                                    Object.keys(filterAttribs).forEach((key) => {
+                                        // does the keys exist in filterParams?
+                                        if (!(key in filterParams && filterParams[key] === filterAttribs[key])) {
+                                            allMatch = false; // could break here... but not possible...
+                                        }
+                                    });
+                                    if (allMatch) {
+                                        console.log(`restQueryDocsFilters ${command}=${commandParams} updating filter ${filter.name}`);
+                                        Object.keys(newAttribs).forEach((key) => {
+                                            console.log(`restQueryDocsFilters updating '${key}' from '${filter.configOptions[key]}' to '${newAttribs[key]}'`);
+                                            filter.configOptions[key] = newAttribs[key];
+                                        });
+                                        filter.reInitFromConfiguration();
+                                        didModifyAnyFilter = true;
+                                    }
+                                });
+                            } else {
+                                if (!Array.isArray(retObj.error)) { retObj.error = []; }
+                                retObj.error?.push({ title: `patch failed as no keys provided!` });
+                            }
+                        } catch (e) {
+                            if (!Array.isArray(retObj.error)) { retObj.error = []; }
+                            retObj.error?.push({ title: `patch failed due to error e=${e}` });
+                        }
+                    }
+                        break;
+                    default:
+                        console.warn(`restQueryDocsFilters: unknown command = '${command}' with params='${commandParams}'`);
+                }
+            }
+            if (didModifyAnyFilter) {
+                this._treeEventEmitter.fire(this.filterTreeNode);
+                this.onFilterChange(undefined);
+            }
+
+            retObj.data = util.createRestArray(this.allFilters, (obj: object, i: number) => { const filter = obj as DltFilter; return filter.asRestObject(i); });
+        } else { // .../filters/...
+
+        }
+        retObj.error = [{ title: `${cmd}/${paths[0]}/${paths[1]}/${paths[2]}/${paths[3]} not yet implemented.` }];
+    }
+
 };

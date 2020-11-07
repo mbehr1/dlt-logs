@@ -54,7 +54,6 @@ export interface TreeViewNode {
 };
 
 export class FilterNode implements TreeViewNode {
-    id: string;
     tooltip: string | undefined;
     //uri: vscode.Uri | null; // index provided as fragment #<index>
     //parent: TreeViewNode | null;
@@ -81,8 +80,9 @@ export class FilterNode implements TreeViewNode {
 
     constructor(public uri: vscode.Uri | null, public parent: TreeViewNode | null, public filter: DltFilter) {
         this.children = [];
-        this.id = createUniqueId();
     }
+
+    get id(): string { return this.filter.id; }
 
     get iconPath(): vscode.ThemeIcon | undefined {
         return this.filter.iconPath;
@@ -666,6 +666,201 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                 console.log(`provideDocumentSymbols err ${error}`);
                 return [];
             }
+        }
+    }
+
+    /**
+     * support info query in JSON API format (e.g. used by fishbone ext.)
+     * input: query : string, e.g. '/get/docs' or '/get/version'
+     * output: JSON obj as string. e.g. '{"errors":[]}' or '{"data":[...]}'
+     */
+    /// support info query in JSON API format (e.g. used by fishbone ext.)
+    restQuery(query: string): string {
+        console.log(`restQuery(${query}))...`);
+        const retObj: { error?: [Object], data?: [Object] | Object } = {};
+
+        // parse as regex: ^\/(?<cmd>.*?)\/(?<path>.*?)($|\?(?<options>.+)$)
+        var re = /^\/(?<cmd>.*?)\/(?<path>.*?)($|\?(?<options>.+)$)/;
+        const regRes = re.exec(query);
+        if (regRes?.length && regRes.groups) {
+            console.log(`got regRes.length=${regRes.length}`);
+            regRes.forEach(regR => console.log(JSON.stringify(regR)));
+            const cmd = regRes.groups['cmd'];
+            const path = regRes.groups['path'];
+            const options = regRes.groups['options'];
+            console.log(` cmd='${cmd}' path='${path}' options='${options}'`);
+            switch (cmd) {
+                case 'get':
+                    {
+                        // split path:
+                        const paths = path.split('/');
+                        switch (paths[0]) {
+                            case 'version':
+                                {
+                                    const extension = vscode.extensions.getExtension('mbehr1.dlt-logs');
+                                    if (extension) {
+                                        const extensionVersion = extension.packageJSON.version;
+                                        retObj.data = {
+                                            "type": "version",
+                                            "id": "1",
+                                            "attributes": {
+                                                version: extensionVersion,
+                                                name: 'mbehr1.dlt-logs'
+                                            }
+                                        };
+                                    } else {
+                                        retObj.error = [{ title: `${cmd}/${paths[0]} extension object undefined.` }];
+                                    }
+                                }
+                                break;
+                            case 'docs':
+                                {
+                                    if (paths.length === 1) {
+                                        // get info about available documents:
+                                        // todo support options filter "ecu=<ecuname>"
+                                        const arrRes: Object[] = [];
+                                        this._documents.forEach((doc) => {
+                                            const resObj: { type: string, id: string, attributes?: Object } =
+                                                { type: "docs", id: encodeURIComponent(doc.uri.toString()) };
+                                            let ecusObj = { data: {} };
+                                            this.restQueryDocsEcus(cmd, [paths[0], '', 'ecus'], options, doc, ecusObj);
+                                            resObj.attributes = {
+                                                name: doc.uri.fsPath,
+                                                msgs: doc.msgs.length,
+                                                ecus: ecusObj.data,
+                                                filters: util.createRestArray(doc.allFilters, (obj: object, i: number) => { const filter = obj as DltFilter; return filter.asRestObject(i); })
+                                            };
+                                            arrRes.push(resObj);
+                                        });
+                                        retObj.data = arrRes;
+                                    } else {
+                                        // get info about one document:
+                                        // e.g. get/docs/<id>/ecus/<ecuid>/lifecycles/<lifecycleid>
+                                        // or   get/docs/<id>/filters
+                                        if (paths.length >= 2) {
+                                            const docId = decodeURIComponent(paths[1]);
+                                            let doc = this._documents.get(docId);
+                                            // fallback to index:
+                                            if (!doc) {
+                                                const docIdx: number = Number(docId);
+                                                if (docIdx >= 0 && docIdx < this._documents.size) {
+                                                    const iter = this._documents.entries();
+                                                    for (let i = 0; i <= docIdx; ++i) {
+                                                        const [, aDoc] = iter.next().value;
+                                                        if (i === docIdx) { doc = aDoc; }
+                                                    }
+                                                }
+                                            }
+                                            if (doc) {
+                                                if (paths.length === 2) { // get/docs/<id>
+                                                    const resObj: { type: string, id: string, attributes?: Object } =
+                                                        { type: "docs", id: encodeURIComponent(doc.uri.toString()) };
+                                                    resObj.attributes = {
+                                                        name: doc.uri.fsPath,
+                                                        msgs: doc.msgs.length,
+                                                        ecus: [...doc.lifecycles.keys()].map((ecu => {
+                                                            return {
+                                                                name: ecu, lifecycles: doc!.lifecycles.get(ecu)?.length
+                                                            };
+                                                        })),
+                                                        filters: util.createRestArray(doc.allFilters, (obj: object, i: number) => { const filter = obj as DltFilter; return filter.asRestObject(i); })
+                                                    };
+                                                    retObj.data = resObj;
+                                                } else { // get/docs/<id>/...
+                                                    switch (paths[2]) {
+                                                        case 'ecus': // get/docs/<id>/ecus
+                                                            this.restQueryDocsEcus(cmd, paths, options, doc, retObj);
+                                                            break;
+                                                        case 'filters': // get/docs/<id>/filters
+                                                            doc.restQueryDocsFilters(cmd, paths, options, retObj);
+                                                            break;
+                                                        default:
+                                                            retObj.error = [{ title: `${cmd}/${paths[0]}/<docid>/${paths[2]} not supported:'${paths[2]}. Valid: 'ecus' or 'filters'.` }];
+                                                            break;
+                                                    }
+                                                }
+                                            } else {
+                                                retObj.error = [{ title: `${cmd}/${paths[0]} unknown doc id:'${docId}'` }];
+                                            }
+                                        }
+
+                                    }
+                                }
+                                break;
+                            default:
+                                retObj.error = [{ title: `${cmd}/${paths[0]} unknown/not supported.` }];
+                                break;
+                        }
+                    }
+                    break;
+                default:
+                    retObj.error = [{ title: `cmd ('${cmd}') unknown/not supported.` }];
+                    break;
+            }
+
+        } else {
+            retObj.error = [{ title: 'query failed regex parsing' }];
+        }
+
+        const retStr = JSON.stringify(retObj);
+        console.log(`restQuery() returning : '${retStr}'`);
+        return retStr;
+    }
+
+    /**
+     * process /<cmd>/docs/<id>/ecus(paths[2])... restQuery requests
+     * @param cmd get|patch|delete
+     * @param paths docs/<id>/ecus[...]
+     * @param options e.g. ecu=<name>
+     * @param doc DltDocument identified by <id>
+     * @param retObj output: key errors or data has to be filled
+     */
+
+    private restQueryDocsEcus(cmd: string, paths: string[], options: string, doc: DltDocument, retObj: { error?: object[], data?: object[] | object }) {
+        const optionArr = options ? options.split('&') : [];
+        let ecuNameFilter: string | undefined = undefined;
+        optionArr.forEach((opt) => {
+            console.log(`got opt=${opt}`);
+            if (opt.startsWith('ecu=')) {
+                ecuNameFilter = opt.slice(opt.indexOf('=') + 1);
+                console.log(`got ecuNameFilter=${ecuNameFilter}`);
+            }
+        });
+        if (paths.length === 3) { // .../ecus
+            const arrRes: Object[] = [];
+            doc.lifecycles.forEach((lcInfo, ecu) => {
+                if (!ecuNameFilter || ecuNameFilter === ecu) {
+                    const resObj: { type: string, id: string, attributes?: Object } =
+                        { type: "ecus", id: encodeURIComponent(ecu) };
+
+                    // determine SW names:
+                    let sw: string[] = [];
+                    lcInfo.forEach(lc => lc.swVersions.forEach(lsw => { if (!sw.includes(lsw)) { sw.push(lsw); } }));
+
+                    resObj.attributes = {
+                        name: ecu,
+                        lifecycles: [...lcInfo.map((lc, idx) => {
+                            return {
+                                type: "lifecycles", id: lc.uniqueId.toString(),
+                                attributes: {
+                                    index: idx + 1,
+                                    startTimeUtc: lc.lifecycleStart.toUTCString(),
+                                    endTimeUtc: lc.lifecycleEnd.toUTCString(),
+                                    sws: lc.swVersions,
+                                    msgs: lc.logMessages.length,
+                                    // todo apids/ctids
+                                }
+                            };
+                        })],
+                        sws: sw,
+                        // todo collect APID infos and CTID infos...
+                    };
+                    arrRes.push(resObj);
+                }
+            });
+            retObj.data = arrRes;
+        } else { // .../ecus/
+            retObj.error = [{ title: `${cmd}/${paths[0]}/${paths[1]}/${paths[2]}/${paths[3]} not yet implemented.` }];
         }
     }
 

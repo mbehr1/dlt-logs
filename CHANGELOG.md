@@ -3,6 +3,12 @@
 All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
+## [0.30.0]
+- implemented rest query for other extensions and via test command "dlt-logs test rest query" for
+/get/version, /get/docs/<id>/ecus and /get/docs/<id>/filters. 
+For filters options to add/patch/delete/enable/disable are available. But currently without directly persisting them.
+But take care any addition action that will store the filters (e.g. add/change via UI) will persist them!
+
 ## [0.29.3]
 - added (yet empty) restQuery api.
 

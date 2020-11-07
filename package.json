@@ -2,7 +2,7 @@
 	"name": "dlt-logs",
 	"displayName": "DLT-Logs",
 	"description": "Open DLT diagnostic log and trace files with lifecycle detection, filters, time-sync, etc.",
-	"version": "0.29.3",
+	"version": "0.30.0",
 	"license": "CC-BY-NC-SA-4.0",
 	"publisher": "mbehr1",
 	"author": {
@@ -483,6 +483,10 @@
 				"command": "dlt-logs.configureColumns",
 				"title": "configure columns...",
 				"icon": "$(list-unordered)"
+			},
+			{
+				"command": "dlt-logs.testRestQuery",
+				"title": "test rest query"
 			}
 		],
 		"menus": {
@@ -590,6 +594,7 @@
 		"@types/glob": "^7.1.3",
 		"@types/mocha": "^8.0.3",
 		"@types/node": "^12.12.69",
+		"@types/uuid": "^8.3.0",
 		"@types/vscode": "^1.43.0",
 		"@typescript-eslint/eslint-plugin": "^4.5.0",
 		"@typescript-eslint/parser": "^4.5.0",
@@ -601,6 +606,7 @@
 	},
 	"dependencies": {
 		"color-name": "^1.1.4",
+		"uuid": "^8.3.1",
 		"vscode-extension-telemetry": "^0.1.6"
 	}
 }

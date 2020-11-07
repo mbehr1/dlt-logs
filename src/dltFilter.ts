@@ -5,6 +5,8 @@
 import { ThemeIcon } from 'vscode';
 //import * as assert from 'assert';
 import { DltMsg, MSTP, MTIN_LOG, MTIN_CTRL, MSTP_strs, MTIN_LOG_strs } from './dltParser';
+import * as util from './util';
+import { v4 as uuidv4 } from 'uuid';
 
 export enum DltFilterType { POSITIVE, NEGATIVE, MARKER, EVENT };
 
@@ -49,7 +51,59 @@ export class DltFilter {
         } else {
             throw Error("type missing for DltFilter");
         }
-        this.configOptions = options;
+        // we create a deep copy (ignoring functions....) and don't keep reference to the options
+        // passed... otherwise changes on a filter in one document reflect the other as well.
+        try {
+            this.configOptions = JSON.parse(JSON.stringify(options));
+        } catch (e) {
+            throw Error(`can't JSON parse the options: ${e}`);
+        }
+        // and we assign a id/uuid if it's not there yet:
+        // todo: check if id represents a valid uuid?
+        if (!('id' in this.configOptions)) {
+            this.configOptions.id = uuidv4();
+            console.log(`DltFilter.constructor created id=${this.configOptions.id}`);
+        }
+
+        this.reInitFromConfiguration();
+    }
+
+    asConfiguration() { // to persist new Filters into configuration setting
+        if (this.configOptions === undefined) { this.configOptions = { type: this.type, id: uuidv4() }; }
+        const obj = this.configOptions;
+        obj.type = this.type;
+        // we don't store/change enabled. As we do use configs for runtime changes. 
+        // obj.enabled = this.enabled ? undefined : false; // default to true. don't store to make the config small, readable
+        obj.name = this.filterName;
+        obj.atLoadTime = this.atLoadTime ? true : undefined; // default to false
+        obj.mstp = this.mstp;
+        obj.ecu = this.ecu;
+        obj.apid = this.apid;
+        obj.ctid = this.ctid;
+        obj.logLevelMin = this.logLevelMin;
+        obj.logLevelMax = this.logLevelMax;
+        obj.payload = this.payload;
+        obj.payloadRegex = this.payloadRegex !== undefined ? this.payloadRegex.source : undefined;
+        obj.timeSyncId = this.timeSyncId;
+        obj.timeSyncPrio = this.timeSyncPrio;
+        obj.decorationId = this.decorationId;
+        obj.filterColour = this.filterColour; // or remove blue?
+        obj.reportOptions = this.reportOptions;
+        obj.configs = this.configs.length > 0 ? this.configs : undefined;
+
+        return obj;
+    }
+
+    /**
+     * Re-initializes the internal variables from the configOptions object.
+     * Allows to update the filter from outside e.g. via filter.configOptions[key] = ...
+     * and then reflect those values as well.
+     * Take care: some values can't be changed! (e.g. type)
+     */
+    reInitFromConfiguration() {
+        const options = this.configOptions;
+        if (!options) { return; }
+
         if ('name' in options) {
             this.filterName = options.name;
         }
@@ -111,35 +165,11 @@ export class DltFilter {
         }
 
         if ('configs' in options && Array.isArray(options.configs)) {
+            this.configs = [];
             this.configs.push(...options.configs);
         }
 
-    }
 
-    asConfiguration() { // to persist new Filters into configuration setting
-        if (this.configOptions === undefined) { this.configOptions = { type: this.type }; }
-        const obj = this.configOptions;
-        obj.type = this.type;
-        // we don't store/change enabled. As we do use configs for runtime changes. 
-        // obj.enabled = this.enabled ? undefined : false; // default to true. don't store to make the config small, readable
-        obj.name = this.filterName;
-        obj.atLoadTime = this.atLoadTime ? true : undefined; // default to false
-        obj.mstp = this.mstp;
-        obj.ecu = this.ecu;
-        obj.apid = this.apid;
-        obj.ctid = this.ctid;
-        obj.logLevelMin = this.logLevelMin;
-        obj.logLevelMax = this.logLevelMax;
-        obj.payload = this.payload;
-        obj.payloadRegex = this.payloadRegex !== undefined ? this.payloadRegex.source : undefined;
-        obj.timeSyncId = this.timeSyncId;
-        obj.timeSyncPrio = this.timeSyncPrio;
-        obj.decorationId = this.decorationId;
-        obj.filterColour = this.filterColour; // or remove blue?
-        obj.reportOptions = this.reportOptions;
-        obj.configs = this.configs.length > 0 ? this.configs : undefined;
-
-        return obj;
     }
 
     matches(msg: DltMsg): boolean {
@@ -169,6 +199,10 @@ export class DltFilter {
             return new ThemeIcon('play');
         }
         return undefined;
+    }
+
+    get id(): string {
+        return this.configOptions.id;
     }
 
     get name(): string {
@@ -210,5 +244,13 @@ export class DltFilter {
     get isReport(): boolean {
         // a report filter is a type EVENT filter that has a payloadRegex and no timeSyncId
         return this.type === DltFilterType.EVENT && (this.payloadRegex !== undefined) && (this.timeSyncId === undefined);
+    }
+
+    asRestObject(idHint: number): util.RestObject {
+        return {
+            id: this.id,
+            type: 'filter',
+            attributes: this.asConfiguration() // inludes id again...
+        };
     }
 }

@@ -121,3 +121,24 @@ export function updateConfiguration(section: string, newValue: any) {
     }
 
 }
+
+export interface RestObject {
+    id: string | number;
+    type: string;
+    attributes?: object;
+    // relationsships
+    // links
+    meta?: object;
+}
+
+/**
+ * applies the objConvFunc on the objects.
+ * @param objects array of the objects to convert
+ * @param objConvFunc function that returns a RestObject for a single object
+ */
+export function createRestArray(objects: object[], objConvFunc: ((o: object, i: number) => RestObject)): RestObject[] {
+    return objects.map((object, index) => {
+        const restObj = objConvFunc(object, index);
+        return restObj;
+    });
+}

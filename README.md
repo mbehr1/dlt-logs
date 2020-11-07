@@ -85,6 +85,7 @@ The extension uses telemetry with two events (`activate` (no parameters) and `op
 - Use custom editor interface to be able to support regular file open mechanism.
 - Add full non-verbose support including mapping table and payload args.
 - support for: charts.red, charts.blue, charts.yellow, charts.orange, charts.green, charts.purple, charts.foreground, charts.lines: Colors intended to be used by data visualization extensions.
+- add Treeview colored icons (1.51 vscode feature)
 
 ## Extension Settings
 

@@ -67,6 +67,24 @@ export function activate(context: vscode.ExtensionContext) {
 		);
 	}));
 
+	// register a command to test restQuery:
+	context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.testRestQuery', async () => {
+		return vscode.window.showInputBox({
+			prompt: 'enter query to execute, e.g. /get/docs or /get/version',
+			value: '/get/docs',
+			valueSelection: [5, 10]
+		}).then(
+			async (input: string | undefined) => {
+				if (input?.length) {
+					const res = dltProvider.restQuery(input);
+					console.log(`restQuery returned: '${res}'`);
+					vscode.window.showInformationMessage(res, 'ok');
+				}
+			}
+		);
+	}));
+
+
 	// register custom editor to allow easier file open (hacking...)
 	/* not working yet. see dltCustomEditorProvider.ts
 	context.subscriptions.push(vscode.window.registerCustomEditorProvider('dlt-log', new DltLogCustomReadonlyEditorProvider));
@@ -74,7 +92,8 @@ export function activate(context: vscode.ExtensionContext) {
 
 	let smartLogApi = {
 		onDidChangeSelectedTime(listener: any) { return dltProvider.onDidChangeSelectedTime(listener); },
-		restQuery(query: string) { console.log(`dlt-logs.restQuery(${query}) called. nyi`); return JSON.stringify({ 'errors': [{ 'title': 'not yet implemented' }] }); }
+		// restQuery should follow the principles from here: https://jsonapi.org/format/
+		restQuery(query: string) { console.log(`dlt-logs.restQuery(${query}) called.`); return dltProvider.restQuery(query); /* return JSON.stringify({ 'errors': [{ 'title': 'not yet implemented' }] });*/ }
 	};
 
 	return smartLogApi;

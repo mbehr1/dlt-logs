@@ -26,10 +26,7 @@ export function deleteFilter(doc: DltDocument, filter: DltFilter) {
             let deletedConf = false;
             for (let c = 0; c < curFilter.length; ++c) {
                 const curOpt = curFilter[c];
-                if (curOpt === filter.configOptions || (JSON.stringify(curOpt) === JSON.stringify(filter.configOptions))) {
-                    // we do allow stringfy comparision as well. todo this is not safe. introduce better deep compare!
-                    // seems like we cannot rely on getConfiguration().get() return the same objects!
-
+                if (curOpt.id === filter.id) {
                     console.log(`found conf option to delete (${JSON.stringify(curOpt)})`);
                     curFilter.splice(c, 1);
                     util.updateConfiguration(confSection, curFilter);
@@ -44,7 +41,7 @@ export function deleteFilter(doc: DltDocument, filter: DltFilter) {
         } else {
             vscode.window.showErrorMessage(`can't read current config '${confSection}'`);
         }
-        doc.onFilterDelete(filter).then(() => resolveDelete());
+        doc.onFilterDelete(filter)?.then(() => resolveDelete());
     });
 }
 
@@ -69,13 +66,6 @@ export function editFilter(doc: DltDocument, newFilter: DltFilter, optArgs?: { p
                     curFilter.push(confOptions);
                     util.updateConfiguration(confSection, curFilter)?.then(() => {
                         console.log(`isAdd updateConfiguration finished for new filter ${newFilter.name} as (${JSON.stringify(newFilter.configOptions)})`);
-                        // we do need to read the current settings again as otherwise the conf option is not the one
-                        // and we cant edit it later:
-                        const updFilter = vscode.workspace.getConfiguration().get(confSection);
-                        if (updFilter && Array.isArray(updFilter) && updFilter.length > 0) {
-                            newFilter.configOptions = updFilter[updFilter.length - 1];
-                            console.log(`re-read conf option for new filter ${newFilter.name} as (${JSON.stringify(newFilter.configOptions)})`);
-                        }
                     });
                     doc.onFilterAdd(filter);
                 } else {
@@ -83,10 +73,7 @@ export function editFilter(doc: DltDocument, newFilter: DltFilter, optArgs?: { p
                     let updatedConf = false;
                     for (let c = 0; c < curFilter.length; ++c) {
                         const curOpt = curFilter[c];
-                        if (curOpt === filter.configOptions || (JSON.stringify(curOpt) === JSON.stringify(filter.configOptions))) {
-                            // we do allow stringfy comparision as well. todo this is not safe. introduce better deep compare!
-                            // seems like we cannot rely on getConfiguration().get() return the same objects!
-
+                        if (curOpt.id === filter.id) { // only assume that the uuid doesn't change
                             console.log(`found conf option for edit (${JSON.stringify(curOpt)})`);
                             let newOpt = filter.asConfiguration(); // this updates the curOpt as its anyhow pointing to the same obj
                             curFilter[c] = newOpt;
