@@ -630,6 +630,55 @@ export class DltDocument {
         return toRet;
     }
 
+    /**
+     * calculate and return the matching messages. Does not modify the current content/view.
+     * @param filters list of filters to use. Should only be pos and neg filters. Others will be ignored.
+     * @param maxMsgsToReturn maximum number of messages to return. As this is no async function the caller
+     * needs to be careful!
+     * @returns list of matching messages (as Promise)
+     */
+    static getMatchingMessages(allMsgs: DltMsg[], filters: DltFilter[], maxMsgsToReturn: number): DltMsg[] {
+        const matchingMsgs: DltMsg[] = [];
+        // sort the filters here into the enabled pos and neg:
+        try {
+            const [posFilters, negFilters, decFilters, eventFilters] = DltDocument.getFilter(filters, true, false);
+            const nrMsgs = allMsgs.length;
+            for (let i = 0; i < nrMsgs; ++i) {
+                const msg = allMsgs[i];
+                // todo refactor into standalone function
+                let foundAfterPosFilters: boolean = posFilters.length ? false : true;
+                if (posFilters.length) {
+                    // check the pos filters, break on first match:
+                    for (let j = 0; j < posFilters.length; ++j) {
+                        if (posFilters[j].matches(msg)) {
+                            foundAfterPosFilters = true;
+                            break;
+                        }
+                    }
+                }
+                let foundAfterNegFilters: boolean = foundAfterPosFilters;
+                if (foundAfterNegFilters && negFilters.length) {
+                    // check the neg filters, break on first match:
+                    for (let j = 0; j < negFilters.length; ++j) {
+                        if (negFilters[j].matches(msg)) {
+                            foundAfterNegFilters = false;
+                            break;
+                        }
+                    }
+                }
+
+                if (foundAfterNegFilters) {
+                    matchingMsgs.push(msg);
+                    if (matchingMsgs.length >= maxMsgsToReturn) { break; }
+                }
+            }
+        } catch (e) {
+            throw new Error(`getMatchingMessages failed due to error '${e}'`);
+        }
+        return matchingMsgs;
+    }
+
+
     private _applyFilterRunning: boolean = false;
     async applyFilter(progress: vscode.Progress<{ increment?: number | undefined, message?: string | undefined, }> | undefined, applyEventFilter: boolean = false) {
         if (this._applyFilterRunning) {
@@ -1564,6 +1613,7 @@ export class DltDocument {
      *  - add={attributes:{... new attrs...}}
      *  - delete={id:...}
      *  - deleteAllWith={attributes: {... if all attrs match, the filter will be deleted...}}
+     *  - query=[... array of filter attributes {} ] returns the msgs matching! Does not modify any filters.
      *  The commands are executed in sequence.
      * @param doc DltDocument identified by <id>
      * @param retObj output: key errors or data has to be filled
@@ -1617,6 +1667,35 @@ export class DltDocument {
                                 }
                             }
                         });
+                    }
+                        break;
+                    case 'query': {
+                        try {
+                            const queryFilters = JSON.parse(commandParams);
+                            console.log(`filters=`, queryFilters);
+                            if (Array.isArray(queryFilters) && queryFilters.length > 0) {
+                                const filters: DltFilter[] = [];
+                                for (let i = 0; i < queryFilters.length; ++i) {
+                                    const filterAttribs = queryFilters[i];
+                                    const filter = new DltFilter(filterAttribs, false);
+                                    filters.push(filter);
+                                }
+                                // now get the matching message:
+                                if (filters.length > 0) {
+                                    const matches = DltDocument.getMatchingMessages(this.msgs, filters, 1000); // max 1000 messages for now
+                                    retObj.data = util.createRestArray(matches, (obj: object, i: number) => { const msg = obj as DltMsg; return msg.asRestObject(i); });
+                                } else {
+                                    if (!Array.isArray(retObj.error)) { retObj.error = []; }
+                                    retObj.error?.push({ title: `query failed as no filters defined` });
+                                }
+                            } else {
+                                if (!Array.isArray(retObj.error)) { retObj.error = []; }
+                                retObj.error?.push({ title: `query failed as commandParams wasn't an array` });
+                            }
+                        } catch (e) {
+                            if (!Array.isArray(retObj.error)) { retObj.error = []; }
+                            retObj.error?.push({ title: `add failed due to error e=${e}` });
+                        }
                     }
                         break;
                     case 'add': { // todo add support for persistent storage!
@@ -1720,12 +1799,12 @@ export class DltDocument {
                 this._treeEventEmitter.fire(this.filterTreeNode);
                 this.onFilterChange(undefined);
             }
-
-            retObj.data = util.createRestArray(this.allFilters, (obj: object, i: number) => { const filter = obj as DltFilter; return filter.asRestObject(i); });
+            if (!('data' in retObj)) { // we add the filters only if no other data existing yet (e.g. from query)
+                retObj.data = util.createRestArray(this.allFilters, (obj: object, i: number) => { const filter = obj as DltFilter; return filter.asRestObject(i); });
+            }
         } else { // .../filters/...
-
+            retObj.error = [{ title: `${cmd}/${paths[0]}/${paths[1]}/${paths[2]}/${paths[3]} not yet implemented.` }];
         }
-        retObj.error = [{ title: `${cmd}/${paths[0]}/${paths[1]}/${paths[2]}/${paths[3]} not yet implemented.` }];
     }
 
 };

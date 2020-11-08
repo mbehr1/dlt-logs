@@ -6,7 +6,7 @@ import * as vscode from 'vscode';
 import * as assert from 'assert';
 import { DltLifecycleInfo } from './dltLifecycle';
 import { DltFilter } from './dltFilter';
-import { printableAscii, toHexString } from './util';
+import { printableAscii, toHexString, RestObject } from './util';
 
 const DLT_STORAGE_HEADER_PATTERN: number = 0x01544c44; // DLT\01 0x444c5401
 const DLT_STORAGE_HEADER_SIZE: number = 4 * 4;
@@ -177,6 +177,20 @@ export class DltMsg {
         this._payloadData = data.slice(payloadOffset);
         assert.equal(this._payloadData.byteLength, stdHdr["len"] - (payloadOffset - DLT_STORAGE_HEADER_SIZE));
         // we parse the payload only on demand
+    }
+
+    asRestObject(idHint: number): RestObject {
+        return {
+            id: this.index,
+            type: 'msg',
+            attributes: { // todo add lifecycle id (once we do have lifecycle ids)
+                timeStamp: this.timeStamp,
+                ecu: this.ecu,
+                apid: this.apid,
+                ctid: this.ctid,
+                payloadString: this.payloadString
+            }
+        };
     }
 
     get payloadArgs(): Array<any> {

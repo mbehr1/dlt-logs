@@ -803,7 +803,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
         }
 
         const retStr = JSON.stringify(retObj);
-        console.log(`restQuery() returning : '${retStr}'`);
+        console.log(`restQuery() returning : len=${retStr.length} errors=${retObj?.error?.length}`);
         return retStr;
     }
 
@@ -860,7 +860,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
             });
             retObj.data = arrRes;
         } else { // .../ecus/
-            retObj.error = [{ title: `${cmd}/${paths[0]}/${paths[1]}/${paths[2]}/${paths[3]} not yet implemented.` }];
+            retObj.error = [{ title: `${cmd}/${paths[0]}/${paths[1]}/${paths[2]}/${paths[3]} for ecus not yet implemented.` }];
         }
     }
 
