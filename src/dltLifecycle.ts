@@ -60,6 +60,18 @@ export class DltLifecycleInfo {
         }
     }
 
+    /**
+     * Return an id that remains the same if reloaded/reopened. 
+     * This will be used e.g. for fishbone attribute/restQuery id.
+     * The function should be fast as it will be queried each time
+     * on comparision with a message during filtering.
+     */
+    get persistentId(): number {
+        // we cannot use a UUID here as the objects are dynamically created
+        // and this info is not persisted. So we use the startTime.
+        return this._lifecycleStart;
+    }
+
     public getTreeNodeLabel(): string {
         return `${this.lifecycleStart.toLocaleString()}-${this.lifecycleEnd.toLocaleTimeString()} #${this.logMessages.length}`;
     }

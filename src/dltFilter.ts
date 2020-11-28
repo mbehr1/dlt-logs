@@ -26,6 +26,7 @@ export class DltFilter {
     logLevelMax: number | undefined;
     payload: string | undefined;
     payloadRegex: RegExp | undefined;
+    lifecycles: number[] | undefined; // array with persistentIds from lifecycles
 
     // marker decorations:
     filterColour: string | undefined;
@@ -84,6 +85,7 @@ export class DltFilter {
         obj.logLevelMax = this.logLevelMax;
         obj.payload = this.payload;
         obj.payloadRegex = this.payloadRegex !== undefined ? this.payloadRegex.source : undefined;
+        obj.lifecycles = this.lifecycles;
         obj.timeSyncId = this.timeSyncId;
         obj.timeSyncPrio = this.timeSyncPrio;
         obj.decorationId = this.decorationId;
@@ -147,6 +149,9 @@ export class DltFilter {
                 this.timeSyncPrio = options.timeSyncPrio;
             }
         }
+        if ('lifecycles' in options) {
+            this.lifecycles = options.lifecycles;
+        }
 
         if (this.type === DltFilterType.MARKER) {
             if ('decorationId' in options) { // has preference wrt filterColour
@@ -185,6 +190,21 @@ export class DltFilter {
         if (this.ctid && msg.ctid !== this.ctid) { return false; }
         if (this.payload && !msg.payloadString.includes(this.payload)) { return false; }
         if (this.payloadRegex !== undefined && !this.payloadRegex.test(msg.payloadString)) { return false; }
+        if (this.lifecycles !== undefined && this.lifecycles.length > 0) {
+            // we treat an empty array as always matching (that's why we skip this check if length<=0)
+            // otherwise the msg lifecycle needs to be within the array:
+            // msgs without lifecycle are not matched
+            const lc = msg.lifecycle;
+            if (!lc) { return false; }
+            const msgLcPeristentId = lc.persistentId;
+            let foundLc: boolean = false;
+            const lcArray = this.lifecycles;
+            const lcLength = lcArray.length;
+            for (let i = 0; i < lcLength; ++i) {
+                if (msgLcPeristentId === lcArray[i]) { foundLc = true; break; }
+            }
+            if (!foundLc) { return false; }
+        }
 
         // if we reach here all defined criteria match
         return true;
@@ -236,6 +256,7 @@ export class DltFilter {
         if (this.ctid) { nameStr += `CTID:${this.ctid} `; }
         if (this.payload) { nameStr += `payload contains '${this.payload}' `; }
         if (this.payloadRegex !== undefined) { nameStr += `payload matches '${this.payloadRegex.source}'`; }
+        if (this.lifecycles !== undefined) { nameStr += ` in ${this.lifecycles.length} LCs`; }
         if (this.timeSyncId !== undefined) { nameStr += ` timeSyncId:${this.timeSyncId} prio:${this.timeSyncPrio}`; }
 
         return `${enabled}${type}${nameStr}`;

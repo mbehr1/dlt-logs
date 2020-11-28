@@ -3,6 +3,10 @@
 All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
+## [0.30.1]
+- restQuery: change lifecycle (added id as persistentId and label)
+- restQuery: add lifecycles attribute to filter
+
 ## [0.30.0]
 - implemented rest query for other extensions and via test command "dlt-logs test rest query" for
 /get/version, /get/docs/<id>/ecus and /get/docs/<id>/filters. 

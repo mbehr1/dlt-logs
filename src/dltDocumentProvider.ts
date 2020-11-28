@@ -841,9 +841,11 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                         name: ecu,
                         lifecycles: [...lcInfo.map((lc, idx) => {
                             return {
-                                type: "lifecycles", id: lc.uniqueId.toString(),
+                                type: "lifecycles", id: lc.persistentId,
                                 attributes: {
                                     index: idx + 1,
+                                    id: lc.persistentId, // todo to ease parsing with jsonPath...
+                                    label: lc.getTreeNodeLabel(),
                                     startTimeUtc: lc.lifecycleStart.toUTCString(),
                                     endTimeUtc: lc.lifecycleEnd.toUTCString(),
                                     sws: lc.swVersions,
