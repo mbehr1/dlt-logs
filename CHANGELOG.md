@@ -4,6 +4,9 @@ All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
 
+## [0.30.3]
+- restQuery: /docs: allow for ecu=name name to be "" and match empty string for all ECUs.
+
 ## [0.30.2]
 - DltFilter add "not" as config option to negate the filter match result. Useful to create "mandatory" filter (negative with "not"). Currently needs to be set within the config itself and not via UI.
 
