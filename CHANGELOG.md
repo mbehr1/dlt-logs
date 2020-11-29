@@ -3,6 +3,10 @@
 All notable changes to the "dlt-logs" extension will be documented in this file.
 
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
+
+## [0.30.2]
+- DltFilter add "not" as config option to negate the filter match result. Useful to create "mandatory" filter (negative with "not"). Currently needs to be set within the config itself and not via UI.
+
 ## [0.30.1]
 - restQuery: change lifecycle (added id as persistentId and label)
 - restQuery: add lifecycles attribute to filter
