@@ -16,6 +16,7 @@ export class DltFilter {
     enabled: boolean = true;
     atLoadTime: boolean = false; // this filter gets used a load/opening the dlt file already (thus can't be deactivated later). Not possible with MARKER.
     beforePositive: boolean = false; // for neg. (todo later for marker?): match this before the pos. filters. mainly used for plugins like FileTransfer
+    negateMatch: boolean = false; // perform a "not"/! on the match result. As pos and neg. Filters are or'd this allows to create e.g. a pos filter that all messages have to match e.g. via NEGATIVE with NOT.
 
     // what to match for:
     mstp: number | undefined;
@@ -77,6 +78,7 @@ export class DltFilter {
         // obj.enabled = this.enabled ? undefined : false; // default to true. don't store to make the config small, readable
         obj.name = this.filterName;
         obj.atLoadTime = this.atLoadTime ? true : undefined; // default to false
+        obj.not = this.negateMatch ? true : undefined; // default to false
         obj.mstp = this.mstp;
         obj.ecu = this.ecu;
         obj.apid = this.apid;
@@ -114,6 +116,9 @@ export class DltFilter {
         }
         if ('atLoadTime' in options) {
             this.atLoadTime = options.atLoadTime;
+        }
+        if ('not' in options) {
+            this.negateMatch = options.not ? true : false;
         }
         if ('mstp' in options) {
             this.mstp = options.mstp;
@@ -179,23 +184,25 @@ export class DltFilter {
 
     matches(msg: DltMsg): boolean {
         if (!this.enabled) {
-            return false;
+            return false; // negateMatch doesn't negate this!
         }
 
-        if (this.mstp !== undefined && msg.mstp !== this.mstp) { return false; }
-        if (this.logLevelMax && msg.mtin > this.logLevelMax) { return false; } // mstp already checked
-        if (this.logLevelMin && msg.mtin < this.logLevelMin) { return false; } // mstp already checked
-        if (this.ecu && msg.ecu !== this.ecu) { return false; }
-        if (this.apid && msg.apid !== this.apid) { return false; }
-        if (this.ctid && msg.ctid !== this.ctid) { return false; }
-        if (this.payload && !msg.payloadString.includes(this.payload)) { return false; }
-        if (this.payloadRegex !== undefined && !this.payloadRegex.test(msg.payloadString)) { return false; }
+        const negated = this.negateMatch;
+
+        if (this.mstp !== undefined && msg.mstp !== this.mstp) { return negated; }
+        if (this.logLevelMax && msg.mtin > this.logLevelMax) { return negated; } // mstp already checked
+        if (this.logLevelMin && msg.mtin < this.logLevelMin) { return negated; } // mstp already checked
+        if (this.ecu && msg.ecu !== this.ecu) { return negated; }
+        if (this.apid && msg.apid !== this.apid) { return negated; }
+        if (this.ctid && msg.ctid !== this.ctid) { return negated; }
+        if (this.payload && !msg.payloadString.includes(this.payload)) { return negated; }
+        if (this.payloadRegex !== undefined && !this.payloadRegex.test(msg.payloadString)) { return negated; }
         if (this.lifecycles !== undefined && this.lifecycles.length > 0) {
             // we treat an empty array as always matching (that's why we skip this check if length<=0)
             // otherwise the msg lifecycle needs to be within the array:
             // msgs without lifecycle are not matched
             const lc = msg.lifecycle;
-            if (!lc) { return false; }
+            if (!lc) { return negated; }
             const msgLcPeristentId = lc.persistentId;
             let foundLc: boolean = false;
             const lcArray = this.lifecycles;
@@ -203,11 +210,11 @@ export class DltFilter {
             for (let i = 0; i < lcLength; ++i) {
                 if (msgLcPeristentId === lcArray[i]) { foundLc = true; break; }
             }
-            if (!foundLc) { return false; }
+            if (!foundLc) { return negated; }
         }
 
         // if we reach here all defined criteria match
-        return true;
+        return !negated;
     }
 
     get iconPath(): ThemeIcon | undefined {
@@ -239,6 +246,9 @@ export class DltFilter {
         };
         if (this.atLoadTime) {
             type = "(load time) " + type;
+        }
+        if (this.negateMatch) {
+            type += '!';
         }
         let nameStr: string = "";
         if (this.mstp !== undefined) {
