@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0">
+    <channel>
+        <title>DLT-Logs Visual Studio Code Extension Blog</title>
+        <link>https://mbehr1.github.io/blog</link>
+        <description>DLT-Logs Visual Studio Code Extension Blog</description>
+        <lastBuildDate>Sat, 10 Oct 2020 00:00:00 GMT</lastBuildDate>
+        <docs>https://validator.w3.org/feed/docs/rss2.html</docs>
+        <generator>https://github.com/jpmonette/feed</generator>
+        <item>
+            <title><![CDATA[Welcome]]></title>
+            <link>https://mbehr1.github.io/dlt-logs/blog/welcome</link>
+            <guid>welcome</guid>
+            <pubDate>Sat, 10 Oct 2020 00:00:00 GMT</pubDate>
+            <description><![CDATA[I'll use this blog to announce new features or doc updates to my Visual Studio Code extension "dlt-logs" or to announce other related extensions.]]></description>
+        </item>
+    </channel>
+</rss>
