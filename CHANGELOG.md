@@ -1,5 +1,7 @@
 # Change log for 'DLT-Logs':
 
+### [1.0.1](https://github.com/mbehr1/dlt-logs/compare/v1.0.0...v1.0.1) (2020-12-28)
+
 ### [1.0.0]
 * promoted to v1.0.0 as part of introducing semantic-release versioning. No functional changes.
 
