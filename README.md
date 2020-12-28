@@ -8,6 +8,8 @@ This Visual Studio Code(tm) extension adds support to open DLT (diagnostic log a
 
 **Note:** It works well with [![Version](https://vsmarketplacebadge.apphb.com/version/mbehr1.smart-log.svg)](https://marketplace.visualstudio.com/items?itemName=mbehr1.smart-log) **smart-log** extension and supports the "time-sync" feature. (todo picture/animation...)
 
+**Note:** It works well with [![Version](https://vsmarketplacebadge.apphb.com/version/mbehr1.fishbone.svg)](https://marketplace.visualstudio.com/items?itemName=mbehr1.fishbone) **fishbone** extension and provides a rest query and filter API that can be used for badges and "apply filter". (todo picture/animation...)
+
 A more detailed documentation is available here: [Docs](https://mbehr1.github.io/dlt-logs/). 
 
 ## Features
@@ -22,8 +24,8 @@ A more detailed documentation is available here: [Docs](https://mbehr1.github.io
   - Lifecycles can be graphically decorated by defining *dlt-log.decorations* with id 'lifecycleEven' (for the lifecycles #0, #2,...) / 'lifecycleOdd' (for the lifecycles #1,#3,...). Default decorations contains light transparent green(dark)/gray(light) background for 'lifecycleOdd'. Only the ECU with the highest amount of messages will be decorated.
 - **Export/filter DLT file...**
   - Merge multiple DLT files into on file.
-  - Sort msgs within lifecycles by timestamp (**reorder msgs by calculated time?**)
-  - Rewrite received time with the calculated time (**rewrite msg times by calculated times?**). For more details see here (todo wiki page with background on lifecycle detection model explaining the different times (recorded time vs. timestamp vs. real time and buffering delay)).
+  - Sort msgs within lifecycles by timestamp (**reorder msgs by calculated time? option**)
+  - Rewrite received time with the calculated time (**rewrite msg times by calculated times? option**). For more details see [Docs/Export and filter DLT files](https://mbehr1.github.io/dlt-logs/docs/exportAndFilter).
   - Allows to export selected lifecycles only.
   - Allows to export by time range.
 
@@ -73,7 +75,7 @@ The extension uses telemetry with two events (`activate` (no parameters) and `op
 
 - Add button to edit configs.
 - Allow filter add/edit for report, timesync, MSTP and log levels (currently only possible via JSON configuration)
-- Check whether revaling the line on broadcasted time is possible if document is hidden/not visible.
+- Check whether revealing the line on broadcasted time is possible if document is hidden/not visible.
 - Support easier splitting of huge files into files per lifecycle. Currently only possible to restrict to lifecycles via Export/filter...
 - Allow merging/opening of multiple DLT files. Currently only possible via Export/filter ...
 - Check default colors on multiple color themes. Check color contrast to background.
@@ -161,6 +163,8 @@ Any and all test, code or feedback contributions are welcome.
 Open an [issue](https://github.com/mbehr1/dlt-logs/issues) or create a pull request to make this extension work better for all.
 
 [![Donations](https://www.paypalobjects.com/en_US/DK/i/btn/btn_donateCC_LG.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=2ZNMJP5P43QQN&source=url) Donations are welcome! (Contact me for commercial use or different [license](https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode)).
+
+[GitHub ♥︎ Sponsors are welcome!](https://github.com/sponsors/mbehr1)
 
 ## Release Notes
 
