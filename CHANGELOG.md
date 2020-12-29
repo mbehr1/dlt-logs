@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs':
 
+## [1.1.0](https://github.com/mbehr1/dlt-logs/compare/v1.0.1...v1.1.0) (2020-12-29)
+
+
+### Features
+
+* **rest-query:** add report as command to filters ([941f1b5](https://github.com/mbehr1/dlt-logs/commit/941f1b578a55a79745b88517e753c4521adff582))
+
 ### [1.0.1](https://github.com/mbehr1/dlt-logs/compare/v1.0.0...v1.0.1) (2020-12-28)
 
 ### [1.0.0]
