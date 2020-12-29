@@ -1605,6 +1605,7 @@ export class DltDocument {
 
     /**
      * 
+     * @param context ExtensionContext (needed for report generation -> access to settings,...)
      * @param cmd get|patch|delete
      * @param paths docs/<id>/filters[...]
      * @param options e.g. here we do allow the following commands:
@@ -1618,7 +1619,7 @@ export class DltDocument {
      * @param doc DltDocument identified by <id>
      * @param retObj output: key errors or data has to be filled
      */
-    restQueryDocsFilters(cmd: string, paths: string[], options: string, retObj: { error?: object[], data?: object[] | object }) {
+    restQueryDocsFilters(context: vscode.ExtensionContext, cmd: string, paths: string[], options: string, retObj: { error?: object[], data?: object[] | object }) {
         if (paths.length === 3) { // .../filters
 
             let didModifyAnyFilter = false;
@@ -1669,6 +1670,38 @@ export class DltDocument {
                         });
                     }
                         break;
+                    case 'report': {
+                        try {
+                            const reportFilters = JSON.parse(commandParams);
+                            console.log(`report filters=`, reportFilters);
+                            if (Array.isArray(reportFilters) && reportFilters.length > 0) {
+                                const filters: DltFilter[] = [];
+                                for (let i = 0; i < reportFilters.length; ++i) {
+                                    const filterAttribs = reportFilters[i];
+                                    const filter = new DltFilter(filterAttribs, false);
+                                    filters.push(filter);
+                                }
+                                // now open the report:
+                                if (filters.length > 0) {
+                                    this.onOpenReport(context, filters[0], true);
+                                    // add the others:
+                                    for (let i = 1; i < filters.length; ++i) {
+                                        this.onOpenReport(context, filters[i], false);
+                                    }
+                                } else {
+                                    if (!Array.isArray(retObj.error)) { retObj.error = []; }
+                                    retObj.error?.push({ title: `report failed as no filters defined` });
+                                }
+                            } else {
+                                if (!Array.isArray(retObj.error)) { retObj.error = []; }
+                                retObj.error?.push({ title: `report failed as commandParams wasn't an array` });
+                            }
+                        } catch (e) {
+                            if (!Array.isArray(retObj.error)) { retObj.error = []; }
+                            retObj.error?.push({ title: `report failed due to error e=${e}` });
+                        }
+                    }
+                        break;
                     case 'query': {
                         try {
                             const queryFilters = JSON.parse(commandParams);
@@ -1694,7 +1727,7 @@ export class DltDocument {
                             }
                         } catch (e) {
                             if (!Array.isArray(retObj.error)) { retObj.error = []; }
-                            retObj.error?.push({ title: `add failed due to error e=${e}` });
+                            retObj.error?.push({ title: `query failed due to error e=${e}` });
                         }
                     }
                         break;

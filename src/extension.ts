@@ -76,7 +76,7 @@ export function activate(context: vscode.ExtensionContext) {
 		}).then(
 			async (input: string | undefined) => {
 				if (input?.length) {
-					const res = dltProvider.restQuery(input);
+					const res = dltProvider.restQuery(context, input);
 					console.log(`restQuery returned: '${res}'`);
 					vscode.window.showInformationMessage(res, 'ok');
 				}
@@ -93,7 +93,7 @@ export function activate(context: vscode.ExtensionContext) {
 	let smartLogApi = {
 		onDidChangeSelectedTime(listener: any) { return dltProvider.onDidChangeSelectedTime(listener); },
 		// restQuery should follow the principles from here: https://jsonapi.org/format/
-		restQuery(query: string) { console.log(`dlt-logs.restQuery(${query}) called.`); return dltProvider.restQuery(query); }
+		restQuery(query: string) { console.log(`dlt-logs.restQuery(${query}) called.`); return dltProvider.restQuery(context, query); }
 	};
 
 	return smartLogApi;

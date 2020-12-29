@@ -675,7 +675,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
      * output: JSON obj as string. e.g. '{"errors":[]}' or '{"data":[...]}'
      */
     /// support info query in JSON API format (e.g. used by fishbone ext.)
-    restQuery(query: string): string {
+    restQuery(context: vscode.ExtensionContext, query: string): string {
         console.log(`restQuery(${query}))...`);
         const retObj: { error?: [Object], data?: [Object] | Object } = {};
 
@@ -772,7 +772,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                                                             this.restQueryDocsEcus(cmd, paths, options, doc, retObj);
                                                             break;
                                                         case 'filters': // get/docs/<id>/filters
-                                                            doc.restQueryDocsFilters(cmd, paths, options, retObj);
+                                                            doc.restQueryDocsFilters(context, cmd, paths, options, retObj);
                                                             break;
                                                         default:
                                                             retObj.error = [{ title: `${cmd}/${paths[0]}/<docid>/${paths[2]} not supported:'${paths[2]}. Valid: 'ecus' or 'filters'.` }];
