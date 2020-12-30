@@ -1,5 +1,13 @@
 # Change log for 'DLT-Logs':
 
+### [1.1.3](https://github.com/mbehr1/dlt-logs/compare/v1.1.2...v1.1.3) (2020-12-30)
+
+
+### Bug Fixes
+
+* **treeview:** filters shall use unique id ([41632f2](https://github.com/mbehr1/dlt-logs/commit/41632f22038d58802ade176a888d0eec707d2f42))
+* **treeview:** hide non visible documents ([365ecfb](https://github.com/mbehr1/dlt-logs/commit/365ecfb5c2cb3c3d8ee59f63cd892bb777f3d55e))
+
 ### [1.1.2](https://github.com/mbehr1/dlt-logs/compare/v1.1.1...v1.1.2) (2020-12-30)
 
 
