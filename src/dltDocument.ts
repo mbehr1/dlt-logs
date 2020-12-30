@@ -985,6 +985,7 @@ export class DltDocument {
     }
 
     public provideHover(position: vscode.Position): vscode.ProviderResult<vscode.Hover> {
+        if (position.character > 21) { return; } // we show hovers only at the begin of the line.
         const msg = this.msgByLine(position.line);
         if (!msg) {
             return;
