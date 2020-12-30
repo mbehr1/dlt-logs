@@ -992,32 +992,32 @@ export class DltDocument {
         }
         const posTime = this.provideTimeByMsg(msg);
         if (posTime) {
-            let mdString = new vscode.MarkdownString(`${posTime.toLocaleTimeString()}.${String(posTime.valueOf() % 1000).padStart(3, "0")} index#=${msg.index} timestamp=${msg.timeStamp} reception time=${msg.timeAsDate.toLocaleTimeString()} mtin=${msg.mtin}`, true);
+            let mdString = new vscode.MarkdownString(util.escapeMarkdown(`${posTime.toLocaleTimeString()}.${String(posTime.valueOf() % 1000).padStart(3, "0")} index#=${msg.index} timestamp=${msg.timeStamp} reception time=${msg.timeAsDate.toLocaleTimeString()} mtin=${msg.mtin}`), true);
             mdString.appendMarkdown(`\n\n---\n\n`);
             let apidDesc = '';
             let ctidDesc = '';
             if (msg.lifecycle !== undefined) {
                 const apidInfos = msg.lifecycle.apidInfos.get(msg.apid); // todo might get this from all lifecycles...
                 if (apidInfos !== undefined) {
-                    apidDesc = `: ${apidInfos.desc.replace(/\|/g, '\\|')}`;
+                    apidDesc = `: ${util.escapeMarkdown(apidInfos.desc)}`;
                     const ctidInfo = apidInfos.ctids.get(msg.ctid);
-                    if (ctidInfo !== undefined) { ctidDesc = `: ${ctidInfo}`; }
+                    if (ctidInfo !== undefined) { ctidDesc = `: ${util.escapeMarkdown(ctidInfo)}`; }
                 }
             }
-            mdString.appendMarkdown(`| calculated time | ${posTime.toLocaleTimeString()}.${String(posTime.valueOf() % 1000).padStart(3, "0")}|\n |: ---|: ---|
-            | lifecycle | ${ msg.lifecycle?.getTreeNodeLabel()}|
-            | ecu session id | ${msg.ecu} ${msg.sessionId} |
-            | timestamp | ${ msg.timeStamp / 10000} s |
-            | reception time | ${ msg.timeAsDate.toLocaleTimeString()}.${String(Number(msg.timeAsNumber % 1000).toFixed(0)).padStart(3, '0')} |
-            | apid | ${msg.apid}${apidDesc} |
-            | ctid | ${msg.ctid}${ctidDesc} |
-            | index# | ${ msg.index}|\n`);
+            mdString.appendMarkdown(`| calculated time | ${util.escapeMarkdown(posTime.toLocaleTimeString())}.${String(posTime.valueOf() % 1000).padStart(3, "0")}|\n |: ---|: ---|\n` +
+                `| lifecycle | ${util.escapeMarkdown(msg.lifecycle?.getTreeNodeLabel())}|\n` +
+                `| ecu session id | ${util.escapeMarkdown(msg.ecu)} ${msg.sessionId} |\n` +
+                `| timestamp | ${msg.timeStamp / 10000} s |\n` +
+                `| reception time | ${util.escapeMarkdown(msg.timeAsDate.toLocaleTimeString())}.${String(Number(msg.timeAsNumber % 1000).toFixed(0)).padStart(3, '0')} |\n` +
+                `| apid | ${util.escapeMarkdown(msg.apid)}${apidDesc} |\n` +
+                `| ctid | ${msg.ctid}${ctidDesc} |\n`);
             mdString.appendMarkdown(`\n\n-- -\n\n`);
             const args = [{ uri: this.uri }, { mstp: msg.mstp, ecu: msg.ecu, apid: msg.apid, ctid: msg.ctid, payload: msg.payloadString }];
             const addCommandUri = vscode.Uri.parse(`command:dlt-logs.addFilter?${encodeURIComponent(JSON.stringify(args))}`);
 
             mdString.appendMarkdown(`[$(filter) add filter...](${addCommandUri})`);
             mdString.isTrusted = true;
+            //console.log(`Hover markdown='${mdString.value}'`);
             return new vscode.Hover(mdString);
         } else {
             return new vscode.Hover({ language: "dlt-log", value: `calculated time: <none> index#=${msg.index} timestamp=${msg.timeStamp} reception time=${msg.timeAsDate.toLocaleTimeString()}` });

@@ -142,3 +142,37 @@ export function createRestArray(objects: object[], objConvFunc: ((o: object, i: 
         return restObj;
     });
 }
+
+/**
+ * escape a text to be use inside markdown.
+ * E.g. the chars \,`, *, _, { }, ... need to be escape
+ * for markdown syntax.
+ * @param text raw text that should be escaped
+ * @returns escaped text
+ */
+export function escapeMarkdown(text: string | undefined): string {
+    if (!text) { return ''; }
+    let toRet = text.replace(/\\/g, '\\\\');
+    toRet = toRet.replace(/\#/g, '\\#');
+    toRet = toRet.replace(/\-/g, '\\-');
+    toRet = toRet.replace(/\+/g, '\\+');
+    toRet = toRet.replace(/\!/g, '\\!');
+    toRet = toRet.replace(/\./g, '\\.');
+    toRet = toRet.replace(/\*/g, '\\*');
+    toRet = toRet.replace(/\(/g, '\\(');
+    toRet = toRet.replace(/\)/g, '\\)');
+    toRet = toRet.replace(/\>/g, '\\>');
+    toRet = toRet.replace(/\</g, '\\<');
+    toRet = toRet.replace(/\[/g, '\\[');
+    toRet = toRet.replace(/\]/g, '\\]');
+    toRet = toRet.replace(/\{/g, '\\{');
+    toRet = toRet.replace(/\}/g, '\\}');
+    toRet = toRet.replace(/\_/g, '\\_');
+    toRet = toRet.replace(/\`/g, '\\`');
+
+    // pipe should be escaped using &#124;
+    toRet = toRet.replace(/\|/g, '&#124;');
+    //console.log(`escapedMarkdown('${text}')='${toRet}'`);
+
+    return toRet;
+}
