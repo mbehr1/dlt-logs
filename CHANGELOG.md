@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs':
 
+### [1.1.1](https://github.com/mbehr1/dlt-logs/compare/v1.1.0...v1.1.1) (2020-12-30)
+
+
+### Bug Fixes
+
+* **hover:** show hover info only at the begin of each line ([a19b0a5](https://github.com/mbehr1/dlt-logs/commit/a19b0a5a5e9ffb5aae715978e3bf2f04b4eebcb5))
+
 ## [1.1.0](https://github.com/mbehr1/dlt-logs/compare/v1.0.1...v1.1.0) (2020-12-29)
 
 
