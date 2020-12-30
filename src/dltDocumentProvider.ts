@@ -204,7 +204,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
             const doc = this._documents.get(uriStr);
             if (doc) {
                 const newlyOpened: boolean = (doc.textDocument) ? false : true;
-                console.log(` found document with uri=${uriStr} newlyOpened=${newlyOpened}`);
+                console.log(` dlt.logs.onDidOpenTextDocument: found document with uri=${uriStr} newlyOpened=${newlyOpened}`);
                 if (newlyOpened) {
                     doc.textDocument = event;
                     if (!this._dltLifecycleTreeView) {
@@ -255,7 +255,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
             // is it one of our documents?
             const doc = this._documents.get(uriStr);
             if (doc) {
-                console.log(` found document with uri=${uriStr}`);
+                console.log(` dlt-logs.onDidCloseTextDocument: found document with uri=${uriStr}`);
                 if (doc.textDocument) {
                     console.log(`  deleting document with uri=${doc.textDocument.uri.toString()}`);
                     doc.textDocument = undefined;
@@ -263,7 +263,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                     for (let i = 0; i < this._treeRootNodes.length; ++i) {
                         if (this._treeRootNodes[i] === childNode) {
                             this._treeRootNodes.splice(i, 1);
-                            console.log(`  deleting rootNode with #${i}`);
+                            //console.log(`  deleting rootNode with #${i}`);
                             break;
                         }
                     }
@@ -324,10 +324,66 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
             }
         }));
 
-        /* this._subscriptions.push(vscode.window.onDidChangeVisibleTextEditors((editors: vscode.TextEditor[]) => {
-            // console.log(`DltDocumentProvider.onDidChangeVisibleTextEditors= ${editors.length}`);
+        this._subscriptions.push(vscode.window.onDidChangeVisibleTextEditors((editors: vscode.TextEditor[]) => {
+            //console.log(`DltDocumentProvider.onDidChangeVisibleTextEditors= ${editors.length}`);
+            const visibleDocs: DltDocument[] = [];
+            for (const editor of editors) {
+                //console.log(` DltDocumentProvider.onDidChangeVisibleTextEditors editor.document.uri=${editor.document.uri} editor.viewColumn=${editor.viewColumn} editor.document.isClosed=${editor.document.isClosed}`);
+                let data = this._documents.get(editor.document.uri.toString());
+                if (data) {
+                    //console.log(` DltDocumentProvider.onDidChangeVisibleTextEditors got doc!`);
+                    if (!editor.document.isClosed) { visibleDocs.push(data); }
+                }
+            }
+
+            // show/hide the status bar if no doc is visible
+            if (this._statusBarItem) {
+                if (visibleDocs.length === 0) {
+                    this._statusBarItem.hide();
+                } else {
+                    this._statusBarItem.show();
+                }
+            }
+
+            // now close all but the visibleDocs:
+            const notVisibleDocs: DltDocument[] = [];
+            this._documents.forEach(doc => {
+                if (!visibleDocs.includes(doc)) { notVisibleDocs.push(doc); }
+            });
+            let doFire = false;
+            notVisibleDocs.forEach(doc => {
+                if (doc) {
+                    if (doc.textDocument) {
+                        //console.log(` dlt-logs.onDidChangeVisibleTextEditors: hiding doc uri=${doc.textDocument.uri.toString()}`);
+                        let childNode: TreeViewNode = doc.treeNode;
+                        // this._dltLifecycleTreeView?.reveal(childNode, { select: false, focus: false, expand: false });
+                        // reveal:false to collapse doesn't work. so remove them completely from the tree:
+                        let idx = this._treeRootNodes.indexOf(childNode);
+                        if (idx >= 0) {
+                            this._treeRootNodes.splice(idx, 1);
+                        }
+                        doFire = true;
+                    }
+                }
+            });
+            // and add the visible ones:
+            visibleDocs.forEach(doc => {
+                if (doc && doc.textDocument) {
+                    //console.log(` dlt-logs.onDidChangeVisibleTextEditors: hiding doc uri=${doc.textDocument.uri.toString()}`);
+                    let childNode: TreeViewNode = doc.treeNode;
+                    if (childNode) {
+                        if (!this._treeRootNodes.includes(childNode)) {
+                            this._treeRootNodes.push(childNode);
+                            doFire = true;
+                        }
+                    }
+                }
+            });
+
+            if (doFire) { this._onDidChangeTreeData.fire(null); }
+
             // todo update tree view to only contain the visible ones...
-        })); */
+        }));
 
         // todo doesn't work with skipped msgs... this._subscriptions.push(vscode.languages.registerDocumentSymbolProvider('dlt-log', this, { label: "DLT Lifecycles" }));
 
