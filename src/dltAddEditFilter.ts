@@ -19,7 +19,7 @@ const confSection = 'dlt-logs.filters';
 
 export function deleteFilter(doc: DltDocument, filter: DltFilter) {
     console.log(`dlt-log.deleteFilter(${filter.name}) called...`);
-    return new Promise((resolveDelete) => {
+    return new Promise<boolean>((resolveDelete) => {
         // delete config:
         const curFilter = vscode.workspace.getConfiguration().get(confSection);
         if (curFilter && Array.isArray(curFilter)) {
@@ -41,7 +41,7 @@ export function deleteFilter(doc: DltDocument, filter: DltFilter) {
         } else {
             vscode.window.showErrorMessage(`can't read current config '${confSection}'`);
         }
-        doc.onFilterDelete(filter)?.then(() => resolveDelete());
+        doc.onFilterDelete(filter)?.then(() => resolveDelete(true));
     });
 }
 
@@ -52,7 +52,7 @@ export function addFilter(doc: DltDocument, arg: any) {
 }
 
 export function editFilter(doc: DltDocument, newFilter: DltFilter, optArgs?: { payload?: string, isAdd?: boolean }) {
-    return new Promise((resolveEdit) => {
+    return new Promise<boolean>((resolveEdit) => {
         const isAdd = optArgs !== undefined && optArgs.isAdd !== undefined ? optArgs.isAdd : false;
         console.log(`dlt-log.editFilter(isEdit=${isAdd}) called...${newFilter.name}`);
 
@@ -89,7 +89,7 @@ export function editFilter(doc: DltDocument, newFilter: DltFilter, optArgs?: { p
                     }
                     doc.onFilterEdit(filter);
                 }
-                resolveEdit();
+                resolveEdit(true);
             } else {
                 vscode.window.showErrorMessage(`can't read current config '${confSection}'`);
             }

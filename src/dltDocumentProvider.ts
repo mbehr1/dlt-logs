@@ -54,6 +54,7 @@ export interface TreeViewNode {
 };
 
 export class FilterNode implements TreeViewNode {
+    id: string;
     tooltip: string | undefined;
     //uri: vscode.Uri | null; // index provided as fragment #<index>
     //parent: TreeViewNode | null;
@@ -80,9 +81,10 @@ export class FilterNode implements TreeViewNode {
 
     constructor(public uri: vscode.Uri | null, public parent: TreeViewNode | null, public filter: DltFilter) {
         this.children = [];
+        this.id = createUniqueId();
     }
 
-    get id(): string { return this.filter.id; }
+/* we cannot use the filter id as we have multiple nodes for the same filter in the tree get id(): string { return this.filter.id; } */
 
     get iconPath(): vscode.ThemeIcon | undefined {
         return this.filter.iconPath;
