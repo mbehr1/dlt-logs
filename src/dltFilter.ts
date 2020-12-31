@@ -108,41 +108,36 @@ export class DltFilter {
         const options = this.configOptions;
         if (!options) { return; }
 
-        if ('name' in options) {
-            this.filterName = options.name;
-        }
-        if ('enabled' in options) {
-            this.enabled = options.enabled;
-        }
-        if ('atLoadTime' in options) {
-            this.atLoadTime = options.atLoadTime;
-        }
+        this.filterName = 'name' in options ? options.name : undefined;
+
+        this.enabled = 'enabled' in options ? options.enabled : true;
+
+        this.atLoadTime = 'atLoadTime' in options ? options.atLoadTime : false;
+
         if ('not' in options) {
             this.negateMatch = options.not ? true : false;
-        }
-        if ('mstp' in options) {
-            this.mstp = options.mstp;
-        }
-        if ('ecu' in options) {
-            this.ecu = options.ecu;
-        }
-        if ('apid' in options) {
-            this.apid = options.apid;
-        }
-        if ('ctid' in options) {
-            this.ctid = options.ctid;
-        }
+        } else { this.negateMatch = false; }
+
+        this.mstp = 'mstp' in options ? options.mstp : undefined;
+
+        this.ecu = 'ecu' in options ? options.ecu : undefined;
+
+        this.apid = 'apid' in options ? options.apid : undefined;
+
+        this.ctid = 'ctid' in options ? options.ctid : undefined;
+
         if ('logLevelMin' in options) {
             this.mstp = 0;
             this.logLevelMin = options.logLevelMin;
-        }
+        } else { this.logLevelMin = undefined; }
+
         if ('logLevelMax' in options) {
             this.mstp = 0;
             this.logLevelMax = options.logLevelMax;
-        }
-        if ('payload' in options) {
-            this.payload = options.payload;
-        }
+        } else { this.logLevelMax = undefined; }
+
+        this.payload = 'payload' in options ? options.payload : undefined;
+
         if ('payloadRegex' in options) {
             this.payload = undefined;
             this.payloadRegex = new RegExp(options.payloadRegex);
@@ -153,11 +148,16 @@ export class DltFilter {
                 this.timeSyncId = options.timeSyncId;
                 this.timeSyncPrio = options.timeSyncPrio;
             }
-        }
-        if ('lifecycles' in options) {
-            this.lifecycles = options.lifecycles;
+        } else { // on update those might have been set prev.
+            this.payloadRegex = undefined;
+            this.timeSyncId = undefined;
+            this.timeSyncPrio = undefined;
         }
 
+        this.lifecycles = 'lifecycles' in options ? options.lifecycles : undefined;
+
+        this.decorationId = undefined;
+        this.filterColour = undefined;
         if (this.type === DltFilterType.MARKER) {
             if ('decorationId' in options) { // has preference wrt filterColour
                 this.decorationId = options.decorationId;
@@ -168,14 +168,15 @@ export class DltFilter {
             }
         }
 
+        this.reportOptions = undefined;
         if (this.isReport) {
             if ('reportOptions' in options) {
                 this.reportOptions = options.reportOptions;
             }
         }
 
+        this.configs = [];
         if ('configs' in options && Array.isArray(options.configs)) {
-            this.configs = [];
             this.configs.push(...options.configs);
         }
 
