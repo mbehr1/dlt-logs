@@ -1,5 +1,19 @@
 # Change log for 'DLT-Logs':
 
+## [1.2.0](https://github.com/mbehr1/dlt-logs/compare/v1.1.3...v1.2.0) (2020-12-31)
+
+
+### Features
+
+* **configuration:** apply configuration changes instantly ([a792b87](https://github.com/mbehr1/dlt-logs/commit/a792b8734c41793c7ea0dd52c3fe4eb489d9c603))
+
+
+### Bug Fixes
+
+* **build:** tsc access .id from any not Object ([8529ad2](https://github.com/mbehr1/dlt-logs/commit/8529ad237cef764dbdeccd5854deb8cb432cc1ce))
+* **dltfilter:** reInitFromConfiguration apply defaults ([01d6c4e](https://github.com/mbehr1/dlt-logs/commit/01d6c4e96c39ae81d6ee084c5b34823051912c06))
+* **filter:** dont wait for onFilterDelete ([757e0be](https://github.com/mbehr1/dlt-logs/commit/757e0be9618c84194f065cb4b1bc89c5da6a1a1d))
+
 ### [1.1.3](https://github.com/mbehr1/dlt-logs/compare/v1.1.2...v1.1.3) (2020-12-30)
 
 
