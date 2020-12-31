@@ -41,7 +41,8 @@ export function deleteFilter(doc: DltDocument, filter: DltFilter) {
         } else {
             vscode.window.showErrorMessage(`can't read current config '${confSection}'`);
         }
-        doc.onFilterDelete(filter)?.then(() => resolveDelete(true));
+        const res = doc.onFilterDelete(filter);
+        resolveDelete(res);
     });
 }
 
