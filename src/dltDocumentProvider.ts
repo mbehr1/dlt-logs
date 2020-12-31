@@ -280,7 +280,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
         // check for changes of the documents
         this._subscriptions.push(vscode.workspace.onDidChangeTextDocument(async (event) => {
             let uriStr = event.document.uri.toString();
-            console.log(`DltDocumentProvider onDidChangeTextDocument uri=${uriStr}`);
+            // console.log(`DltDocumentProvider onDidChangeTextDocument uri=${uriStr}`);
             let data = this._documents.get(uriStr);
             if (data) {
                 this._onDidChangeTreeData.fire(data.treeNode);
@@ -507,6 +507,15 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
         // hover provider:
         this._subscriptions.push(vscode.languages.registerHoverProvider({ scheme: "dlt-log" }, this));
 
+        // config changes
+        context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(e => {
+            if (e.affectsConfiguration('dlt-logs')) {
+                //console.warn(`dlt-logs.onDidChangeConfiguration(e.affects('dlt-logs')) called...`);
+                // pass it to all documents:
+                this._documents.forEach(doc => doc.onDidChangeConfiguration(e));
+            }
+        }));
+
         context.subscriptions.push(vscode.commands.registerTextEditorCommand('dlt-logs.configureColumns', async (textEditor: vscode.TextEditor) => {
             // console.log(`dlt-logs.configureColumns(textEditor.uri = ${textEditor.document.uri.toString()}) called...`);
             const doc = this._documents.get(textEditor.document.uri.toString());
@@ -580,13 +589,13 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                             case 'disable':
                                 filterNode.filter.enabled = false; break;
                         }
-                        doc.onFilterChange(filterNode.filter);
+                        doc.triggerApplyFilter();
                         this._onDidChangeTreeData.fire(doc.treeNode); // as filters in config might be impacted as well! 
                     } else
                         if (configNode !== undefined) {
                             // enable/disable all child filters:
                             configNode.updateAllFilter(command);
-                            doc.onFilterChange(undefined);
+                            doc.triggerApplyFilter();
                             this._onDidChangeTreeData.fire(doc.treeNode); // as filters in config might be impacted as well! 
                         }
                 }

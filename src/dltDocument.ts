@@ -92,7 +92,7 @@ export class DltDocument {
 
     private _treeEventEmitter: vscode.EventEmitter<TreeViewNode | null>;
 
-    private _didAutoEnableConfigs: boolean; // we do enable once we do know the lifecycles
+    private _didAutoEnableConfigs: boolean = false; // we do enable once we do know the lifecycles
 
     textEditors: Array<vscode.TextEditor> = []; // don't use in here!
 
@@ -159,64 +159,21 @@ export class DltDocument {
         parentTreeNode.push(this.treeNode);
 
         // load filters: 
+        this.onDidChangeConfigFilters();
 
-        // todo add onDidChangeConfiguration handling to reflect filter changes at runtime
-        {
+
+        { // load decorations: 
             const decorationsObjs = vscode.workspace.getConfiguration().get<Array<object>>("dlt-logs.decorations");
             this.parseDecorationsConfigs(decorationsObjs);
         }
-        {
-            const filterSection = "dlt-logs.filters";
-            let filterObjs = vscode.workspace.getConfiguration().get<Array<object>>(filterSection);
 
-            // we add here some migration logic for <0.30 to >=0.30 as we introduced "id" (uuid) for identifying
-            // filter configs:
-            if (filterObjs) {
-                let migrated = false;
-                try {
-                    for (let i = 0; i < filterObjs.length; ++i) {
-                        let filterConf: any = filterObjs[i];
-                        if (!('id' in filterConf)) {
-                            const newId = uuidv4();
-                            console.log(` got filter: type=${filterConf?.type} without id. Assigning new one: ${newId}`);
-                            filterConf.id = newId;
-                            migrated = true;
-                        }
-                    }
-                    if (migrated) {
-                        // update config:
-                        util.updateConfiguration(filterSection, filterObjs);
-                        // sadly we can't wait here...
-                        vscode.window.showInformationMessage('Migration to new version: added ids to your existing filters.');
-                    }
-                } catch (error) {
-                    console.log(`dlt-logs migrate 0.30 add id/uuid error:${error}`);
-                    vscode.window.showErrorMessage('Migration to new version: failed to add ids to your existing filters. Please add manually (id fields with uuids.). Modification of filters via UI not possible until this is resolve.');
-                }
-            }
-            this.parseFilterConfigs(filterObjs);
-        }
-        {
-            // plugins:
+        { // load plugins:
             const pluginObjs = vscode.workspace.getConfiguration().get<Array<object>>("dlt-logs.plugins");
             this.parsePluginConfigs(pluginObjs);
         }
-        { // configs (we might decide to load those before the filters but filters can add configs as well)
-            // here we mainly parse the "autoEnableIf":
-            const configObjs = vscode.workspace.getConfiguration().get<Array<object>>('dlt-logs.configs');
-            this.parseConfigs(configObjs);
-            // now disable by default all filters in all configs and recheck once we do know the lifecycles:
-            // so we do keep the filters that are not part of a config with there current values.
-            {
-                // iterate through all config nodes:
-                this.configTreeNode.children.forEach(node => {
-                    if (node instanceof ConfigNode) {
-                        node.updateAllFilter('disable');
-                    }
-                });
-            }
-            this._didAutoEnableConfigs = false;
-        }
+
+        // load configs
+        this.onDidChangeConfigConfigs();
 
         const maxNrMsgsConf = vscode.workspace.getConfiguration().get<number>('dlt-logs.maxNumberLogs');
         this._maxNrMsgs = maxNrMsgsConf ? maxNrMsgsConf : 1000000; // 1mio default
@@ -229,6 +186,131 @@ export class DltDocument {
         setTimeout(() => {
             this.checkFileChanges();
         }, reReadTimeout);
+    }
+
+    /**
+     * read or reread config changes for configs
+     * Will be called from constructor and on each config change for dlt-logs.configs
+     */
+    onDidChangeConfigConfigs() {
+        // configs (we might decide to load those before the filters but filters can add configs as well)
+        // here we mainly parse the "autoEnableIf":
+        const configObjs = vscode.workspace.getConfiguration().get<Array<object>>('dlt-logs.configs');
+        this.parseConfigs(configObjs);
+        // now disable by default all filters in all configs and recheck once we do know the lifecycles:
+        // so we do keep the filters that are not part of a config with there current values.
+        {
+            // iterate through all config nodes:
+            this.configTreeNode.children.forEach(node => {
+                if (node instanceof ConfigNode) {
+                    node.updateAllFilter('disable');
+                }
+            });
+        }
+        this._didAutoEnableConfigs = false;
+    }
+
+    /**
+     * read or reread config changes for filters
+     * Will be called from constructor and on each config change for dlt-logs.filters
+     */
+    onDidChangeConfigFilters() {
+        const filterSection = "dlt-logs.filters";
+        let filterObjs = vscode.workspace.getConfiguration().get<Array<object>>(filterSection);
+
+        // we add here some migration logic for <0.30 to >=0.30 as we introduced "id" (uuid) for identifying
+        // filter configs:
+        if (filterObjs) {
+            let migrated = false;
+            try {
+                for (let i = 0; i < filterObjs.length; ++i) {
+                    let filterConf: any = filterObjs[i];
+                    if (!('id' in filterConf)) {
+                        const newId = uuidv4();
+                        console.log(` got filter: type=${filterConf?.type} without id. Assigning new one: ${newId}`);
+                        filterConf.id = newId;
+                        migrated = true;
+                    }
+                }
+                if (migrated) {
+                    // update config:
+                    util.updateConfiguration(filterSection, filterObjs);
+                    // sadly we can't wait here...
+                    vscode.window.showInformationMessage('Migration to new version: added ids to your existing filters.');
+                }
+            } catch (error) {
+                console.log(`dlt-logs migrate 0.30 add id/uuid error:${error}`);
+                vscode.window.showErrorMessage('Migration to new version: failed to add ids to your existing filters. Please add manually (id fields with uuids.). Modification of filters via UI not possible until this is resolve.');
+            }
+        }
+        this.parseFilterConfigs(filterObjs);
+    }
+
+    private debouncedApplyFilterTimeout: NodeJS.Timeout | undefined;
+    /**
+     * Trigger applyFilter and show progress
+     * This is debounced/delayed a bit (500ms) to avoid too frequent 
+     * apply filter operation that is longlasting.
+     */
+    triggerApplyFilter() {
+        console.log(`DltDocument.triggerApplyFilter() called for '${this.uri.toString()}'`);
+        if (this.debouncedApplyFilterTimeout) { clearTimeout(this.debouncedApplyFilterTimeout); }
+        this.debouncedApplyFilterTimeout = setTimeout(() => {
+            console.log(`DltDocument.triggerApplyFilter after debounce for '${this.uri.toString()}'`);
+            if (this._applyFilterRunning) {
+                console.warn(`DltDocument.triggerApplyFilter currently running, Retriggering.`);
+                this.triggerApplyFilter();
+            } else {
+                return vscode.window.withProgress({ cancellable: false, location: vscode.ProgressLocation.Notification, title: "applying filter..." },
+                    (progress) => this.applyFilter(progress));
+            }
+        }, 500);
+    }
+
+    onDidChangeConfiguration(event: vscode.ConfigurationChangeEvent) {
+
+        let doTriggerApplyFilter = false;
+        if (event.affectsConfiguration('dlt-logs.columns')) {
+            console.warn(`DltDocument.onDidChangeConfiguration .columns nyi!`); // todo not prio1
+        }
+
+        if (event.affectsConfiguration('dlt-logs.decorations')) {
+            console.log(`DltDocument.onDidChangeConfiguration .decorations`);
+            const decorationsObjs = vscode.workspace.getConfiguration().get<Array<object>>("dlt-logs.decorations");
+            this.parseDecorationsConfigs(decorationsObjs);
+            doTriggerApplyFilter = true;
+        }
+
+        if (event.affectsConfiguration('dlt-logs.filters')) {
+            console.log(`DltDocument.onDidChangeConfiguration .filters`);
+            this.onDidChangeConfigFilters();
+            // check configs for necessary updates:
+            this.allFilters.forEach(filter => this.updateConfigs(filter));
+            this._treeEventEmitter.fire(this.configTreeNode);
+            this._treeEventEmitter.fire(this.filterTreeNode);
+            doTriggerApplyFilter = true;
+        }
+
+        if (event.affectsConfiguration('dlt-logs.configs')) {
+            console.log(`DltDocument.onDidChangeConfiguration .configs`);
+            this.onDidChangeConfigConfigs();
+            this._treeEventEmitter.fire(this.configTreeNode);
+            this.autoEnableConfigs();
+            doTriggerApplyFilter = true;
+        }
+
+        if (event.affectsConfiguration('dlt-logs.maxNumberLogs')) {
+            console.warn(`DltDocument.onDidChangeConfiguration .maxNumberLogs`);
+            const maxNrMsgsConf = vscode.workspace.getConfiguration().get<number>('dlt-logs.maxNumberLogs');
+            this._maxNrMsgs = maxNrMsgsConf ? maxNrMsgsConf : 1000000; // 1mio default
+            doTriggerApplyFilter = true;
+        }
+
+        if (event.affectsConfiguration('dlt-logs.plugins')) {
+            console.warn(`DltDocument.onDidChangeConfiguration .plugins nyi!`); // todo
+        }
+
+        if (doTriggerApplyFilter) { this.triggerApplyFilter(); }
     }
 
     stat(): vscode.FileStat {
@@ -344,7 +426,7 @@ export class DltDocument {
         };
 
         const confCopy = filter.configs;
-        console.log(`updateConfigs for filter '${filter.name}' with configs='${confCopy.join(',')}'`);
+        // console.log(`updateConfigs for filter '${filter.name}' with configs='${confCopy.join(',')}'`);
 
         const shouldBeInConfigNodes: ConfigNode[] = [];
 
@@ -364,7 +446,7 @@ export class DltDocument {
                         let filterNode = new FilterNode(configNode.uri, configNode.children[0], filter);
                         configNode.children[0].children.push(filterNode);
                     } else {
-                        console.log(`filter already in configNode ${configNode.label}`);
+                        // console.log(`filter already in configNode ${configNode.label}`);
                     }
                 }
             }
@@ -407,6 +489,14 @@ export class DltDocument {
 
     }
 
+/**
+ * Parse the config array and add/update the configNodes.
+ * Will be called once during constructor but on config changes
+ * as well!
+ * We can't (easily) detect any deleted configs. So those configNodes will be kept
+ * untouched!
+ * @param configObjs configuration array for dlt-logs.configs
+ */
     parseConfigs(configObjs: Object[] | undefined) {
         console.log(`parseConfigs: have ${configObjs?.length} configs to parse...`);
         if (configObjs) {
@@ -417,9 +507,11 @@ export class DltDocument {
                     if (configNode !== undefined && configNode instanceof ConfigNode) {
                         configNode.autoEnableIf = conf.autoEnableIf;
                         if (configNode.tooltip) {
-                            configNode.tooltip += `\nAutoEnableIf:${configNode.autoEnableIf}`;
+                            // might be an update so we need to replace:
+                            configNode.tooltip = configNode.tooltip.replace(/\n?AutoEnableIf\:\'.*\'/g, '');
+                            configNode.tooltip += `\nAutoEnableIf:'${configNode.autoEnableIf}'`;
                         } else {
-                            configNode.tooltip = `AutoEnableIf:${configNode.autoEnableIf}`;
+                            configNode.tooltip = `AutoEnableIf:'${configNode.autoEnableIf}'`;
                         }
                     }
                 } catch (error) {
@@ -479,21 +571,91 @@ export class DltDocument {
         }
     }
 
+
+/**
+ * Parse the configuration filter parameters and update the list of filters
+ * (allFilters) and the filterTreeNode accordingly.
+ *
+ * Can be called multiple times.
+ * Filters with same id will be updated.
+ * Filters that are not inside the current list will be added.
+ * Filters that are not contained anylonger will be removed.
+ * "undefined" will be ignored. Pass an empty array to remove all.
+ * Order changes are applied.
+ *
+ * @param filterObjs array of filter objects as received from the configuration
+ */
     parseFilterConfigs(filterObjs: Object[] | undefined) {
-        console.log(`parseFilterConfigs: have ${filterObjs?.length} filters to parse...`);
+        console.log(`DltDocument.parseFilterConfigs: have ${filterObjs?.length} filters to parse. Currently have ${this.allFilters.length} filters...`);
         if (filterObjs) {
+
+            let skipped = 0;
             for (let i = 0; i < filterObjs.length; ++i) {
                 try {
                     let filterConf = filterObjs[i];
-                    let newFilter = new DltFilter(filterConf);
-                    if (newFilter.configs.length > 0) {
-                        this.updateConfigs(newFilter);
+                    const targetIdx = i - skipped;
+
+                    // is this one contained?
+                    const containedIdx = this.allFilters.findIndex((filter) => filter.id === filterConf?.id);
+                    if (containedIdx < 0) {
+                        // not contained yet:
+                        let newFilter = new DltFilter(filterConf);
+                        if (newFilter.configs.length > 0) {
+                            this.updateConfigs(newFilter);
+                        }
+                        // insert at targetIdx:
+                        //this.filterTreeNode.children.push(new FilterNode(null, this.filterTreeNode, newFilter));
+                        //                        this.allFilters.push(newFilter);
+                        this.filterTreeNode.children.splice(targetIdx, 0, new FilterNode(null, this.filterTreeNode, newFilter));
+                        this.allFilters.splice(i - skipped, 0, newFilter);
+                        console.log(` DltDocument.parseFilterConfigs adding filter: name='${newFilter.name}' type=${newFilter.type}, enabled=${newFilter.enabled}, atLoadTime=${newFilter.atLoadTime}`);
+                    } else {
+                        // its contained already. so lets first update the settings:
+                        const existingFilter = this.allFilters[containedIdx];
+                        if ('type' in filterConf && 'id' in filterConf) {
+                            existingFilter.configOptions = JSON.parse(JSON.stringify(filterConf)); // create a new object
+                            existingFilter.reInitFromConfiguration();
+                        } else {
+                            console.warn(`DltDocument skipped update of existingFilter=${existingFilter.id} due to wrong config: '${JSON.stringify(filterConf)}'`);
+                        }
+                        // now check whether the order has changed:
+                        if (targetIdx !== containedIdx) {
+                            // order seems changed!
+                            // duplicates will be detected here automatically! (and removed/skipped)
+                            if (targetIdx > containedIdx) {
+                                // duplicate! the same idx is already there. skip this one
+                                console.warn(`DltDocument.parseFilterConfigs: skipped filterConf.id='${filterConf.id}' as duplicate!`);
+                                skipped++;
+                            } else { // containedIdx > targetIdx
+                                //console.warn(`parseFilterConfigs: detected order change for existingFilter.name='${existingFilter.name} from ${containedIdx} to ${targetIdx}'`);
+                                // reorder:
+                                const removed = this.allFilters.splice(containedIdx, 1);
+                                this.allFilters.splice(targetIdx, 0, ...removed);
+                                const removedNode = this.filterTreeNode.children.splice(containedIdx, 1);
+                                this.filterTreeNode.children.splice(targetIdx, 0, ...removedNode);
+                            }
+                        }
                     }
-                    this.filterTreeNode.children.push(new FilterNode(null, this.filterTreeNode, newFilter));
-                    this.allFilters.push(newFilter);
-                    console.log(` got filter: type=${newFilter.type}, enabled=${newFilter.enabled}, atLoadTime=${newFilter.atLoadTime}`, newFilter);
                 } catch (error) {
-                    console.log(`dlt-logs.parseFilterConfigs error:${error}`);
+                    console.log(`DltDocument.parseFilterConfigs error:${error}`);
+                    skipped++;
+                }
+            }
+            // lets remove the ones not inside filterConf:
+            // that are regular DltFilter (so skip plugins...)
+            // should be the ones with pos >= filterObj.length-skipped as we ensured sort order
+            // already above
+            // we might stop at first plugin as well.
+            // currently we do e.g. delete the filters from loadTimeAssistant now as well.
+            // (but it doesn't harm as load time filters are anyhow wrong in that case)
+            // todo think about it
+            for (let i = filterObjs.length - skipped; i < this.allFilters.length; ++i) {
+                const existingFilter = this.allFilters[i];
+                if (existingFilter.constructor === DltFilter) { // not instanceof as this covers inheritance
+                    console.log(` DltDocument.parseFilterConfigs deleting existingFilter: name '${existingFilter.name}' ${existingFilter instanceof DltFileTransferPlugin} ${existingFilter instanceof DltFilter} ${existingFilter.constructor === DltFileTransferPlugin} ${existingFilter.constructor === DltFilter}`);
+                    this.allFilters.splice(i, 1);
+                    this.filterTreeNode.children.splice(i, 1);
+                    i--;
                 }
             }
         }
@@ -545,13 +707,7 @@ export class DltDocument {
 
     }
 
-    onFilterChange(filter: DltFilter | undefined) { // the filter might not be part of allFilters anylonger (e.g. after deleteFilter)
-        console.log(`onFilterChange filter.name=${filter?.name}`);
-        return vscode.window.withProgress({ cancellable: false, location: vscode.ProgressLocation.Notification, title: "applying filter..." },
-            (progress) => this.applyFilter(progress));
-    }
-
-    onFilterAdd(filter: DltFilter, callonFilterChange: boolean = true) {
+    onFilterAdd(filter: DltFilter, callTriggerApplyFilter: boolean = true): boolean {
         this.filterTreeNode.children.push(new FilterNode(null, this.filterTreeNode, filter));
         if (filter.configs.length > 0) {
             this.updateConfigs(filter);
@@ -559,9 +715,10 @@ export class DltDocument {
         }
 
         this.allFilters.push(filter);
-        if (!callonFilterChange) { return; }
+        if (!callTriggerApplyFilter) { return true; }
         this._treeEventEmitter.fire(this.filterTreeNode);
-        return this.onFilterChange(filter);
+        this.triggerApplyFilter();
+        return true;
     }
 
     onFilterEdit(filter: DltFilter) {
@@ -571,10 +728,11 @@ export class DltDocument {
         this.updateConfigs(filter);
         //dont call this or a strange warning occurs. not really clear why. this._treeEventEmitter.fire(this.configTreeNode);
 
-        return this.onFilterChange(filter);
+        this.triggerApplyFilter();
+        return true;
     }
 
-    onFilterDelete(filter: DltFilter, callonFilterChange: boolean = true) {
+    onFilterDelete(filter: DltFilter, callTriggerApplyFilter: boolean = true): boolean {
         filter.enabled = false; // just in case
 
         // remove from list of allFilters and from filterTreeNode
@@ -600,10 +758,12 @@ export class DltDocument {
         }
         if (!found) {
             vscode.window.showErrorMessage(`didn't found nodes to delete filter ${filter.name}`);
+            return false;
         }
-        if (!callonFilterChange) { return; }
+        if (!callTriggerApplyFilter) { return true; }
         this._treeEventEmitter.fire(this.filterTreeNode);
-        return this.onFilterChange(filter);
+        this.triggerApplyFilter();
+        return true;
     }
 
     /* todo clearFilter() {
@@ -1831,7 +1991,7 @@ export class DltDocument {
             }
             if (didModifyAnyFilter) {
                 this._treeEventEmitter.fire(this.filterTreeNode);
-                this.onFilterChange(undefined);
+                this.triggerApplyFilter();
             }
             if (!('data' in retObj)) { // we add the filters only if no other data existing yet (e.g. from query)
                 retObj.data = util.createRestArray(this.allFilters, (obj: object, i: number) => { const filter = obj as DltFilter; return filter.asRestObject(i); });
