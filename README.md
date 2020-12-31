@@ -82,7 +82,6 @@ The extension uses telemetry with two events (`activate` (no parameters) and `op
 - Support time synchronized split-view between e.g. two APIDs from within one DLT log file.
 - Use the outline view for lifecycles, errors,...
 - Add support for file changes (growing) and load/update automatically.
-- Allow changing filter configurations manually at runtime.
 - Saving of logs/selections allowing e.g. to add comments as proper logs.
 - Use custom editor interface to be able to support regular file open mechanism.
 - Add full non-verbose support including mapping table and payload args.
@@ -133,7 +132,7 @@ This extension contributes the following settings:
      * **valueMap**: object that can contain keys matching to the captured data names and the property is an array with objects { capturedName : newName }. 
      E.g."reportOptions": { "valueMap": { "STATE_onOff": [ { "1": "on" }, { "0": "off" }, {"ff": "invalid" }]}}
 
-   Filter configuration changes will be applied on next file open. If you use *add filter...*, *edit filter...*, *delete filter...* menu items they will be applied instantly to the configuration. You should not mix manual editing the config files with usage of the menu items as long as a dlt file is opened.
+   Filter configuration changes and menu items *add filter...*, *edit filter...*, *delete filter...* actions will be applied instantly to the configuration/view.
 
    Details see (todo...).
 * `dlt-logs.plugins`: Allows configuration of plugins. Currently one plugin is supported:
