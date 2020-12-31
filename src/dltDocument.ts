@@ -592,7 +592,7 @@ export class DltDocument {
             let skipped = 0;
             for (let i = 0; i < filterObjs.length; ++i) {
                 try {
-                    let filterConf = filterObjs[i];
+                    let filterConf: any = filterObjs[i];
                     const targetIdx = i - skipped;
 
                     // is this one contained?
