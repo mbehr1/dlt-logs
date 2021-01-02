@@ -784,7 +784,6 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                                 {
                                     if (paths.length === 1) {
                                         // get info about available documents:
-                                        // todo support options filter "ecu=<ecuname>"
                                         const arrRes: Object[] = [];
                                         this._documents.forEach((doc) => {
                                             const resObj: { type: string, id: string, attributes?: Object } =
@@ -889,7 +888,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
         optionArr.forEach((opt) => {
             console.log(`got opt=${opt}`);
             if (opt.startsWith('ecu=')) {
-                ecuNameFilter = opt.slice(opt.indexOf('=') + 1);
+                ecuNameFilter = decodeURIComponent(opt.slice(opt.indexOf('=') + 1));
                 // allow the string be placed in "":
                 ecuNameFilter = ecuNameFilter.replace(/^"(.*?)"$/g, (match, p1, offset) => p1);
                 if (ecuNameFilter.length === 0) { ecuNameFilter = undefined; } else {

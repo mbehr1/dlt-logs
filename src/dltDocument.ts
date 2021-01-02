@@ -1785,11 +1785,11 @@ export class DltDocument {
 
             let didModifyAnyFilter = false;
 
-            const optionArr = options ? options.split('&') : []; // todo how to ensure that & is not part of it? need to percent encode.... need to uridecode/encode the options...
+            const optionArr = options ? options.split('&') : [];
             for (const commandStr of optionArr) {
                 const eqIdx = commandStr.indexOf('=');
                 const command = commandStr.slice(0, eqIdx);
-                const commandParams = commandStr.slice(eqIdx + 1);
+                const commandParams = decodeURIComponent(commandStr.slice(eqIdx + 1));
                 console.log(`restQueryDocsFilters: executing command = '${command}' with params='${commandParams}'`);
 
                 switch (command) {
