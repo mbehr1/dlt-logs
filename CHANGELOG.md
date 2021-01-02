@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs':
 
+### [1.2.1](https://github.com/mbehr1/dlt-logs/compare/v1.2.0...v1.2.1) (2021-01-02)
+
+
+### Bug Fixes
+
+* **restquery:** uri decode the parameters ([fa6eb84](https://github.com/mbehr1/dlt-logs/commit/fa6eb847b22cd76a428982ceb9937ad12dad9b6a))
+
 ## [1.2.0](https://github.com/mbehr1/dlt-logs/compare/v1.1.3...v1.2.0) (2020-12-31)
 
 
