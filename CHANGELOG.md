@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs':
 
+### [1.2.2](https://github.com/mbehr1/dlt-logs/compare/v1.2.1...v1.2.2) (2021-01-04)
+
+
+### Bug Fixes
+
+* **report:** queued msgs to webview should be in fifo order ([a165838](https://github.com/mbehr1/dlt-logs/commit/a1658385863caaeb86ebe52784e41d4af900d005)), closes [#7](https://github.com/mbehr1/dlt-logs/issues/7) [#7](https://github.com/mbehr1/dlt-logs/issues/7)
+
 ### [1.2.1](https://github.com/mbehr1/dlt-logs/compare/v1.2.0...v1.2.1) (2021-01-02)
 
 
