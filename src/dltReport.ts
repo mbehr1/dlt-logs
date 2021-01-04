@@ -27,7 +27,7 @@ export class DltReport implements vscode.Disposable {
     constructor(private context: vscode.ExtensionContext, private doc: DltDocument, private callOnDispose: (r: DltReport) => any) {
 
         this.panel = vscode.window.createWebviewPanel("dlt-logs.report", `dlt-logs report`, vscode.ViewColumn.Beside,
-            { enableScripts: true });
+            { enableScripts: true, retainContextWhenHidden: true });
         //  for ${filter.name} todo think about nice naming title
 
         this.panel.onDidDispose(() => {
