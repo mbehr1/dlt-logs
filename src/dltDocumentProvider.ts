@@ -750,12 +750,12 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
         var re = /^\/(?<cmd>.*?)\/(?<path>.*?)($|\?(?<options>.+)$)/;
         const regRes = re.exec(query);
         if (regRes?.length && regRes.groups) {
-            console.log(`got regRes.length=${regRes.length}`);
-            regRes.forEach(regR => console.log(JSON.stringify(regR)));
+            //console.log(`got regRes.length=${regRes.length}`);
+            //regRes.forEach(regR => console.log(JSON.stringify(regR)));
             const cmd = regRes.groups['cmd'];
             const path = regRes.groups['path'];
             const options = regRes.groups['options'];
-            console.log(` cmd='${cmd}' path='${path}' options='${options}'`);
+            console.log(` restQuery cmd='${cmd}' path='${path}' options='${options}'`);
             switch (cmd) {
                 case 'get':
                     {
@@ -809,11 +809,23 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                                             // fallback to index:
                                             if (!doc) {
                                                 const docIdx: number = Number(docId);
-                                                if (docIdx >= 0 && docIdx < this._documents.size) {
-                                                    const iter = this._documents.entries();
-                                                    for (let i = 0; i <= docIdx; ++i) {
-                                                        const [, aDoc] = iter.next().value;
-                                                        if (i === docIdx) { doc = aDoc; }
+
+                                                // take the docIdx th. dlt doc that is visible:
+                                                if (this._treeRootNodes.length > docIdx) {
+                                                    const childNode = this._treeRootNodes[docIdx];
+                                                    // now find the document for that:
+                                                    this._documents.forEach(aDoc => {
+                                                        if (aDoc.treeNode === childNode) { doc = aDoc; }
+                                                    });
+                                                }
+                                                if (!doc) { // fallback to prev. method. which is ok for one doc, but not for mult....
+                                                    if (this._documents.size > 1) { console.warn(`DltDocumentProvider.restQuery: you're using a deprecated method to access documents! Please only refer to visible documents!`); }
+                                                    if (docIdx >= 0 && docIdx < this._documents.size) {
+                                                        const iter = this._documents.entries();
+                                                        for (let i = 0; i <= docIdx; ++i) {
+                                                            const [, aDoc] = iter.next().value;
+                                                            if (i === docIdx) { doc = aDoc; }
+                                                        }
                                                     }
                                                 }
                                             }
