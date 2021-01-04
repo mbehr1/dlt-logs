@@ -1,5 +1,13 @@
 # Change log for 'DLT-Logs':
 
+### [1.2.3](https://github.com/mbehr1/dlt-logs/compare/v1.2.2...v1.2.3) (2021-01-04)
+
+
+### Bug Fixes
+
+* **reports:** use retainContextWhenHidden to not get empty reports after deselect ([da4d344](https://github.com/mbehr1/dlt-logs/commit/da4d34414ff9f263272202e52eb0c405a2b748e3))
+* **restquery:** prefer the docs that are visible ([44efe26](https://github.com/mbehr1/dlt-logs/commit/44efe2680a629e843f65f6853c65d8adc134b5f1))
+
 ### [1.2.2](https://github.com/mbehr1/dlt-logs/compare/v1.2.1...v1.2.2) (2021-01-04)
 
 
