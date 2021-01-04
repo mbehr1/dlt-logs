@@ -49,7 +49,7 @@ export class DltReport implements vscode.Disposable {
             // any messages to post?
             if (this._msgsToPost.length) {
                 let msg: any;
-                while (msg = this._msgsToPost.pop()) {
+                while (msg = this._msgsToPost.shift()) { // fifo order.
                     const msgCmd = msg.command;
                     this.panel?.webview.postMessage(msg).then((onFulFilled) => {
                         console.log(`webview.postMessage(${msgCmd}) queued ${onFulFilled}`);
