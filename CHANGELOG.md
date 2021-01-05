@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs':
 
+### [1.2.4](https://github.com/mbehr1/dlt-logs/compare/v1.2.3...v1.2.4) (2021-01-05)
+
+
+### Bug Fixes
+
+* **filter:** accept only lifecycles as array ([62d4d53](https://github.com/mbehr1/dlt-logs/commit/62d4d537dae784484e94db9b20ec2c66e783e0fb))
+
 ### [1.2.3](https://github.com/mbehr1/dlt-logs/compare/v1.2.2...v1.2.3) (2021-01-04)
 
 
