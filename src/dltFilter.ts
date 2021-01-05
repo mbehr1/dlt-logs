@@ -154,7 +154,7 @@ export class DltFilter {
             this.timeSyncPrio = undefined;
         }
 
-        this.lifecycles = 'lifecycles' in options ? options.lifecycles : undefined;
+        this.lifecycles = 'lifecycles' in options && Array.isArray(options.lifecycles) ? options.lifecycles : undefined;
 
         this.decorationId = undefined;
         this.filterColour = undefined;
