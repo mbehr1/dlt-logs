@@ -902,9 +902,12 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
             if (opt.startsWith('ecu=')) {
                 ecuNameFilter = decodeURIComponent(opt.slice(opt.indexOf('=') + 1));
                 // allow the string be placed in "":
-                ecuNameFilter = ecuNameFilter.replace(/^"(.*?)"$/g, (match, p1, offset) => p1);
-                if (ecuNameFilter.length === 0) { ecuNameFilter = undefined; } else {
-                    console.log(`restQueryDocsEcus got ecuNameFilter='${ecuNameFilter}'`);
+                // we treat 'null' as undefined but "null" as ECU named null.
+                if (ecuNameFilter === 'null') { ecuNameFilter = undefined; } else {
+                    ecuNameFilter = ecuNameFilter.replace(/^"(.*?)"$/g, (match, p1, offset) => p1);
+                    if (ecuNameFilter.length === 0) { ecuNameFilter = undefined; } else {
+                        console.log(`restQueryDocsEcus got ecuNameFilter='${ecuNameFilter}'`);
+                    }
                 }
             }
         });
