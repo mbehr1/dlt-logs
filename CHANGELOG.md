@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs':
 
+### [1.2.5](https://github.com/mbehr1/dlt-logs/compare/v1.2.4...v1.2.5) (2021-01-05)
+
+
+### Bug Fixes
+
+* **restquery:** treat ecu=null as undefined ([ad60877](https://github.com/mbehr1/dlt-logs/commit/ad60877951006ab1e50106796d393ffee98c110a))
+
 ### [1.2.4](https://github.com/mbehr1/dlt-logs/compare/v1.2.3...v1.2.4) (2021-01-05)
 
 
