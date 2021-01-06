@@ -93,7 +93,8 @@ export function activate(context: vscode.ExtensionContext) {
 	let smartLogApi = {
 		onDidChangeSelectedTime(listener: any) { return dltProvider.onDidChangeSelectedTime(listener); },
 		// restQuery should follow the principles from here: https://jsonapi.org/format/
-		restQuery(query: string) { console.log(`dlt-logs.restQuery(${query}) called.`); return dltProvider.restQuery(context, query); }
+		restQuery(query: string) { console.log(`dlt-logs.restQuery(${query}) called.`); return dltProvider.restQuery(context, query); },
+		onDidChangeActiveRestQueryDoc(listener: any) { return dltProvider.onDidChangeActiveRestQueryDoc(listener); }
 	};
 
 	return smartLogApi;
