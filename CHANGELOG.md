@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs':
 
+### [1.3.1](https://github.com/mbehr1/dlt-logs/compare/v1.3.0...v1.3.1) (2021-01-06)
+
+
+### Bug Fixes
+
+* **restquery:** trigger event once doc is loaded ([1fec313](https://github.com/mbehr1/dlt-logs/commit/1fec313e9e0540241847bbf474eb521879f3347f))
+
 ## [1.3.0](https://github.com/mbehr1/dlt-logs/compare/v1.2.5...v1.3.0) (2021-01-06)
 
 
