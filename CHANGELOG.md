@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs':
 
+## [1.3.0](https://github.com/mbehr1/dlt-logs/compare/v1.2.5...v1.3.0) (2021-01-06)
+
+
+### Features
+
+* **restquery:** add onDidChangeActiveRestQueryDoc api ([5ce503b](https://github.com/mbehr1/dlt-logs/commit/5ce503b3ccfcd50be1478817f67e8fd746e15c15))
+
 ### [1.2.5](https://github.com/mbehr1/dlt-logs/compare/v1.2.4...v1.2.5) (2021-01-05)
 
 
