@@ -116,6 +116,10 @@ export class DltDocument {
 
     private _realStat: fs.Stats;
 
+    isLoaded: boolean = false;
+    private _onDidLoad = new vscode.EventEmitter<boolean>();
+    get onDidLoad() { return this._onDidLoad.event; }
+
     constructor(uri: vscode.Uri, docEventEmitter: vscode.EventEmitter<vscode.FileChangeEvent[]>, treeEventEmitter: vscode.EventEmitter<TreeViewNode | null>,
         parentTreeNode: TreeViewNode[], reporter?: TelemetryReporter) {
         this.uri = uri;
@@ -184,7 +188,7 @@ export class DltDocument {
         const reReadTimeout: number = reReadTimeoutConf ? reReadTimeoutConf : 1000; // 5s default
 
         setTimeout(() => {
-            this.checkFileChanges();
+            this.checkFileChanges().then(() => { this.isLoaded = true; this._onDidLoad.fire(this.isLoaded); });
         }, reReadTimeout);
     }
 

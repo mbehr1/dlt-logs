@@ -198,6 +198,17 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
      */
     readonly onDidChangeActiveRestQueryDoc: vscode.Event<vscode.Uri | undefined> = this._onDidChangeActiveRestQueryDoc.event;
 
+    private _lastActiveQueryDocUri: vscode.Uri | undefined = undefined;
+    checkActiveRestQueryDocChanged(): boolean {
+        const newDoc0Uri = this.getRestQueryDocById('0')?.uri;
+        if (newDoc0Uri !== this._lastActiveQueryDocUri) {
+            this._lastActiveQueryDocUri = newDoc0Uri;
+            this._onDidChangeActiveRestQueryDoc.fire(newDoc0Uri);
+            return true;
+        }
+        return false;
+    }
+
     private _autoTimeSync = false; // todo config
 
     private _statusBarItem: vscode.StatusBarItem | undefined;
@@ -266,7 +277,6 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                 console.log(` dlt-logs.onDidCloseTextDocument: found document with uri=${uriStr}`);
                 if (doc.textDocument) {
                     console.log(`  deleting document with uri=${doc.textDocument.uri.toString()}`);
-                    let curDoc0 = this.getRestQueryDocById('0'); // restQuery /get/docs/0/...?
                     doc.textDocument = undefined;
                     let childNode: TreeViewNode = doc.treeNode;
                     for (let i = 0; i < this._treeRootNodes.length; ++i) {
@@ -281,8 +291,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                     if (this._documents.size === 0 && this._statusBarItem) {
                         this._statusBarItem.hide();
                     }
-                    let newDoc0 = this.getRestQueryDocById('0');
-                    if (newDoc0 !== curDoc0) { this._onDidChangeActiveRestQueryDoc.fire(newDoc0 ? newDoc0.uri : undefined); }
+                    this.checkActiveRestQueryDocChanged();
                 }
             }
         }));
@@ -338,7 +347,6 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
         this._subscriptions.push(vscode.window.onDidChangeVisibleTextEditors((editors: vscode.TextEditor[]) => {
             //console.log(`DltDocumentProvider.onDidChangeVisibleTextEditors= ${editors.length}`);
             const visibleDocs: DltDocument[] = [];
-            const curDoc0 = this.getRestQueryDocById('0');
             for (const editor of editors) {
                 //console.log(` DltDocumentProvider.onDidChangeVisibleTextEditors editor.document.uri=${editor.document.uri} editor.viewColumn=${editor.viewColumn} editor.document.isClosed=${editor.document.isClosed}`);
                 let data = this._documents.get(editor.document.uri.toString());
@@ -393,8 +401,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
             });
 
             if (doFire) { this._onDidChangeTreeData.fire(null); }
-            const newDoc0 = this.getRestQueryDocById('0');
-            if (curDoc0 !== newDoc0) { this._onDidChangeActiveRestQueryDoc.fire(newDoc0 ? newDoc0.uri : undefined); }
+            this.checkActiveRestQueryDocChanged();
         }));
 
         // todo doesn't work with skipped msgs... this._subscriptions.push(vscode.languages.registerDocumentSymbolProvider('dlt-log', this, { label: "DLT Lifecycles" }));
@@ -746,6 +753,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
         }
     }
 
+    private getRestQueryDocByIdDidLoadSub: vscode.Disposable | undefined;
     getRestQueryDocById(id: string): DltDocument | undefined {
         let doc = this._documents.get(id);
         // fallback to index:
@@ -761,7 +769,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                 });
             }
             if (!doc) { // fallback to prev. method. which is ok for one doc, but not for mult....
-                if (this._documents.size > 1) { console.warn(`DltDocumentProvider.restQuery: you're using a deprecated method to access documents! Please only refer to visible documents!`); }
+                // if (this._documents.size > 1) { console.warn(`DltDocumentProvider.restQuery: you're using a deprecated method to access documents! Please only refer to visible documents!`); }
                 if (docIdx >= 0 && docIdx < this._documents.size) {
                     const iter = this._documents.entries();
                     for (let i = 0; i <= docIdx; ++i) {
@@ -770,6 +778,19 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                     }
                 }
             }
+        }
+        // if the doc is not yet fully loaded we'll return undefined as the restQuery will return wrong results otherwise:
+        if (doc && !doc.isLoaded) {
+            if (this.getRestQueryDocByIdDidLoadSub) { this.getRestQueryDocByIdDidLoadSub.dispose(); };
+            this.getRestQueryDocByIdDidLoadSub = doc.onDidLoad(load => {
+                console.warn(`DltDocumentProvider.getRestQueryDocById.onDidLoad called...`);
+                if (this.getRestQueryDocByIdDidLoadSub) {
+                    this.getRestQueryDocByIdDidLoadSub.dispose();
+                    this.getRestQueryDocByIdDidLoadSub = undefined;
+                }
+                this.checkActiveRestQueryDocChanged();
+            });
+            return undefined;
         }
         return doc;
     }
@@ -1131,8 +1152,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                 document = new DltDocument(uri, this._onDidChangeFile, this._onDidChangeTreeData, this._treeRootNodes, this._reporter);
                 this._documents.set(uri.toString(), document);
                 if (this._documents.size === 1) {
-                    const newDoc0 = this.getRestQueryDocById('0');
-                    this._onDidChangeActiveRestQueryDoc.fire(newDoc0 ? newDoc0.uri : undefined);
+                    this.checkActiveRestQueryDocChanged();
                 }
             } catch (error) {
                 console.log(` dlt-logs.stat(uri=${uri.toString()}) returning realStat ${realStat.size} size.`);
@@ -1160,8 +1180,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
             doc = new DltDocument(uri, this._onDidChangeFile, this._onDidChangeTreeData, this._treeRootNodes, this._reporter);
             this._documents.set(uri.toString(), doc);
             if (this._documents.size === 1) {
-                const newDoc0 = this.getRestQueryDocById('0');
-                this._onDidChangeActiveRestQueryDoc.fire(newDoc0 ? newDoc0.uri : undefined);
+                this.checkActiveRestQueryDocChanged();
             }
         }
         return Buffer.from(doc.text);
