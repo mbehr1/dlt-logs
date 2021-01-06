@@ -51,8 +51,8 @@
 					},
 					"dlt-logs.maxNumberLogs": {
 						"type": "integer",
-						"default": 1000000,
-						"description": "Maximum number of DLT logs that are shown in one page. If more messages do exist a paging mechanism will reload at 4/5th the next chunk. You can only search within that page. Please consider using filter to stay within that limit. Defaults to 1'000'000."
+						"default": 400000,
+						"description": "Maximum number of DLT logs that are shown in one page. If more messages do exist a paging mechanism will reload at 4/5th the next chunk. You can only search within that page. Please consider using filter to stay within that limit. Defaults to 400'000."
 					},
 					"dlt-logs.columns": {
 						"type": "array",

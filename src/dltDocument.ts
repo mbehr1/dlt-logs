@@ -180,7 +180,7 @@ export class DltDocument {
         this.onDidChangeConfigConfigs();
 
         const maxNrMsgsConf = vscode.workspace.getConfiguration().get<number>('dlt-logs.maxNumberLogs');
-        this._maxNrMsgs = maxNrMsgsConf ? maxNrMsgsConf : 1000000; // 1mio default
+        this._maxNrMsgs = maxNrMsgsConf ? maxNrMsgsConf : 400000; // 400k default
 
         this._text = `Loading dlt document from uri=${this._fileUri.toString()} with max ${this._maxNrMsgs} msgs per page...`;
 
