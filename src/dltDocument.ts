@@ -1739,21 +1739,24 @@ export class DltDocument {
     }
 
     private _reports: DltReport[] = [];
-    onOpenReport(context: vscode.ExtensionContext, filter: DltFilter, newReport: boolean = false) {
+    onOpenReport(context: vscode.ExtensionContext, filter: DltFilter, newReport: boolean = false, reportToAdd: DltReport | undefined = undefined) {
         console.log(`onOpenReport called...`);
 
-        if (!newReport && this._reports.length > 0) {
-            // we do add to the report that was last active:
-            let report = this._reports[0];
-            let lastChangeActive = report.lastChangeActive;
-            for (let i = 1; i < this._reports.length; ++i) {
-                const r2 = this._reports[i];
-                if (lastChangeActive === undefined || (r2.lastChangeActive && (r2.lastChangeActive.valueOf() > lastChangeActive.valueOf()))) {
-                    report = r2;
-                    lastChangeActive = r2.lastChangeActive;
+        if (!newReport && (this._reports.length > 0 || reportToAdd !== undefined)) {
+            // we do add to the report that was last active or to the provided one
+            let report = reportToAdd ? reportToAdd : this._reports[0];
+            if (reportToAdd === undefined) {
+                let lastChangeActive = report.lastChangeActive;
+                for (let i = 1; i < this._reports.length; ++i) {
+                    const r2 = this._reports[i];
+                    if (lastChangeActive === undefined || (r2.lastChangeActive && (r2.lastChangeActive.valueOf() > lastChangeActive.valueOf()))) {
+                        report = r2;
+                        lastChangeActive = r2.lastChangeActive;
+                    }
                 }
             }
             report.addFilter(filter);
+            return report;
         } else {
             let report = new DltReport(context, this, (r: DltReport) => {
                 console.log(`onOpenReport onDispose called... #reports=${this._reports.length}`);
@@ -1765,6 +1768,7 @@ export class DltDocument {
             });;
             this._reports.push(report); // todo implement Disposable for DltDocument as well so that closing a doc closes the report as well
             report.addFilter(filter);
+            return report;
         }
     }
 
@@ -1848,10 +1852,10 @@ export class DltDocument {
                                 }
                                 // now open the report:
                                 if (filters.length > 0) {
-                                    this.onOpenReport(context, filters[0], true);
+                                    const newReport = this.onOpenReport(context, filters[0], true);
                                     // add the others:
                                     for (let i = 1; i < filters.length; ++i) {
-                                        this.onOpenReport(context, filters[i], false);
+                                        this.onOpenReport(context, filters[i], false, newReport);
                                     }
                                 } else {
                                     if (!Array.isArray(retObj.error)) { retObj.error = []; }
