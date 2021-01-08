@@ -183,12 +183,13 @@ export class DltMsg {
         return {
             id: this.index,
             type: 'msg',
-            attributes: { // todo add lifecycle id (once we do have lifecycle ids)
+            attributes: {
                 timeStamp: this.timeStamp,
                 ecu: this.ecu,
                 apid: this.apid,
                 ctid: this.ctid,
-                payloadString: this.payloadString
+                payloadString: this.payloadString,
+                lifecycle: this.lifecycle ? this.lifecycle.persistentId : undefined
             }
         };
     }
