@@ -1,5 +1,13 @@
 # Change log for 'DLT-Logs':
 
+### [1.3.2](https://github.com/mbehr1/dlt-logs/compare/v1.3.1...v1.3.2) (2021-01-08)
+
+
+### Bug Fixes
+
+* **defaults:** lower default for maxNumberLogs to 400k ([2a538e0](https://github.com/mbehr1/dlt-logs/commit/2a538e0207b7d370ab9d4ad62fcf8d360c1a8fbf))
+* **report:** restQuery ensure that the new report is used ([74c2335](https://github.com/mbehr1/dlt-logs/commit/74c233580d2fb62621b5526f779e3ecbb1cca110))
+
 ### [1.3.1](https://github.com/mbehr1/dlt-logs/compare/v1.3.0...v1.3.1) (2021-01-06)
 
 
