@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs':
 
+### [1.3.3](https://github.com/mbehr1/dlt-logs/compare/v1.3.2...v1.3.3) (2021-01-08)
+
+
+### Bug Fixes
+
+* **restquery:** add lifecycle to messages ([67747b5](https://github.com/mbehr1/dlt-logs/commit/67747b577170399b37e8b7c59d68cce2acdc4739))
+
 ### [1.3.2](https://github.com/mbehr1/dlt-logs/compare/v1.3.1...v1.3.2) (2021-01-08)
 
 
