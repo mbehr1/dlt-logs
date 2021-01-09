@@ -38,7 +38,7 @@ export const serviceIds: string[] = ["", "set_log_level", "set_trace_status", "g
 // not covered:
 /*
 #define DLT_SERVICE_ID_UNREGISTER_CONTEXT             0xf01 < Service ID: Message unregister context
-#define DLT_SERVICE_ID_CONNECTION_INFO                0xf02 < Service ID: Message connection info 
+#define DLT_SERVICE_ID_CONNECTION_INFO                0xf02 < Service ID: Message connection info
 #define DLT_SERVICE_ID_TIMEZONE						  0xf03 < Service ID: Timezone
 #define DLT_SERVICE_ID_MARKER						  0xf04 < Service ID: Timezone
 #define DLT_SERVICE_ID_CALLSW_CINJECTION              0xFFF < Service ID: Message Injection (minimal ID)
@@ -93,6 +93,7 @@ export class DltMsg {
     readonly timeAsNumber: number; // time in ms. Date uses more memory!
     get timeAsDate(): Date { return new Date(this.timeAsNumber); }
 
+    readonly payloadArgSeparator: string;
     // parsed from data:
     readonly mcnt: number;
     private _htyp: number;
@@ -114,7 +115,7 @@ export class DltMsg {
     lifecycle: DltLifecycleInfo | undefined = undefined;
     decorations: Array<[vscode.TextEditorDecorationType, Array<vscode.DecorationOptions>]> = [];
 
-    constructor(storageHeaderEcu: string, stdHdr: any, index: number, timeAsNumber: number, data: Buffer) {
+    constructor(storageHeaderEcu: string, stdHdr: any, index: number, timeAsNumber: number, data: Buffer, sepPayArgs?: boolean) {
         this.index = index;
         this.timeAsNumber = timeAsNumber;
 
@@ -172,6 +173,8 @@ export class DltMsg {
             eac.c = "";
         }
         this._eac = getEACFromIdx(getIdxFromEAC(eac)) || eac;
+
+        this.payloadArgSeparator = sepPayArgs ? " ": "";
 
         const payloadOffset = DLT_STORAGE_HEADER_SIZE + stdHeaderSize + (useExtHeader ? DLT_EXT_HEADER_SIZE : 0);
         this._payloadData = data.slice(payloadOffset);
@@ -292,7 +295,7 @@ export class DltMsg {
                                     argOffset += 2;
                                     const rawd = this._payloadData.slice(argOffset, argOffset + lenRaw);
                                     this._payloadArgs.push({ type: Buffer, v: Buffer.from(rawd) }); // we make a copy here to avoid referencing the payloadData that we want to release/gc afterwards
-                                    this._payloadText += rawd.toString("hex");
+                                    this._payloadText += rawd.toString("hex") + this.payloadArgSeparator;
                                     argOffset += lenRaw;
                                 } else { break; } // todo VARI, FIXP, TRAI, STRU
                             }
@@ -340,7 +343,7 @@ export class DltMsg {
                                                 case 4:
                                                 case 5:
                                                 case 6:
-                                                case 7: // info about reg. appids and ctids with log level and trace status info and all text. descr. 
+                                                case 7: // info about reg. appids and ctids with log level and trace status info and all text. descr.
                                                     { // todo could use few binaryparser here...
                                                         const hasLogLevel: boolean = (respCode === 4) || (respCode === 6) || (respCode === 7);
                                                         const hasTraceStatus: boolean = (respCode === 5) || (respCode === 6) || (respCode === 7);
@@ -571,11 +574,12 @@ function dltWriteExtHeader(buffer: Buffer, offset: number, extH: DltExtHeader) {
 
 export class DltParser {
 
-    parseDltFromBuffer(buf: Buffer, startOffset: number, msgs: Array<DltMsg>, posFilters?: DltFilter[], negFilters?: DltFilter[], negBeforePosFilters?: DltFilter[], msgOffsets?: number[], msgLengths?: number[]) { // todo make async
+    parseDltFromBuffer(buf: Buffer, startOffset: number, msgs: Array<DltMsg>, sepPayArgs: boolean, posFilters?: DltFilter[], negFilters?: DltFilter[], negBeforePosFilters?: DltFilter[], msgOffsets?: number[], msgLengths?: number[]) { // todo make async
         let skipped: number = 0;
         let remaining: number = buf.byteLength - startOffset;
         let nrMsgs: number = 0; let offset = startOffset;
         const startIndex: number = msgs.length ? (msgs[msgs.length - 1].index + 1) : 0; // our first index to use is either prev one +1 or 0 as start value
+        const separatePayloadArgs: boolean = sepPayArgs ? sepPayArgs : false;
         while (remaining >= MIN_DLT_MSG_SIZE) {
             const storageHeader = dltParseStorageHeader(buf, offset);
             if (storageHeader.pattern === DLT_STORAGE_HEADER_PATTERN) {
@@ -591,7 +595,7 @@ export class DltParser {
 
                     if (len >= MIN_STD_HEADER_SIZE) {
                         try {
-                            const newMsg = new DltMsg(storageHeader.ecu, stdHeader, startIndex + nrMsgs, timeAsNumber, buf.slice(msgOffset, offset));
+                            const newMsg = new DltMsg(storageHeader.ecu, stdHeader, startIndex + nrMsgs, timeAsNumber, buf.slice(msgOffset, offset), separatePayloadArgs);
                             // do we need to filter this one?
                             let keepAfterNegBeforePosFilters: boolean = true;
                             if (negBeforePosFilters?.length) {

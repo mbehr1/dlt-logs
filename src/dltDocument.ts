@@ -96,9 +96,9 @@ export class DltDocument {
 
     textEditors: Array<vscode.TextEditor> = []; // don't use in here!
 
-    /* allDecorations contain a list of all decorations for the filteredMsgs. 
+    /* allDecorations contain a list of all decorations for the filteredMsgs.
      * the ranges dont contain line numbers but the filteredMsg number.
-     * during renderLines the visible decorations will be created and stored in 
+     * during renderLines the visible decorations will be created and stored in
      * decorations (with updated ranges)
      */
     private _allDecorations?: Map<vscode.TextEditorDecorationType, vscode.DecorationOptions[]>;
@@ -112,7 +112,7 @@ export class DltDocument {
     lastSelectedTimeEv: Date | undefined; // the last received time event that might have been used to reveal our line. used for adjustTime on last event feature.
     gotTimeSyncEvents: boolean = false; // we've been at least once to sync time based on timeSync events
 
-    get timeAdjustMs(): number { return this._timeAdjustMs; } // read only. use adustTime to change
+    get timeAdjustMs(): number { return this._timeAdjustMs; } // read only. use adjustTime to change
 
     private _realStat: fs.Stats;
 
@@ -162,11 +162,11 @@ export class DltDocument {
         this.treeNode.children.forEach((child) => { child.parent = this.treeNode; });
         parentTreeNode.push(this.treeNode);
 
-        // load filters: 
+        // load filters:
         this.onDidChangeConfigFilters();
 
 
-        { // load decorations: 
+        { // load decorations:
             const decorationsObjs = vscode.workspace.getConfiguration().get<Array<object>>("dlt-logs.decorations");
             this.parseDecorationsConfigs(decorationsObjs);
         }
@@ -253,7 +253,7 @@ export class DltDocument {
     private debouncedApplyFilterTimeout: NodeJS.Timeout | undefined;
     /**
      * Trigger applyFilter and show progress
-     * This is debounced/delayed a bit (500ms) to avoid too frequent 
+     * This is debounced/delayed a bit (500ms) to avoid too frequent
      * apply filter operation that is longlasting.
      */
     triggerApplyFilter() {
@@ -568,7 +568,7 @@ export class DltDocument {
 
             console.log(`autoEnableConfigs enabled ${enabled} configs.`);
             if (enabled > 0) {
-                // we don't need this as applyFilter will be called anyhow (might better add a parameter) 
+                // we don't need this as applyFilter will be called anyhow (might better add a parameter)
                 // this.onFilterChange(undefined);
             }
             this._didAutoEnableConfigs = true;
@@ -842,6 +842,14 @@ export class DltDocument {
         return matchingMsgs;
     }
 
+    /**
+     * Return a flag signalling if payload arguments should be separated by a space character ' ' or not.
+     * @returns flag for payload argument separator
+     */
+    static getSepPayloadArgs() {
+        const separatePayloadArgsConf = vscode.workspace.getConfiguration().get<boolean>('dlt-logs.separatePayloadArgs')
+        return separatePayloadArgsConf ? separatePayloadArgsConf : false; // do not add ' ' between payload args as default
+    }
 
     private _applyFilterRunning: boolean = false;
     async applyFilter(progress: vscode.Progress<{ increment?: number | undefined, message?: string | undefined, }> | undefined, applyEventFilter: boolean = false) {
@@ -1060,7 +1068,7 @@ export class DltDocument {
     }
 
     lineCloseTo(index: number, ignoreSkip = false): number {
-        // provides the line number "close" to the index 
+        // provides the line number "close" to the index
         // todo this causes problems once we do sort msgs (e.g. by timestamp)
         // that is the matching line or the next higher one
         // todo use binary search
@@ -1075,7 +1083,7 @@ export class DltDocument {
                     }
                     if (!ignoreSkip && i > this._skipMsgs + this._maxNrMsgs) {
                         console.log(`lineCloseTo(${index} not in range (>). todo needs to trigger reload.)`);
-                        return this.staticLinesAbove.length + this._maxNrMsgs; // go to first line    
+                        return this.staticLinesAbove.length + this._maxNrMsgs; // go to first line
                     }
                     return i + (ignoreSkip ? 0 : this.staticLinesAbove.length);
                 }
@@ -1552,7 +1560,7 @@ export class DltDocument {
         // need to remove current text in the editor and insert new one.
         // otherwise the editor tries to identify the changes. that
         // lasts long on big files...
-        // tried using editor.edit(replace or remove/insert) but that leads to a 
+        // tried using editor.edit(replace or remove/insert) but that leads to a
         // doc marked with changes and then FileChange event gets ignored...
         // so we add empty text interims wise:
         this._text = "...revealing new range...";
@@ -1612,6 +1620,7 @@ export class DltDocument {
                 async (progress) => {
                     // do we have any filters to apply at load time?
                     const [posFilters, negFilters, decFilters, eventFilters, negBeforePosFilters] = DltDocument.getFilter(this.allFilters, true, true);
+                    const sepPayloadArgs = DltDocument.getSepPayloadArgs();
                     console.log(` have ${posFilters.length} pos. and ${negFilters.length} neg. filters at load time.`);
 
                     let data = Buffer.allocUnsafe(chunkSize);
@@ -1621,7 +1630,7 @@ export class DltDocument {
                         if (read) {
                             const copiedBuf = Buffer.from(data.slice(0, read)); // have to create a copy of Buffer here!
                             // parse data:
-                            const parseInfo = DltDocument.dltP.parseDltFromBuffer(copiedBuf, 0, this.msgs, posFilters, negFilters, negBeforePosFilters);
+                            const parseInfo = DltDocument.dltP.parseDltFromBuffer(copiedBuf, 0, this.msgs, sepPayloadArgs, posFilters, negFilters, negBeforePosFilters);
                             if (parseInfo[0] > 0) {
                                 console.log(`checkFileChanges skipped ${parseInfo[0]} bytes.`);
                             }
@@ -1773,7 +1782,7 @@ export class DltDocument {
     }
 
     /**
-     * 
+     *
      * @param context ExtensionContext (needed for report generation -> access to settings,...)
      * @param cmd get|patch|delete
      * @param paths docs/<id>/filters[...]

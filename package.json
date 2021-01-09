@@ -44,6 +44,11 @@
 						],
 						"description": "Specifies the file extensions that can be opened."
 					},
+					"dlt-logs.separatePayloadArgs": {
+						"type": "boolean",
+						"default": false,
+						"description": "Separate payload arguments with a space (' ') character. Default is false to not break existing filters."
+					},
 					"dlt-logs.reReadTimeout": {
 						"type": "integer",
 						"default": 1000,
