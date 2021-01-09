@@ -58,7 +58,8 @@ const getFirstMsg = (fileUri: vscode.Uri) => {
     let data = Buffer.allocUnsafe(1 * 1024 * 1024); // we do only scan first MB
     let read = fs.readSync(fd, data, 0, data.byteLength, 0);
     const msgs: DltMsg[] = [];
-    const parseInfo = DltDocument.dltP.parseDltFromBuffer(data.slice(0, read), 0, msgs, [], [], []);
+    const sepPayloadArgs = DltDocument.getSepPayloadArgs();
+    const parseInfo = DltDocument.dltP.parseDltFromBuffer(data.slice(0, read), 0, msgs, sepPayloadArgs, [], [], []);
     if (msgs.length) { return msgs[0]; } else { return undefined; };
 };
 
@@ -423,7 +424,7 @@ async function doExport(exportOptions: ExportDltOptions) {
                 });
                 console.log(`sorted ${minMsgInfos.length} msgs`);
                 progress.report({ message: `sorted ${minMsgInfos.length} messages` });
-                await util.sleep(10); // 10ms each 100ms    
+                await util.sleep(10); // 10ms each 100ms
             }
 
             // pass 2:
@@ -558,6 +559,7 @@ const pass1ReadUri = async (
     let msgs: DltMsg[] = [];
     // determine current filters:
     const [posFilters, negFilters, decFilters, eventFilters, negBeforePosFilters] = DltDocument.getFilter(allFilters, true, true);
+    const sepPayloadArgs = DltDocument.getSepPayloadArgs();
     progress?.report({ message: `pass 1: processing file '${basename(fileUri.fsPath)}'` });
     let index = 0;
     let lastIncrement = 0;
@@ -568,7 +570,7 @@ const pass1ReadUri = async (
             // parse data:
             const msgOffsets: number[] = [];
             const msgLengths: number[] = [];
-            const parseInfo = DltDocument.dltP.parseDltFromBuffer(data.slice(0, read), 0, msgs, posFilters, negFilters, negBeforePosFilters, msgOffsets, msgLengths);
+            const parseInfo = DltDocument.dltP.parseDltFromBuffer(data.slice(0, read), 0, msgs, sepPayloadArgs, posFilters, negFilters, negBeforePosFilters, msgOffsets, msgLengths);
             if (parseInfo[0] > 0) {
             }
             if (parseInfo[1] > 0) {

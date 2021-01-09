@@ -10,7 +10,7 @@ This Visual Studio Code(tm) extension adds support to open DLT (diagnostic log a
 
 **Note:** It works well with [![Version](https://vsmarketplacebadge.apphb.com/version/mbehr1.fishbone.svg)](https://marketplace.visualstudio.com/items?itemName=mbehr1.fishbone) **fishbone** extension and provides a rest query and filter API that can be used for badges and "apply filter". (todo picture/animation...)
 
-A more detailed documentation is available here: [Docs](https://mbehr1.github.io/dlt-logs/). 
+A more detailed documentation is available here: [Docs](https://mbehr1.github.io/dlt-logs/).
 
 ## Features
 
@@ -95,6 +95,7 @@ This extension contributes the following settings:
 * `dlt-logs.fileExtensions`: Specifies the file extensions to use for file open dialog. Defaults to .dlt|.DLT.
 * `dlt-logs.maxNumberLogs`: Specified the maximum number of DLT logs that get displayed in one page. If more logs exist - considering the active filters - a paging mechanism is in place that starts rendering a new page at 4/5th of the page boundary. Searching is limited to the visible page. Defaults to 0.4mio logs. Depending on your machines performance/RAM you might reduce/increase this. Best case is to find a limit/config where all logs fit into that range (use filter!).
 * `dlt-logs.reReadTimeout`: Specified the timeout in ms after opening the file before starting to parse the dlt file. If the file doesn't open, increase this to e.g. 5s.
+* `dlt-logs.separatePayloadArgs`: Separate payload arguments with a space (' ') character. Default is false to not break existing filters.
 * `dlt-logs.columns`: Specifies which columns are visible. See example config. Usually doesn't need to be changed manually but by button "select columns".
 * `dlt-logs.filters`: Configures the filter that are available.
    There are four type of filters:
@@ -129,7 +130,7 @@ This extension contributes the following settings:
    For report generation filter can contain:
    * **reportOptions**: object that can contain:
      * **conversionFunction**: can be used to modify the captured values for that event. Needs to be a JS function returning an array of objects { valueName: value } gets the regex 'matches' as parameter. Additional parameter is "params" which is an object with msg, localObj and reportObj. TODO create wiki with full example. E.g. "return {'limit':42};" for a static value. or "return {'timeStamp': params.msg.timeStamp/10000};". 'localObj' is initially an empty Object {} that can be used to store properties for that filter (e.g. interims data for calculations).  'reportObj' is an Object similar to localObj but shared between all filters. So take care here for name clashes!
-     * **valueMap**: object that can contain keys matching to the captured data names and the property is an array with objects { capturedName : newName }. 
+     * **valueMap**: object that can contain keys matching to the captured data names and the property is an array with objects { capturedName : newName }.
      E.g."reportOptions": { "valueMap": { "STATE_onOff": [ { "1": "on" }, { "0": "off" }, {"ff": "invalid" }]}}
 
    Filter configuration changes and menu items *add filter...*, *edit filter...*, *delete filter...* actions will be applied instantly to the configuration/view.
@@ -141,8 +142,8 @@ This extension contributes the following settings:
   * **allowSave**: can be used to disable saving capability. Can be used if you're not interested in the files but still want to see any transfers. Reduces memory consumption.
   * **keepFLDA**: if enabled the FLDA messages are visible in the logs (if no other filter removes them). Default is to not show the FLDA messages.
   * **apid**: restrict searching for file transfer messages to this APID. Can be empty (as by spec). If you know the APID providing this speeds up processing.
-  * **ctid**: restrict searching for file transfer message to this CTID. Can be empty (as by spec). 
-  
+  * **ctid**: restrict searching for file transfer message to this CTID. Can be empty (as by spec).
+
 * `dlt-logs.decorations`: Definition of the decoration types supported for marker filters.
 * `dlt-logs.configs`: Definition of **Configs**. A config consists of a:
   * **name**: Name of that config

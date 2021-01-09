@@ -17,6 +17,7 @@ export async function loadTimeFilterAssistant(fileUri: vscode.Uri, allFilters: D
 
         // determine current filters:
         const [posFilters, negFilters, decFilters, eventFilters, negBeforePosFilters] = DltDocument.getFilter(allFilters, true, true);
+        const sepPayloadArgs = DltDocument.getSepPayloadArgs();
 
         let apids: PickItem[] = [];
         let apidCntMap: Map<string, number> = new Map(); // for each apid the number of messages as we do want to sort them
@@ -40,7 +41,7 @@ export async function loadTimeFilterAssistant(fileUri: vscode.Uri, allFilters: D
                     if (read) {
                         //const copiedBuf = Buffer.from(data.slice(0, read)); // have to create a copy of Buffer here! not necessary to access apid
                         // parse data:
-                        const parseInfo = DltDocument.dltP.parseDltFromBuffer(data.slice(0, read), 0, msgs, posFilters, negFilters, negBeforePosFilters);
+                        const parseInfo = DltDocument.dltP.parseDltFromBuffer(data.slice(0, read), 0, msgs, sepPayloadArgs, posFilters, negFilters, negBeforePosFilters);
                         if (parseInfo[0] > 0) {
                         }
                         if (parseInfo[1] > 0) {
