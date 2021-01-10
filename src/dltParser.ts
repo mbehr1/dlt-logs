@@ -571,6 +571,31 @@ function dltWriteExtHeader(buffer: Buffer, offset: number, extH: DltExtHeader) {
 
 export class DltParser {
 
+    /**
+     * check whether a DLT storage header pattern is at that position:
+     * @param buf Buffer with the payload
+     * @param offset offset where to search for the DltStorageHeader. Needs to be >= 0.
+     * @returns true if the DLT_STORAGE_HEADER_PATTERN is found at that position. False otherwise.
+     * If the offset is >= end of buffer (-4) false is returned.
+     */
+    static validHeaderAt(buf: Buffer, offset: number): boolean {
+        if (offset > buf.byteLength - 4) { return false; }
+        return buf.readUInt32LE(offset) === DLT_STORAGE_HEADER_PATTERN;
+    }
+
+    /**
+     * 
+     * @param buf Buffer with payload
+     * @param startOffset offset to start searching
+     * @param endOffset offset where to stop searching. not included
+     */
+    static patternWithin(buf: Buffer, startOffset: number, endOffset: number): boolean {
+        for (let i = startOffset; i < endOffset; ++i) {
+            if (DltParser.validHeaderAt(buf, i)) { return true; }
+        }
+        return false;
+    }
+
     parseDltFromBuffer(buf: Buffer, startOffset: number, msgs: Array<DltMsg>, posFilters?: DltFilter[], negFilters?: DltFilter[], negBeforePosFilters?: DltFilter[], msgOffsets?: number[], msgLengths?: number[]) { // todo make async
         let skipped: number = 0;
         let remaining: number = buf.byteLength - startOffset;
@@ -587,60 +612,82 @@ export class DltParser {
                 const len: number = stdHeader.len;
                 // assert(len >= 0);
                 if (remaining - ((offset + len) - msgOffset) >= 0) {
-                    offset += len;
+                    // before treating this message as ok we do one more check/heuristic:
+                    // check 1: does the next message (storageHeader.pattern) start after this msg?
+                    //  if yes -> ok
+                    //  if no -> check whether there is a new storageHeader.pattern within the frame.
+                    //  if there is -> skip this msg as corrupt
+                    // todo could add more heuristics like times completely off,...
+                    // would be better if we could do these checks before the remaining - ... >= 0 (even at the end of the remaining...)
+                    let seemsInvalid = false;
 
-                    if (len >= MIN_STD_HEADER_SIZE) {
-                        try {
-                            const newMsg = new DltMsg(storageHeader.ecu, stdHeader, startIndex + nrMsgs, timeAsNumber, buf.slice(msgOffset, offset));
-                            // do we need to filter this one?
-                            let keepAfterNegBeforePosFilters: boolean = true;
-                            if (negBeforePosFilters?.length) {
-                                for (let i = 0; i < negBeforePosFilters.length; ++i) {
-                                    if (negBeforePosFilters[i].matches(newMsg)) {
-                                        keepAfterNegBeforePosFilters = false;
-                                        break;
-                                    }
-                                }
-                            }
+                    // seems invalid check 1:
+                    if (!DltParser.validHeaderAt(buf, offset + len) && DltParser.patternWithin(buf, offset - DLT_STORAGE_HEADER_SIZE + 1, offset + len)) { seemsInvalid = true; }
 
-                            if (keepAfterNegBeforePosFilters) {
-                                let foundAfterPosFilters: boolean = posFilters?.length ? false : true;
-                                if (posFilters?.length) {
-                                    // check the pos filters, break on first match:
-                                    for (let i = 0; i < posFilters.length; ++i) {
-                                        if (posFilters[i].matches(newMsg)) {
-                                            foundAfterPosFilters = true;
-                                            break;
-                                        }
-                                    }
-                                }
-                                let foundAfterNegFilters: boolean = foundAfterPosFilters;
-                                if (foundAfterNegFilters && negFilters?.length) {
-                                    // check the neg filters, break on first match:
-                                    for (let i = 0; i < negFilters.length; ++i) {
-                                        if (negFilters[i].matches(newMsg)) {
-                                            foundAfterNegFilters = false;
-                                            break;
-                                        }
-                                    }
-                                }
-                                if (foundAfterNegFilters) {
-                                    msgs.push(newMsg);
-                                    if (msgOffsets) { msgOffsets.push(msgOffset); }
-                                    if (msgLengths) { msgLengths.push(offset - msgOffset); }
-                                    nrMsgs++; // todo or should we always keep the orig index here?
-                                }
-                            }
-                        } catch (err) {
-                            // most likely not enough data for the DltMsg constructor
-                            console.log(`constructing DltMsg failed with: '${err}'`);
-                            skipped += len;
-                        }
+                    if (seemsInvalid) {
+                        console.warn(`DltParser skipped a potential msg as it seemed invalid. Msg would have len=${len} storageHeader=${JSON.stringify(storageHeader)} stdHeader=${JSON.stringify(stdHeader)} remaining=${remaining}`);
+                        // skip by just one byte
+                        offset -= DLT_STORAGE_HEADER_SIZE;
+                        offset++;
+                        skipped++;
+                        remaining--;
+                        // todo incr. nrMsgs? dltviewer seems to do so
                     } else {
-                        skipped += len;
-                        console.log(`got a STORAGE_HEADER with len < MIN_STD_HEADER_SIZE! Skipped len=${len} storageHeader=${JSON.stringify(storageHeader)} stdHeader=${JSON.stringify(stdHeader)} remaining=${remaining}`);
+                        offset += len;
+
+                        if (len >= MIN_STD_HEADER_SIZE) {
+                            try {
+                                const newMsg = new DltMsg(storageHeader.ecu, stdHeader, startIndex + nrMsgs, timeAsNumber, buf.slice(msgOffset, offset));
+                                // do we need to filter this one?
+                                let keepAfterNegBeforePosFilters: boolean = true;
+                                if (negBeforePosFilters?.length) {
+                                    for (let i = 0; i < negBeforePosFilters.length; ++i) {
+                                        if (negBeforePosFilters[i].matches(newMsg)) {
+                                            keepAfterNegBeforePosFilters = false;
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                if (keepAfterNegBeforePosFilters) {
+                                    let foundAfterPosFilters: boolean = posFilters?.length ? false : true;
+                                    if (posFilters?.length) {
+                                        // check the pos filters, break on first match:
+                                        for (let i = 0; i < posFilters.length; ++i) {
+                                            if (posFilters[i].matches(newMsg)) {
+                                                foundAfterPosFilters = true;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    let foundAfterNegFilters: boolean = foundAfterPosFilters;
+                                    if (foundAfterNegFilters && negFilters?.length) {
+                                        // check the neg filters, break on first match:
+                                        for (let i = 0; i < negFilters.length; ++i) {
+                                            if (negFilters[i].matches(newMsg)) {
+                                                foundAfterNegFilters = false;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    if (foundAfterNegFilters) {
+                                        msgs.push(newMsg);
+                                        if (msgOffsets) { msgOffsets.push(msgOffset); }
+                                        if (msgLengths) { msgLengths.push(offset - msgOffset); }
+                                        nrMsgs++; // todo or should we always keep the orig index here?
+                                    }
+                                }
+                            } catch (err) {
+                                // most likely not enough data for the DltMsg constructor
+                                console.log(`constructing DltMsg failed with: '${err}'`);
+                                skipped += len;
+                            }
+                        } else {
+                            skipped += len;
+                            console.log(`got a STORAGE_HEADER with len < MIN_STD_HEADER_SIZE! Skipped len=${len} storageHeader=${JSON.stringify(storageHeader)} stdHeader=${JSON.stringify(stdHeader)} remaining=${remaining}`);
+                        }
+                        remaining -= (offset - msgOffset);
                     }
-                    remaining -= (offset - msgOffset);
                 } else {
                     break;
                 }
