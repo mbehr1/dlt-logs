@@ -1,5 +1,13 @@
 # Change log for 'DLT-Logs':
 
+### [1.3.4](https://github.com/mbehr1/dlt-logs/compare/v1.3.3...v1.3.4) (2021-01-10)
+
+
+### Bug Fixes
+
+* **dltparser:** add sanity check for robustness ([f5e0c89](https://github.com/mbehr1/dlt-logs/commit/f5e0c89cbee8f15fcb8ab351f3fbb26810e1cf09))
+* **lifecycledetection:** limit the number of logs ([f993ef4](https://github.com/mbehr1/dlt-logs/commit/f993ef4cab470eab5cd95a4ee5d193b6c3345d7e))
+
 ### [1.3.3](https://github.com/mbehr1/dlt-logs/compare/v1.3.2...v1.3.3) (2021-01-08)
 
 
