@@ -22,6 +22,10 @@ export class DltLifecycleInfo {
     apidInfos: Map<string, { apid: string, desc: string, ctids: Map<string, string> }> = new Map(); // map with apids/ctid infos
     private _mergedIntoLc: DltLifecycleInfo | undefined = undefined;
 
+    // limit log outputs as this sloooowwws down a lot...
+    private _logCntNewStarttimeEarlier: number = 0;
+    private _logCntTimeStampTooHigh: number = 0;
+
     constructor(logMsg: DltMsg, storeMsg: boolean = true) {
         this.uniqueId = _nextLcUniqueId++;
         // if its a control message from logger we ignore the timestamp:
@@ -142,7 +146,71 @@ export class DltLifecycleInfo {
             return true;
         }
 
+        /* the lifecycle detection is based on the following model:
+           a msg is transmitted at:
+            an unknown realtime
+            a known timestamp (monotonic from ECU/cpu lifecycle start)
+            an unknown buffering delay (per message varying)
+            a known reception time.
+            We try to determine the realtime lifecycle start time so that:
+            lifecycle start time = realtime for timestamp 0.
 
+            Furthermore we define the
+            lifecycle end time = lifecyle start time + max timestamps_msgs
+
+            For every message (from that lifecycle) the following equation is assumed:
+            (I) realtime_msg = lifecycleStartTime + timestamp + min_bufferingDelays
+            and
+            (II) reception time = lifecycleStartTime + timestamp + bufferingDelay_msg.
+
+            So if we process a msg the following cases can happen:
+            a) (the message has a smaller buffering delay than the prev. messages and belongs to this lifecycle)
+                From (II) we can calc:
+                newLifecycleStartTime = receptionTime - timestamp - (unknown) bufferingDelay_msg.
+                We don't know the bufferingDelay but if we notice that the newLifecycleStartTime is
+                smaller (earlier) than the one calculated from previous msgs we can assume that:
+                A) the msg belongs to this lifecycle.
+                B) the lifecycle start time is at least newLifecycleStartTime
+
+                (R1) So if the newLifecycleStartTime is smaller than the previous calculated one we can assume that
+                case a) is met (-> the msg belongs to this lifecycle and the new lifecycle start time is newLifecycleStartTime)
+            b) the msg belongs to this lifecycle
+            c) the msg belongs to a new lifecycle
+
+            To differentiate between b) or c) we compare the cases (what if b) or c) would be true) by buffering delay:
+            From (II) we can calc for case b)
+            bufferingDelay_b = receptionTime - lifecycleStartTime - timestamp
+            we can express this as well as:
+            bufferingDelay_b = receptionTime - timestamp - lifecycleStartTime
+            bufferingDelay_b = newLifecycleStartime - lifecycleStartTime
+
+            And for case c)
+            bufferingDelay_c = receptionTime - newLifecycleStartTime - timestamp
+            bufferingDelay_c = receptionTime - (receptionTime - timestamp) - timestamp
+            bufferingDelay_c = 0
+            This is expected as we dont know the buffering delay so if assume a new lifecycle we take the lowest possible
+            bound (0) as the buffering delay.
+
+            So we get as one input for the heuristic only the absolute value of the bufferingDelay_b.
+            And the 3rd form newLifecycleStartTime - lifecycleStartTime gives a nice indication as this would be the
+            (longest) difference of the current with the new lifecycle. Longest as the new one could change its
+            lifecycle start later on processing of more messages with case a)
+
+            This gives us another good indication on when we can conclude case b):
+            if the bufferingDelay_c is smaller than the duration of the current lifecycle or in other words
+            (R2) if the newLifecycleStart is smaller than the lifecycleEnd we can conclude b).
+            (todo this is not true as later one the lifecycleStart/End can move to earlier...)
+
+            But there remain cases where (R2) is not met but the message still belongs to that lifecycle:
+            This can be the case if at the begin of a lifecycle only a few messages have been retrieved yet
+            and then indirectly the min_bufferingDelay is still quite high or in other words the lifecycleStart
+            assumed/calculated too late
+
+            Take gap in reception time as indicator? (might not be the case for udp)
+
+            And we can check the sequence numbers for the APID of the message...
+            todo.... this is not correct/working yet.... rethink it...
+        */
         // current values of this lifecycle without the new msg:
         const lifecycleStartTime = (this.adjustTimeMs + this._lifecycleStart);
         const lifecycleEndTime = lifecycleStartTime + (this._maxTimeStamp / 10);
@@ -165,7 +233,7 @@ export class DltLifecycleInfo {
         }
 
         // if newLifecycleStart is later than current end _lifecycleStart+_maxTimestamp
-            // todo 1s, after a longer lifecycle we can reduce this to e.g. 50ms... but for short (~4s) lifecycles not (10773, 11244)
+        // todo 1s, after a longer lifecycle we can reduce this to e.g. 50ms... but for short (~4s) lifecycles not (10773, 11244)
         let newLifecycleDistanceMs = 1000; // default 1s
         if (this._maxTimeStamp > 100 * 1000 * 10) { newLifecycleDistanceMs = 10; } else // 10ms for lc >100s
             if (this._maxTimeStamp > 30 * 1000 * 10) { newLifecycleDistanceMs = 250; } else // 250ms for lc>30s
@@ -176,8 +244,11 @@ export class DltLifecycleInfo {
             console.log(`DltLifecycleInfo:update (logMsg(index=${logMsg.index} at ${logMsg.timeAsDate}:${logMsg.timeStamp}) not part of this lifecycle(startIndex=${this.startIndex} end=${this.lifecycleEnd} ) `);
             return false; // treat as new lifecycle
         }
-        if (logMsg.timeAsNumber < this._startTime) {
-            console.log("DltLifecycleInfo:update new starttime earlier? ", this._startTime, logMsg.timeAsNumber);
+        if (logMsg.timeAsNumber + 1000 < this._startTime) {
+            this._logCntNewStarttimeEarlier++;
+            if (this._logCntNewStarttimeEarlier < 100 || this._logCntNewStarttimeEarlier % 1000 === 0) {
+                console.log(`DltLifecycleInfo:update new starttime earlier? ${this._logCntNewStarttimeEarlier}x`, this._startTime, logMsg.timeAsNumber);
+            }
         }
 
         // if the timestamp is too high (+10min) we treat it as not plausible:
@@ -185,22 +256,27 @@ export class DltLifecycleInfo {
         if (timeStampTooHigh) {
             // we treat it as corrupted/weird if its >10mins diff.
             // otherwise this moves the lifecycle start to a lot earlier
-            console.warn(`DltLifecycleInfo: timeStampTooHigh: ignoring maxTimeStamp ${logMsg.timeStamp}, keeping ${this._maxTimeStamp} and lifecycleStart`);
+            this._logCntTimeStampTooHigh++;
+            if (this._logCntTimeStampTooHigh < 100 || this._logCntTimeStampTooHigh % 1000 === 0) {
+                console.warn(`DltLifecycleInfo: timeStampTooHigh ${this._logCntTimeStampTooHigh}x: ignoring maxTimeStamp ${logMsg.timeStamp}, keeping ${this._maxTimeStamp} and lifecycleStart`);
+            }
+            // todo if this lifecycle contains just one message we treat the other message as broken...
+            // but for !storeMsg we don't know the count... find a solution... (trace: g5.450521.dlt)
         }
 
         if (newLifecycleStart < lifecycleStartTime) { // this is (R1) from above.
             if (!timeStampTooHigh) {
-            // update new lifecycle start:
-            if (lifecycleStartTime - newLifecycleStart > 1000) { // only inform about jumps >1s
-                console.log(`DltLifecycleInfo:update new lifecycleStart from ${this.lifecycleStart} to ${newLifecycleStart} due to ${logMsg.index}`);
+                // update new lifecycle start:
+                if (lifecycleStartTime - newLifecycleStart > 1000) { // only inform about jumps >1s
+                    console.log(`DltLifecycleInfo:update new lifecycleStart from ${this.lifecycleStart} to ${newLifecycleStart} due to ${logMsg.index}`);
+                }
+                this._lifecycleStart = newLifecycleStart; // todo or with adjustTimeMs? (well for now adjustTimeMs is anyhow 0 at start)
             }
-            this._lifecycleStart = newLifecycleStart; // todo or with adjustTimeMs? (well for now adjustTimeMs is anyhow 0 at start)
-        }
         }
         if (logMsg.timeStamp > this._maxTimeStamp) {
             if (!timeStampTooHigh) {
-            this._maxTimeStamp = logMsg.timeStamp;
-        }
+                this._maxTimeStamp = logMsg.timeStamp;
+            }
         }
         // todo we might have to update startIndex based on current index. currently we assume they are strong monotonically increasing
 
