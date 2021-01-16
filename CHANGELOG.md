@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs':
 
+## [1.6.0](https://github.com/mbehr1/dlt-logs/compare/v1.5.0...v1.6.0) (2021-01-16)
+
+
+### Features
+
+* allow to filter for lifecycles ([290a8fb](https://github.com/mbehr1/dlt-logs/commit/290a8fb60aebb1ffa8026dd712adab7d54a82ada))
+
 ## [1.5.0](https://github.com/mbehr1/dlt-logs/compare/v1.4.0...v1.5.0) (2021-01-16)
 
 
