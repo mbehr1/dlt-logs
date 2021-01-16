@@ -35,6 +35,14 @@ export async function loadTimeFilterAssistant(fileUri: vscode.Uri, allFilters: D
                 let startTime = process.hrtime();
                 let lastUpdateTime = startTime;
                 let msgs: DltMsg[] = [];
+                const calcAndFireApids = () => {
+                    apids = [];
+                    apidCntMap.forEach((v, k) => { const item = new PickItem(k); item.description = `${v} messages with APID:${k}`; apids.push(item); });
+                    // now sort:
+                    apids.sort((a, b) => { return apidCntMap.get(b.name)! - apidCntMap.get(a.name)!; });
+                    onMoreItems.fire(apids);
+                };
+
                 do {
                     read = fs.readSync(fd, data, 0, chunkSize, parsedFileLen);
                     if (read) {
@@ -63,12 +71,7 @@ export async function loadTimeFilterAssistant(fileUri: vscode.Uri, allFilters: D
                             let curTime = process.hrtime(lastUpdateTime);
                             if (curTime[0] > 1) { // 1000ms passed
                                 lastUpdateTime = process.hrtime();
-
-                                apids = [];
-                                apidCntMap.forEach((v, k) => { const item = new PickItem(k); item.description = `${v} messages with APID:${k}`; apids.push(item); });
-                                // now sort:
-                                apids.sort((a, b) => { return apidCntMap.get(b.name)! - apidCntMap.get(a.name)!; });
-                                onMoreItems.fire(apids);
+                                calcAndFireApids();
                             }
                         }
 
@@ -87,17 +90,35 @@ export async function loadTimeFilterAssistant(fileUri: vscode.Uri, allFilters: D
                 } while (read > 0 && !cancel.isCancellationRequested);
                 fs.closeSync(fd);
                 // once done fire with undefined:
-                if (!cancel.isCancellationRequested) { onMoreItems.fire(undefined); }
+                if (!cancel.isCancellationRequested) { calcAndFireApids(); onMoreItems.fire(undefined); }
                 console.log(`loadMoreApids background ... finished.`);
             }, 10);
             return onMoreItems.event;
         };
 
         let removeApids: string[] | undefined = undefined;
+        let disabledLoadTimeFilters = allFilters.filter(f => f.atLoadTime && !f.enabled).map(f => { let pi = new PickItem(f.name); pi.data = f; return pi; });
+        let tempEnableLoadTimeFilters: DltFilter[] = [];
+        const onLoadTimeFiltersValues = (v: string | readonly PickItem[]) => {
+            tempEnableLoadTimeFilters = [];
+            if (Array.isArray(v)) {
+                //console.log(` onValue(${v.map(v => v.name).join(',')})`);
+                (<readonly PickItem[]>v).forEach((pi) => {
+                    if (pi.data !== undefined) { tempEnableLoadTimeFilters.push(pi.data); }
+                });
+            } else {
+                console.log(` onLoadTimeFiltersValues(str '${v}') todo!`);
+                // search all PickItems that contain v in their name (and/or descrip?)
+            }
+            console.log(` onLoadTimeFiltersValues() got ${tempEnableLoadTimeFilters.length} load time filters to temp enable`);
+        };
         let stepInput = new MultiStepInput(`Load time filter assistant...`, [
+            disabledLoadTimeFilters.length ? { title: `select all load time filters that should be temp. enabled`, items: disabledLoadTimeFilters, onValues: onLoadTimeFiltersValues } : undefined,
             { title: `select all APIDs that can be removed`, items: apids, onValues: (v) => { if (Array.isArray(v)) { removeApids = v.map(v => v.name); } else { removeApids = v.length ? [<string>v] : []; } }, onMoreItems: loadMoreApids }
         ], { canSelectMany: true });
         stepInput.run().then(() => {
+            // temp enable the load time filters:
+            tempEnableLoadTimeFilters.forEach(f => f.enabled = true);
             // insert them as loadTimeFilters (negBeforePos...?)
             if (removeApids?.length) {
                 console.log(`adding neg. load filters for APIDs: ${removeApids.join(',')}`);
