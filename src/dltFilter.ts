@@ -41,7 +41,7 @@ export class DltFilter {
     reportOptions: any | undefined;
 
     // configs:
-    configs: string[] = [];
+    private _configs: string[] = [];
 
     // the options used to create the object.
     // asConfiguration() modifies this one based on current values
@@ -93,7 +93,7 @@ export class DltFilter {
         obj.decorationId = this.decorationId;
         obj.filterColour = this.filterColour; // or remove blue?
         obj.reportOptions = this.reportOptions;
-        obj.configs = this.configs.length > 0 ? this.configs : undefined;
+        obj.configs = this._configs.length > 0 ? this._configs : undefined; // we report it even if property later hides it
 
         return obj;
     }
@@ -175,9 +175,9 @@ export class DltFilter {
             }
         }
 
-        this.configs = [];
+        this._configs = [];
         if ('configs' in options && Array.isArray(options.configs)) {
-            this.configs.push(...options.configs);
+            this._configs.push(...options.configs);
         }
 
 
@@ -276,6 +276,20 @@ export class DltFilter {
     get isReport(): boolean {
         // a report filter is a type EVENT filter that has a payloadRegex and no timeSyncId
         return this.type === DltFilterType.EVENT && (this.payloadRegex !== undefined) && (this.timeSyncId === undefined);
+    }
+
+    /**
+     * array of config names/paths this filter belongs to.
+     * The property returns empty if the filter is a load time filter
+     * as configs don't make sense then.
+     */
+    get configs(): string[] {
+        return this.atLoadTime ? [] : this._configs;
+    }
+
+    set configs(newCfgs: string[]) {
+        // we do allow setting it even for load time filters
+        this._configs = newCfgs;
     }
 
     asRestObject(idHint: number): util.RestObject {
