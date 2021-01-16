@@ -126,26 +126,34 @@ export class QuickInputHelper {
     }
 }
 
+interface MultiStepInputStep {
+    iconPath?: string,
+    items: PickItem[] | (() => PickItem[]), title?: string,
+    initialValue?: () => string | undefined, placeholder?: string,
+    onValue?: ((v: string) => void),
+    onValues?: ((v: readonly PickItem[] | string) => void),
+    isValid?: ((v: string) => boolean),
+    skipStep?: (() => boolean),
+    onMoreItems?: ((cancel: vscode.CancellationToken) => vscode.Event<PickItem[] | undefined>),
+    canSelectMany?: boolean
+}
+
 export class MultiStepInput {
 
+
+    private _steps: MultiStepInputStep[];
+
     constructor(private _title: string,
-        private _steps: readonly {
-            iconPath?: string,
-            items: PickItem[] | (() => PickItem[]), title?: string,
-            initialValue?: () => string | undefined, placeholder?: string,
-            onValue?: ((v: string) => void),
-            onValues?: ((v: readonly PickItem[] | string) => void),
-            isValid?: ((v: string) => boolean),
-            skipStep?: (() => boolean),
-            onMoreItems?: ((cancel: vscode.CancellationToken) => vscode.Event<PickItem[] | undefined>),
-            canSelectMany?: boolean
-        }[],
+        steps: (MultiStepInputStep | undefined)[],
         public options?: { canSelectMany: boolean }) {
+        // we remove the undefined ones to adjust the nr. of steps for 
+        // statically removed ones
+        this._steps = <MultiStepInputStep[]>steps.filter(a => a !== undefined);
     }
 
     public async run() {
 
-        return new Promise<null>(async (resolve, reject) => {
+        return new Promise<void>(async (resolve, reject) => {
             let doCancel = false;
             for (let s = 0; s < this._steps.length; ++s) {
                 const stepData = this._steps[s];
@@ -210,7 +218,16 @@ export class MultiStepInput {
                 cancelMoreItems?.cancel();
                 quickPick.dispose();
                 if (doCancel) { break; }
-                if (doBack) { s -= 2; }
+                if (doBack) {
+                    s -= 2;
+                    // if that step was skipped we need to go even more back:
+                    let prevWasSkipped: boolean;
+                    do {
+                        prevWasSkipped = false;
+                        const stepDataB = this._steps[s + 1];
+                        if (stepDataB.skipStep !== undefined && stepDataB.skipStep()) { s -= 1; prevWasSkipped = true; }
+                    } while (prevWasSkipped);
+                }
             }
             if (doCancel) { reject(); } else { resolve(); }
         });
