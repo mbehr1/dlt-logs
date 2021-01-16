@@ -46,6 +46,125 @@ class ColumnConfig implements vscode.QuickPickItem {
     get alwaysShow() { return true; }
 };
 
+/**
+ * TreeViewNode representing the "Detected lifecycles" root node
+ * Has a specific icon and methods supporting lifecycle filters
+ */
+class LifecycleRootNode implements TreeViewNode {
+    tooltip: string | undefined;
+    id: string;
+    children: TreeViewNode[] = [];
+    parent: TreeViewNode | null = null;
+    iconPath?: vscode.ThemeIcon;
+    private lcFilter?: DltFilter;
+    private lcsFiltered: DltLifecycleInfo[] = [];
+
+    get label(): string { return "Detected lifecycles"; };
+    get uri(): vscode.Uri | null { return this.doc.uri; }
+
+    constructor(private doc: DltDocument) {
+        this.id = createUniqueId();
+        this.iconPath = new vscode.ThemeIcon('list-selection');
+    }
+
+    reset() {
+        // if we have set a lcFilter we do need to remove it:
+        if (this.lcFilter) {
+            // remove from allFilters:
+            this.doc.onFilterDelete(this.lcFilter, false);
+            this.lcFilter = undefined;
+        }
+
+        this.children = [];
+    }
+
+    /**
+     * Return whether a lifecycle is currently filtered.
+     * @param lc lifecycle to get the info for
+     */
+    hasLcFiltered(lc: DltLifecycleInfo): boolean {
+        if (this.lcsFiltered.indexOf(lc) < 0) { return false; };
+        return this.lcFilter !== undefined && this.lcFilter.enabled;
+    }
+
+    /**
+     * Add/remove a lifecycle to the filter.
+     * @param lc lifecycle so filter/remove from filter
+     * @param doFilter indicate whether the lifecycle should be filtered or not
+     */
+    filterLc(lc: DltLifecycleInfo, doFilter: boolean) {
+        let filtersChanged = false;
+
+        // if the filter is currently disabled and the filter should be set
+        // we do remove all lcs first:
+        if (this.lcFilter !== undefined && !this.lcFilter.enabled && doFilter) {
+            this.lcFilter.enabled = true;
+            this.lcsFiltered = [];
+        }
+
+        const idx = this.lcsFiltered.indexOf(lc);
+
+        if (doFilter && idx < 0) {
+            this.lcsFiltered.push(lc);
+            filtersChanged = true;
+        }
+        if (!doFilter && idx >= 0) {
+            this.lcsFiltered.splice(idx, 1); // remove
+            filtersChanged = true;
+        }
+        if (filtersChanged) {
+            if (this.lcsFiltered.length > 0) {
+                if (!this.lcFilter) {
+                    this.lcFilter = new DltFilter({ type: 1, not: true, name: "not selected lifecycles" }, false);
+                    // add to allFilters:
+                    this.doc.onFilterAdd(this.lcFilter, false);
+                }
+                this.lcFilter.lifecycles = this.lcsFiltered.map(lc => lc.persistentId);
+            } else {
+                if (this.lcFilter) {
+                    this.doc.onFilterDelete(this.lcFilter, false);
+                    this.lcFilter = undefined;
+                }
+            }
+        }
+    }
+}
+
+class LifecycleNode implements TreeViewNode {
+    id: string;
+    label: string;
+    tooltip: string | undefined;
+    get children(): TreeViewNode[] { return []; } // no children 
+    constructor(public uri: vscode.Uri | null, public parent: TreeViewNode,
+        private lcRootNode: LifecycleRootNode, private lc: DltLifecycleInfo) {
+        this.id = createUniqueId();
+        this.label = lc.getTreeNodeLabel();
+        this.tooltip = lc.tooltip;
+    }
+
+    /**
+     * return filterEnabled/Disabled based on whether the lifecycle
+     * filter contains our lifecycle.
+     */
+    get contextValue() {
+        let isCurrentlyFiltered = this.lcRootNode.hasLcFiltered(this.lc);
+        return `${isCurrentlyFiltered ? 'filterEnabled' : 'filterDisabled'}`;
+    }
+
+    applyCommand(cmd: string) {
+        console.log(`LifecycleNode.applyCommand('${cmd}')`);
+        switch (cmd) {
+            case 'enable':
+            case 'disable':
+                this.lcRootNode.filterLc(this.lc, cmd === 'enable');
+                break;
+            default:
+                console.warn(`LifecycleNode.applyCommand unsupported cmd:'${cmd}'`);
+                break;
+        }
+    }
+}
+
 export class DltDocument {
     static dltP: DltParser = new DltParser();
 
@@ -84,7 +203,7 @@ export class DltDocument {
     }
 
     treeNode: TreeViewNode;
-    lifecycleTreeNode: TreeViewNode;
+    lifecycleTreeNode: LifecycleRootNode;
     filterTreeNode: FilterRootNode;
     configTreeNode: TreeViewNode;
     pluginTreeNode: TreeViewNode; // this is from the parent = DltDocumentProvider
@@ -144,7 +263,7 @@ export class DltDocument {
             });
         }
 
-        this.lifecycleTreeNode = { id: createUniqueId(), label: "Detected lifecycles", uri: this.uri, parent: null, children: [], tooltip: undefined, iconPath: new vscode.ThemeIcon('list-selection') };
+        this.lifecycleTreeNode = new LifecycleRootNode(this); 
         this.filterTreeNode = new FilterRootNode(this.uri);
         this.configTreeNode = { id: createUniqueId(), label: "Configs", uri: this.uri, parent: null, children: [], tooltip: undefined, iconPath: new vscode.ThemeIcon('references') };
         this.pluginTreeNode = { id: createUniqueId(), label: "Plugins", uri: this.uri, parent: null, children: [], tooltip: undefined, iconPath: new vscode.ThemeIcon('package') };
@@ -1676,7 +1795,7 @@ export class DltDocument {
     }
 
     private updateLifecycleTreeNode() {
-        this.lifecycleTreeNode.children = [];
+        this.lifecycleTreeNode.reset(); // .children = [];
         this.lifecycles.forEach((lcInfo, ecu) => {
             // determine SW names:
             let sw: string[] = [];
@@ -1726,13 +1845,7 @@ export class DltDocument {
             // add lifecycles
             for (let i = 0; i < lcInfo.length; ++i) {
                 const lc = lcInfo[i];
-                let lcNode: TreeViewNode = {
-                    id: createUniqueId(),
-                    label: lc.getTreeNodeLabel(),
-                    tooltip: lc.tooltip,
-                    parent: ecuNode, children: [], uri: this.uri.with({ fragment: lc.startIndex.toString() })
-                };
-                ecuNode.children.push(lcNode);
+                ecuNode.children.push(new LifecycleNode(this.uri.with({ fragment: lc.startIndex.toString() }), ecuNode, this.lifecycleTreeNode, lc));
             }
         });
         this.autoEnableConfigs();

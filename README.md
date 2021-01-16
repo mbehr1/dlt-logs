@@ -22,6 +22,7 @@ A more detailed documentation is available here: [Docs](https://mbehr1.github.io
   - Posts events of the selected time to other documents/plugins. (See ... <todo>).
 - Detects the lifecycles and shows them in a tree-view.
   - Lifecycles can be graphically decorated by defining *dlt-log.decorations* with id 'lifecycleEven' (for the lifecycles #0, #2,...) / 'lifecycleOdd' (for the lifecycles #1,#3,...). Default decorations contains light transparent green(dark)/gray(light) background for 'lifecycleOdd'. Only the ECU with the highest amount of messages will be decorated.
+  - Lifecycles can be filtered for ( "enable"/"disable").
 - **Export/filter DLT file...**
   - Merge multiple DLT files into on file.
   - Sort msgs within lifecycles by timestamp (**reorder msgs by calculated time? option**)
@@ -35,7 +36,8 @@ A more detailed documentation is available here: [Docs](https://mbehr1.github.io
   - CTID
   - MSTP
   - log level min/max
-  - payload (by "contains" simple string or regex match).
+  - payload (by "contains" simple string or regex match)
+  - lifecycles.
 
 - Filters can be *added* based on the hover text of a log line. The filter settings will be prefilled with ECU, APID, CTID.
 - Filters can be *edited* and *deleted* (press option key at the edit icon) from the *filters* tree view.
