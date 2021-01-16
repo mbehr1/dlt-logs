@@ -1,5 +1,19 @@
 # Change log for 'DLT-Logs':
 
+## [1.4.0](https://github.com/mbehr1/dlt-logs/compare/v1.3.4...v1.4.0) (2021-01-16)
+
+
+### Features
+
+* **loadtimefilterassistant:** offer disabled load time filters ([17149ac](https://github.com/mbehr1/dlt-logs/commit/17149acf57c8c96d2414ff4fe931db1cbd5be494))
+
+
+### Bug Fixes
+
+* **addeditfilter:** skip config step for loadTime filters ([ce55c1f](https://github.com/mbehr1/dlt-logs/commit/ce55c1f23a43a06831251b78e07e7a11a3086f75))
+* **filter:** dont report configs for loadTime filters ([dfcdcdf](https://github.com/mbehr1/dlt-logs/commit/dfcdcdf7f8f74c6cdab4629aa70612d8f26f5561))
+* **multistepinput:** fix back if steps have been skipped ([135a569](https://github.com/mbehr1/dlt-logs/commit/135a569857b5843e4fe4b5a8a3bc5b4ac2acec61))
+
 ### [1.3.4](https://github.com/mbehr1/dlt-logs/compare/v1.3.3...v1.3.4) (2021-01-10)
 
 
