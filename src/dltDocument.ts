@@ -207,7 +207,7 @@ export class DltDocument {
             // iterate through all config nodes:
             this.configTreeNode.children.forEach(node => {
                 if (node instanceof ConfigNode) {
-                    node.updateAllFilter('disable');
+                    node.applyCommand('disable');
                 }
             });
         }
@@ -546,7 +546,7 @@ export class DltDocument {
                                     didEnable = true;
                                     enabled++;
                                     console.log(`autoEnableConfigs enabling ${node.label} due to ECU:${ecu} `);
-                                    node.updateAllFilter('enable');
+                                    node.applyCommand('enable');
                                     break;
                                 }
                             }

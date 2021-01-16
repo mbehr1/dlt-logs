@@ -50,6 +50,7 @@ export interface TreeViewNode {
     command?: vscode.Command;
     description?: string;
     iconPath?: vscode.ThemeIcon;
+    applyCommand?: (cmd: string) => void
 };
 
 /**
@@ -182,6 +183,18 @@ export class FilterNode implements TreeViewNode {
         return this.filter.iconPath;
     }
 
+    applyCommand(cmd: string) {
+        switch (cmd) {
+            case 'enable':
+                this.filter.enabled = true; break;
+            case 'disable':
+                this.filter.enabled = false; break;
+            default:
+                console.warn(`FilterNode.applyCommand unknown cmd '${cmd}'`);
+                break;
+        }
+    }
+
 };
 
 export class ConfigNode implements TreeViewNode {
@@ -231,7 +244,7 @@ export class ConfigNode implements TreeViewNode {
         return `${anyEnabled ? 'filterEnabled ' : ''}${anyDisabled ? 'filterDisabled ' : ''}${canZoomIn ? 'canZoomIn ' : ''}${canZoomOut ? 'canZoomOut ' : ''}`;
     }
 
-    updateAllFilter(command: string) {
+    applyCommand(command: string) {
         this.children.forEach(c => {
             if (c instanceof FilterNode) {
                 switch (command) {
@@ -258,7 +271,7 @@ export class ConfigNode implements TreeViewNode {
                 }
             } else
                 if (c instanceof ConfigNode) {
-                    c.updateAllFilter(command);
+                    c.applyCommand(command);
                 }
         });
     }
@@ -685,32 +698,16 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
 
         const modifyNode = async (node: TreeViewNode, command: string) => {
             const treeviewNode = node;
-            const filterRootNode = node instanceof FilterRootNode ? <FilterRootNode>node : undefined;
-            const filterNode = node instanceof FilterNode ? <FilterNode>node : undefined;
-            const configNode = node instanceof ConfigNode ? <ConfigNode>node : undefined;
-            const parentUri = treeviewNode.parent?.uri;
+            const parentUri = treeviewNode.parent?.uri; // why from parent?
             if (parentUri) {
                 const doc = this._documents.get(parentUri.toString());
                 if (doc) {
-                    console.log(`${command} Filter(${treeviewNode.label}) called for doc=${parentUri} with filterRootNode=${filterRootNode}, filterNode=${filterNode}, configNode=${configNode}`);
+                    console.log(`${command} Filter(${treeviewNode.label}) called for doc=${parentUri}`);
                     let doApplyFilter = false;
-                    if (filterNode !== undefined) {
-                        switch (command) {
-                            case 'enable':
-                                filterNode.filter.enabled = true; break;
-                            case 'disable':
-                                filterNode.filter.enabled = false; break;
-                        }
+                    if (node.applyCommand) {
+                        node.applyCommand(command);
                         doApplyFilter = true;
-                    } else
-                        if (configNode !== undefined) {
-                            // enable/disable all child filters:
-                            configNode.updateAllFilter(command);
-                            doApplyFilter = true;
-                        } else if (filterRootNode !== undefined) {
-                            filterRootNode.applyCommand(command);
-                            doApplyFilter = true;
-                        }
+                    }
                     if (doApplyFilter) {
                         doc.triggerApplyFilter();
                         this._onDidChangeTreeData.fire(doc.treeNode); // as filters in config might be impacted as well! 
