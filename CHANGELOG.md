@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs':
 
+## [1.5.0](https://github.com/mbehr1/dlt-logs/compare/v1.4.0...v1.5.0) (2021-01-16)
+
+
+### Features
+
+* **filters:** add disable,enable,zoomIn/out for 'Filters' ([ee8f13f](https://github.com/mbehr1/dlt-logs/commit/ee8f13f771d147b9e90a3431cb39c812b7deebae))
+
 ## [1.4.0](https://github.com/mbehr1/dlt-logs/compare/v1.3.4...v1.4.0) (2021-01-16)
 
 
