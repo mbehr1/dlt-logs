@@ -175,7 +175,7 @@ export function editFilter(doc: DltDocument, newFilter: DltFilter, optArgs?: { p
             { title: `filter type?`, items: [new PickItem(filterTypesByNumber.get(0)!), new PickItem(filterTypesByNumber.get(1)!), new PickItem(filterTypesByNumber.get(2)!)], initialValue: () => { return filterTypesByNumber.get(newFilter.type); }, onValue: (v) => { let t = filterTypesByName.get(v); if (t !== undefined) { newFilter.type = t; } }, isValid: (v => (filterTypesByName.has(v))) },
             { title: `choose marker colour`, items: colorItems, initialValue: () => { return newFilter.filterColour; }, onValue: (v) => { newFilter.filterColour = v.length ? v : "blue"; }, isValid: (v => { return colors[v] !== undefined; }), skipStep: () => newFilter.type !== DltFilterType.MARKER }, // todo add hex codes support
             { title: `optional name?`, items: [], initialValue: () => { return newFilter.filterName; }, onValue: (v) => { newFilter.filterName = v.length ? v : undefined; } },
-            {
+            newFilter.atLoadTime ? undefined : { // statically skip this step
                 iconPath: isAdd ? 'add' : 'edit', title: `select/enter configs (multiple separated by ',')`, items: configItems, initialValue: () => { return newFilter.configs.join(','); }, onValue: (v) => {
                     newFilter.configs = v.length > 0 ? v.split(',') : []; console.log(`set configs to ${JSON.stringify(newFilter.configs)}`);
                 }, isValid: (v => { if (v.length === 0) { return true; } return v.split(',').map(v => (v.length > 0) && (!v.endsWith('/') && (!v.startsWith('/')))).reduce((prev, cur) => cur ? prev : false, true); })
