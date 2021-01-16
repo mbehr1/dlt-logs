@@ -52,6 +52,99 @@ export interface TreeViewNode {
     iconPath?: vscode.ThemeIcon;
 };
 
+/**
+ * TreeViewNode representing the "Filters" root node
+ * Has a specific icon and methods to disable all
+ * filters
+ */
+export class FilterRootNode implements TreeViewNode {
+    tooltip: string | undefined;
+    id: string;
+    children: FilterNode[] = [];
+    parent: TreeViewNode | null = null;
+    iconPath?: vscode.ThemeIcon;
+
+    get label(): string { return 'Filters'; }
+
+    constructor(public uri: vscode.Uri | null) {
+        this.id = createUniqueId();
+        this.iconPath = new vscode.ThemeIcon('filter');
+    }
+
+    /**
+     * determine the context value used to determine which commands
+     * are available
+     */
+    get contextValue() {
+        let anyEnabled: boolean = this.anyFilterWith(true);
+        let anyDisabled: boolean = this.anyFilterWith(false);
+
+        // we do allow "zoom in" to provide more details.
+        // this is if we can enable pos. or disable neg. filters
+        let canZoomIn: boolean =
+            this.anyFilterWith(false, { type: DltFilterType.POSITIVE }) ||
+            this.anyFilterWith(true, { type: DltFilterType.NEGATIVE });
+
+        let canZoomOut: boolean =
+            this.anyFilterWith(true, { type: DltFilterType.POSITIVE }) ||
+            this.anyFilterWith(false, { type: DltFilterType.NEGATIVE });
+
+        return `${anyEnabled ? 'filterEnabled ' : ''}${anyDisabled ? 'filterDisabled ' : ''}${canZoomIn ? 'canZoomIn ' : ''}${canZoomOut ? 'canZoomOut ' : ''}`;
+    }
+
+    anyFilterWith(enabled: boolean, options?: { type?: DltFilterType }): boolean {
+        for (let i = 0; i < this.children.length; ++i) {
+            const c = this.children[i];
+            if (c instanceof FilterNode) {
+                if (c.filter.atLoadTime) { continue; }
+                if (c.filter.isReport || c.filter.type === DltFilterType.EVENT) { continue; }
+                if (options !== undefined && options.type !== undefined) {
+                    if (c.filter.type !== options.type) { continue; }
+                }
+                if (c.filter.enabled === enabled) { return true; }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * perform a command usually trigger from context menu commands
+     * @param cmd command to apply: 'enable', 'disable', 'zoomIn', 'zoomOut'
+     */
+    applyCommand(cmd: string) {
+        this.children.forEach(c => {
+            if (c.filter.atLoadTime) { return; }
+            if (c.filter.isReport || c.filter.type === DltFilterType.EVENT) { return; }
+            // dont restict to allowEdit ones... if (!c.filter.allowEdit) { return; }
+            switch (cmd) {
+                case 'enable':
+                    c.filter.enabled = true; break;
+                case 'disable':
+                    c.filter.enabled = false; break;
+                case 'zoomIn':
+                    switch (c.filter.type) {
+                        case DltFilterType.POSITIVE:
+                            c.filter.enabled = true; break;
+                        case DltFilterType.NEGATIVE:
+                            c.filter.enabled = false; break;
+                    }
+                    break;
+                case 'zoomOut':
+                    switch (c.filter.type) {
+                        case DltFilterType.POSITIVE:
+                            c.filter.enabled = false; break;
+                        case DltFilterType.NEGATIVE:
+                            c.filter.enabled = true; break;
+                    }
+                    break;
+                default:
+                    console.warn(`FilterRootNode.applyCommand: unknown command='${cmd}'`);
+            }
+        });
+    }
+
+}
+
 export class FilterNode implements TreeViewNode {
     id: string;
     tooltip: string | undefined;
@@ -592,13 +685,15 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
 
         const modifyNode = async (node: TreeViewNode, command: string) => {
             const treeviewNode = node;
+            const filterRootNode = node instanceof FilterRootNode ? <FilterRootNode>node : undefined;
             const filterNode = node instanceof FilterNode ? <FilterNode>node : undefined;
             const configNode = node instanceof ConfigNode ? <ConfigNode>node : undefined;
             const parentUri = treeviewNode.parent?.uri;
             if (parentUri) {
                 const doc = this._documents.get(parentUri.toString());
                 if (doc) {
-                    console.log(`${command} Filter(${treeviewNode.label}) called for doc=${parentUri} with filterNode=${filterNode}, configNode=${configNode}`);
+                    console.log(`${command} Filter(${treeviewNode.label}) called for doc=${parentUri} with filterRootNode=${filterRootNode}, filterNode=${filterNode}, configNode=${configNode}`);
+                    let doApplyFilter = false;
                     if (filterNode !== undefined) {
                         switch (command) {
                             case 'enable':
@@ -606,15 +701,20 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                             case 'disable':
                                 filterNode.filter.enabled = false; break;
                         }
-                        doc.triggerApplyFilter();
-                        this._onDidChangeTreeData.fire(doc.treeNode); // as filters in config might be impacted as well! 
+                        doApplyFilter = true;
                     } else
                         if (configNode !== undefined) {
                             // enable/disable all child filters:
                             configNode.updateAllFilter(command);
-                            doc.triggerApplyFilter();
-                            this._onDidChangeTreeData.fire(doc.treeNode); // as filters in config might be impacted as well! 
+                            doApplyFilter = true;
+                        } else if (filterRootNode !== undefined) {
+                            filterRootNode.applyCommand(command);
+                            doApplyFilter = true;
                         }
+                    if (doApplyFilter) {
+                        doc.triggerApplyFilter();
+                        this._onDidChangeTreeData.fire(doc.treeNode); // as filters in config might be impacted as well! 
+                    }
                 }
             }
 

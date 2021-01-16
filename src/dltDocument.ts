@@ -9,7 +9,7 @@ import * as path from 'path';
 import * as util from './util';
 import { DltParser, DltMsg, MSTP, MTIN_LOG, MTIN_CTRL, MTIN_CTRL_strs, MTIN_LOG_strs, MTIN_TRACE_strs, MTIN_NW_strs } from './dltParser';
 import { DltLifecycleInfo } from './dltLifecycle';
-import { TreeViewNode, FilterNode, TimeSyncData, createUniqueId, ConfigNode } from './dltDocumentProvider';
+import { TreeViewNode, FilterNode, TimeSyncData, createUniqueId, ConfigNode, FilterRootNode } from './dltDocumentProvider';
 import { DltFilter, DltFilterType } from './dltFilter';
 import TelemetryReporter from 'vscode-extension-telemetry';
 import { DltFileTransferPlugin } from './dltFileTransfer';
@@ -85,7 +85,7 @@ export class DltDocument {
 
     treeNode: TreeViewNode;
     lifecycleTreeNode: TreeViewNode;
-    filterTreeNode: TreeViewNode;
+    filterTreeNode: FilterRootNode;
     configTreeNode: TreeViewNode;
     pluginTreeNode: TreeViewNode; // this is from the parent = DltDocumentProvider
     pluginNodes: TreeViewNode[] = [];
@@ -145,7 +145,7 @@ export class DltDocument {
         }
 
         this.lifecycleTreeNode = { id: createUniqueId(), label: "Detected lifecycles", uri: this.uri, parent: null, children: [], tooltip: undefined, iconPath: new vscode.ThemeIcon('list-selection') };
-        this.filterTreeNode = { id: createUniqueId(), label: "Filters", uri: this.uri, parent: null, children: [], tooltip: undefined, iconPath: new vscode.ThemeIcon('filter') };
+        this.filterTreeNode = new FilterRootNode(this.uri);
         this.configTreeNode = { id: createUniqueId(), label: "Configs", uri: this.uri, parent: null, children: [], tooltip: undefined, iconPath: new vscode.ThemeIcon('references') };
         this.pluginTreeNode = { id: createUniqueId(), label: "Plugins", uri: this.uri, parent: null, children: [], tooltip: undefined, iconPath: new vscode.ThemeIcon('package') };
         this.treeNode = {
