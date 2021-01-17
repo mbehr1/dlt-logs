@@ -1880,15 +1880,22 @@ export class DltDocument {
                             const queryFilters = JSON.parse(commandParams);
                             console.log(`filters=`, queryFilters);
                             if (Array.isArray(queryFilters) && queryFilters.length > 0) {
+                                let maxNrMsgs = 1000; // default to 1000 msgs to report as result
                                 const filters: DltFilter[] = [];
                                 for (let i = 0; i < queryFilters.length; ++i) {
                                     const filterAttribs = queryFilters[i];
+                                    if ('maxNrMsgs' in filterAttribs) {
+                                        const fMaxNrMsgs = filterAttribs['maxNrMsgs'];
+                                        if (fMaxNrMsgs === 0) { maxNrMsgs = this.msgs.length; } else
+                                            if (fMaxNrMsgs > maxNrMsgs) { maxNrMsgs = fMaxNrMsgs; }
+                                        delete filterAttribs['maxNrMsgs'];
+                                    }
                                     const filter = new DltFilter(filterAttribs, false);
                                     filters.push(filter);
                                 }
                                 // now get the matching message:
                                 if (filters.length > 0) {
-                                    const matches = DltDocument.getMatchingMessages(this.msgs, filters, 1000); // max 1000 messages for now
+                                    const matches = DltDocument.getMatchingMessages(this.msgs, filters, maxNrMsgs);
                                     retObj.data = util.createRestArray(matches, (obj: object, i: number) => { const msg = obj as DltMsg; return msg.asRestObject(i); });
                                 } else {
                                     if (!Array.isArray(retObj.error)) { retObj.error = []; }
