@@ -1,5 +1,19 @@
 # Change log for 'DLT-Logs':
 
+## [1.8.0](https://github.com/mbehr1/dlt-logs/compare/v1.7.0...v1.8.0) (2021-01-17)
+
+
+### Features
+
+* **restquery:** allow queries with more than 1000 msgs as result ([56872cc](https://github.com/mbehr1/dlt-logs/commit/56872ccffb23954f8fed7d706d4a5827762594a2))
+
+
+### Bug Fixes
+
+* cases where windows are not reloaded ([6ea6fe5](https://github.com/mbehr1/dlt-logs/commit/6ea6fe54b74eadac1618c6665290fe07267a2646))
+* empty page after filter apply ([5593e42](https://github.com/mbehr1/dlt-logs/commit/5593e4251f12d5cfe321a2f80dd9bc7887309247))
+* on treeview selection change only if fragment/line avail ([9f5d528](https://github.com/mbehr1/dlt-logs/commit/9f5d5280745f7094ec7a77455a34298ea508ac9c))
+
 ## [1.7.0](https://github.com/mbehr1/dlt-logs/compare/v1.6.0...v1.7.0) (2021-01-17)
 
 
