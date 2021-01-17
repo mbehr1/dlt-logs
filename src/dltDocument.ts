@@ -851,6 +851,7 @@ export class DltDocument {
             return;
         }
         this._applyFilterRunning = true;
+        const oldNrMsgs = this.filteredMsgs ? this.filteredMsgs.length : this.msgs.length;
         try {
             this.filteredMsgs = [];
             // we can in parallel check criteria todo
@@ -1047,6 +1048,14 @@ export class DltDocument {
             console.error(`applyFilter got err='${err}'`);
         }
         this._applyFilterRunning = false;
+        const newNrMsgs = this.filteredMsgs ? this.filteredMsgs.length : this.msgs.length;
+        if (oldNrMsgs !== newNrMsgs) {
+            this._skipMsgs = 0;
+            this.textEditors?.forEach((editor) => {
+                let newRange = new vscode.Range(0, 0, 1, 0);
+                editor.revealRange(newRange, vscode.TextEditorRevealType.AtTop);
+            });
+        }
         return this.renderLines(this._skipMsgs, progress);
     }
 
