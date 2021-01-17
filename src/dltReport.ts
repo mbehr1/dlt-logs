@@ -3,15 +3,10 @@
  */
 
 import * as vscode from 'vscode';
-import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as util from './util';
-import { DltMsg } from './dltParser';
 import { DltLifecycleInfo } from './dltLifecycle';
-import { TreeViewNode } from './dltDocumentProvider';
-import { DltFilter, DltFilterType } from './dltFilter';
-import TelemetryReporter from 'vscode-extension-telemetry';
+import { DltFilter } from './dltFilter';
 import { DltDocument } from './dltDocument';
 
 export class DltReport implements vscode.Disposable {

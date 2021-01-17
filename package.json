@@ -456,12 +456,12 @@
 			},
 			{
 				"command": "dlt-logs.zoomIn",
-				"title": "provide more details",
+				"title": "adjust filter to provide more details",
 				"icon": "$(zoom-in)"
 			},
 			{
 				"command": "dlt-logs.zoomOut",
-				"title": "hide details",
+				"title": "adjust filter to hide details",
 				"icon": "$(zoom-out)"
 			},
 			{

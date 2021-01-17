@@ -3,7 +3,14 @@
 */
 
 import * as vscode from 'vscode';
-import * as path from 'path';
+
+let _nextUniqueId: number = 1;
+
+export function createUniqueId(): string {
+    const toRet = _nextUniqueId.toString();
+    _nextUniqueId++;
+    return toRet;
+}
 
 // adapted from https://stackoverflow.com/questions/20070158/string-format-not-work-in-typescript
 export function stringFormat(str: string, args: RegExpExecArray): string {

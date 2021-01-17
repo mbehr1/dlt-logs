@@ -9,7 +9,8 @@ import * as path from 'path';
 import * as util from './util';
 import { DltParser, DltMsg, MSTP, MTIN_LOG, MTIN_CTRL, MTIN_CTRL_strs, MTIN_LOG_strs, MTIN_TRACE_strs, MTIN_NW_strs } from './dltParser';
 import { DltLifecycleInfo } from './dltLifecycle';
-import { TreeViewNode, FilterNode, TimeSyncData, createUniqueId, ConfigNode, FilterRootNode } from './dltDocumentProvider';
+import { TimeSyncData } from './dltDocumentProvider';
+import { TreeViewNode, ConfigNode, FilterRootNode, FilterNode, LifecycleNode, LifecycleRootNode, DynFilterNode } from './dltTreeViewNodes';
 import { DltFilter, DltFilterType } from './dltFilter';
 import TelemetryReporter from 'vscode-extension-telemetry';
 import { DltFileTransferPlugin } from './dltFileTransfer';
@@ -45,125 +46,6 @@ class ColumnConfig implements vscode.QuickPickItem {
     }
     get alwaysShow() { return true; }
 };
-
-/**
- * TreeViewNode representing the "Detected lifecycles" root node
- * Has a specific icon and methods supporting lifecycle filters
- */
-class LifecycleRootNode implements TreeViewNode {
-    tooltip: string | undefined;
-    id: string;
-    children: TreeViewNode[] = [];
-    parent: TreeViewNode | null = null;
-    iconPath?: vscode.ThemeIcon;
-    private lcFilter?: DltFilter;
-    private lcsFiltered: DltLifecycleInfo[] = [];
-
-    get label(): string { return "Detected lifecycles"; };
-    get uri(): vscode.Uri | null { return this.doc.uri; }
-
-    constructor(private doc: DltDocument) {
-        this.id = createUniqueId();
-        this.iconPath = new vscode.ThemeIcon('list-selection');
-    }
-
-    reset() {
-        // if we have set a lcFilter we do need to remove it:
-        if (this.lcFilter) {
-            // remove from allFilters:
-            this.doc.onFilterDelete(this.lcFilter, false);
-            this.lcFilter = undefined;
-        }
-
-        this.children = [];
-    }
-
-    /**
-     * Return whether a lifecycle is currently filtered.
-     * @param lc lifecycle to get the info for
-     */
-    hasLcFiltered(lc: DltLifecycleInfo): boolean {
-        if (this.lcsFiltered.indexOf(lc) < 0) { return false; };
-        return this.lcFilter !== undefined && this.lcFilter.enabled;
-    }
-
-    /**
-     * Add/remove a lifecycle to the filter.
-     * @param lc lifecycle so filter/remove from filter
-     * @param doFilter indicate whether the lifecycle should be filtered or not
-     */
-    filterLc(lc: DltLifecycleInfo, doFilter: boolean) {
-        let filtersChanged = false;
-
-        // if the filter is currently disabled and the filter should be set
-        // we do remove all lcs first:
-        if (this.lcFilter !== undefined && !this.lcFilter.enabled && doFilter) {
-            this.lcFilter.enabled = true;
-            this.lcsFiltered = [];
-        }
-
-        const idx = this.lcsFiltered.indexOf(lc);
-
-        if (doFilter && idx < 0) {
-            this.lcsFiltered.push(lc);
-            filtersChanged = true;
-        }
-        if (!doFilter && idx >= 0) {
-            this.lcsFiltered.splice(idx, 1); // remove
-            filtersChanged = true;
-        }
-        if (filtersChanged) {
-            if (this.lcsFiltered.length > 0) {
-                if (!this.lcFilter) {
-                    this.lcFilter = new DltFilter({ type: 1, not: true, name: "not selected lifecycles" }, false);
-                    // add to allFilters:
-                    this.doc.onFilterAdd(this.lcFilter, false);
-                }
-                this.lcFilter.lifecycles = this.lcsFiltered.map(lc => lc.persistentId);
-            } else {
-                if (this.lcFilter) {
-                    this.doc.onFilterDelete(this.lcFilter, false);
-                    this.lcFilter = undefined;
-                }
-            }
-        }
-    }
-}
-
-class LifecycleNode implements TreeViewNode {
-    id: string;
-    label: string;
-    tooltip: string | undefined;
-    get children(): TreeViewNode[] { return []; } // no children 
-    constructor(public uri: vscode.Uri | null, public parent: TreeViewNode,
-        private lcRootNode: LifecycleRootNode, private lc: DltLifecycleInfo) {
-        this.id = createUniqueId();
-        this.label = lc.getTreeNodeLabel();
-        this.tooltip = lc.tooltip;
-    }
-
-    /**
-     * return filterEnabled/Disabled based on whether the lifecycle
-     * filter contains our lifecycle.
-     */
-    get contextValue() {
-        let isCurrentlyFiltered = this.lcRootNode.hasLcFiltered(this.lc);
-        return `${isCurrentlyFiltered ? 'filterEnabled' : 'filterDisabled'}`;
-    }
-
-    applyCommand(cmd: string) {
-        console.log(`LifecycleNode.applyCommand('${cmd}')`);
-        switch (cmd) {
-            case 'enable':
-            case 'disable':
-                this.lcRootNode.filterLc(this.lc, cmd === 'enable');
-                break;
-            default:
-                console.warn(`LifecycleNode.applyCommand unsupported cmd:'${cmd}'`);
-                break;
-        }
-    }
-}
 
 export class DltDocument {
     static dltP: DltParser = new DltParser();
@@ -265,10 +147,10 @@ export class DltDocument {
 
         this.lifecycleTreeNode = new LifecycleRootNode(this); 
         this.filterTreeNode = new FilterRootNode(this.uri);
-        this.configTreeNode = { id: createUniqueId(), label: "Configs", uri: this.uri, parent: null, children: [], tooltip: undefined, iconPath: new vscode.ThemeIcon('references') };
-        this.pluginTreeNode = { id: createUniqueId(), label: "Plugins", uri: this.uri, parent: null, children: [], tooltip: undefined, iconPath: new vscode.ThemeIcon('package') };
+        this.configTreeNode = { id: util.createUniqueId(), label: "Configs", uri: this.uri, parent: null, children: [], tooltip: undefined, iconPath: new vscode.ThemeIcon('references') };
+        this.pluginTreeNode = { id: util.createUniqueId(), label: "Plugins", uri: this.uri, parent: null, children: [], tooltip: undefined, iconPath: new vscode.ThemeIcon('package') };
         this.treeNode = {
-            id: createUniqueId(),
+            id: util.createUniqueId(),
             label: `${path.basename(this._fileUri.fsPath)}`, uri: this.uri, parent: null, children: [
                 this.lifecycleTreeNode,
                 this.filterTreeNode,
@@ -794,7 +676,7 @@ export class DltDocument {
                     switch (pluginName) {
                         case 'FileTransfer':
                             {
-                                let treeNode = { id: createUniqueId(), label: `File transfers`, uri: this.uri, parent: this.pluginTreeNode, children: [], tooltip: undefined, iconPath: new vscode.ThemeIcon('files') };
+                                let treeNode = { id: util.createUniqueId(), label: `File transfers`, uri: this.uri, parent: this.pluginTreeNode, children: [], tooltip: undefined, iconPath: new vscode.ThemeIcon('files') };
                                 const plugin = new DltFileTransferPlugin(this.uri, treeNode, this._treeEventEmitter, pluginObj);
                                 this.pluginNodes.push(treeNode);
                                 this.pluginTreeNode.children.push(treeNode);
@@ -1800,7 +1682,7 @@ export class DltDocument {
             // determine SW names:
             let sw: string[] = [];
             lcInfo.forEach(lc => lc.swVersions.forEach(lsw => { if (!sw.includes(lsw)) { sw.push(lsw); } }));
-            let ecuNode: TreeViewNode = { id: createUniqueId(), label: `ECU: ${ecu}, SW${sw.length > 1 ? `(${sw.length}):` : `:`} ${sw.join(' and ')}`, parent: this.lifecycleTreeNode, children: [], uri: this.uri, tooltip: undefined };
+            let ecuNode: TreeViewNode = { id: util.createUniqueId(), label: `ECU: ${ecu}, SW${sw.length > 1 ? `(${sw.length}):` : `:`} ${sw.join(' and ')}`, parent: this.lifecycleTreeNode, children: [], uri: this.uri, tooltip: undefined };
             this.lifecycleTreeNode.children.push(ecuNode);
             //console.log(`${ecuNode.label}`);
             // we do add one node with the APIDs/CTIDs:
@@ -1829,11 +1711,11 @@ export class DltDocument {
                     });
                 }));
 
-                const apidsNode: TreeViewNode = { iconPath: new vscode.ThemeIcon(`symbol-misc`), id: createUniqueId(), label: `APIDs (${apidSet.size}) / CTIDs`, uri: null, parent: ecuNode, children: [], tooltip: undefined };
-                apidSet.forEach((info, key) => {
-                    const apidNode: TreeViewNode = { id: createUniqueId(), label: `'${key}'(${info.ctids.size})${info.desc.length ? `: ${info.desc}` : ''}`, uri: null, parent: apidsNode, children: [], tooltip: `desc='${info.desc}', apid = 0x${Buffer.from(key).toString("hex")}` };
+                const apidsNode = new DynFilterNode(`APIDs (${apidSet.size}) / CTIDs`, undefined, ecuNode, `symbol-misc`, { ecu: ecu, apid: null, ctid: null, payload: null, payloadRegex: null, not: null, mstp: null, logLevelMin: null, logLevelMax: null, lifecycles: null }, this);
+                apidSet.forEach((info, apid) => {
+                    const apidNode = new DynFilterNode(`'${apid}'(${info.ctids.size})${info.desc.length ? `: ${info.desc}` : ''}`, `desc='${info.desc}', apid = 0x${Buffer.from(apid).toString("hex")}`, apidsNode, undefined, { ecu: ecu, apid: apid, ctid: null, payload: null, payloadRegex: null, not: null, mstp: null, logLevelMin: null, logLevelMax: null, lifecycles: null }, this);
                     info.ctids.forEach((ctidInfo, ctid) => {
-                        const ctidNode: TreeViewNode = { id: createUniqueId(), label: `'${ctid}'${ctidInfo.desc.length ? `: ${ctidInfo.desc} ` : ''}`, uri: null, parent: apidNode, children: [], tooltip: `desc='${ctidInfo.desc}', ctid = 0x${Buffer.from(ctid).toString("hex")}` };
+                        const ctidNode = new DynFilterNode(`'${ctid}'${ctidInfo.desc.length ? `: ${ctidInfo.desc} ` : ''}`, `desc='${ctidInfo.desc}', ctid = 0x${Buffer.from(ctid).toString("hex")}`, apidNode, undefined, { ecu: ecu, apid: apid, ctid: ctid, payload: null, payloadRegex: null, not: null, mstp: null, logLevelMin: null, logLevelMax: null, lifecycles: null }, this);
                         apidNode.children.push(ctidNode);
                     });
                     apidNode.children.sort((a, b) => { return a.label.localeCompare(b.label); });

@@ -12,7 +12,7 @@ import * as vscode from 'vscode';
 import { MultiStepInput, PickItem } from './quickPick';
 import { DltFilter, DltFilterType } from './dltFilter';
 import { DltDocument } from './dltDocument';
-import { ConfigNode } from './dltDocumentProvider';
+import { ConfigNode } from './dltTreeViewNodes';
 import * as util from './util';
 
 const confSection = 'dlt-logs.filters';

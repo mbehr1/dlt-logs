@@ -3,13 +3,11 @@
  */
 
 import * as vscode from 'vscode';
-import * as assert from 'assert';
 import * as fs from 'fs';
-import * as path from 'path';
-import { TreeViewNode, createUniqueId } from './dltDocumentProvider';
+import { TreeViewNode } from './dltTreeViewNodes';
 import { DltFilter, DltFilterType } from './dltFilter';
 import { DltMsg, MSTP, MTIN_LOG, MTIN_CTRL } from './dltParser';
-import { SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS } from 'constants';
+import { createUniqueId } from './util';
 
 /*
 https://github.com/GENIVI/dlt-daemon/blob/b5902c506e958933bbabe6bdab8d676e0aa0bbc5/src/lib/dlt_filetransfer.c
