@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs':
 
+## [1.7.0](https://github.com/mbehr1/dlt-logs/compare/v1.6.0...v1.7.0) (2021-01-17)
+
+
+### Features
+
+* **treeview:** add quick filter for ecu/apid/ctid ([f884fdf](https://github.com/mbehr1/dlt-logs/commit/f884fdff889c71d848aa36022582d77856d42eb3))
+
 ## [1.6.0](https://github.com/mbehr1/dlt-logs/compare/v1.5.0...v1.6.0) (2021-01-16)
 
 
