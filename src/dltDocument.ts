@@ -1223,7 +1223,7 @@ export class DltDocument {
                         });
                     }
 
-                    this.renderLines(this._skipMsgs - (this._maxNrMsgs * 0.5));
+                    this.renderLines(this._skipMsgs - (this._maxNrMsgs * 0.5)).then(() => this._renderTriggered = false);
                 }
             }
         }
@@ -1245,7 +1245,7 @@ export class DltDocument {
                         });
                     }
 
-                    this.renderLines(this._skipMsgs + (this._maxNrMsgs * 0.5));
+                    this.renderLines(this._skipMsgs + (this._maxNrMsgs * 0.5)).then(() => this._renderTriggered = false);
                 }
             }
         };
@@ -1279,7 +1279,7 @@ export class DltDocument {
                     }
                     if (newSkipMsgs !== this._skipMsgs) {
                         this._renderTriggered = true;
-                        this.renderLines(newSkipMsgs);
+                        this.renderLines(newSkipMsgs).then(() => this._renderTriggered = false);
                     }
                     console.log(`revealByMsgsIndex(${i}) newSkipMsgs=${newSkipMsgs} newNr=${newNr}`);
                     return newNr; // todo staticLinesAbove?
