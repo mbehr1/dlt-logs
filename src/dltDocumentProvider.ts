@@ -94,8 +94,8 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                             treeDataProvider: this
                         });
                         this._subscriptions.push(this._dltLifecycleTreeView.onDidChangeSelection(event => {
-                            console.log(`dltLifecycleTreeView.onDidChangeSelection(${event.selection.length} ${event.selection[0].uri})`);
-                            if (event.selection.length && event.selection[0].uri) {
+                            if (event.selection.length && event.selection[0].uri && event.selection[0].uri.fragment.length) {
+                                console.log(`dltLifecycleTreeView.onDidChangeSelection(${event.selection.length} ${event.selection[0].uri} fragment='${event.selection[0].uri ? event.selection[0].uri.fragment : ''}')`);
                                 // find the editor for this uri in active docs:
                                 let uriWoFrag = event.selection[0].uri.with({ fragment: "" }).toString();
                                 const activeTextEditors = vscode.window.visibleTextEditors;
