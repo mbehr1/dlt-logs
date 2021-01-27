@@ -244,6 +244,10 @@
 											"type": "object",
 											"description": "See todo for details."
 										},
+										"axisMap": {
+											"type": "object",
+											"description": "y-axis ID for a dataset label"
+										},
 										"conversionFunction": {
 											"type": "string",
 											"description": "Javascript function body as string. See todo for details."

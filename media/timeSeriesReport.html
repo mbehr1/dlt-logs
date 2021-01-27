@@ -106,6 +106,7 @@
                     borderWidth: 1,
                     pointRadius: 2,
                     fill: false,
+                    yAxisGroup: 0,
                     data: []
                 }]
             },
@@ -141,12 +142,20 @@
                         }
                     },
                     {
-                        id: 'y-axis-1',
+                        id: 'y-axis-cat',
                         display: 'auto',
                         type: 'category',
                         ticks: {
                             reverse: true
                         }
+                    },{
+                        id: 'y-axis-1',
+                        display: 'auto',
+                        scaleLabel: {
+                            display: true,
+                            labelString: 'values'
+                        },
+                        position: 'right'
                     }]
                 },
                 animation: { duration: 0 },
@@ -241,7 +250,7 @@
                                 if (message.data[i].dataYLabels.yLabels !== undefined) {
                                     vscode.postMessage({ message: 'update config.data.yLabels=' + config.data.yLabels + ' with ' + message.data[i].dataYLabels.yLabels });
                                     const dsi = config.data.datasets[i];
-                                    config.data.datasets[i].yAxisID = config.options.scales.yAxes[1].id; // 'y-axis-1'; // todo try multiple y-axis and no merge of labels (but e.g. ' ' to fill gaps)
+                                    config.data.datasets[i].yAxisID = config.options.scales.yAxes[1].id; // 'y-axis-cat'; // todo try multiple y-axis and no merge of labels (but e.g. ' ' to fill gaps)
                                     config.data.datasets[i].lineTension = 0;
                                     for (let j = 0; j < message.data[i].dataYLabels.yLabels.length; ++j) {
                                         if (!(config.options.scales.yAxes[1].labels.includes(message.data[i].dataYLabels.yLabels[j])))
@@ -249,7 +258,8 @@
                                     }
                                     //vscode.postMessage({ message: 'config.options.scales=' + JSON.stringify(config.options.scales, null, 2) });
                                 } else {
-                                    config.data.datasets[i].yAxisID = config.options.scales.yAxes[0].id; // 'y-axis-0';
+                                    config.data.datasets[i].yAxisID = 'y-axis-' + message.data[i].dataYLabels.yAxisGroup;
+                                    vscode.postMessage({ message: 'axis used for ' + message.data[i].label + '=' + config.data.datasets[i].yAxisID });
                                     config.data.datasets[i].lineTension = 0.4;
                                 }
                                 config.data.datasets[i].data = message.data[i].dataYLabels.data;

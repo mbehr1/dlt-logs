@@ -139,7 +139,7 @@ export class DltReport implements vscode.Disposable {
         const lcEndDate: Date = lcDates[lcDates.length - 1];
         console.log(`updateReport lcStartDate=${lcStartDate}, lcEndDate=${lcEndDate}`);
 
-        let dataSets = new Map<string, { data: { x: Date, y: string | number, lcId: number }[], yLabels?: string[] }>();
+        let dataSets = new Map<string, { data: { x: Date, y: string | number, lcId: number }[], yLabels?: string[], yAxisGroup: number }>();
 
         let minDataPointTime: Date | undefined = undefined;
 
@@ -155,7 +155,7 @@ export class DltReport implements vscode.Disposable {
 
             const dataPoint = { x: time, y: value, lcId: lifecycle.uniqueId };
             if (!dataSet) {
-                dataSet = { data: [dataPoint] };
+                dataSet = { data: [dataPoint], yAxisGroup: 0 };
                 dataSets.set(label, dataSet);
                 lastDataPoints.set(label, dataPoint);
             } else {
@@ -186,7 +186,6 @@ export class DltReport implements vscode.Disposable {
 
 
             }
-
         };
 
         const msgs = this.doc.msgs;
@@ -316,6 +315,26 @@ export class DltReport implements vscode.Disposable {
                                 } else {
                                     console.log(`   dataSet got no yLabels?`);
                                 }
+                            }
+                        }));
+                    }
+                    if ('axisMap' in filter.reportOptions) {
+                        /*
+                        For axisMap we do expect an object where the keys/properties match to the dataset name
+                        and the property values are IDs for the axis to use for that dataset
+                        "axisMap":{
+                            "temp_x": 1, // use y-axis 1 for dataset with label 'temp_x'
+                            "speed_y": 0 // use y-axis 0 for dataset with label 'speed_y' (this is the default when not defined)
+                        }
+                         */
+                        const axisMap = filter.reportOptions.axisMap;
+                        Object.keys(axisMap).forEach(((value) => {
+                            console.log(` got axisMap.${value} : ${axisMap[value]}`);
+                            // do we have a dataSet with that label?
+                            const dataSet = dataSets.get(value);
+                            if (dataSet) {
+                                const axisId: number = axisMap[value];
+                                dataSet.yAxisGroup = axisId;
                             }
                         }));
                     }
