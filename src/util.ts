@@ -113,16 +113,19 @@ export function updateConfiguration(section: string, newValue: any) {
     // globalValue
 
     try {
-        console.log(`util.updateConfiguration(section=${section})...`);
         const config = vscode.workspace.getConfiguration();
-        //const curSet = config.inspect(section);
+        const curSet = config.inspect(section);
         //console.log(`curSet.workspaceFolderValue = ${curSet?.workspaceFolderValue}`);
         //console.log(`curSet.workspaceValue = ${curSet?.workspaceValue}`);
         //console.log(`curSet.globalValue = ${curSet?.globalValue}`);
-        // todo check which ones exist and add there
-        // for now add only to globalValue...
-
-        return config.update(section, newValue, true);
+        // check which one exist and add there
+        // order (highest first): workspaceFolder, workspace, global (, default)
+        // we don't merge the object (as getConfiguration does)
+        const target: vscode.ConfigurationTarget = curSet?.workspaceFolderValue !== undefined ? vscode.ConfigurationTarget.WorkspaceFolder : (
+            curSet?.workspaceValue !== undefined ? vscode.ConfigurationTarget.Workspace : vscode.ConfigurationTarget.Global
+        );
+        console.log(`util.updateConfiguration(section=${section}) updating target=${target}`);
+        return config.update(section, newValue, target);
     } catch (err) {
         console.error(`err ${err} at updating configuration '${section}'`);
     }
