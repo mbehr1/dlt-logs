@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs':
 
+### [1.8.1](https://github.com/mbehr1/dlt-logs/compare/v1.8.0...v1.8.1) (2021-01-27)
+
+
+### Bug Fixes
+
+* **config:** update config setting where it currently exists ([d2a31bd](https://github.com/mbehr1/dlt-logs/commit/d2a31bdd314ab01e6d42deeb99d55f5551c8d046)), closes [#13](https://github.com/mbehr1/dlt-logs/issues/13) [#13](https://github.com/mbehr1/dlt-logs/issues/13)
+
 ## [1.8.0](https://github.com/mbehr1/dlt-logs/compare/v1.7.0...v1.8.0) (2021-01-17)
 
 
