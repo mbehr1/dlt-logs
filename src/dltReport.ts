@@ -139,7 +139,7 @@ export class DltReport implements vscode.Disposable {
         const lcEndDate: Date = lcDates[lcDates.length - 1];
         console.log(`updateReport lcStartDate=${lcStartDate}, lcEndDate=${lcEndDate}`);
 
-        let dataSets = new Map<string, { data: { x: Date, y: string | number, lcId: number }[], yLabels?: string[] }>();
+        let dataSets = new Map<string, { data: { x: Date, y: string | number, lcId: number }[], yLabels?: string[], yAxis?: any }>();
 
         let minDataPointTime: Date | undefined = undefined;
 
@@ -281,7 +281,7 @@ export class DltReport implements vscode.Disposable {
                         }
                          */
                         const valueMap = filter.reportOptions.valueMap;
-                        Object.keys(valueMap).forEach(((value) => {
+                        Object.keys(valueMap).forEach((value) => {
                             console.log(` got valueMap.${value} : ${JSON.stringify(valueMap[value], null, 2)}`);
                             // do we have a dataSet with that label?
                             const dataSet = dataSets.get(value);
@@ -317,7 +317,30 @@ export class DltReport implements vscode.Disposable {
                                     console.log(`   dataSet got no yLabels?`);
                                 }
                             }
-                        }));
+                        });
+                    }
+                    if ('yAxes' in filter.reportOptions) {
+                        const yAxes = filter.reportOptions.yAxes;
+                        Object.keys(yAxes).forEach((dataSetName) => {
+                            console.log(` got yAxes.${dataSetName} : ${JSON.stringify(yAxes[dataSetName], null, 2)}`);
+                            const dataSet = dataSets.get(dataSetName);
+                            if (dataSet) {
+                                dataSet.yAxis = yAxes[dataSetName];
+                            } else {
+                                const regEx = new RegExp(dataSetName);
+                                let found = false;
+                                for (const [name, dataSet] of dataSets.entries()) {
+                                    if (name.match(regEx) && dataSet.yAxis === undefined) {
+                                        dataSet.yAxis = yAxes[dataSetName];
+                                        found = true;
+                                        console.log(`  set yAxis for '${name}' from regex '${dataSetName}'`);
+                                    }
+                                }
+                                if (!found) {
+                                    console.warn(`  no dataSet found for '${dataSetName}'`);
+                                }
+                            }
+                        });
                     }
                 } catch (err) {
                     console.log(`got error '${err}' processing reportOptions.`);
@@ -388,7 +411,7 @@ export class DltReport implements vscode.Disposable {
                     });
                 }
 
-                datasetArray.push({ label: label, dataYLabels: data, type: label.startsWith('EVENT_') ? 'scatter' : 'line' });
+                datasetArray.push({ label: label, dataYLabels: data, type: label.startsWith('EVENT_') ? 'scatter' : 'line', yAxis: data.yAxis });
             });
 
             this.postMsgOnceAlive({ command: "update", data: datasetArray });
