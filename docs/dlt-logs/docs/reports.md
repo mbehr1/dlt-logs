@@ -55,7 +55,7 @@ You can define event filters (type: 3), add normal filters like ecu, apid, ctid 
 
 By default all captures needs will be parsed as float numbers. You can change that behaviour by prefixing the capure name with STATE\_ or INT\_ (see below).
 
-value name | excected type | comment
+value name | expected type | comment
 ---------- | ------------- | -------
 STATE_* | enum | Used to represent distinct states. Will use 2nd axix. Can be ints or strings. See reportOptions/valueMap on how to map to better readable names.
 EVENT_* | float | will use scatter/event - dot based and not line based chart.
@@ -112,7 +112,7 @@ An easy way is to define a `valueMap` by adding a it to the `reportOptions`objec
 
 ### using a function to calculate values
 
-For more versatile changes a `conversionFunction`can be added to the `reportOptions`object:
+For more versatile changes a `conversionFunction` can be added to the `reportOptions`object:
 
 #### conversionFunction example
 
@@ -125,11 +125,11 @@ For more versatile changes a `conversionFunction`can be added to the `reportOpti
   }
 }
 ```
-in this example the `conversionFunction`is returning two values: cpu\_idle0 as the captured value and a 2nd value INT\_limit with const value 100.
+in this example the `conversionFunction` is returning two values: cpu\_idle0 as the captured value and a 2nd value INT\_limit with const value 100.
 
 #### conversionFunction prototype and parameters
 
-The `conversionFunction` should accept two parameters `matches`and `params` and return an object. E.g. as typescript prototype:
+The `conversionFunction` should accept two parameters `matches` and `params` and return an object. E.g. as typescript prototype:
 
 ```typescript
 (matches: RegExpExecArray | null | undefined, params: {} ) : Object
@@ -187,6 +187,91 @@ if (lastLc !== params.msg.lifecycle) {
 :::
 
 todo ... add liveeditor to convert a function into the json string repr.
+
+### Specifying y-axis options
+
+By default there are two different y-axes used. One for all numerical values and one for all **enums** or **strings** e.g. from a value map.
+Both axes are shown on the left hand side.
+
+Especially for numerical values if you use multiple datasets or even multiple reports (see below) you might want to specify different y-axis options.
+
+For those cases a `yAxes` object can be added to the `reportOptions`object:
+
+#### yAxes examples
+
+```jsonc
+{
+  ...
+  "payloadRegex": "Temp\\s+.*\\s(?<temp>.*) deg",
+  "reportOptions": {
+    "yAxes": {
+      "temp":{ // either dataset/capture name or a regex as wildcard, e.g. "^(temp_0|temperature)$"
+        "type": "linear", // or logarithmic or category, optional
+        "position": "right", // or left, optional
+        "ticks": {
+          "min": -20,
+          "max": 60
+        },
+        "scaleLabel":{
+          "display": true,
+          "labelString": "temp in °C"
+        }
+      }
+    }
+  }
+}
+```
+in this example a right hand side, linear axis with range [-20,60] and label "temp in °C" is used for the `temp` dataset.
+
+```jsonc
+{
+  ...
+  "payloadRegex": "State\\s+.*\\s(?<STATE_onOff>.*)",
+  "reportOptions": {
+    "yAxes": {
+      "STATE_onOff":{
+        "type": "category", // or logarithmic or category, optional
+        "position": "right",
+        "ticks": {
+          "reverse": true // the default used y-axis for enums/strings uses reverse:true
+        }
+      }
+    }
+  }
+}
+```
+in this example a right hand side, category axis is used for the `STATE_onOff` dataset.
+
+#### yAxes keys
+
+The yAxes key names can either be the capture / data set names (e.g. temp in the upper example) or they can be a regular expression.
+A regular expression might be usefull if you have multiple capture values, e.g. temp0 ... temp9. In those cases just one y-axis definition will be sufficient. Simply use `^temp.*` as yAxes key.
+
+```jsonc
+{
+  ...
+  "payloadRegex": "Temp\\s+(?<temp0>.*)\\s(?<temp1>.*) deg",
+  "reportOptions": {
+    "yAxes": {
+      "^temp.*":{ // key name can be a regular expression as well
+      ...
+      }
+    }
+  }
+}
+```
+
+:::note
+The yAxes options are **global** for the full report. So if a different report is shown as well (see below) then all yAxes are known and might match!
+:::
+
+:::note
+For a full list of options for each y-axis see the [chartjs doc](https://www.chartjs.org/docs/latest/axes/cartesian/) for cartesian axes.
+:::
+
+:::warning
+Do not set the `id` key as this will be automatically set.
+:::
 
 ### Opening one report or multiple reports in one graph
 

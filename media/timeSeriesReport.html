@@ -213,15 +213,62 @@
 
         let minDataPointTime = undefined;
 
+        const isSimilarYAxis = (a,b) => {
+            // similar if a contains all attribs from b with same value
+            // i.e. a can have more attribs but those are ignored.
+            // does not work for arrays!
+
+            let similar=true;
+            for (const [bKey, bVal] of Object.entries(b)) {
+                if (a.hasOwnProperty(bKey) && typeof a[bKey] === typeof bVal){
+                    switch (typeof bVal){
+                        case 'object': similar = isSimilarYAxis(a[bKey], bVal); break;
+                        default:
+                            similar = a[bKey] === bVal; break;
+                    }    
+                } else {
+                    return false;
+                }
+                if (!similar) return false;
+            }
+            return true;
+        }
+
+        /**
+         * update the config YAxes based on newData[].yAxis
+         */
+        const updateYAxes = (configYAxes, newData)=>{
+            if (Array.isArray(newData)){
+                newData.forEach(dataSet =>{
+                    if (dataSet.yAxis !== undefined){
+                        const newYAxis = dataSet.yAxis;
+                        // do we have a similar yAxis already?
+                        const found = configYAxes.find(yAxis => isSimilarYAxis(yAxis, newYAxis));
+                        if (!found){
+                            // add new one:
+                            dataSet.yAxisID = `y-axis-${configYAxes.length}`;
+                            configYAxes.push({...newYAxis, id: dataSet.yAxisID})
+                        } else {
+                            dataSet.yAxisID = found.id;
+                        }
+                    }
+                });
+            }
+        };
+
         window.addEventListener('message', event => {
             try {
                 const message = event.data;
-                vscode.postMessage({ message: 'got message ' + message.command + ' ' + Array.isArray(message.data) });
+                // vscode.postMessage({ message: 'got message ' + message.command + ' ' + Array.isArray(message.data) });
                 switch (message.command) {
                     case 'update':
-                        vscode.postMessage({ message: 'update message.data.length=' + message.data.length });
-                        vscode.postMessage({ message: 'update config.data.datasets[0].data.length=' + config.data.datasets[0].data.length });
-                        config.options.scales.yAxes[1].labels = []; // remove labels here. we merge (=add) all values here later
+                        //vscode.postMessage({ message: 'update message.data.length=' + message.data.length });
+                        //vscode.postMessage({ message: 'update config.data.datasets[0].data.length=' + config.data.datasets[0].data.length });
+                        //vscode.postMessage({ message: `#yAxis= ${message.data.filter(f=>f.yAxis !== undefined).length}`});
+                        
+                        updateYAxes(config.options.scales.yAxes ,message.data ); // afterwards dataSet.yAxisID is set if dataSet.yAxis was set
+                        // remove labels for all type 'category' axes:
+                        config.options.scales.yAxes.forEach(yAxis => { if (yAxis.type === 'category') {yAxis.labels = []; }}); // remove labels here. we merge (=add) all values here later
                         for (let i = 0; i < message.data.length; ++i) {
 
                             if (i >= config.data.datasets.length) {
@@ -231,25 +278,26 @@
                                     data: message.data[i].dataYLabels.data,
                                     fill: false,
                                     borderWidth: 1,
-                                    pointRadius: 2
+                                    pointRadius: 2,
+                                    yAxisID: message.data[i].yAxisID
                                 });
                             }
 
                             if (i < config.data.datasets.length) {
                                 config.data.datasets[i].label = message.data[i].label;
                                 config.data.datasets[i].type = ('type' in message.data[i]) ? message.data[i].type : 'line';
-                                if (message.data[i].dataYLabels.yLabels !== undefined) {
+                                if (message.data[i].dataYLabels.yLabels !== undefined) { // todo! yAxisID could be set!
                                     vscode.postMessage({ message: 'update config.data.yLabels=' + config.data.yLabels + ' with ' + message.data[i].dataYLabels.yLabels });
                                     const dsi = config.data.datasets[i];
-                                    config.data.datasets[i].yAxisID = config.options.scales.yAxes[1].id; // 'y-axis-1'; // todo try multiple y-axis and no merge of labels (but e.g. ' ' to fill gaps)
+                                    const yAxis = message.data[i].yAxisID !== undefined ? config.options.scales.yAxes.find(yAxis => yAxis.id===message.data[i].yAxisID) : config.options.scales.yAxes[1];
+                                    config.data.datasets[i].yAxisID = yAxis.id;
                                     config.data.datasets[i].lineTension = 0;
                                     for (let j = 0; j < message.data[i].dataYLabels.yLabels.length; ++j) {
-                                        if (!(config.options.scales.yAxes[1].labels.includes(message.data[i].dataYLabels.yLabels[j])))
-                                            config.options.scales.yAxes[1].labels.push(message.data[i].dataYLabels.yLabels[j]);
+                                        if (!(yAxis.labels.includes(message.data[i].dataYLabels.yLabels[j])))
+                                            yAxis.labels.push(message.data[i].dataYLabels.yLabels[j]);
                                     }
-                                    //vscode.postMessage({ message: 'config.options.scales=' + JSON.stringify(config.options.scales, null, 2) });
                                 } else {
-                                    config.data.datasets[i].yAxisID = config.options.scales.yAxes[0].id; // 'y-axis-0';
+                                    config.data.datasets[i].yAxisID = message.data[i].yAxisID !== undefined ? message.data[i].yAxisID : config.options.scales.yAxes[0].id;
                                     config.data.datasets[i].lineTension = 0.4;
                                 }
                                 config.data.datasets[i].data = message.data[i].dataYLabels.data;

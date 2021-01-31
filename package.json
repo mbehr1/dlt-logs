@@ -242,11 +242,15 @@
 									"properties": {
 										"valueMap": {
 											"type": "object",
-											"description": "See todo for details."
+											"description": "See docs for details."
 										},
 										"conversionFunction": {
 											"type": "string",
-											"description": "Javascript function body as string. See todo for details."
+											"description": "Javascript function body as string. See docs for details."
+										},
+										"yAxes": {
+											"type": "object",
+											"description": "Determines yAxis for each dataset. See docs for details."
 										}
 									}
 								}
