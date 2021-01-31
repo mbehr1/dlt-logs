@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs':
 
+## [1.9.0](https://github.com/mbehr1/dlt-logs/compare/v1.8.1...v1.9.0) (2021-01-31)
+
+
+### Features
+
+* **report:** allow to set yAxes parameters to reports ([ba2fef4](https://github.com/mbehr1/dlt-logs/commit/ba2fef4e05fb1de827af4190c53198bd6f728d82)), closes [#14](https://github.com/mbehr1/dlt-logs/issues/14)
+
 ### [1.8.1](https://github.com/mbehr1/dlt-logs/compare/v1.8.0...v1.8.1) (2021-01-27)
 
 
