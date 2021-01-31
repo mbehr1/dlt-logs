@@ -55,7 +55,7 @@ You can define event filters (type: 3), add normal filters like ecu, apid, ctid 
 
 By default all captures needs will be parsed as float numbers. You can change that behaviour by prefixing the capure name with STATE\_ or INT\_ (see below).
 
-value name | excected type | comment
+value name | expected type | comment
 ---------- | ------------- | -------
 STATE_* | enum | Used to represent distinct states. Will use 2nd axix. Can be ints or strings. See reportOptions/valueMap on how to map to better readable names.
 EVENT_* | float | will use scatter/event - dot based and not line based chart.
