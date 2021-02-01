@@ -168,6 +168,11 @@ Open an [issue](https://github.com/mbehr1/dlt-logs/issues) or create a pull requ
 
 [GitHub ♥︎ Sponsors are welcome!](https://github.com/sponsors/mbehr1)
 
+## Contributors
+
+Thanks a lot to :
+- [Jens Schmer](https://github.com/jschmer) for the first PR providing y-axis support to graphical reports!
+
 ## Release Notes
 
 See [Changelog](./CHANGELOG.md)
