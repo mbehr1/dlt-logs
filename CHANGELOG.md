@@ -1,5 +1,7 @@
 # Change log for 'DLT-Logs':
 
+### [1.9.1](https://github.com/mbehr1/dlt-logs/compare/v1.9.0...v1.9.1) (2021-02-01)
+
 ## [1.9.0](https://github.com/mbehr1/dlt-logs/compare/v1.8.1...v1.9.0) (2021-01-31)
 
 
