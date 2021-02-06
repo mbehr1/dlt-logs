@@ -322,7 +322,7 @@ export class DltReport implements vscode.Disposable {
                     if ('yAxes' in filter.reportOptions) {
                         const yAxes = filter.reportOptions.yAxes;
                         Object.keys(yAxes).forEach((dataSetName) => {
-                            console.log(` got yAxes.${dataSetName} : ${JSON.stringify(yAxes[dataSetName], null, 2)}`);
+                            console.log(` got yAxes.'${dataSetName}' : ${JSON.stringify(yAxes[dataSetName], null, 2)}`);
                             const dataSet = dataSets.get(dataSetName);
                             if (dataSet) {
                                 dataSet.yAxis = yAxes[dataSetName];

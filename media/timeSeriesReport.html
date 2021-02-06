@@ -14,6 +14,7 @@
     </script>
     <style>
         canvas {
+            user-select: none;
             -moz-user-select: none;
             -webkit-user-select: none;
         }
@@ -243,6 +244,14 @@
                     if (dataSet.yAxis !== undefined){
                         const newYAxis = dataSet.yAxis;
                         // do we have a similar yAxis already?
+                        // to avoid issue #16 we do need to differentiate between
+                        // category and non-category axis depending on whether the dataSet has
+                        // dataYLabels.yLabels or not.
+                        // So if the dataSet has yLabels it needs a category type. 
+                        if (dataSet.dataYLabels.yLabels !== undefined){
+                            newYAxis.type = 'category';
+                        }
+
                         const found = configYAxes.find(yAxis => isSimilarYAxis(yAxis, newYAxis));
                         if (!found){
                             // add new one:
