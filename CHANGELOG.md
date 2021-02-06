@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs':
 
+### [1.9.2](https://github.com/mbehr1/dlt-logs/compare/v1.9.1...v1.9.2) (2021-02-06)
+
+
+### Bug Fixes
+
+* force type category if yLabels exist ([304d21d](https://github.com/mbehr1/dlt-logs/commit/304d21dbaa5818e156c2b25578045fb796b9a489)), closes [#16](https://github.com/mbehr1/dlt-logs/issues/16) [#16](https://github.com/mbehr1/dlt-logs/issues/16)
+
 ### [1.9.1](https://github.com/mbehr1/dlt-logs/compare/v1.9.0...v1.9.1) (2021-02-01)
 
 ## [1.9.0](https://github.com/mbehr1/dlt-logs/compare/v1.8.1...v1.9.0) (2021-01-31)
