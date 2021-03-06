@@ -14,6 +14,8 @@ import { TreeViewNode, ConfigNode, FilterRootNode, FilterNode, LifecycleNode, Li
 import { DltFilter, DltFilterType } from './dltFilter';
 import TelemetryReporter from 'vscode-extension-telemetry';
 import { DltFileTransferPlugin } from './dltFileTransfer';
+import { DltTransformationPlugin } from './dltTransformationPlugin';
+import { DltSomeIpPlugin } from './dltSomeIpPlugin';
 import { DltReport } from './dltReport';
 import { loadTimeFilterAssistant } from './dltLoadTimeAssistant';
 import { v4 as uuidv4 } from 'uuid';
@@ -66,6 +68,8 @@ export class DltDocument {
     private _columns: ColumnConfig[] = [];
     // filters:
     allFilters: DltFilter[] = [];
+
+    private _transformationPlugins: DltTransformationPlugin[] = [];
 
     private _renderTriggered: boolean = false;
     private _renderPending: boolean = false;
@@ -682,6 +686,15 @@ export class DltDocument {
                                 this.pluginTreeNode.children.push(treeNode);
                                 this.allFilters.push(plugin);
                                 this.filterTreeNode.children.push(new FilterNode(null, this.filterTreeNode, plugin)); // add to filter as well
+                            }
+                            break;
+                        case 'SomeIp':
+                            {
+                                let treeNode = { id: util.createUniqueId(), label: `SOME/IP Decoder`, uri: this.uri, parent: this.pluginTreeNode, children: [], tooltip: undefined, iconPath: new vscode.ThemeIcon('group-by-ref-type') }; // or symbol-interface?
+                                const plugin = new DltSomeIpPlugin(this.uri, treeNode, this._treeEventEmitter, pluginObj);
+                                this.pluginNodes.push(treeNode);
+                                this.pluginTreeNode.children.push(treeNode);
+                                this._transformationPlugins.push(plugin);
                             }
                             break;
                     }
@@ -1631,7 +1644,7 @@ export class DltDocument {
                         if (read) {
                             const copiedBuf = Buffer.from(data.slice(0, read)); // have to create a copy of Buffer here!
                             // parse data:
-                            const parseInfo = DltDocument.dltP.parseDltFromBuffer(copiedBuf, 0, this.msgs, posFilters, negFilters, negBeforePosFilters);
+                            const parseInfo = DltDocument.dltP.parseDltFromBuffer(copiedBuf, 0, this.msgs, { transformPlugins: this._transformationPlugins }, posFilters, negFilters, negBeforePosFilters);
                             if (parseInfo[0] > 0) {
                                 console.log(`checkFileChanges skipped ${parseInfo[0]} bytes.`);
                             }

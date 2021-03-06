@@ -7,6 +7,7 @@ import * as assert from 'assert';
 import { DltLifecycleInfo } from './dltLifecycle';
 import { DltFilter } from './dltFilter';
 import { printableAscii, toHexString, RestObject } from './util';
+import { DltTransformationPlugin } from './dltTransformationPlugin';
 
 const DLT_STORAGE_HEADER_PATTERN: number = 0x01544c44; // DLT\01 0x444c5401
 const DLT_STORAGE_HEADER_SIZE: number = 4 * 4;
@@ -109,8 +110,9 @@ export class DltMsg {
     get withEID(): boolean { return (this._htyp & 0x04) ? true : false; }
     private _eac: EAC;
     private _payloadData: Buffer;
-    private _payloadArgs: Array<any> | undefined = undefined;
-    private _payloadText: string | undefined = undefined;
+    public _payloadArgs: Array<any> | undefined = undefined;
+    public /* no friend class ... DltSomeIpPlugin private*/ _payloadText: string | undefined = undefined;
+    private _transformCb: ((msg: DltMsg) => void) | undefined = undefined;
     lifecycle: DltLifecycleInfo | undefined = undefined;
     decorations: Array<[vscode.TextEditorDecorationType, Array<vscode.DecorationOptions>]> = [];
 
@@ -296,8 +298,8 @@ export class DltMsg {
                                     argOffset += lenRaw;
                                 } else { break; } // todo VARI, FIXP, TRAI, STRU
                             }
-                            assert.equal(argOffset, this._payloadData.byteLength, "didn't process all payloadData"); // all data processed
-                            assert.equal(this.noar, this._payloadArgs.length, "noars != payloadArgs.length");
+                            assert.strictEqual(argOffset, this._payloadData.byteLength, "didn't process all payloadData"); // all data processed
+                            assert.strictEqual(this.noar, this._payloadArgs.length, "noars != payloadArgs.length");
                             //this._payloadArgs = []; // todo to see how much faster it gets
                         } else {
                             this._payloadArgs = [];
@@ -458,6 +460,10 @@ export class DltMsg {
             return this._payloadText;
         } else {
             this.payloadArgs; // this updates payloadText as well
+
+            // is a transformCb set? if so call it so allow to change data (e.g. _payloadText)
+            if (this._transformCb) { this._transformCb(this); }
+
             if (!this._payloadText) {
                 this._payloadText = "";
             }
@@ -466,6 +472,10 @@ export class DltMsg {
         }
     }
 
+    set transformCb(cb: (msg: DltMsg) => void) {
+        assert(this._payloadText === undefined, 'logical error. transformCb called too late!');
+        this._transformCb = cb;
+    }
 
 }
 
@@ -596,11 +606,12 @@ export class DltParser {
         return false;
     }
 
-    parseDltFromBuffer(buf: Buffer, startOffset: number, msgs: Array<DltMsg>, posFilters?: DltFilter[], negFilters?: DltFilter[], negBeforePosFilters?: DltFilter[], msgOffsets?: number[], msgLengths?: number[]) { // todo make async
+    parseDltFromBuffer(buf: Buffer, startOffset: number, msgs: Array<DltMsg>, options: { transformPlugins?: DltTransformationPlugin[] } | undefined, posFilters?: DltFilter[], negFilters?: DltFilter[], negBeforePosFilters?: DltFilter[], msgOffsets?: number[], msgLengths?: number[]) { // todo make async
         let skipped: number = 0;
         let remaining: number = buf.byteLength - startOffset;
         let nrMsgs: number = 0; let offset = startOffset;
         const startIndex: number = msgs.length ? (msgs[msgs.length - 1].index + 1) : 0; // our first index to use is either prev one +1 or 0 as start value
+        const transformPlugins: DltTransformationPlugin[] = options?.transformPlugins || [];
         while (remaining >= MIN_DLT_MSG_SIZE) {
             const storageHeader = dltParseStorageHeader(buf, offset);
             if (storageHeader.pattern === DLT_STORAGE_HEADER_PATTERN) {
@@ -650,6 +661,16 @@ export class DltParser {
                                 }
 
                                 if (keepAfterNegBeforePosFilters) {
+
+                                    // we apply transformation plugins only now (not before negBeforePosFilters)
+                                    for (let i = 0; i < transformPlugins.length; ++i) {
+                                        const transformPlugin = transformPlugins[i];
+                                        if (transformPlugin.matches(newMsg)) {
+                                            // add callback
+                                            newMsg.transformCb = transformPlugin.getTransformCb();
+                                        }
+                                    }
+
                                     let foundAfterPosFilters: boolean = posFilters?.length ? false : true;
                                     if (posFilters?.length) {
                                         // check the pos filters, break on first match:

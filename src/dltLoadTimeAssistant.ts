@@ -48,7 +48,7 @@ export async function loadTimeFilterAssistant(fileUri: vscode.Uri, allFilters: D
                     if (read) {
                         //const copiedBuf = Buffer.from(data.slice(0, read)); // have to create a copy of Buffer here! not necessary to access apid
                         // parse data:
-                        const parseInfo = DltDocument.dltP.parseDltFromBuffer(data.slice(0, read), 0, msgs, posFilters, negFilters, negBeforePosFilters);
+                        const parseInfo = DltDocument.dltP.parseDltFromBuffer(data.slice(0, read), 0, msgs, undefined, posFilters, negFilters, negBeforePosFilters);
                         if (parseInfo[0] > 0) {
                         }
                         if (parseInfo[1] > 0) {

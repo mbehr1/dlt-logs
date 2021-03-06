@@ -66,6 +66,7 @@ A more detailed documentation is available here: [Docs](https://mbehr1.github.io
   - zoom out: disable all positive filters and enable all neg. filters (so provide less details/logs)
 
 - Support **DLT file transfer** file extraction (and automatic filtering of FLDA msgs). Shows the file transfers and allows to save any file.
+- **SOME/IP decoder** plugin supporting multiple FIBEX files. All known services and methods are listed in the treeview incl. description texts in the tooltips!
 - **Quickly configurable columns**. Simply press the "select columns..." button in upper right corner of the document and select which one to show. The changes get stored permanently as global settings `dlt-logs.columns`.
 ![Quickly configureable columns](https://github.com/mbehr1/dlt-logs/raw/master/images/selectColumns.png)
 - **Graphical time series reports** based on event filters. You can define event filters (type: 3), add normal filters and use a payloadRegex that captures either one value or even multiple values with named capture groups (?<series_name>.*). All captures needs to represent numbers. Grid lines for lifecycle start/ends are automatically added. To open a report simply press on the "report" icon next to the filter.
@@ -138,7 +139,7 @@ This extension contributes the following settings:
    Filter configuration changes and menu items *add filter...*, *edit filter...*, *delete filter...* actions will be applied instantly to the configuration/view.
 
    Details see (todo...).
-* `dlt-logs.plugins`: Allows configuration of plugins. Currently one plugin is supported:
+* `dlt-logs.plugins`: Allows configuration of plugins. Currently two plugins are supported:
   * **name** : **"FileTransfer"** plugin
   * **enabled**: determines whether the plugin is enabled.
   * **allowSave**: can be used to disable saving capability. Can be used if you're not interested in the files but still want to see any transfers. Reduces memory consumption.
@@ -146,6 +147,13 @@ This extension contributes the following settings:
   * **apid**: restrict searching for file transfer messages to this APID. Can be empty (as by spec). If you know the APID providing this speeds up processing.
   * **ctid**: restrict searching for file transfer message to this CTID. Can be empty (as by spec). 
   
+or
+* SOME/IP plugin:
+  * **name** : **"SomeIp"** plugin
+  * **enabled**: determines whether the plugin is enabled.
+  * **fibexDir**: directory containing the FIBEX files (all .xml files are processed!).
+  For more options see the configuration help text or docs.
+
 * `dlt-logs.decorations`: Definition of the decoration types supported for marker filters.
 * `dlt-logs.configs`: Definition of **Configs**. A config consists of a:
   * **name**: Name of that config

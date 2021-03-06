@@ -58,7 +58,7 @@ const getFirstMsg = (fileUri: vscode.Uri) => {
     let data = Buffer.allocUnsafe(1 * 1024 * 1024); // we do only scan first MB
     let read = fs.readSync(fd, data, 0, data.byteLength, 0);
     const msgs: DltMsg[] = [];
-    const parseInfo = DltDocument.dltP.parseDltFromBuffer(data.slice(0, read), 0, msgs, [], [], []);
+    const parseInfo = DltDocument.dltP.parseDltFromBuffer(data.slice(0, read), 0, msgs, undefined, [], [], []);
     if (msgs.length) { return msgs[0]; } else { return undefined; };
 };
 
@@ -568,7 +568,7 @@ const pass1ReadUri = async (
             // parse data:
             const msgOffsets: number[] = [];
             const msgLengths: number[] = [];
-            const parseInfo = DltDocument.dltP.parseDltFromBuffer(data.slice(0, read), 0, msgs, posFilters, negFilters, negBeforePosFilters, msgOffsets, msgLengths);
+            const parseInfo = DltDocument.dltP.parseDltFromBuffer(data.slice(0, read), 0, msgs, undefined, posFilters, negFilters, negBeforePosFilters, msgOffsets, msgLengths);
             if (parseInfo[0] > 0) {
             }
             if (parseInfo[1] > 0) {
