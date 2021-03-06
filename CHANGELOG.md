@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs':
 
+## [1.10.0](https://github.com/mbehr1/dlt-logs/compare/v1.9.2...v1.10.0) (2021-03-06)
+
+
+### Features
+
+* **someip:** add SOME/IP plugin ([191f7ba](https://github.com/mbehr1/dlt-logs/commit/191f7ba27700beeccbd5b51258cb780a079f2297)), closes [#11](https://github.com/mbehr1/dlt-logs/issues/11)
+
 ### [1.9.2](https://github.com/mbehr1/dlt-logs/compare/v1.9.1...v1.9.2) (2021-02-06)
 
 
