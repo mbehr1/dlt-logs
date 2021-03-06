@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs':
 
+### [1.10.1](https://github.com/mbehr1/dlt-logs/compare/v1.10.0...v1.10.1) (2021-03-06)
+
+
+### Bug Fixes
+
+* **someip:** disabled some console logs ([f9e38b6](https://github.com/mbehr1/dlt-logs/commit/f9e38b660eb85542e5c62ad7dc0e3e4770cc670d))
+
 ## [1.10.0](https://github.com/mbehr1/dlt-logs/compare/v1.9.2...v1.10.0) (2021-03-06)
 
 
