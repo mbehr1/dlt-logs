@@ -264,6 +264,7 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                 const payload = msg._payloadArgs[1];
                 if (payload.type === Buffer) {
                     const buf: Buffer = payload.v;
+                    if (buf.length < 16) { return; }
                     const serviceId = buf.readUInt16BE(0);
                     const methodOrEventId = buf.readUInt16BE(2);
                     const isMethod = methodOrEventId < 0x8000;
@@ -320,11 +321,11 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                     } else {
                         msg._payloadText = `SOME/IP unknown service with id ${serviceId} (${serviceId.toString(16)}) ` + msg._payloadText;
                     }
-                    console.log(`DltSomeIpPlugin.transformCb: '${msg._payloadText}'`);
+                    // console.log(`DltSomeIpPlugin.transformCb: '${msg._payloadText}'`);
                 }
             }
         } catch (e) {
-            console.warn(`DltSomeIpPlugin.tranformCb got '${e}'`);
+            console.warn(`DltSomeIpPlugin.transformCb got '${e}'`);
         }
     }
 
@@ -644,7 +645,8 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                     // orig: codingObj // todo only for debugging
                 };
                 if (DltSomeIpPlugin._codings.has(coding.id)) {
-                    console.warn(`DltSomeIpPlugin.parseFibexCodings have:'${JSON.stringify(codingObj)}' already`);
+                    // console.warn(`DltSomeIpPlugin.parseFibexCodings have:'${JSON.stringify(codingObj)}' already`);
+                    // todo any check whether it's similar?
                 } else {
                     DltSomeIpPlugin._codings.set(coding.id, coding);
                 }
@@ -717,7 +719,8 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                     // orig: datatypeObj
                 };
                 if (DltSomeIpPlugin._datatypes.has(datatype.id)) {
-                    console.warn(`DltSomeIpPlugin.parseFibexDatatypes have '${datatype.id}' already!`);
+                    //console.warn(`DltSomeIpPlugin.parseFibexDatatypes have '${datatype.id}' already!`);
+                    // todo any check whether it's similar?
                 } else {
                     DltSomeIpPlugin._datatypes.set(datatype.id, datatype);
                 }
