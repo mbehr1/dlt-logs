@@ -102,6 +102,6 @@ The decoder assumes that the message is encoded as type `NW_TRACE` with the conf
 - Currently all payloads are expected to be big-endian even if the FIBEX files defines something else! If you need support for little-endian please raise an issue in github.
 - Currently not supported are:
   - UNIONs are not supported yet.
-  - STRINGS as payload are not supported yet.
   - Booleans as payload are not supported yet.
+  - BIT-LENGTH parsing (types with e.g. 12 bit...)
   - Segmented messages are not supported.
