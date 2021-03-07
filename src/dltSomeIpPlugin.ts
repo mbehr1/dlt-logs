@@ -743,8 +743,7 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
         return undefined;
     }
 
-    static parseFibexMethods(serviceMethods: any[] | undefined) {
-        const methods = new Map<number, Method>();
+    static parseFibexMethods(serviceMethods: any[] | undefined, methods: Map<number, Method>) {
         if (serviceMethods !== undefined) {
             let methodsArray = Array.isArray(serviceMethods) ? serviceMethods : serviceMethods['service:METHOD'];
             if (methodsArray !== undefined && !Array.isArray(methodsArray)) {
@@ -776,7 +775,6 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
         }
 
         // todo mid 0 VIP_SUBSCRIBE_TO_BROADCAST ???
-        return methods;
     }
 
     static parseFibexFields(serviceFields: any | any[] | undefined, methods: Map<number, Method>) {
@@ -856,8 +854,19 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
         for (let i = 0; i < serviceInterfaces.length; ++i) {
             const serviceInterface = serviceInterfaces[i];
             try {
-                const methods = DltSomeIpPlugin.parseFibexMethods(serviceInterface['service:METHODS']);
+                const methods = new Map<number, Method>();
+                DltSomeIpPlugin.parseFibexMethods(serviceInterface['service:METHODS'], methods);
+                const fibexEvents = serviceInterface['service:EVENTS'];
+                if (fibexEvents) {
+                    let events = fibexEvents['service:EVENT'];
+                    if (events) {
+                        if (!Array.isArray(events)) { events = [events]; }
+                        // parse service:EVENTS like methods
+                        DltSomeIpPlugin.parseFibexMethods(events, methods);
+                    }
+                }
                 DltSomeIpPlugin.parseFibexFields(serviceInterface['service:FIELDS'], methods);
+                // todo service:EVENTS
                 const service: Service = {
                     shortName: serviceInterface['ho:SHORT-NAME'],
                     sid: Number(serviceInterface['fx:SERVICE-IDENTIFIER']),
