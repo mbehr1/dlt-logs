@@ -263,7 +263,7 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
      * @returns textual representation
      */
     static stringify(val: any): string {
-        if (!val) { return ''; }
+        if (!val) { return '{}'; }
         // bigints can't be serialized naturally
         return JSON.stringify(val, (k, v) => typeof v === 'bigint' ? `${v}n` : v);
 
