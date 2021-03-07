@@ -341,7 +341,7 @@ export class DltLifecycleInfo {
                                 const knownApidInfo = this.apidInfos.get(apidInfo.apid);
                                 if (knownApidInfo !== undefined) {
                                     if (knownApidInfo.desc.length === 0 && apidInfo.desc.length > 0) {
-                                        console.log(`overwriting apidInfo ${apidInfo.apid} ${knownApidInfo.desc} with ${apidInfo.desc}`);
+                                        // console.log(`overwriting apidInfo ${apidInfo.apid} ${knownApidInfo.desc} with ${apidInfo.desc}`);
                                         knownApidInfo.desc = apidInfo.desc;
                                     }
                                     for (let c = 0; c < apidInfo.ctids.length; ++c) {
