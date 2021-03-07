@@ -4,7 +4,8 @@
  * todos:
  * - reload files on config change
  * - support unions
- * - support strings
+ * - support fx:BIT-LENGTH parsing...
+ * - support Boolean
  * - tooltips for messages with details on data types,codings, ...
  * - change text representation to proper JSON? ("" around strings/enums)
  * - parse unknown services with default schema
@@ -52,10 +53,17 @@ type Datatype = {
     complexUnionMembers?: any[],
     orig?: any
 };
+
+type ArrayInfo = {
+    dim: number,
+    maxSize?: number
+};
+
 type Parameter = {
     pos?: number,
     shortName: string,
-    datatype?: string
+    datatype?: string,
+    array?: ArrayInfo
 };
 
 type Method = {
@@ -304,23 +312,27 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                         const parameters = buf.slice(16);
                         //console.warn(`transformCb: parameters=${parameters.length} ${parameters.toString('hex')}`);
                         let valueObj: any | undefined;
-                        if (datatype) {
-                            const [parsedLen, parsedValueObj] = this.parseParameters(parameters, 0, datatype);
-                            if (method?.fieldName || datatype.shortName) {
-                                valueObj = { [method?.fieldName || datatype.shortName]: parsedValueObj };
+                        try {
+                            if (datatype) {
+                                const [parsedLen, parsedValueObj] = this.parseParameters(parameters, 0, datatype);
+                                if (method?.fieldName || datatype.shortName) {
+                                    valueObj = { [method?.fieldName || datatype.shortName]: parsedValueObj };
+                                } else {
+                                    valueObj = parsedValueObj;
+                                }
+                                if (parsedLen !== parameters.length) { console.warn(`transformCb: parseParameters parsed ${parsedLen} vs parameters=${parameters.length} for service id ${serviceId} (${serviceId.toString(16).padStart(4, '0')}) and method=(${methodOrEventId.toString(16).padStart(4, '0')}). FIBEX not matching?`); }
                             } else {
-                                valueObj = parsedValueObj;
+                                if (isReturn && method?.returnParams || !isReturn && method?.inputParams) {
+                                    // console.warn(`transformCb: no datatype but input/returnParams for service (${serviceId.toString(16).padStart(4, '0')}) method=(${methodOrEventId.toString(16).padStart(4, '0')})${JSON.stringify(method)} ${JSON.stringify(!isReturn ? method.inputParams : method.returnParams)} !`);
+                                    const [parsedLen, parsedValueObj] = this.parseInputReturnParameters(parameters, isReturn ? method.returnParams! : method.inputParams!);
+                                    valueObj = parsedValueObj;
+                                    if (parsedLen !== parameters.length) { console.warn(`transformCb: parseInputReturnParameters parsed ${parsedLen} vs parameters=${parameters.length} for service (${serviceId.toString(16).padStart(4, '0')}) and method ${JSON.stringify(method)}`); }
+                                } else {
+                                    console.warn(`transformCb: no datatype for service (${serviceId.toString(16).padStart(4, '0')}) method=(${methodOrEventId.toString(16).padStart(4, '0')})${JSON.stringify(method)}!`);
+                                }
                             }
-                            if (parsedLen !== parameters.length) { console.warn(`transformCb: parseParameters parsed ${parsedLen} vs parameters=${parameters.length} for service id ${serviceId} (${serviceId.toString(16).padStart(4, '0')}) and method=(${methodOrEventId.toString(16).padStart(4, '0')}). FIBEX not matching?`); }
-                        } else {
-                            if (isReturn && method?.returnParams || !isReturn && method?.inputParams) {
-                                // console.warn(`transformCb: no datatype but input/returnParams for service (${serviceId.toString(16).padStart(4, '0')}) method=(${methodOrEventId.toString(16).padStart(4, '0')})${JSON.stringify(method)} ${JSON.stringify(!isReturn ? method.inputParams : method.returnParams)} !`);
-                                const [parsedLen, parsedValueObj] = this.parseInputReturnParameters(parameters, isReturn ? method.returnParams! : method.inputParams!);
-                                valueObj = parsedValueObj;
-                                if (parsedLen !== parameters.length) { console.warn(`transformCb: parseInputReturnParameters parsed ${parsedLen} vs parameters=${parameters.length} for service (${serviceId.toString(16).padStart(4, '0')}) and method ${JSON.stringify(method)}`); }
-                            } else {
-                                console.warn(`transformCb: no datatype for service (${serviceId.toString(16).padStart(4, '0')}) method=(${methodOrEventId.toString(16).padStart(4, '0')})${JSON.stringify(method)}!`);
-                            }
+                        } catch (e) {
+                            valueObj = { 'err': `SOME/IP decoding failed with '${e}'` };
                         }
                         msg._payloadText = `${this._messageTypeStr.get(messageType & ~0x20) || `?<${messageType}>`} (${clientId.toString(16).padStart(4, '0')}:${sessionId.toString(16).padStart(4, '0')}) ${service.shortName}(${instId.toString(16).padStart(4, '0')}).${method?.shortName || methodOrEventId.toString(16).padStart(4, '0')}${DltSomeIpPlugin.stringify(valueObj)}}[${this._returnCodeMap.get(returnCode) || 'UNKNOWN'}]`;
                     } else {
@@ -341,10 +353,11 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
 
         for (let i = 0; i < params.length; ++i) {
             const param = params[i];
+            // if (param.array) { console.warn(`DltSomeIpPlugin.parseInputReturnParameters datatype ${param.shortName}.${param.datatype} is array: ${JSON.stringify(param.array)}!`); }
             if (param.datatype) {
                 const datatype = DltSomeIpPlugin._datatypes.get(param.datatype);
                 if (datatype) {
-                    const [parsed, valueObj] = this.parseParameters(buf, parsedBytes, datatype);
+                    const [parsed, valueObj] = this.parseParameters(buf, parsedBytes, datatype, param.array);
                     objToRet[param.shortName || i] = valueObj;
                     parsedBytes += parsed;
                 } else {
@@ -359,6 +372,112 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
         return [parsedBytes, objToRet];
     }
 
+    private parseSingleCoding(buf: Buffer, offset: number, coding: Coding): [number, any | string | number | undefined] {
+        let objToRet: any | string | number | undefined;
+        let parsedBytes = 0;
+        if (coding.codedType) {
+            const codedBaseType = coding.codedType['@_ho:BASE-DATA-TYPE'];
+            switch (codedBaseType) {
+                case 'A_UINT8':
+                    objToRet = buf.readUInt8(offset);
+                    parsedBytes = 1; break;
+                case 'A_INT8':
+                    objToRet = buf.readInt8(offset);
+                    parsedBytes = 1; break;
+                case 'A_INT16':
+                    objToRet = buf.readInt16BE(offset);
+                    parsedBytes = 2; break;
+                case 'A_UINT16':
+                    objToRet = buf.readUInt16BE(offset);
+                    parsedBytes = 2; break;
+                case 'A_INT32':
+                    objToRet = buf.readInt32BE(offset);
+                    parsedBytes = 4;
+                    break;
+                case 'A_UINT32':
+                    objToRet = buf.readUInt32BE(offset);
+                    parsedBytes = 4;
+                    break;
+                case 'A_INT64':
+                    objToRet = buf.readBigInt64BE(offset);
+                    parsedBytes = 8;
+                    console.warn(`DltSomeIpPlugin.parseSingleCoding untested A_INT64 returning '${objToRet}' from '${buf.slice(offset, offset + parsedBytes).toString('hex')}'`);
+                    break;
+                case 'A_UINT64':
+                    objToRet = buf.readBigUInt64BE(offset);
+                    parsedBytes = 8;
+                    break;
+                case 'A_FLOAT32':
+                    objToRet = buf.readFloatBE(offset);
+                    parsedBytes = 4;
+                    console.warn(`DltSomeIpPlugin.parseSingleCoding untested A_FLOAT32 returning '${objToRet}' from '${buf.slice(offset, offset + parsedBytes).toString('hex')}'`);
+                    break;
+                case 'A_FLOAT64':
+                    objToRet = buf.readDoubleBE(offset);
+                    parsedBytes = 8;
+                    console.warn(`DltSomeIpPlugin.parseSingleCoding untested A_FLOAT64 returning '${objToRet}' from '${buf.slice(offset, offset + parsedBytes).toString('hex')}'`);
+                    break;
+                case 'A_UNICODE2STRING':
+                    // console.log(`A_UNICODE2STRING: ${JSON.stringify(coding.codedType)}`);
+                    // check for ENCODING UTF-8 and TERMINATION="ZERO" todo
+                    let encoding: string | undefined;
+                    switch (coding.codedType['@_ENCODING']) {
+                        case 'UCS-2': encoding = 'ucs2'; break;
+                        case undefined:
+                        case 'UTF-8':
+                            encoding = 'utf8';
+                            break;
+                        default:
+                            console.warn(`A_UNICODE2STRING: unknown encoding (${coding.codedType['@_ENCODING']}) ${JSON.stringify(coding.codedType)}`);
+                            break;
+                    }
+                    // assume: 32bit length covering: BOM field, string, terminating zero.
+                    let strLenBomZero = buf.readUInt32BE(offset);
+                    parsedBytes += 4;
+                    switch (strLenBomZero) {
+                        case 0: objToRet = ''; break;
+                        case 4022058752: // bug in encoding? (was bug in array parsing :). this is the BOM
+                            objToRet = 'error: BOM as str len!';
+                            console.warn(`A_UNICODE2STRING: BOM as str len? strLenBomZero=${strLenBomZero} buf=${buf.slice(offset, offset + 4 + strLenBomZero).toString('hex')} returning '${objToRet}'`);
+                            break;
+                        default:
+                            switch (encoding) {
+                                case 'utf8': // check and remove BOM:
+                                    if (buf[offset + parsedBytes] === 0xef && buf[offset + parsedBytes + 1] === 0xbb && buf[offset + parsedBytes + 2] === 0xBF) {
+                                        // skip BOM UTF-8
+                                        parsedBytes += 3;
+                                        strLenBomZero -= 3;
+                                    } else {
+                                        console.warn(`A_UNICODE2STRING: strLenBomZero=${strLenBomZero} unexpected utf8 BOM! buf=${buf.slice(offset, offset + 4 + strLenBomZero).toString('hex')} coding=${JSON.stringify(coding)}`);
+                                    }
+                                    break;
+                                case 'ucs2':
+                                    if (buf[offset + parsedBytes] === 0xfe && buf[offset + parsedBytes + 1] === 0xff) {
+                                        // skip BOM UTF-16 BE (fe ff)
+                                        parsedBytes += 2;
+                                        strLenBomZero -= 2;
+                                    } else {
+                                        console.warn(`A_UNICODE2STRING: strLenBomZero=${strLenBomZero} unexpected ucs2 BOM! buf=${buf.slice(offset, offset + 4 + strLenBomZero).toString('hex')}`);
+                                    }
+                                    break;
+                            }
+                            objToRet = strLenBomZero > 1 ? buf.toString(encoding, offset + parsedBytes, offset + parsedBytes + strLenBomZero - 1) : '';
+                            parsedBytes += strLenBomZero;
+                        // console.log(`A_UNICODE2STRING: strLenZero=${strLenBomZero} buf=${buf.slice(offset, offset + 4 + strLenBomZero).toString('hex')} returning len=${objToRet.length} '${objToRet}'`);
+                    }
+                    break;
+                // todo:
+                // A_BOOLEAN
+                default:
+                    console.error(`parseParameters unknown/nyi codedBaseType ='${codedBaseType}'`);
+                    break;
+            }
+        } else {
+            console.warn(`DltSomeIpPlugin.parseParameters no codedType for coding=${JSON.stringify(coding)}`);
+        }
+        return [parsedBytes, objToRet];
+    }
+
     /**
      * Parse a SOMEIP payload for a datatype
      * @param buf buffer with payload of parameters
@@ -366,7 +485,7 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
      * @param datatype expected datatype to parse
      * @returns parsed bytes and object with the data
      */
-    private parseParameters(buf: Buffer, offset: number, datatype: Datatype): [number, any | string | number | undefined] {
+    private parseParameters(buf: Buffer, offset: number, datatype: Datatype, arrayInfo?: ArrayInfo): [number, any | string | number | undefined] {
         //console.warn(`DltSomeIpPlugin.parseParameters(offset=${offset}, datatype.shortName=${datatype.shortName})`);
         if (offset >= buf.length) {
             //console.warn(`DltSomeIpPlugin.parseParameters out of range for: datatype ${JSON.stringify(datatype)})`);
@@ -377,70 +496,55 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
         if (datatype.codingRef) {
             assert(!datatype.complexStructMembers);
             assert(!datatype.complexUnionMembers);
-            //console.warn(` datatype.codingRef=${JSON.stringify(datatype.codingRef)}`);
             const coding = DltSomeIpPlugin._codings.get(datatype.codingRef);
-            //console.warn(` datatype.coding=${JSON.stringify(coding)})`);
-            if (coding?.codedType) {
-                const codedBaseType = coding.codedType['@_ho:BASE-DATA-TYPE'];
-                switch (codedBaseType) {
-                    case 'A_UINT8':
-                        objToRet = buf.readUInt8(offset);
-                        parsedBytes = 1; break;
-                    case 'A_INT8':
-                        objToRet = buf.readInt8(offset);
-                        parsedBytes = 1; break;
-                    case 'A_INT16':
-                        objToRet = buf.readInt16BE(offset);
-                        parsedBytes = 2; break;
-                    case 'A_UINT16':
-                        objToRet = buf.readUInt16BE(offset);
-                        parsedBytes = 2; break;
-                    case 'A_INT32':
-                        objToRet = buf.readInt32BE(offset);
-                        parsedBytes = 4;
-                        console.warn(`DltSomeIpPlugin.parseParameters untested A_INT32 returning '${objToRet}' from '${buf.slice(offset, offset + parsedBytes).toString('hex')}'`);
-                        break;
-                    case 'A_UINT32':
-                        objToRet = buf.readUInt32BE(offset);
-                        parsedBytes = 4;
-                        break;
-                    case 'A_INT64':
-                        objToRet = buf.readBigInt64BE(offset);
-                        parsedBytes = 8;
-                        console.warn(`DltSomeIpPlugin.parseParameters untested A_INT64 returning '${objToRet}' from '${buf.slice(offset, offset + parsedBytes).toString('hex')}'`);
-                        break;
-                    case 'A_UINT64':
-                        objToRet = buf.readBigUInt64BE(offset);
-                        parsedBytes = 8;
-                        console.warn(`DltSomeIpPlugin.parseParameters untested A_UINT64 returning '${objToRet}' from '${buf.slice(offset, offset + parsedBytes).toString('hex')}'`);
-                        break;
-                    case 'A_FLOAT32':
-                        objToRet = buf.readFloatBE(offset);
-                        parsedBytes = 4;
-                        console.warn(`DltSomeIpPlugin.parseParameters untested A_FLOAT32 returning '${objToRet}' from '${buf.slice(offset, offset + parsedBytes).toString('hex')}'`);
-                        break;
-                    case 'A_FLOAT64':
-                        objToRet = buf.readDoubleBE(offset);
-                        parsedBytes = 8;
-                        console.warn(`DltSomeIpPlugin.parseParameters untested A_FLOAT64 returning '${objToRet}' from '${buf.slice(offset, offset + parsedBytes).toString('hex')}'`);
-                        break;
-                    // todo:
-                    // A_UNICODE2STRING
-                    // A_BOOLEAN
-                    default:
-                        console.error(`parseParameters unknown/nyi codedBaseType ='${codedBaseType}'`);
-                        break;
+            const isArray = arrayInfo; // todo add parsing from ARRAY-DECLARATION here as well?
+
+            if (isArray && isArray.dim > 0) { // todo currently only 1 supported!
+                if (isArray.dim !== 1) { console.warn(`DltSomeIpPlugin.parseParameters array with dim ${isArray.dim} not supported yet!`); }
+                const arrLen = buf.readUInt32BE(offset + parsedBytes);
+                parsedBytes += 4;
+                // console.log(`DltSomeIpPlugin.parseParameters coding ARRAY arrLen=${arrLen}'`);
+                if (arrLen) {
+                    if (coding) {
+                        const arrBuf = buf.slice(offset + parsedBytes, offset + parsedBytes + arrLen);
+                        const valueArr: any[] = [];
+                        let parsedArr = 0;
+                        while (parsedArr < arrLen) {
+                            let [parsed, valueObj] = this.parseSingleCoding(arrBuf, parsedArr, coding);
+                            if (!parsed) {
+                                console.warn(`DltSomeIpPlugin.parseParameters parsing after ${parsedArr} / ${arrLen} failed for coding ${coding.shortName} from ${datatype.shortName}`);
+                                parsed = arrLen;
+                            } else {
+                                if (datatype.enums && valueObj !== undefined) { // value an enum?
+                                    const enumObj = datatype.enums.get(valueObj);
+                                    if (enumObj) { valueObj = enumObj.synonym; }
+                                }
+                                valueArr.push(valueObj);
+                                parsedArr += parsed;
+                            }
+                        }
+                        objToRet = valueArr;
+                    } else {
+                        objToRet = [`err:no coding for ${JSON.stringify(datatype)}`];
+                    }
+                    parsedBytes += arrLen; // todo check for max size?
+                } else {
+                    objToRet = [];
                 }
             } else {
-                console.warn(`DltSomeIpPlugin.parseParameters no codedType for datatype.codingRef=${JSON.stringify(datatype.codingRef)}`);
-            }
-        }
-        if (objToRet !== undefined && datatype.enums) {
-            // value an enum?
-            const enumObj = datatype.enums.get(objToRet);
-            //console.warn(`DltSomeIpPlugin.parseParameters got enum '${JSON.stringify(enumObj)} for ${JSON.stringify(objToRet)}'`);
-            if (enumObj) {
-                objToRet = enumObj.synonym;
+                //console.warn(` datatype.codingRef=${JSON.stringify(datatype.codingRef)}`);
+                //console.warn(` datatype.coding=${JSON.stringify(coding)})`);
+                if (coding) {
+                    let [parsed, valueObj] = this.parseSingleCoding(buf, offset, coding);
+                    if (datatype.enums && valueObj !== undefined) { // value an enum?
+                        const enumObj = datatype.enums.get(valueObj);
+                        if (enumObj) { valueObj = enumObj.synonym; }
+                    }
+                    objToRet = valueObj;
+                    parsedBytes = parsed;
+                } else {
+                    console.warn(`DltSomeIpPlugin.parseParameters no coding for datatype=${JSON.stringify(datatype)}`);
+                }
             }
         }
 
@@ -452,23 +556,61 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                 const member = members[i];
                 const memberShortName = member['ho:SHORT-NAME'] || i;
                 const memberDatatype = DltSomeIpPlugin._datatypes.get(member['fx:DATATYPE-REF']['@_ID-REF']);
-                //console.warn(`  memberDatatype ${i + 1}: ${memberShortName}: `);
-                if (memberDatatype) {
-                    const [parsed, valueObj] = this.parseParameters(buf, offset + parsedBytes, memberDatatype);
-                    if (!parsed) {
-                        console.warn(`DltSomeIpPlugin.parseParameters parsing failed for member ${i + 1}/${members.length}: ${datatype.shortName}.${memberShortName}`);
-                        break;
+
+                // is it an array?
+                const isArray = arrayInfo || (('fx:ARRAY-DECLARATION' in member) ? { dim: member['fx:ARRAY-DECLARATION']['fx:ARRAY-DIMENSION']['fx:DIMENSION'] || 1 } : undefined);
+                if (isArray && isArray.dim > 0) {
+                    if (isArray.dim !== 1) { console.warn(`DltSomeIpPlugin.parseParameters array with dim ${isArray.dim} not supported yet! member=${JSON.stringify(member)}`); }
+                    //console.warn(`DltSomeIpPlugin.parseParameters complexStruct nyi ARRAY ${JSON.stringify(member, undefined, 2)} ${JSON.stringify(datatype)} from size:${buf.length - (offset + parsedBytes)} '${buf.slice(offset + parsedBytes).toString('hex')}'`);
+                    // assume an array starts with a 4 byte len: (byte size of the full array)
+                    const arrLen = buf.readUInt32BE(offset + parsedBytes);
+                    parsedBytes += 4;
+                    // console.log(`DltSomeIpPlugin.parseParameters complexStruct ARRAY arrLen=${arrLen}'`);
+                    if (arrLen === 0) {
+                        objToRet[memberShortName] = [];
+                        continue;
+                    } // done in that case!
+                    if (!memberDatatype) {
+                        // we dont' know the datatype but we can skip the whole array
+                        objToRet[memberShortName] = [`err:unknown member datatype ${JSON.stringify(member['fx:DATATYPE-REF'])}`];
+                        parsedBytes += arrLen;
+                        continue;
+                    } else {
+                        const arrBuf = buf.slice(offset + parsedBytes, offset + parsedBytes + arrLen);
+                        const valueArr: any[] = [];
+                        let parsedArr = 0;
+                        while (parsedArr < arrLen) {
+                            const [parsed, valueObj] = this.parseParameters(arrBuf, parsedArr, memberDatatype);
+                            if (!parsed) {
+                                console.warn(`DltSomeIpPlugin.parseParameters parsing after ${parsedArr} / ${arrLen} failed for array member ${i + 1}/${members.length}: ${datatype.shortName}.${memberShortName}`);
+                                parsedArr = arrLen;
+                            } else {
+                                valueArr.push(valueObj);
+                                parsedArr += parsed;
+                            }
+                        }
+                        objToRet[memberShortName] = valueArr;
+                        parsedBytes += arrLen;
                     }
-                    objToRet[memberShortName] = valueObj; // todo (ensure that memberShortName is no number) we want to keep the order. but the order of property keys is only kept if the memberShortName is not a number but a string...
-                    parsedBytes += parsed;
-                    // todo check if fx:MANDATORY is true and throw on error parsing (here processed 0)
-                } else {
-                    console.warn(`  no memberDatatype for member = ${JSON.stringify(member)})`);
+                } else { // member is no array
+                    //console.warn(`  memberDatatype ${i + 1}: ${memberShortName}: `);
+                    if (memberDatatype) {
+                        const [parsed, valueObj] = this.parseParameters(buf, offset + parsedBytes, memberDatatype);
+                        if (!parsed) {
+                            console.warn(`DltSomeIpPlugin.parseParameters parsing failed for member ${i + 1}/${members.length} after parsing ${parsedBytes}/${buf.length - offset}: ${datatype.shortName}.${memberShortName} datatype:${JSON.stringify(memberDatatype)}`);
+                            break;
+                        }
+                        objToRet[memberShortName] = valueObj; // todo (ensure that memberShortName is no number) we want to keep the order. but the order of property keys is only kept if the memberShortName is not a number but a string...
+                        parsedBytes += parsed;
+                        // todo check if fx:MANDATORY is true and throw on error parsing (here processed 0)
+                    } else {
+                        console.warn(`  no memberDatatype for member = ${JSON.stringify(member)})`);
+                    }
                 }
             }
         } else if (datatype.complexUnionMembers) {
             console.warn(`DltSomeIpPlugin.parseParameters(offset=${offset}, datatype.shortName=${datatype.shortName})`);
-            console.warn(` datatype.complexUnionMembers=${JSON.stringify(datatype.complexUnionMembers)})`);
+            console.warn(` datatype.complexUnionMembers=${JSON.stringify(datatype.complexUnionMembers)}, arrayInfo=${JSON.stringify(arrayInfo)})`);
             // todo nyi. parse length 32bit, type 32bit, data...
             const length = buf.readUInt32BE(offset);
             parsedBytes += 4;
@@ -476,6 +618,7 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
             parsedBytes += 4;
             console.warn(` datatype.complexUnion got length=${length}, unionType=${unionType})`);
             // iterate through all members with fx:INDEX === unionType?
+            // todo array decl
             // skip for now
             parsedBytes += length;
         }
@@ -500,7 +643,22 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
             try {
                 for (let i = 0; i < paramsArr.length; ++i) {
                     const param = paramsArr[i];
-                    const newParam = { shortName: param['ho:SHORT-NAME'], pos: param['service:POSITION'], datatype: param['fx:DATATYPE-REF']['@_ID-REF'] /*, orig: param*/ };
+                    // is it an array?
+                    let arrayInfo = undefined;
+                    if ('fx:ARRAY-DECLARATION' in param) {
+                        const arrayDecl = param['fx:ARRAY-DECLARATION'];
+                        const arrayDim = arrayDecl['fx:ARRAY-DIMENSION'];
+                        arrayInfo = {
+                            dim: arrayDim !== undefined ? arrayDim['fx:DIMENSION'] || 1 : 1,
+                            maxSize: arrayDim !== undefined ? arrayDim['fx:MAXIMUM-SIZE'] : undefined
+                        };
+                    }
+                    const newParam = {
+                        shortName: param['ho:SHORT-NAME'],
+                        pos: param['service:POSITION'],
+                        datatype: param['fx:DATATYPE-REF']['@_ID-REF'],
+                        array: arrayInfo /*, orig: param*/
+                    };
                     if (newParam.pos && newParam.pos >= 0) { needsSort = true; }
                     toRet.push(newParam);
                 }
@@ -678,12 +836,21 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                         // fallthrough
                         case 'TYPEDEF':
                             // if the typedef consists just of one member we do use that.
+                            // if the single member is an array or
                             // if it consist of multiple we treat it like a structure:
                             members = datatypeObj['fx:MEMBERS']['fx:MEMBER'];
                             if (!Array.isArray(members) || members.length === 1) {
+                                // if it's an array declaration we can't link:
                                 const member = Array.isArray(members) ? members[0] : members;
-                                typedefs.push([datatypeObj['@_ID'], member['fx:DATATYPE-REF']['@_ID-REF']]);
-                                // will be created now but then overwritten as a link...
+                                const isArrayDecl = ('fx:ARRAY-DECLARATION' in member);
+                                if (!isArrayDecl) {
+                                    typedefs.push([datatypeObj['@_ID'], member['fx:DATATYPE-REF']['@_ID-REF']]);
+                                    // will be created now but then overwritten as a link...
+                                } else {
+                                    if (!Array.isArray(members)) {
+                                        members = [members]; // ensure that members is always an array
+                                    }
+                                }
                                 break;
                             } // else fallthrough
                         case 'STRUCTURE':
