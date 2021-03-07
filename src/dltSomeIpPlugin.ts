@@ -56,6 +56,7 @@ type Datatype = {
 
 type ArrayInfo = {
     dim: number,
+    minSize?: number,
     maxSize?: number
 };
 
@@ -73,6 +74,7 @@ type Method = {
     inputParams?: Parameter[],
     returnParams?: Parameter[],
     datatype?: string,
+    array?: ArrayInfo,
     fieldName?: string,
     orig?: any
 };
@@ -307,6 +309,8 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                         //if (!method) { console.warn(`transformCb: no method!`); }
 
                         const datatype = method && method.datatype ? DltSomeIpPlugin._datatypes.get(method.datatype) : undefined;
+                        const arrayInfo = method?.array;
+
                         // console.warn(`transformCb: datatype=${method?.datatype} ${JSON.stringify(datatype)}`);
                         // parameter payload:
                         const parameters = buf.slice(16);
@@ -314,7 +318,7 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                         let valueObj: any | undefined;
                         try {
                             if (datatype) {
-                                const [parsedLen, parsedValueObj] = this.parseParameters(parameters, 0, datatype);
+                                const [parsedLen, parsedValueObj] = this.parseParameters(parameters, 0, datatype, arrayInfo);
                                 if (method?.fieldName || datatype.shortName) {
                                     valueObj = { [method?.fieldName || datatype.shortName]: parsedValueObj };
                                 } else {
@@ -328,13 +332,13 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                                     valueObj = parsedValueObj;
                                     if (parsedLen !== parameters.length) { console.warn(`transformCb: parseInputReturnParameters parsed ${parsedLen} vs parameters=${parameters.length} for service (${serviceId.toString(16).padStart(4, '0')}) and method ${JSON.stringify(method)}`); }
                                 } else {
-                                    console.warn(`transformCb: no datatype for service (${serviceId.toString(16).padStart(4, '0')}) method=(${methodOrEventId.toString(16).padStart(4, '0')})${JSON.stringify(method)}!`);
+                                    if (buf.length > 16) { console.warn(`transformCb: no datatype for service (${serviceId.toString(16).padStart(4, '0')}) method=(${methodOrEventId.toString(16).padStart(4, '0')})${JSON.stringify(method)}!`); }
                                 }
                             }
                         } catch (e) {
                             valueObj = { 'err': `SOME/IP decoding failed with '${e}'` };
                         }
-                        msg._payloadText = `${this._messageTypeStr.get(messageType & ~0x20) || `?<${messageType}>`} (${clientId.toString(16).padStart(4, '0')}:${sessionId.toString(16).padStart(4, '0')}) ${service.shortName}(${instId.toString(16).padStart(4, '0')}).${method?.shortName || methodOrEventId.toString(16).padStart(4, '0')}${DltSomeIpPlugin.stringify(valueObj)}}[${this._returnCodeMap.get(returnCode) || 'UNKNOWN'}]`;
+                        msg._payloadText = `${this._messageTypeStr.get(messageType & ~0x20) || `?<${messageType}>`} (${clientId.toString(16).padStart(4, '0')}:${sessionId.toString(16).padStart(4, '0')}) ${service.shortName}(${instId.toString(16).padStart(4, '0')}).${method?.shortName || methodOrEventId.toString(16).padStart(4, '0')}${DltSomeIpPlugin.stringify(valueObj)}[${this._returnCodeMap.get(returnCode) || 'UNKNOWN'}]`;
                     } else {
                         msg._payloadText = `SOME/IP unknown service with id ${serviceId} (${serviceId.toString(16)}) ` + msg._payloadText;
                     }
@@ -377,6 +381,7 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
         let parsedBytes = 0;
         if (coding.codedType) {
             const codedBaseType = coding.codedType['@_ho:BASE-DATA-TYPE'];
+            const bitLength = coding.codedType['ho:BIT-LENGTH']; // todo
             switch (codedBaseType) {
                 case 'A_UINT8':
                     objToRet = buf.readUInt8(offset);
@@ -466,14 +471,94 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                         // console.log(`A_UNICODE2STRING: strLenZero=${strLenBomZero} buf=${buf.slice(offset, offset + 4 + strLenBomZero).toString('hex')} returning len=${objToRet.length} '${objToRet}'`);
                     }
                     break;
-                // todo:
-                // A_BOOLEAN
+                    // todo A_BOOLEAN?
                 default:
                     console.error(`parseParameters unknown/nyi codedBaseType ='${codedBaseType}'`);
                     break;
             }
         } else {
             console.warn(`DltSomeIpPlugin.parseParameters no codedType for coding=${JSON.stringify(coding)}`);
+        }
+        return [parsedBytes, objToRet];
+    }
+
+    private parseSingleStruct(buf: Buffer, offset: number, datatype: Datatype): [number, any | undefined] {
+        const objToRet: any = {};
+        let parsedBytes = 0;
+        //console.warn(` datatype.complexStructMembers=${JSON.stringify(datatype.complexStructMembers)})`);
+        const members: any[] = datatype.complexStructMembers!;
+        for (let i = 0; i < members.length; ++i) {
+            const member = members[i];
+            const memberShortName = member['ho:SHORT-NAME'] || i;
+            const memberDatatype = DltSomeIpPlugin._datatypes.get(member['fx:DATATYPE-REF']['@_ID-REF']);
+
+            // is it an array?
+            let memberArrayInfo: ArrayInfo | undefined;
+            if ('fx:ARRAY-DECLARATION' in member) {
+                const memberArrayDim = member['fx:ARRAY-DECLARATION']['fx:ARRAY-DIMENSION'];
+                memberArrayInfo = {
+                    dim: memberArrayDim ? memberArrayDim['fx:DIMENSION'] : 1,
+                    minSize: memberArrayDim ? memberArrayDim['fx:MINIMUM-SIZE'] : undefined,
+                    maxSize: memberArrayDim ? memberArrayDim['fx:MAXIMUM-SIZE'] : undefined
+                };
+            }
+
+            if (memberArrayInfo && memberArrayInfo.dim > 0) {
+                if (memberArrayInfo.dim !== 1) { console.warn(`DltSomeIpPlugin.parseSingleStruct array with dim ${memberArrayInfo.dim} not supported yet! member=${JSON.stringify(member)}`); }
+                //if (memberArrayInfo.minSize) { console.warn(`DltSomeIpPlugin.parseSingleStruct array with minSize ${memberArrayInfo.minSize} ${memberArrayInfo.maxSize} not supported yet!`); }
+
+                //console.warn(`DltSomeIpPlugin.parseParameters complexStruct nyi ARRAY ${JSON.stringify(member, undefined, 2)} ${JSON.stringify(datatype)} from size:${buf.length - (offset + parsedBytes)} '${buf.slice(offset + parsedBytes).toString('hex')}'`);
+                let arrLen = 0;
+                if (memberArrayInfo.minSize && memberArrayInfo.maxSize && memberArrayInfo.minSize === memberArrayInfo.maxSize) {
+                    arrLen = memberArrayInfo.minSize;
+                    //if (memberArrayInfo.minSize) { console.warn(`DltSomeIpPlugin.parseSingleStruct array assuming fixed size array with minSize ${memberArrayInfo.minSize} ${memberArrayInfo.maxSize}`); }
+                } else {
+                    // assume an array starts with a 4 byte len: (byte size of the full array)
+                    arrLen = buf.readUInt32BE(offset + parsedBytes);
+                    parsedBytes += 4;
+                }
+                // console.log(`DltSomeIpPlugin.parseParameters complexStruct ARRAY arrLen=${arrLen}'`);
+                if (arrLen === 0) {
+                    objToRet[memberShortName] = [];
+                    continue;
+                } // done in that case!
+                if (!memberDatatype) {
+                    // we dont' know the datatype but we can skip the whole array
+                    objToRet[memberShortName] = [`err:unknown member datatype ${JSON.stringify(member['fx:DATATYPE-REF'])}`];
+                    parsedBytes += arrLen;
+                    continue;
+                } else {
+                    const arrBuf = buf.slice(offset + parsedBytes, offset + parsedBytes + arrLen);
+                    const valueArr: any[] = [];
+                    let parsedArr = 0;
+                    while (parsedArr < arrLen) {
+                        const [parsed, valueObj] = this.parseParameters(arrBuf, parsedArr, memberDatatype);
+                        if (!parsed) {
+                            console.warn(`DltSomeIpPlugin.parseParameters parsing after ${parsedArr} / ${arrLen} failed for array member ${i + 1}/${members.length}: ${datatype.shortName}.${memberShortName}`);
+                            parsedArr = arrLen;
+                        } else {
+                            valueArr.push(valueObj);
+                            parsedArr += parsed;
+                        }
+                    }
+                    objToRet[memberShortName] = valueArr;
+                    parsedBytes += arrLen;
+                }
+            } else { // member is no array
+                //console.warn(`  memberDatatype ${i + 1}: ${memberShortName}: `);
+                if (memberDatatype) {
+                    const [parsed, valueObj] = this.parseParameters(buf, offset + parsedBytes, memberDatatype);
+                    if (!parsed) {
+                        console.warn(`DltSomeIpPlugin.parseParameters parsing failed for member ${i + 1}/${members.length} after parsing ${parsedBytes}/${buf.length - offset}: ${datatype.shortName}.${memberShortName} datatype:${JSON.stringify(memberDatatype)}`);
+                        break;
+                    }
+                    objToRet[memberShortName] = valueObj; // todo (ensure that memberShortName is no number) we want to keep the order. but the order of property keys is only kept if the memberShortName is not a number but a string...
+                    parsedBytes += parsed;
+                    // todo check if fx:MANDATORY is true and throw on error parsing (here processed 0)
+                } else {
+                    console.warn(`  no memberDatatype for member = ${JSON.stringify(member)})`);
+                }
+            }
         }
         return [parsedBytes, objToRet];
     }
@@ -501,8 +586,14 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
 
             if (isArray && isArray.dim > 0) { // todo currently only 1 supported!
                 if (isArray.dim !== 1) { console.warn(`DltSomeIpPlugin.parseParameters array with dim ${isArray.dim} not supported yet!`); }
-                const arrLen = buf.readUInt32BE(offset + parsedBytes);
-                parsedBytes += 4;
+                let arrLen = 0;
+                if (isArray.minSize && isArray.maxSize && isArray.minSize === isArray.maxSize) {
+                    arrLen = isArray.minSize;
+                    if (isArray.minSize) { console.warn(`DltSomeIpPlugin.parseParameters array assuming fixed size array with const size ${isArray.minSize}`); }
+                } else {
+                    arrLen = buf.readUInt32BE(offset + parsedBytes);
+                    parsedBytes += 4;
+                }
                 // console.log(`DltSomeIpPlugin.parseParameters coding ARRAY arrLen=${arrLen}'`);
                 if (arrLen) {
                     if (coding) {
@@ -549,66 +640,44 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
         }
 
         if (datatype.complexStructMembers) {
-            objToRet = {};
-            //console.warn(` datatype.complexStructMembers=${JSON.stringify(datatype.complexStructMembers)})`);
-            const members: any[] = datatype.complexStructMembers;
-            for (let i = 0; i < members.length; ++i) {
-                const member = members[i];
-                const memberShortName = member['ho:SHORT-NAME'] || i;
-                const memberDatatype = DltSomeIpPlugin._datatypes.get(member['fx:DATATYPE-REF']['@_ID-REF']);
-
-                // is it an array?
-                const isArray = arrayInfo || (('fx:ARRAY-DECLARATION' in member) ? { dim: member['fx:ARRAY-DECLARATION']['fx:ARRAY-DIMENSION']['fx:DIMENSION'] || 1 } : undefined);
-                if (isArray && isArray.dim > 0) {
-                    if (isArray.dim !== 1) { console.warn(`DltSomeIpPlugin.parseParameters array with dim ${isArray.dim} not supported yet! member=${JSON.stringify(member)}`); }
-                    //console.warn(`DltSomeIpPlugin.parseParameters complexStruct nyi ARRAY ${JSON.stringify(member, undefined, 2)} ${JSON.stringify(datatype)} from size:${buf.length - (offset + parsedBytes)} '${buf.slice(offset + parsedBytes).toString('hex')}'`);
-                    // assume an array starts with a 4 byte len: (byte size of the full array)
-                    const arrLen = buf.readUInt32BE(offset + parsedBytes);
+            if (arrayInfo) {
+                if (arrayInfo.dim !== 1) { console.warn(`DltSomeIpPlugin.parseParameters struct with dim ${arrayInfo.dim} not supported yet!`); }
+                // if (arrayInfo.minSize) { console.warn(`DltSomeIpPlugin.parseParameters struct with minSize ${arrayInfo.minSize} ${arrayInfo.maxSize} not supported yet!`); }
+                let arrLen = 0;
+                if (arrayInfo.minSize && arrayInfo.maxSize && arrayInfo.minSize === arrayInfo.maxSize) {
+                    arrLen = arrayInfo.minSize;
+                    if (arrayInfo.minSize) { console.warn(`DltSomeIpPlugin.parseParameters struct assuming fixed size array with const size ${arrayInfo.minSize}`); }
+                } else {
+                    arrLen = buf.readUInt32BE(offset + parsedBytes);
                     parsedBytes += 4;
-                    // console.log(`DltSomeIpPlugin.parseParameters complexStruct ARRAY arrLen=${arrLen}'`);
-                    if (arrLen === 0) {
-                        objToRet[memberShortName] = [];
-                        continue;
-                    } // done in that case!
-                    if (!memberDatatype) {
-                        // we dont' know the datatype but we can skip the whole array
-                        objToRet[memberShortName] = [`err:unknown member datatype ${JSON.stringify(member['fx:DATATYPE-REF'])}`];
-                        parsedBytes += arrLen;
-                        continue;
-                    } else {
-                        const arrBuf = buf.slice(offset + parsedBytes, offset + parsedBytes + arrLen);
-                        const valueArr: any[] = [];
-                        let parsedArr = 0;
-                        while (parsedArr < arrLen) {
-                            const [parsed, valueObj] = this.parseParameters(arrBuf, parsedArr, memberDatatype);
-                            if (!parsed) {
-                                console.warn(`DltSomeIpPlugin.parseParameters parsing after ${parsedArr} / ${arrLen} failed for array member ${i + 1}/${members.length}: ${datatype.shortName}.${memberShortName}`);
-                                parsedArr = arrLen;
-                            } else {
-                                valueArr.push(valueObj);
-                                parsedArr += parsed;
-                            }
-                        }
-                        objToRet[memberShortName] = valueArr;
-                        parsedBytes += arrLen;
-                    }
-                } else { // member is no array
-                    //console.warn(`  memberDatatype ${i + 1}: ${memberShortName}: `);
-                    if (memberDatatype) {
-                        const [parsed, valueObj] = this.parseParameters(buf, offset + parsedBytes, memberDatatype);
-                        if (!parsed) {
-                            console.warn(`DltSomeIpPlugin.parseParameters parsing failed for member ${i + 1}/${members.length} after parsing ${parsedBytes}/${buf.length - offset}: ${datatype.shortName}.${memberShortName} datatype:${JSON.stringify(memberDatatype)}`);
-                            break;
-                        }
-                        objToRet[memberShortName] = valueObj; // todo (ensure that memberShortName is no number) we want to keep the order. but the order of property keys is only kept if the memberShortName is not a number but a string...
-                        parsedBytes += parsed;
-                        // todo check if fx:MANDATORY is true and throw on error parsing (here processed 0)
-                    } else {
-                        console.warn(`  no memberDatatype for member = ${JSON.stringify(member)})`);
-                    }
                 }
+                if (arrLen) {
+                    const arrBuf = buf.slice(offset + parsedBytes, offset + parsedBytes + arrLen);
+                    const valueArr: any[] = [];
+                    let parsedArr = 0;
+                    while (parsedArr < arrLen) {
+                        let [parsed, valueObj] = this.parseSingleStruct(arrBuf, parsedArr, datatype);
+                        if (!parsed) {
+                            console.warn(`DltSomeIpPlugin.parseParameters parsing after ${parsedArr} / ${arrLen} failed for array of struct from ${datatype.shortName}`);
+                            parsed = arrLen;
+                        } else {
+                            parsedArr += parsed;
+                            valueArr.push(valueObj);
+                        }
+                    }
+                    objToRet = valueArr;
+                    parsedBytes += arrLen;
+                } else {
+                    objToRet = [];
+                }
+            } else {
+                const [parsed, valueObj] = this.parseSingleStruct(buf, offset, datatype);
+                parsedBytes += parsed;
+                objToRet = valueObj;
             }
         } else if (datatype.complexUnionMembers) {
+            // todo arrayInfo...
+            if (arrayInfo) { console.warn(`DltSomeIpPlugin.parseParameters array of UNION`); }
             console.warn(`DltSomeIpPlugin.parseParameters(offset=${offset}, datatype.shortName=${datatype.shortName})`);
             console.warn(` datatype.complexUnionMembers=${JSON.stringify(datatype.complexUnionMembers)}, arrayInfo=${JSON.stringify(arrayInfo)})`);
             // todo nyi. parse length 32bit, type 32bit, data...
@@ -650,6 +719,7 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                         const arrayDim = arrayDecl['fx:ARRAY-DIMENSION'];
                         arrayInfo = {
                             dim: arrayDim !== undefined ? arrayDim['fx:DIMENSION'] || 1 : 1,
+                            minSize: arrayDim !== undefined ? arrayDim['fx:MINIMUM-SIZE'] : undefined,
                             maxSize: arrayDim !== undefined ? arrayDim['fx:MAXIMUM-SIZE'] : undefined
                         };
                     }
@@ -724,6 +794,17 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                         //console.warn(` fieldObj = ${ JSON.stringify(fieldObj) } `);
                         const shortName = fieldObj['ho:SHORT-NAME'];
                         const datatype = fieldObj['fx:DATATYPE-REF']["@_ID-REF"];
+                        // isArray?
+                        let arrayInfo = undefined;
+                        if ('fx:ARRAY-DECLARATION' in fieldObj) {
+                            const arrayDecl = fieldObj['fx:ARRAY-DECLARATION'];
+                            const arrayDim = arrayDecl['fx:ARRAY-DIMENSION'];
+                            arrayInfo = {
+                                dim: arrayDim !== undefined ? arrayDim['fx:DIMENSION'] || 1 : 1,
+                                minSize: arrayDim !== undefined ? arrayDim['fx:MINIMUM-SIZE'] : undefined,
+                                maxSize: arrayDim !== undefined ? arrayDim['fx:MAXIMUM-SIZE'] : undefined
+                            };
+                        }
                         const desc = fieldObj['ho:DESC'];
 
                         if ('service:GETTER' in fieldObj) {
@@ -736,7 +817,7 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                             if ('service:RETURN-PARAMETERS' in serviceMethod) {
                                 returnParams = DltSomeIpPlugin.parseFibexParams(serviceMethod['service:RETURN-PARAMETERS']['service:RETURN-PARAMETER']);
                             }
-                            DltSomeIpPlugin.addMethod(methods, { datatype: datatype, mid: Number(serviceMethod['service:METHOD-IDENTIFIER']), shortName: `get_${shortName}_field`, desc: desc, fieldName: shortName, inputParams: inputParams, returnParams: returnParams });
+                            DltSomeIpPlugin.addMethod(methods, { datatype: datatype, array: arrayInfo, mid: Number(serviceMethod['service:METHOD-IDENTIFIER']), shortName: `get_${shortName}_field`, desc: desc, fieldName: shortName, inputParams: inputParams, returnParams: returnParams });
                         }
                         if ('service:SETTER' in fieldObj) {
                             const serviceMethod = fieldObj['service:SETTER'];
@@ -748,7 +829,7 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                             if ('service:RETURN-PARAMETERS' in serviceMethod) {
                                 returnParams = DltSomeIpPlugin.parseFibexParams(serviceMethod['service:RETURN-PARAMETERS']['service:RETURN-PARAMETER']);
                             }
-                            DltSomeIpPlugin.addMethod(methods, { datatype: datatype, mid: Number(serviceMethod['service:METHOD-IDENTIFIER']), shortName: `set_${shortName}_field`, desc: desc, fieldName: shortName, inputParams: inputParams, returnParams: returnParams });
+                            DltSomeIpPlugin.addMethod(methods, { datatype: datatype, array: arrayInfo, mid: Number(serviceMethod['service:METHOD-IDENTIFIER']), shortName: `set_${shortName}_field`, desc: desc, fieldName: shortName, inputParams: inputParams, returnParams: returnParams });
                         }
                         if ('service:NOTIFIER' in fieldObj) {
                             const serviceMethod = fieldObj['service:NOTIFIER'];
@@ -760,7 +841,7 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                             if ('service:RETURN-PARAMETERS' in serviceMethod) {
                                 returnParams = DltSomeIpPlugin.parseFibexParams(serviceMethod['service:RETURN-PARAMETERS']['service:RETURN-PARAMETER']);
                             }
-                            DltSomeIpPlugin.addMethod(methods, { datatype: datatype, /*orig: fieldObj,*/ mid: Number(serviceMethod['service:NOTIFICATION-IDENTIFIER']), shortName: `changed_${shortName}_field`, desc: desc, fieldName: shortName, inputParams: inputParams, returnParams: returnParams });
+                            DltSomeIpPlugin.addMethod(methods, { datatype: datatype, array: arrayInfo, /*orig: fieldObj,*/ mid: Number(serviceMethod['service:NOTIFICATION-IDENTIFIER']), shortName: `changed_${shortName}_field`, desc: desc, fieldName: shortName, inputParams: inputParams, returnParams: returnParams });
                         }
                     } catch (e) {
                         console.warn(`DltSomeIpPlugin.parseFibexFields got error parsing field from ${JSON.stringify(fieldObj)} `);
