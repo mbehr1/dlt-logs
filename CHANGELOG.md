@@ -1,5 +1,18 @@
 # Change log for 'DLT-Logs':
 
+### [1.10.2](https://github.com/mbehr1/dlt-logs/compare/v1.10.1...v1.10.2) (2021-03-07)
+
+
+### Bug Fixes
+
+* **someip:** add array and string parsing ([b45859f](https://github.com/mbehr1/dlt-logs/commit/b45859fb269858a49978a30643597125d0dceb0e))
+* **someip:** serialize bigints ([2757712](https://github.com/mbehr1/dlt-logs/commit/2757712ed3487292b0e101bfcf790e9b20b2c384))
+
+
+### Performance Improvements
+
+* remove one console log output ([d25ea75](https://github.com/mbehr1/dlt-logs/commit/d25ea75fea0c123e255d30847662fc93fdf1f703))
+
 ### [1.10.1](https://github.com/mbehr1/dlt-logs/compare/v1.10.0...v1.10.1) (2021-03-06)
 
 
