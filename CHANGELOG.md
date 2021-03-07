@@ -1,5 +1,14 @@
 # Change log for 'DLT-Logs':
 
+### [1.10.3](https://github.com/mbehr1/dlt-logs/compare/v1.10.2...v1.10.3) (2021-03-07)
+
+
+### Bug Fixes
+
+* **someip:** output curly braces for undefined ([8a3c94d](https://github.com/mbehr1/dlt-logs/commit/8a3c94dcdeee068f6faef077bc141dda23ffcfdd))
+* **someip:** parse EVENTS similar as METHODS ([40df13a](https://github.com/mbehr1/dlt-logs/commit/40df13a0642cd7e96ccb0b9fa8c9a7818c5f8d5c))
+* array handling ([5168372](https://github.com/mbehr1/dlt-logs/commit/51683726cc110a61dc9b728bfc9ab5e7d23093e8))
+
 ### [1.10.2](https://github.com/mbehr1/dlt-logs/compare/v1.10.1...v1.10.2) (2021-03-07)
 
 
