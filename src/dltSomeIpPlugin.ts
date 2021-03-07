@@ -254,7 +254,12 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
      */
     static stringify(val: any): string {
         if (!val) { return ''; }
+        // bigints can't be serialized naturally
+        return JSON.stringify(val, (k, v) => typeof v === 'bigint' ? `${v}n` : v);
+
+        /* lets encode ENUMs properly as well!
         return '{' + Object.entries(val).map(kv => { const [k, v] = kv; return `"${k}":${typeof v === 'object' ? DltSomeIpPlugin.stringify(v) : v}`; }).join(',') + '}';
+        */
     }
 
     transformCb(msg: DltMsg) {
