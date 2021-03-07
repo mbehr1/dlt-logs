@@ -866,7 +866,6 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                     }
                 }
                 DltSomeIpPlugin.parseFibexFields(serviceInterface['service:FIELDS'], methods);
-                // todo service:EVENTS
                 const service: Service = {
                     shortName: serviceInterface['ho:SHORT-NAME'],
                     sid: Number(serviceInterface['fx:SERVICE-IDENTIFIER']),

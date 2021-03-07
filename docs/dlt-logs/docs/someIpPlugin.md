@@ -12,7 +12,7 @@ DLT-Logs extension version >= 1.10.0 come with a built-in SOME/IP decoder plugin
 
 SOME/IP messages will be decoded like this:
 ```
-APID TC   ipc      > (632a:0005) ServiceName(0080).set_fieldName_field{"fieldName":field_value}}[OK]
+APID TC   ipc      > (632a:0005) ServiceName(0080).set_fieldName_field{"fieldName":field_value}[OK]
 ```
 
 ### Explanation:
