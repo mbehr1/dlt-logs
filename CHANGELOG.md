@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs':
 
+### [1.10.4](https://github.com/mbehr1/dlt-logs/compare/v1.10.3...v1.10.4) (2021-03-13)
+
+
+### Bug Fixes
+
+* **someip:** support bit-length ([a2d097c](https://github.com/mbehr1/dlt-logs/commit/a2d097c1232740a1838e0b1e3724e8c5d83e4369))
+
 ### [1.10.3](https://github.com/mbehr1/dlt-logs/compare/v1.10.2...v1.10.3) (2021-03-07)
 
 
