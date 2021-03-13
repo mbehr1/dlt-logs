@@ -15,7 +15,7 @@ SOME/IP messages will be decoded like this:
 APID TC   ipc      > (632a:0005) ServiceName(0080).set_fieldName_field{"fieldName":field_value}[OK]
 ```
 
-### Explanation:
+### Explanation
 
 symbol | description
 ------ | -----------
@@ -103,5 +103,4 @@ The decoder assumes that the message is encoded as type `NW_TRACE` with the conf
 - Currently not supported are:
   - UNIONs are not supported yet.
   - Booleans as payload are not supported yet.
-  - BIT-LENGTH parsing (types with e.g. 12 bit...)
   - Segmented messages are not supported.
