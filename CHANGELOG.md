@@ -1,5 +1,13 @@
 # Change log for 'DLT-Logs':
 
+### [1.10.5](https://github.com/mbehr1/dlt-logs/compare/v1.10.4...v1.10.5) (2021-03-14)
+
+
+### Bug Fixes
+
+* **someip:** first basic parsing of unions ([f605454](https://github.com/mbehr1/dlt-logs/commit/f605454674658f5ba4d63ce1ca08afe036a8b6d9))
+* **someip:** silence console warning output ([08e9e45](https://github.com/mbehr1/dlt-logs/commit/08e9e45d978266baeb89203fc1ebd11a8b499446))
+
 ### [1.10.4](https://github.com/mbehr1/dlt-logs/compare/v1.10.3...v1.10.4) (2021-03-13)
 
 
