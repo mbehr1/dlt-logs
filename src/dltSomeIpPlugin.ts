@@ -88,6 +88,7 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
     private static _datatypes: Map<string, Datatype> = new Map();
     private static _services: Map<number, Service> = new Map();
     private static _loadedFibex: string[] = [];
+    private static _warningsShown: Map<string, boolean> = new Map();
 
     private _servicesNode: TreeViewNode | undefined;
 
@@ -325,13 +326,23 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                                 } else {
                                     valueObj = parsedValueObj;
                                 }
-                                if ((parsedLen >> 3) !== parameters.length) { console.warn(`transformCb: parseParameters parsed ${parsedLen} vs parameters=${8 * parameters.length} bits for service id ${serviceId} (${serviceId.toString(16).padStart(4, '0')}) and method=(${methodOrEventId.toString(16).padStart(4, '0')}). FIBEX not matching?`); }
+                                if ((parsedLen >> 3) !== parameters.length) {
+                                    if (!DltSomeIpPlugin._warningsShown.has(`${serviceId}.${methodOrEventId}`)) {
+                                        DltSomeIpPlugin._warningsShown.set(`${serviceId}.${methodOrEventId}`, true);
+                                        console.warn(`transformCb: parseParameters parsed ${parsedLen} vs parameters=${8 * parameters.length} bits for service id ${serviceId} (${serviceId.toString(16).padStart(4, '0')}) and method=(${methodOrEventId.toString(16).padStart(4, '0')}). FIBEX not matching?`);
+                                    }
+                                }
                             } else {
                                 if (isReturn && method?.returnParams || !isReturn && method?.inputParams) {
                                     // console.warn(`transformCb: no datatype but input/returnParams for service (${serviceId.toString(16).padStart(4, '0')}) method=(${methodOrEventId.toString(16).padStart(4, '0')})${JSON.stringify(method)} ${JSON.stringify(!isReturn ? method.inputParams : method.returnParams)} !`);
                                     const [parsedLen, parsedValueObj] = this.parseInputReturnParameters(parameters, isReturn ? method.returnParams! : method.inputParams!);
                                     valueObj = parsedValueObj;
-                                    if ((parsedLen >> 3) !== parameters.length) { console.warn(`transformCb: parseInputReturnParameters parsed ${parsedLen} vs parameters=${8 * parameters.length} bits for service (${serviceId.toString(16).padStart(4, '0')}) and method ${JSON.stringify(method)}`); }
+                                    if ((parsedLen >> 3) !== parameters.length) {
+                                        if (!DltSomeIpPlugin._warningsShown.has(`${serviceId}.${methodOrEventId}`)) {
+                                            DltSomeIpPlugin._warningsShown.set(`${serviceId}.${methodOrEventId}`, true);
+                                            console.warn(`transformCb: parseInputReturnParameters parsed ${parsedLen} vs parameters=${8 * parameters.length} bits for service (${serviceId.toString(16).padStart(4, '0')}) and method ${JSON.stringify(method)}`);
+                                        }
+                                    }
                                 } else {
                                     if (buf.length > 16) { console.warn(`transformCb: no datatype for service (${serviceId.toString(16).padStart(4, '0')}) method=(${methodOrEventId.toString(16).padStart(4, '0')})${JSON.stringify(method)}!`); }
                                 }
@@ -608,7 +619,10 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                     while ((parsedArrBits >> 3) < arrLen) {
                         const [parsed, valueObj] = this.parseParameters(arrBuf, parsedArrBits, bitLength, memberDatatype);
                         if (!parsed) {
-                            console.warn(`DltSomeIpPlugin.parseParameters parsing after ${parsedArrBits} / ${arrLen * 8} bits failed for array member ${i + 1}/${members.length}: ${datatype.shortName}.${memberShortName} bitLength=${bitLength} memberDatatype=${JSON.stringify(memberDatatype)} member=${JSON.stringify(member)}`);
+                            if (!DltSomeIpPlugin._warningsShown.has(`${datatype.shortName}.${memberShortName}`)) {
+                                DltSomeIpPlugin._warningsShown.set(`${datatype.shortName}.${memberShortName}`, true);
+                                console.warn(`DltSomeIpPlugin.parseParameters parsing after ${parsedArrBits} / ${arrLen * 8} bits failed for array member ${i + 1}/${members.length}: ${datatype.shortName}.${memberShortName} bitLength=${bitLength} memberDatatype=${JSON.stringify(memberDatatype)} member=${JSON.stringify(member)}`);
+                            }
                             parsedArrBits = arrLen * 8;
                         } else {
                             valueArr.push(valueObj);
@@ -623,7 +637,10 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                 if (memberDatatype) {
                     const [parsed, valueObj] = this.parseParameters(buf, bitOffset + parsedBits, bitLength, memberDatatype);
                     if (!parsed) {
-                        console.warn(`DltSomeIpPlugin.parseParameters parsing failed for member ${i + 1}/${members.length} after parsing ${parsedBits}/${8 * (buf.length - (bitOffset / 8))} bits: ${datatype.shortName}.${memberShortName} datatype:${JSON.stringify(memberDatatype)}`);
+                        if (!DltSomeIpPlugin._warningsShown.has(`${datatype.shortName}.${memberShortName}`)) {
+                            DltSomeIpPlugin._warningsShown.set(`${datatype.shortName}.${memberShortName}`, true);
+                            console.warn(`DltSomeIpPlugin.parseParameters parsing failed for member ${i + 1}/${members.length} after parsing ${parsedBits}/${8 * (buf.length - (bitOffset / 8))} bits: ${datatype.shortName}.${memberShortName} datatype:${JSON.stringify(memberDatatype)}`);
+                        }
                         break;
                     }
                     objToRet[memberShortName] = valueObj; // todo (ensure that memberShortName is no number) we want to keep the order. but the order of property keys is only kept if the memberShortName is not a number but a string...
