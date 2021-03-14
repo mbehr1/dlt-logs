@@ -553,7 +553,7 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
             const member = members[i];
             const memberShortName = member['ho:SHORT-NAME'] || i;
             const memberDatatype = DltSomeIpPlugin._datatypes.get(member['fx:DATATYPE-REF']['@_ID-REF']);
-            const bitLength = 'fx:UTILIZATION' in member ? Number(member['fx:UTILIZATION']['fx:BIT-LENGTH']) : bitLengthPar; // todo use parent at all here?
+            const bitLength = ('fx:UTILIZATION' in member) && ('fx:BIT-LENGTH' in member) ? Number(member['fx:UTILIZATION']['fx:BIT-LENGTH']) : bitLengthPar; // todo use parent at all here?
 
             // is it an array?
             let memberArrayInfo: ArrayInfo | undefined;
@@ -608,7 +608,7 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                     while ((parsedArrBits >> 3) < arrLen) {
                         const [parsed, valueObj] = this.parseParameters(arrBuf, parsedArrBits, bitLength, memberDatatype);
                         if (!parsed) {
-                            console.warn(`DltSomeIpPlugin.parseParameters parsing after ${parsedArrBits} / ${arrLen * 8} bits failed for array member ${i + 1}/${members.length}: ${datatype.shortName}.${memberShortName}`);
+                            console.warn(`DltSomeIpPlugin.parseParameters parsing after ${parsedArrBits} / ${arrLen * 8} bits failed for array member ${i + 1}/${members.length}: ${datatype.shortName}.${memberShortName} bitLength=${bitLength} memberDatatype=${JSON.stringify(memberDatatype)} member=${JSON.stringify(member)}`);
                             parsedArrBits = arrLen * 8;
                         } else {
                             valueArr.push(valueObj);
@@ -769,8 +769,8 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
         } else if (datatype.complexUnionMembers) {
             // todo arrayInfo...
             if (arrayInfo) { console.warn(`DltSomeIpPlugin.parseParameters array of UNION`); }
-            console.warn(`DltSomeIpPlugin.parseParameters(bitOffset=${bitOffset}, datatype.shortName=${datatype.shortName})`);
-            console.warn(` datatype.complexUnionMembers=${JSON.stringify(datatype.complexUnionMembers)}, arrayInfo=${JSON.stringify(arrayInfo)})`);
+            //console.warn(`DltSomeIpPlugin.parseParameters(bitOffset=${bitOffset}, datatype.shortName=${datatype.shortName})`);
+            //console.warn(` datatype.complexUnionMembers=${JSON.stringify(datatype.complexUnionMembers)}, arrayInfo=${JSON.stringify(arrayInfo)})`);
             // todo nyi. parse length 32bit, type 32bit, data...
             const offset = (bitOffset + parsedBits) >> 3;
             if (((bitOffset + parsedBits) & 7) !== 0) {
@@ -780,10 +780,29 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
             let parsedBytes = 4;
             const unionType = buf.readUInt32BE(offset + parsedBytes);
             parsedBytes += 4;
-            console.warn(` datatype.complexUnion got length=${length}, unionType=${unionType})`);
             // iterate through all members with fx:INDEX === unionType?
-            // todo array decl
-            // skip for now
+            let found = false;
+            for (let i = 0; i < datatype.complexUnionMembers.length; ++i) {
+                const unionInfo = datatype.complexUnionMembers[i];
+                const fxIndex = unionInfo['fx:INDEX'];
+                if (fxIndex === unionType) {
+                    found = true;
+                    const unionDatatype = DltSomeIpPlugin._datatypes.get(unionInfo['fx:DATATYPE-REF']['@_ID-REF']);
+                    if (unionDatatype) {
+                        const [parsed, valueObj] = this.parseParameters(buf, offset + (parsedBytes * 8), undefined /*todo get from fx:UTIL...*/, unionDatatype, undefined);
+                        objToRet = valueObj;
+                        if (parsed !== (length << 3)) {
+                            console.warn(` datatype.complexUnion=${JSON.stringify(unionInfo)} parsed ${parsed} expected ${length << 3}`);
+                        }
+                    } else {
+                        console.warn(` datatype.complexUnion=${JSON.stringify(unionInfo)} without datatype!`);
+                    }
+                    break;
+                }
+            }
+            if (!found) {
+                console.warn(` datatype.complexUnion found no union member for unionType=${unionType} of : ${JSON.stringify(datatype)})`);
+            }
             parsedBytes += length;
             parsedBits += parsedBytes * 8;
         }
