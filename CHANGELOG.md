@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs':
 
+### [1.10.6](https://github.com/mbehr1/dlt-logs/compare/v1.10.5...v1.10.6) (2021-03-20)
+
+
+### Bug Fixes
+
+* **report:** use local time format for report tooltip ([0495fb7](https://github.com/mbehr1/dlt-logs/commit/0495fb727f663bf27bf92d278123d1ab461e0bff))
+
 ### [1.10.5](https://github.com/mbehr1/dlt-logs/compare/v1.10.4...v1.10.5) (2021-03-14)
 
 
