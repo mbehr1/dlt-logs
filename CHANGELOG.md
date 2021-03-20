@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs':
 
+## [1.11.0](https://github.com/mbehr1/dlt-logs/compare/v1.10.6...v1.11.0) (2021-03-20)
+
+
+### Features
+
+* **report:** show selected time ([1767c7f](https://github.com/mbehr1/dlt-logs/commit/1767c7feb58d77ecf88b605a8f1d53b673d5aaf8))
+
 ### [1.10.6](https://github.com/mbehr1/dlt-logs/compare/v1.10.5...v1.10.6) (2021-03-20)
 
 
