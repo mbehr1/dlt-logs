@@ -1755,6 +1755,12 @@ export class DltDocument {
         this.autoEnableConfigs();
     }
 
+    onDidChangeSelectedTime(time: Date | null) {
+        //console.warn(`DltDocument.onDidChangeSelectedTime(...)`);
+        // if we have reports we do distribute the update to them:
+        this._reports.forEach(r => r.onDidChangeSelectedTime(time));
+    }
+
     private _reports: DltReport[] = [];
     onOpenReport(context: vscode.ExtensionContext, filter: DltFilter, newReport: boolean = false, reportToAdd: DltReport | undefined = undefined) {
         console.log(`onOpenReport called...`);

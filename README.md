@@ -205,6 +205,10 @@ chartjs-plugin-zoom (0.7.7)
   - License: MIT https://github.com/chartjs/chartjs-plugin-zoom/blob/master/LICENSE.md
   - Source: https://github.com/chartjs/chartjs-plugin-zoom
 
+chartjs-plugin-annotation (0.5.7)
+  - License: MIT https://github.com/chartjs/chartjs-plugin-annotation/blob/master/LICENSE.md
+  - Source: https://github.com/chartjs/chartjs-plugin-annotation
+
 hammer.js (2.0.8)
   - License: MIT https://github.com/hammerjs/hammer.js/blob/master/LICENSE.md
   - Source: https://github.com/hammerjs/hammer.js

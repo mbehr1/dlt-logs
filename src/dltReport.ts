@@ -94,7 +94,7 @@ export class DltReport implements vscode.Disposable {
         if (this._gotAliveFromPanel) { // send instantly
             const msgCmd = msg.command;
             this.panel?.webview.postMessage(msg).then((onFulFilled) => {
-                console.log(`webview.postMessage(${msgCmd}) direct ${onFulFilled}`);
+                //console.log(`webview.postMessage(${msgCmd}) direct ${onFulFilled}`);
             });
         } else {
             this._msgsToPost.push(msg);
@@ -111,6 +111,11 @@ export class DltReport implements vscode.Disposable {
                 this.updateReport();
             }
         }
+    }
+
+    onDidChangeSelectedTime(time: Date | null) {
+        if (!this.panel) { return; }
+        this.postMsgOnceAlive({ command: "onDidChangeSelectedTime", selectedTime: time });
     }
 
     updateReport() {

@@ -271,21 +271,23 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
         // announce time updates on selection of lines:
         // counterpart to handleDidChangeSelectedTime... 
         this._subscriptions.push(vscode.window.onDidChangeTextEditorSelection(util.throttle((ev) => {
-            if (this._autoTimeSync) {
-                let data = this._documents.get(ev.textEditor.document.uri.toString());
-                if (data) {
-                    // ev.kind: 1: Keyboard, 2: Mouse, 3: Command
-                    // we do only take single selections.
-                    if (ev.selections.length === 1) {
-                        if (ev.selections[0].isSingleLine) {
-                            const line = ev.selections[0].active.line; // 0-based
-                            // determine time:
-                            const time = data.provideTimeByLine(line);
-                            if (time) {
+            let data = this._documents.get(ev.textEditor.document.uri.toString());
+            if (data) {
+                // ev.kind: 1: Keyboard, 2: Mouse, 3: Command
+                // we do only take single selections.
+                if (ev.selections.length === 1) {
+                    if (ev.selections[0].isSingleLine) {
+                        const line = ev.selections[0].active.line; // 0-based
+                        // determine time:
+                        const time = data.provideTimeByLine(line);
+                        if (time) {
+                            if (this._autoTimeSync) {
                                 // post time update...
                                 console.log(` dlt-log posting time update ${time.toLocaleTimeString()}.${String(time.valueOf() % 1000).padStart(3, "0")}`);
                                 this._onDidChangeSelectedTime.fire({ time: time, uri: data.uri });
                             }
+                            // notify document itself (to e.g. forward to open reports)
+                            data.onDidChangeSelectedTime(time);
                         }
                     }
                 }

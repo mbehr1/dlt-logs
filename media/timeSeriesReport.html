@@ -8,6 +8,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-colorschemes"></script>
     <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@0.7.7"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@0.5.7/chartjs-plugin-annotation.min.js"></script>
 
     <script>
         const vscode = acquireVsCodeApi(); // acquireVsCodeApi can only be invoked once
@@ -93,7 +94,7 @@
     </div>
 
     <script>
-
+        const vscodeStyles = window.getComputedStyle(document.body);
         var dragOptions = {
             animationDuration: 1000
         };
@@ -150,6 +151,9 @@
                             reverse: true
                         }
                     }]
+                },
+                annotation:{
+                    annotations:[]
                 },
                 animation: { duration: 0 },
                 hover: { animationDuration: 0 },
@@ -266,6 +270,28 @@
             }
         };
 
+        const selectedTimeAnnotation = {
+            id:'selectedTime',
+            drawTime: 'beforeDatasetsDraw',
+            type: 'line',
+            mode: 'vertical',
+            scaleID: 'x-axis-0',
+            borderColor: 'green',
+            borderWidth: 1,
+            borderDash:[2,2],
+            label:{
+                content: 'selected',
+                enabled: true,
+                position: "top",
+                backgroundColor: vscodeStyles.getPropertyValue('--vscode-editor-background'), // 'rgba(0,0,0,0)' todo or fully transparent?
+                fontSize: 8,
+                fontFamily: vscodeStyles.getPropertyValue('--vscode-editor-font-family'),
+                fontStyle:'normal',
+                fontColor: vscodeStyles.getPropertyValue('--vscode-editor-foreground')
+            },
+            value: null // wont be shown
+        };
+
         window.addEventListener('message', event => {
             try {
                 const message = event.data;
@@ -316,6 +342,27 @@
                         window.myReport.update();
                         vscode.postMessage({ message: 'updated report data ' + message.data.length });
 
+                        break;
+                    case 'onDidChangeSelectedTime':
+                        { // todo check if time is within boundaries of this report?
+                            const hadSelectedTime = selectedTimeAnnotation.value !== null;
+                            selectedTimeAnnotation.value = message.selectedTime;
+                            selectedTimeAnnotation.label.content = `${moment(selectedTimeAnnotation.value).format('LTS.SSS [ms]')}`;
+                            const haveSelectedTime = selectedTimeAnnotation.value !== null;
+                            if (haveSelectedTime && !hadSelectedTime){
+                                config.options.annotation.annotations.push(selectedTimeAnnotation);
+                            } else if (hadSelectedTime && !haveSelectedTime){
+                                const index = config.options.annotation.annotations.indexOf(selectedTimeAnnotation);
+                                if (index > -1){
+                                    config.options.annotation.annotations.splice(index, 1);
+                                }
+                            }else if (haveSelectedTime && hadSelectedTime){
+                                // need to modify elements directly: (fixed with chartjs v3...)
+                                window.myReport.annotation.elements[selectedTimeAnnotation.id].options.value = selectedTimeAnnotation.value;
+                                window.myReport.annotation.elements[selectedTimeAnnotation.id].options.label.content = selectedTimeAnnotation.label.content;
+                            }
+                            window.myReport.update();
+                        }
                         break;
                     case 'update labels':
                         config.data.xLabels = message.labels;
