@@ -193,7 +193,7 @@ momentjs.com (2.13.0)
  - License: MIT
  - Source: https://momentjs.com
 
-chartjs.org (2.9.3)
+chartjs.org (2.9.4)
  - License: MIT https://github.com/chartjs/Chart.js/blob/master/LICENSE.md
  - Source: https://github.com/chartjs/Chart.js
 
@@ -201,7 +201,7 @@ chartjs-plugin-colorschemes
   - License: MIT https://github.com/nagix/chartjs-plugin-colorschemes/blob/master/LICENSE.md
   - Source: https://github.com/nagix/chartjs-plugin-colorschemes
 
-chartjs-plugin-zoom (0.7.5)
+chartjs-plugin-zoom (0.7.7)
   - License: MIT https://github.com/chartjs/chartjs-plugin-zoom/blob/master/LICENSE.md
   - Source: https://github.com/chartjs/chartjs-plugin-zoom
 
