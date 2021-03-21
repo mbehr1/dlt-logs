@@ -4,10 +4,14 @@ title: Report generation
 ---
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
+import ImageSwitcher from './ImageSwitcher';
+import useBaseUrl from '@docusaurus/useBaseUrl';
 
 You can create **Graphical time series reports** based on event filters. E.g.:
 
-![Graphical time series reports](https://github.com/mbehr1/dlt-logs/raw/master/images/timeSeriesReport1.png)
+<ImageSwitcher 
+lightImageSrc={useBaseUrl("/img/timeSeriesReport2.png")}
+darkImageSrc="https://github.com/mbehr1/dlt-logs/raw/master/images/timeSeriesReport1.png"/>
 
 ## Example
 
