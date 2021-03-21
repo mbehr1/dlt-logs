@@ -277,7 +277,7 @@
             }
         };
 
-        const selectedTimeAnnotation = {
+        const selectedTimeAnnotations = [{
             id:'selectedTime',
             drawTime: 'beforeDatasetsDraw',
             type: 'line',
@@ -297,7 +297,7 @@
                 fontColor: vscodeStyles.getPropertyValue('--vscode-editor-foreground')
             },
             value: null // wont be shown
-        };
+        }];
 
         window.addEventListener('message', event => {
             try {
@@ -351,22 +351,36 @@
 
                         break;
                     case 'onDidChangeSelectedTime':
-                        { // todo check if time is within boundaries of this report?
-                            const hadSelectedTime = selectedTimeAnnotation.value !== null;
-                            selectedTimeAnnotation.value = message.selectedTime;
-                            selectedTimeAnnotation.label.content = `${moment(selectedTimeAnnotation.value).format('LTS.SSS [ms]')}`;
-                            const haveSelectedTime = selectedTimeAnnotation.value !== null;
-                            if (haveSelectedTime && !hadSelectedTime){
-                                config.options.annotation.annotations.push(selectedTimeAnnotation);
-                            } else if (hadSelectedTime && !haveSelectedTime){
-                                const index = config.options.annotation.annotations.indexOf(selectedTimeAnnotation);
-                                if (index > -1){
-                                    config.options.annotation.annotations.splice(index, 1);
+                        { // todo check if times are within boundaries of this report?
+                            const times = Array.isArray(message.selectedTime) ? message.selectedTime : [message.selectedTime];
+                            while (times.length > selectedTimeAnnotations.length){
+                                // clone the first element but change a few attributes:
+                                // todo better use a proper clone here. if e.g. new object attributes are added they are not cloned
+                                selectedTimeAnnotations.push({...selectedTimeAnnotations[0], label: {...selectedTimeAnnotations[0].label}, value: null, id: selectedTimeAnnotations[0].id + `_${selectedTimeAnnotations.length+1}`});
+                                // console.warn(` created ${JSON.stringify(selectedTimeAnnotations[selectedTimeAnnotations.length-1], undefined, 2)}`);
+                            }
+                            for (let i=0; i<selectedTimeAnnotations.length; ++i)
+                            {
+                                const selectedTimeAnnotation = selectedTimeAnnotations[i];
+                                const hadSelectedTime = selectedTimeAnnotation.value !== null;
+                                selectedTimeAnnotation.value = i < times.length ? times[i] : null;
+                                selectedTimeAnnotation.label.content = `${moment(selectedTimeAnnotation.value).format('LTS.SSS [ms]')}`;
+                                const haveSelectedTime = selectedTimeAnnotation.value !== null;
+                                //console.warn(` onDidChangeSelectedTime times #${i} had=${hadSelectedTime} have=${haveSelectedTime} label=${selectedTimeAnnotation.label.content} annotations=${config.options.annotation.annotations.length}`);
+                                if (haveSelectedTime && !hadSelectedTime){
+                                    config.options.annotation.annotations.push(selectedTimeAnnotation);
+                                } else if (hadSelectedTime && !haveSelectedTime){
+                                    const index = config.options.annotation.annotations.findIndex((e) => e.id === selectedTimeAnnotation.id);
+                                    if (index > -1){
+                                        config.options.annotation.annotations.splice(index, 1);
+                                    }else{
+                                        console.warn(`logical error! cant delete! i=${i}, index=${index}`, config.options.annotation.annotations, selectedTimeAnnotation);
+                                    }
+                                }else if (haveSelectedTime && hadSelectedTime){
+                                    // need to modify elements directly: (fixed with chartjs v3...)
+                                    window.myReport.annotation.elements[selectedTimeAnnotation.id].options.value = selectedTimeAnnotation.value;
+                                    window.myReport.annotation.elements[selectedTimeAnnotation.id].options.label.content = selectedTimeAnnotation.label.content;
                                 }
-                            }else if (haveSelectedTime && hadSelectedTime){
-                                // need to modify elements directly: (fixed with chartjs v3...)
-                                window.myReport.annotation.elements[selectedTimeAnnotation.id].options.value = selectedTimeAnnotation.value;
-                                window.myReport.annotation.elements[selectedTimeAnnotation.id].options.label.content = selectedTimeAnnotation.label.content;
                             }
                             window.myReport.update();
                         }

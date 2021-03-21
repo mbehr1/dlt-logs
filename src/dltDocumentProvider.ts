@@ -290,6 +290,21 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                             data.onDidChangeSelectedTime(time);
                         }
                     }
+                } else if (ev.selections.length > 1) {
+                    // console.warn(`DltDocumentProvider.onDidChangeTextEditorSelection have ${ev.selections.length} selections`);
+                    // we add all selections:
+                    const times = [];
+                    for (let i = 0; i < ev.selections.length; ++i) {
+                        const selection = ev.selections[i];
+                        if (selection.isSingleLine) {
+                            const line = selection.active.line;
+                            const time = data.provideTimeByLine(line);
+                            if (time) { times.push(time); }
+                        }
+                    }
+                    if (times.length > 0) { // notify document itself (to e.g. forward to open reports)
+                        data.onDidChangeSelectedTime(times);
+                    }
                 }
             }
         }, 500)));

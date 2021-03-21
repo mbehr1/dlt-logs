@@ -113,7 +113,7 @@ export class DltReport implements vscode.Disposable {
         }
     }
 
-    onDidChangeSelectedTime(time: Date | null) {
+    onDidChangeSelectedTime(time: Date[] | Date | null) {
         if (!this.panel) { return; }
         this.postMsgOnceAlive({ command: "onDidChangeSelectedTime", selectedTime: time });
     }
