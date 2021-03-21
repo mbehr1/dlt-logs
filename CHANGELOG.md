@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs':
 
+## [1.12.0](https://github.com/mbehr1/dlt-logs/compare/v1.11.0...v1.12.0) (2021-03-21)
+
+
+### Features
+
+* **report:** allow multiple selected times ([e438f6a](https://github.com/mbehr1/dlt-logs/commit/e438f6ade9d65b11bb24cbd9b34ead1a188ae14b))
+
 ## [1.11.0](https://github.com/mbehr1/dlt-logs/compare/v1.10.6...v1.11.0) (2021-03-20)
 
 
