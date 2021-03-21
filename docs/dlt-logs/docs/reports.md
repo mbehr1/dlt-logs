@@ -2,6 +2,9 @@
 id: reports
 title: Report generation
 ---
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 You can create **Graphical time series reports** based on event filters. E.g.:
 
 ![Graphical time series reports](https://github.com/mbehr1/dlt-logs/raw/master/images/timeSeriesReport1.png)
@@ -37,15 +40,67 @@ Exceptions are load-time filters that are already applied at load time of the DL
 
 ### Open a dlt file and generate the report
 
-todo add picture.
+To open a report simply open a DLT log file and press the report icon in the filter:
+
+![open report icon](/img/timeSeriesReport4.png)
 
 ### Zooming in a report
 
-todo
+To zoom in/out simply there are two different modes:
+
+In default / non drag mode simply 
+- use the mouse wheel (or e.g. two finger up/down gestures on macOS touchpads),
+- click and drag the report to scroll left/right.
+
+In "drag mode" - after pressing the `Enable drag mode` button - simply
+- select the time range by press and hold the mouse button at start time and drag to end time and release there.
+
+You can always press the `Reset zoom` button to get back to default view.
 
 ### Ignore lifecycle start range
 
-todo
+The `Toggle lifecycle start` button allows you to hide the start of the report with no data points.
+In general the report covers the timeframe from all [lifecycles](lifecycleDetection).
+E.g. in the picture from the example above the first lifecycle starts at 5:41:05pm but the first logs start only at 5:42:29pm. The default view is useful to e.g. understood how the lifecycle was already running before the logs have been captured or exported.
+With the `Toggle lifecycle start` button you can toggle the view to hide/show the timeframe where no logs are available for.
+
+### Show the current selected time
+
+The report highlights the selected time - i.e. the time that corresponds to the selected line in the DLT file with a vertical green dotted line, e.g. here at 5:42:41 PM and 22ms:
+
+![report with selected time](/img/timeSeriesReport2.png)
+
+If you move the cursor in the dlt log window the selected time will move accordingly.
+
+:::note
+Reports use your current selected theme colors, here e.g. `Light+`.
+:::
+
+### Show the times for all search results
+
+You can as well select multiple lines e.g. from search results:
+<Tabs
+    groupId="operating-systems"
+    defaultValue="win"
+    values={[
+        {label: 'Windows', value: 'win'},
+        {label: 'macOS', value: 'mac'},
+        {label: 'Linux', value: 'linux'}
+    ]
+}>
+<TabItem value="win">Use Ctrl+f, enter your search text and use Ctrl+Shift+L</TabItem>
+<TabItem value="mac">Use Cmd+f, enter your search text and use Cmd+Shift+L</TabItem>
+<TabItem value="linux">Use Ctrl+f, enter your search text and use Ctrl+Shift+L</TabItem>
+</Tabs>
+to select all occurrences of the search text, e.g:
+
+![report with multiple selections](/img/timeSeriesReport3.png)
+
+The picture shows as well the tooltip window that appears on hovering over a data point.
+
+### Jump to DLT log message around a selected data point
+
+If you click on a data point in the report the DLT log window tries to scroll the top to the next message that occured around the time from the data point.
 
 ## Details
 
@@ -110,7 +165,7 @@ An easy way is to define a `valueMap` by adding a it to the `reportOptions`objec
 }
 ```
 
-### using a function to calculate values
+### Using a function to calculate values
 
 For more versatile changes a `conversionFunction` can be added to the `reportOptions`object:
 
@@ -277,12 +332,12 @@ Do not set the `id` key as this will be automatically set.
 
 To open a report simply press on the "report" icon next to the filter.
 
-todo picture
+![open report icon](/img/timeSeriesReport4.png)
 
 You can visualize multiple reports in the same view by simply clicking the 2nd report while keeping the first report view open.
 
 If you want to open the report as a new view you can hold the alt/options key before clicking the report icon.
 
 :::note
-Multiple reports share the same y-axis. So if you mix small values (e.g 0-1) with huge values (0-1000) you loose all details from the small values.
+Multiple reports share the same y-axis. So if you mix small values (e.g 0-1) with huge values (0-1000) you loose all details from the small values. See [y-axis options](#specifying-y-axis-options) above on how to avoid that.
 :::
