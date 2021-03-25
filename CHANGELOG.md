@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs':
 
+## [1.13.0](https://github.com/mbehr1/dlt-logs/compare/v1.12.0...v1.13.0) (2021-03-25)
+
+
+### Features
+
+* **restquery:** filters can request the lifecycle infos as well ([2d443f5](https://github.com/mbehr1/dlt-logs/commit/2d443f5730347ef8e3eee77f7cccb228723646b9))
+
 ## [1.12.0](https://github.com/mbehr1/dlt-logs/compare/v1.11.0...v1.12.0) (2021-03-21)
 
 
