@@ -1903,6 +1903,7 @@ export class DltDocument {
                             const queryFilters = JSON.parse(commandParams);
                             console.log(`filters=`, queryFilters);
                             if (Array.isArray(queryFilters) && queryFilters.length > 0) {
+                                let addLifecycles = false;
                                 let maxNrMsgs = 1000; // default to 1000 msgs to report as result
                                 const filters: DltFilter[] = [];
                                 for (let i = 0; i < queryFilters.length; ++i) {
@@ -1913,6 +1914,7 @@ export class DltDocument {
                                             if (fMaxNrMsgs > maxNrMsgs) { maxNrMsgs = fMaxNrMsgs; }
                                         delete filterAttribs['maxNrMsgs'];
                                     }
+                                    if ('addLifecycles' in filterAttribs) { addLifecycles = true; }
                                     const filter = new DltFilter(filterAttribs, false);
                                     filters.push(filter);
                                 }
@@ -1920,6 +1922,27 @@ export class DltDocument {
                                 if (filters.length > 0) {
                                     const matches = DltDocument.getMatchingMessages(this.msgs, filters, maxNrMsgs);
                                     retObj.data = util.createRestArray(matches, (obj: object, i: number) => { const msg = obj as DltMsg; return msg.asRestObject(i); });
+                                    if (addLifecycles) {
+                                        // add lifecycle infos to the result:
+                                        this.lifecycles.forEach((lcInfo, ecu) => {
+                                            const lifecycles = [...lcInfo.map((lc, idx) => {
+                                                return {
+                                                    type: "lifecycles", id: lc.persistentId,
+                                                    attributes: {
+                                                        index: idx + 1,
+                                                        id: lc.persistentId, // todo to ease parsing with jsonPath...
+                                                        ecu: ecu,
+                                                        label: lc.getTreeNodeLabel(),
+                                                        startTimeUtc: lc.lifecycleStart.toUTCString(),
+                                                        endTimeUtc: lc.lifecycleEnd.toUTCString(),
+                                                        sws: lc.swVersions,
+                                                        msgs: lc.logMessages.length,
+                                                    }
+                                                };
+                                            })];
+                                            if (Array.isArray(retObj.data)) { retObj.data.unshift(...lifecycles); }
+                                        });
+                                    }
                                 } else {
                                     if (!Array.isArray(retObj.error)) { retObj.error = []; }
                                     retObj.error?.push({ title: `query failed as no filters defined` });
