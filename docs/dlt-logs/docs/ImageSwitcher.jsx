@@ -8,7 +8,7 @@ const ImageSwitcher = ({ lightImageSrc, darkImageSrc }) => {
 
     return (
         <img src={isDarkTheme ? darkImageSrc : lightImageSrc} />
-    )
-}
+    );
+};
 
 export default ImageSwitcher;

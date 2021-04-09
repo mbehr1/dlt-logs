@@ -1749,7 +1749,7 @@ export class DltDocument {
             // add lifecycles
             for (let i = 0; i < lcInfo.length; ++i) {
                 const lc = lcInfo[i];
-                ecuNode.children.push(new LifecycleNode(this.uri.with({ fragment: lc.startIndex.toString() }), ecuNode, this.lifecycleTreeNode, lc));
+                ecuNode.children.push(new LifecycleNode(this.uri.with({ fragment: lc.startIndex.toString() }), ecuNode, this.lifecycleTreeNode, lc, i + 1));
             }
         });
         this.autoEnableConfigs();
