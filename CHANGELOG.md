@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs':
 
+## [1.14.0](https://github.com/mbehr1/dlt-logs/compare/v1.13.0...v1.14.0) (2021-04-09)
+
+
+### Features
+
+* print lc nr infront of detected lc ([537f467](https://github.com/mbehr1/dlt-logs/commit/537f4676105a9ba816b083f1e04ead52725a8200)), closes [#21](https://github.com/mbehr1/dlt-logs/issues/21)
+
 ## [1.13.0](https://github.com/mbehr1/dlt-logs/compare/v1.12.0...v1.13.0) (2021-03-25)
 
 
