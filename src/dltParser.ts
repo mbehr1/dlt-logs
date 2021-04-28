@@ -188,6 +188,7 @@ export class DltMsg {
             attributes: {
                 timeStamp: this.timeStamp,
                 ecu: this.ecu,
+                mcnt: this.mcnt,
                 apid: this.apid,
                 ctid: this.ctid,
                 payloadString: this.payloadString,
