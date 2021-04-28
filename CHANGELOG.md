@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs':
 
+## [1.15.0](https://github.com/mbehr1/dlt-logs/compare/v1.14.0...v1.15.0) (2021-04-28)
+
+
+### Features
+
+* add mcnt to restquery results for msgs ([941cd58](https://github.com/mbehr1/dlt-logs/commit/941cd58f0256e8a9b5b87d2767e582ce51d37f4c))
+
 ## [1.14.0](https://github.com/mbehr1/dlt-logs/compare/v1.13.0...v1.14.0) (2021-04-09)
 
 
