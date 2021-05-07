@@ -191,6 +191,7 @@ export class DltMsg {
                 mcnt: this.mcnt,
                 apid: this.apid,
                 ctid: this.ctid,
+                mtin: MTIN_LOG_strs[this.mtin],
                 payloadString: this.payloadString,
                 lifecycle: this.lifecycle ? this.lifecycle.persistentId : undefined
             }
