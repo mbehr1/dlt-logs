@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs':
 
+### [1.16.1](https://github.com/mbehr1/dlt-logs/compare/v1.16.0...v1.16.1) (2021-05-08)
+
+
+### Bug Fixes
+
+* **export:** quickpick next button use selection ([2c57763](https://github.com/mbehr1/dlt-logs/commit/2c577635e64877d7a4302da880619ed39c40653c))
+
 ## [1.16.0](https://github.com/mbehr1/dlt-logs/compare/v1.15.0...v1.16.0) (2021-05-08)
 
 
