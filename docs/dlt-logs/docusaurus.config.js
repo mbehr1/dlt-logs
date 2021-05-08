@@ -81,7 +81,10 @@ module.exports = {
               label: 'smart-log',
               href: 'https://github.com/mbehr1/smart-log',
             },
-
+            {
+              label: 'fishbone docs',
+              href: 'https://mbehr1.github.io/fishbone',
+            },
           ],
         },
       ],

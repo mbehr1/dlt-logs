@@ -11,8 +11,8 @@
     "serve": "docusaurus serve"
   },
   "dependencies": {
-    "@docusaurus/core": "2.0.0-alpha.70",
-    "@docusaurus/preset-classic": "2.0.0-alpha.70",
+    "@docusaurus/core": "2.0.0-alpha.75",
+    "@docusaurus/preset-classic": "2.0.0-alpha.75",
     "@mdx-js/react": "^1.6.21",
     "clsx": "^1.1.1",
     "react": "^16.8.4",
@@ -32,6 +32,7 @@
   },
   "devDependencies": {
     "@babel/plugin-proposal-class-properties": "^7.12.1",
-    "@babel/plugin-syntax-class-properties": "^7.12.1"
+    "@babel/plugin-syntax-class-properties": "^7.12.1",
+    "@types/react": "^17.0.5"
   }
 }
