@@ -103,10 +103,10 @@ export class QuickInputHelper {
                         reject(vscode.QuickInputButtons.Back);
                     } else
                         if (button instanceof QuickButton) {
-                            console.log(`show onDidTrigger() QuickButton`);
+                            console.log(`show onDidTrigger() QuickButton #selItems=${quickPick.selectedItems.length} value='${quickPick.value}'`);
                             quickPick.busy = true;
                             quickPick.enabled = false;
-                            resolve(quickPick.value);
+                            resolve(quickPick.selectedItems.length ? quickPick.selectedItems : quickPick.value);
                         } else {
                             console.log(`show onDidTrigger() != known button`);
                         }
