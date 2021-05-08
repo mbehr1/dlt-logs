@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs':
 
+## [1.16.0](https://github.com/mbehr1/dlt-logs/compare/v1.15.0...v1.16.0) (2021-05-08)
+
+
+### Features
+
+* add mtin string to restquery results for msgs ([bc841c0](https://github.com/mbehr1/dlt-logs/commit/bc841c0a7547ea814143a12666d06451a44c4b50))
+
 ## [1.15.0](https://github.com/mbehr1/dlt-logs/compare/v1.14.0...v1.15.0) (2021-04-28)
 
 
