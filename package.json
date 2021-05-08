@@ -619,6 +619,7 @@
 		]
 	},
 	"scripts": {
+		"prepare": "husky install",
 		"vscode:prepublish": "npm run compile",
 		"compile": "tsc -p ./",
 		"lint": "eslint src --ext ts",
@@ -657,11 +658,6 @@
 		"extends": [
 			"@commitlint/config-conventional"
 		]
-	},
-	"husky": {
-		"hooks": {
-			"commit-msg": "npx --no-install commitlint --edit \"$1\""
-		}
 	},
 	"release": {
 		"branches": [
