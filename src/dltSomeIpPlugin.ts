@@ -497,7 +497,7 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                     if (bitMod !== 0) {
                         console.error(`parseSingleCodingBits A_UNICODE2STRING with bitMod=${bitMod} bitLength=${bitLength}`);
                     }
-                    let encoding: string | undefined;
+                    let encoding: BufferEncoding | undefined;
                     switch (coding.codedType['@_ENCODING']) {
                         case 'UCS-2': encoding = 'ucs2'; break;
                         case undefined:
