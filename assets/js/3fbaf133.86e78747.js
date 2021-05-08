@@ -1,0 +1,1 @@
+(self.webpackChunkdlt_logs=self.webpackChunkdlt_logs||[]).push([[779],{7330:function(l){"use strict";l.exports=JSON.parse('{"permalink":"/dlt-logs/blog","page":1,"postsPerPage":10,"totalPages":1,"totalCount":1,"previousPage":null,"nextPage":null,"blogDescription":"Blog","blogTitle":"Blog"}')}}]);
