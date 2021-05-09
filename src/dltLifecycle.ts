@@ -246,7 +246,7 @@ export class DltLifecycleInfo {
         }
         if (logMsg.timeAsNumber + 1000 < this._startTime) {
             this._logCntNewStarttimeEarlier++;
-            if (this._logCntNewStarttimeEarlier < 100 || this._logCntNewStarttimeEarlier % 1000 === 0) {
+            if (this._logCntNewStarttimeEarlier < 10 || this._logCntNewStarttimeEarlier % 1000 === 0) {
                 console.log(`DltLifecycleInfo:update new starttime earlier? ${this._logCntNewStarttimeEarlier}x`, this._startTime, logMsg.timeAsNumber);
             }
         }
