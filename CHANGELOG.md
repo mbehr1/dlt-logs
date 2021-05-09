@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs':
 
+### [1.16.2](https://github.com/mbehr1/dlt-logs/compare/v1.16.1...v1.16.2) (2021-05-09)
+
+
+### Bug Fixes
+
+* handle non zero terminated payload strings ([5b27f96](https://github.com/mbehr1/dlt-logs/commit/5b27f96f7e676901a68c244a3ddf23754863c058))
+
 ### [1.16.1](https://github.com/mbehr1/dlt-logs/compare/v1.16.0...v1.16.1) (2021-05-08)
 
 
