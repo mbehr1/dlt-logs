@@ -282,7 +282,8 @@ export class DltMsg {
                                     const strLenInclTerm: number = this._payloadData.readUInt16LE(argOffset);
                                     argOffset += 2;
                                     if (strLenInclTerm > 0 && strLenInclTerm < 2000) { // some sanity check...
-                                        let strText = this._payloadData.toString((scod === 1 ? "utf8" : "latin1"), argOffset, argOffset + strLenInclTerm - 1);
+                                        const gotTerm = this._payloadData[argOffset + strLenInclTerm - 1] === 0 ? 1 : 0;
+                                        let strText = this._payloadData.toString((scod === 1 ? "utf8" : "latin1"), argOffset, argOffset + strLenInclTerm - gotTerm);
                                         // replace CRLF with ' '
                                         // todo assemble payloadAsText ... msgText += strText.replace(/(\r\n|\n|\r)/gm, " "); // this is slow...
                                         this._payloadArgs.push({ type: String, v: strText });
