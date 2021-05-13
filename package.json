@@ -28,6 +28,16 @@
 		"onCommand:dlt-logs.dltOpenFile",
 		"onCommand:dlt-logs.dltExportFile"
 	],
+	"capabilities": {
+		"virtualWorkspaces": false,
+		"untrustedWorkspaces": {
+			"supported": "limited",
+			"description": "Filter can contain regex and conv functions and thus need to come from a trusted workspace only.",
+			"restrictedConfigurations": [
+				"dlt-logs.filters"
+			]
+		}
+	},
 	"main": "./out/extension.js",
 	"contributes": {
 		"configuration": [
