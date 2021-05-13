@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs':
 
+## [1.17.0](https://github.com/mbehr1/dlt-logs/compare/v1.16.2...v1.17.0) (2021-05-13)
+
+
+### Features
+
+* limited support for untrusted workspaces ([279d1a1](https://github.com/mbehr1/dlt-logs/commit/279d1a18bac431f42b57cce120984f3ff39f7684))
+
 ### [1.16.2](https://github.com/mbehr1/dlt-logs/compare/v1.16.1...v1.16.2) (2021-05-09)
 
 
