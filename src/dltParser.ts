@@ -451,6 +451,7 @@ export class DltMsg {
                 if (this._payloadText.endsWith(' ')) { this._payloadText = this._payloadText.slice(0, -1); } // this is not quite right. if ' ' was part of the payload text...
             }
             this._payloadText = Buffer.from(this._payloadText).toString(); // reduce the number of strings...
+            this._payloadData = DltMsg.emptyBuffer; // can only be called once
             return this._payloadArgs;
         }
     }
@@ -458,25 +459,30 @@ export class DltMsg {
     static emptyBuffer: Buffer = Buffer.alloc(0);
 
     get payloadString(): string {
-        if (this._payloadText) {
+        let toRet;
+        if (this._payloadText !== undefined) {
             // cached already?
-            return this._payloadText;
+            toRet = this._payloadText;
         } else {
             this.payloadArgs; // this updates payloadText as well
 
-            // is a transformCb set? if so call it so allow to change data (e.g. _payloadText)
-            if (this._transformCb) { this._transformCb(this); }
-
-            if (!this._payloadText) {
+            if (this._payloadText === undefined) {
                 this._payloadText = "";
             }
-            this._payloadData = DltMsg.emptyBuffer; // todo...
-            return this._payloadText;
+            toRet = this._payloadText;
         }
+        // is a transformCb set? if so call it so allow to change data (e.g. _payloadText)
+        if (this._transformCb) {
+            this._transformCb(this);
+            this._transformCb = undefined;
+            toRet = this._payloadText;
+        }
+        return toRet;
     }
 
     set transformCb(cb: (msg: DltMsg) => void) {
-        assert(this._payloadText === undefined, 'logical error. transformCb called too late!');
+        // .payloadArgs is called before (e.g. by filetransfer plugin) assert(this._payloadText === undefined, 'logical error. transformCb called too late!');
+        // can always be called assert(this._payloadData !== DltMsg.emptyBuffer, 'logical error. transformCb called too late!');
         this._transformCb = cb;
     }
 

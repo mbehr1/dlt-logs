@@ -10,7 +10,7 @@ import * as vscode from 'vscode';
 import { TreeViewNode } from './dltTreeViewNodes';
 import { DltMsg } from './dltParser';
 import { createUniqueId } from './util';
-import { DltFilter } from './dltFilter';
+import { DltFilter, DltFilterType } from './dltFilter';
 import { DltTransformationPlugin } from './dltTransformationPlugin';
 
 interface Rewrite {
@@ -32,7 +32,7 @@ export class DltRewriteMsgPlugin extends DltTransformationPlugin {
         this._rewrites = Array.isArray(options['rewrites']) ? (options['rewrites'].filter(r => typeof r.name === 'string' && r.name?.length > 0).map((r, index) => {
             return {
                 name: r.name as string,
-                matchFilter: new DltFilter({ type: 0, ...r.filter, id: `rewrite_${index}` }, false),
+                matchFilter: new DltFilter({ type: DltFilterType.POSITIVE, ...r.filter, id: `rewrite_${index}` }, false),
                 payloadRegex: typeof r.payloadRegex === 'string' ? new RegExp(r.payloadRegex) : undefined,
                 rewrite: Object.fromEntries(
                     Object.entries(r.rewrite).map(([k, v], i) => [k.toLowerCase(), (new Function('"use strict";return ' + v))()])
@@ -88,9 +88,9 @@ export class DltRewriteMsgPlugin extends DltTransformationPlugin {
         try {
             // _payloadText is set already (and that's important as otherwise recursion might happen!)
             if (msg._payloadText) {
-                // which rewrite did match? stop at first
+                // which rewrite did match? stop at first (if we only have one then use that one)
                 for (let i = 0; i < this._rewrites.length; ++i) {
-                    if (this._rewrites[i].matchFilter.matches(msg)) { // todo this might evaluate payloadText. Wont lead to recursive call but its a bit undeterministic whether the filter will get the initial or converted value
+                    if ((i === this._rewrites.length - 1) || this._rewrites[i].matchFilter.matches(msg)) { // todo this might evaluate payloadText. Wont lead to recursive call but its a bit undeterministic whether the filter will get the initial or converted value
                         const rewrite = this._rewrites[i];
                         const match = rewrite.payloadRegex ? msg._payloadText.match(rewrite.payloadRegex) : undefined;
                         if (match === undefined || match !== null) {

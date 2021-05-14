@@ -398,7 +398,21 @@
 													"description": "Rewrite functions. Function definition taking two parameter: match from payloadRegex (or undefined) and the message object. Currently functions for message attributes: payloadText and timeStamp are supported. Those functions will be called and if a value is returned this will replace the current msg attribute value."
 												}
 											}
-										}
+										},
+										"default": [
+											{
+												"name": "SYS/JOUR timestamp and text",
+												"filter": {
+													"apid": "SYS",
+													"ctid": "JOUR"
+												},
+												"payloadRegex": "^.*? .*? (?<timeStamp>\\d+\\.\\d+) (?<text>.*)$",
+												"rewrite": {
+													"timeStamp": "function(m,msg){ if (!m) { return undefined; } return Math.round(Number(m.groups?.['timeStamp']) * 10000)}",
+													"payloadText": "function(m,msg){ if (!m) {return undefined; } return m.groups?.['text']}"
+												}
+											}
+										]
 									}
 								}
 							}
