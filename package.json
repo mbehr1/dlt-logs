@@ -294,7 +294,7 @@
 								"properties": {
 									"name": {
 										"type": "string",
-										"description": "Identifier of the plugin. Currently only 'FileTransfer' and 'SomeIp' are available.",
+										"description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp' and 'Rewrite' are available.",
 										"enum": [
 											"FileTransfer"
 										]
@@ -332,7 +332,7 @@
 								"properties": {
 									"name": {
 										"type": "string",
-										"description": "Identifier of the plugin. Currently only 'FileTransfer' and 'SomeIp' are available.",
+										"description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp' and 'Rewrite' are available.",
 										"enum": [
 											"SomeIp"
 										]
@@ -357,6 +357,50 @@
 										"default": 1
 									}
 								}
+							},
+							{
+								"type": "object",
+								"title": "Rewrite plugin",
+								"properties": {
+									"name": {
+										"type": "string",
+										"description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp' and 'Rewrite' are available.",
+										"enum": [
+											"Rewrite"
+										]
+									},
+									"enabled": {
+										"type": "boolean",
+										"description": "Determines whether the plugin is currently enabled.",
+										"default": true
+									},
+									"rewrites": {
+										"type": "array",
+										"description": "Array with rewrite configurations.",
+										"items": {
+											"type": "object",
+											"title": "rewrite config",
+											"properties": {
+												"name": {
+													"type": "string",
+													"description": "Identifier of this rewrite config."
+												},
+												"filter": {
+													"type": "object",
+													"description": "Filter attributes. Type is set automatically to positive filter. This determines which messages will be rewritten by this config."
+												},
+												"payloadRegex": {
+													"type": "string",
+													"description": "Regex on the payload. This will be called after the message is matched and is applied on the payloadText. The match/result is passed as first parameter to the rewrite functions."
+												},
+												"rewrite": {
+													"type": "object",
+													"description": "Rewrite functions. Function definition taking two parameter: match from payloadRegex (or undefined) and the message object. Currently functions for message attributes: payloadText and timeStamp are supported. Those functions will be called and if a value is returned this will replace the current msg attribute value."
+												}
+											}
+										}
+									}
+								}
 							}
 						],
 						"default": [
@@ -365,6 +409,24 @@
 								"enabled": true,
 								"allowSave": true,
 								"keepFLDA": false
+							},
+							{
+								"name": "Rewrite",
+								"enabled": false,
+								"rewrites": [
+									{
+										"name": "SYS/JOUR timestamp and text",
+										"filter": {
+											"apid": "SYS",
+											"ctid": "JOUR"
+										},
+										"payloadRegex": "^.*? .*? (?<timeStamp>\\d+\\.\\d+) (?<text>.*)$",
+										"rewrite": {
+											"timeStamp": "function(m,msg){ if (!m) { return undefined; } return Math.round(Number(m.groups?.['timeStamp']) * 10000)}",
+											"payloadText": "function(m,msg){ if (!m) {return undefined; } return m.groups?.['text']}"
+										}
+									}
+								]
 							}
 						]
 					},

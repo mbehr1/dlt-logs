@@ -67,6 +67,7 @@ A more detailed documentation is available here: [Docs](https://mbehr1.github.io
 
 - Support **DLT file transfer** file extraction (and automatic filtering of FLDA msgs). Shows the file transfers and allows to save any file.
 - **SOME/IP decoder** plugin supporting multiple FIBEX files. All known services and methods are listed in the treeview incl. description texts in the tooltips!
+- **Rewrite** plugin supporting rewriting/changing messages. E.g. timestamp of DLT logs with embedded syslog timestamps can be changed automatically.
 - **Quickly configurable columns**. Simply press the "select columns..." button in upper right corner of the document and select which one to show. The changes get stored permanently as global settings `dlt-logs.columns`.
 ![Quickly configureable columns](https://github.com/mbehr1/dlt-logs/raw/master/images/selectColumns.png)
 - **Graphical time series reports** based on event filters. You can define event filters (type: 3), add normal filters and use a payloadRegex that captures either one value or even multiple values with named capture groups (?<series_name>.*). All captures needs to represent numbers. Grid lines for lifecycle start/ends are automatically added. To open a report simply press on the "report" icon next to the filter.

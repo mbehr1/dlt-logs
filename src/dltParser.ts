@@ -100,7 +100,7 @@ export class DltMsg {
     //readonly ecu: string; // this leads to lots of same strings. thus pointing to one object that has the ECU/APID/CTID combination
     get ecu(): string { return this._eac.e; }
     readonly sessionId: number;
-    readonly timeStamp: number;
+    /* readonly rewrite msg plugin might change it */ timeStamp: number;
     readonly verbose: boolean;
     readonly mstp: MSTP; // message type from MSIN (message info)
     readonly mtin: number; // message type info from MSIN

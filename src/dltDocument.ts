@@ -16,6 +16,7 @@ import TelemetryReporter from 'vscode-extension-telemetry';
 import { DltFileTransferPlugin } from './dltFileTransfer';
 import { DltTransformationPlugin } from './dltTransformationPlugin';
 import { DltSomeIpPlugin } from './dltSomeIpPlugin';
+import { DltRewriteMsgPlugin } from './dltRewriteMsgPlugin';
 import { DltReport } from './dltReport';
 import { loadTimeFilterAssistant } from './dltLoadTimeAssistant';
 import { v4 as uuidv4 } from 'uuid';
@@ -692,6 +693,15 @@ export class DltDocument {
                             {
                                 let treeNode = { id: util.createUniqueId(), label: `SOME/IP Decoder`, uri: this.uri, parent: this.pluginTreeNode, children: [], tooltip: undefined, iconPath: new vscode.ThemeIcon('group-by-ref-type') }; // or symbol-interface?
                                 const plugin = new DltSomeIpPlugin(this.uri, treeNode, this._treeEventEmitter, pluginObj);
+                                this.pluginNodes.push(treeNode);
+                                this.pluginTreeNode.children.push(treeNode);
+                                this._transformationPlugins.push(plugin);
+                            }
+                            break;
+                        case 'Rewrite':
+                            {
+                                let treeNode = { id: util.createUniqueId(), label: `'Rewrite' plugin`, uri: this.uri, parent: this.pluginTreeNode, children: [], tooltip: undefined, iconPath: new vscode.ThemeIcon('replace-all') }; // or regex, edit
+                                const plugin = new DltRewriteMsgPlugin(this.uri, treeNode, this._treeEventEmitter, pluginObj);
                                 this.pluginNodes.push(treeNode);
                                 this.pluginTreeNode.children.push(treeNode);
                                 this._transformationPlugins.push(plugin);
