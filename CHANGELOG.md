@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs':
 
+### [1.18.1](https://github.com/mbehr1/dlt-logs/compare/v1.18.0...v1.18.1) (2021-05-14)
+
+
+### Bug Fixes
+
+* file transfer plugin caused transformation plugins failures ([d4d1602](https://github.com/mbehr1/dlt-logs/commit/d4d16029c8e05dec2928b65a67047282106c4abb))
+
 ## [1.18.0](https://github.com/mbehr1/dlt-logs/compare/v1.17.0...v1.18.0) (2021-05-14)
 
 
