@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs':
 
+## [1.18.0](https://github.com/mbehr1/dlt-logs/compare/v1.17.0...v1.18.0) (2021-05-14)
+
+
+### Features
+
+* **rewrite:** add rewrite plugin ([5bcbedb](https://github.com/mbehr1/dlt-logs/commit/5bcbedbacf23fe662730ab7722ae4e7dd0d14369))
+
 ## [1.17.0](https://github.com/mbehr1/dlt-logs/compare/v1.16.2...v1.17.0) (2021-05-13)
 
 
