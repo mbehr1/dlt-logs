@@ -126,6 +126,8 @@ export class DltDocument {
     private _onDidLoad = new vscode.EventEmitter<boolean>();
     get onDidLoad() { return this._onDidLoad.event; }
 
+    private _sortOrderByTime = false;
+
     constructor(uri: vscode.Uri, docEventEmitter: vscode.EventEmitter<vscode.FileChangeEvent[]>, treeEventEmitter: vscode.EventEmitter<TreeViewNode | null>,
         parentTreeNode: TreeViewNode[], reporter?: TelemetryReporter) {
         this.uri = uri;
@@ -1340,6 +1342,40 @@ export class DltDocument {
             return this.revealByMsgsIndex(index);
         }
 
+    }
+
+    async toggleSortOrder(): Promise<void> {
+        //console.log(`DltDocument.toggleSortOrder()...`);
+        this._sortOrderByTime = !this._sortOrderByTime;
+        console.log(`DltDocument.toggleSortOrder() sortOrderByTime=${this._sortOrderByTime}`);
+
+        // we sort the msgs only and call applyFilter to recalc the this.filteredMsgs and rerender
+        if (this._sortOrderByTime) {
+            this.msgs.sort((a, b) => {
+                // if one has a lifecycle and the other has not we do use the orig index as the times seem from different entities 
+                if ((a.lifecycle !== undefined && b.lifecycle === undefined) ||
+                    (a.lifecycle === undefined && b.lifecycle !== undefined)) {
+                    return a.index - b.index;
+                }
+
+                // if one is a control req message use the index:
+                const aIsControlReq = a.mstp === MSTP.TYPE_CONTROL && a.mtin === MTIN_CTRL.CONTROL_REQUEST;
+                const bIsControlReq = b.mstp === MSTP.TYPE_CONTROL && b.mtin === MTIN_CTRL.CONTROL_REQUEST;
+                if (aIsControlReq || bIsControlReq) {
+                    return a.index - b.index;
+                }
+
+                const timeA = (a.lifecycle === undefined ? a.timeAsNumber : (a.lifecycle.lifecycleStart.valueOf() + (a.timeStamp / 10)));
+                const timeB = (b.lifecycle === undefined ? b.timeAsNumber : (b.lifecycle.lifecycleStart.valueOf() + (b.timeStamp / 10)));
+                return timeA === timeB ? (a.index - b.index) : (timeA - timeB); // the sort is stable. i.e. keeps the orig order on equality. anyhow sort in that case by index as well to be on the safe side
+            });
+        } else { // sort by orig index
+            this.msgs.sort((a, b) => {
+                return a.index - b.index;
+            });
+        }
+
+        return this.applyFilter(undefined);
     }
 
     async configureColumns(): Promise<void> {

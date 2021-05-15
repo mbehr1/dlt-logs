@@ -23,6 +23,7 @@ A more detailed documentation is available here: [Docs](https://mbehr1.github.io
 - Detects the lifecycles and shows them in a tree-view.
   - Lifecycles can be graphically decorated by defining *dlt-log.decorations* with id 'lifecycleEven' (for the lifecycles #0, #2,...) / 'lifecycleOdd' (for the lifecycles #1,#3,...). Default decorations contains light transparent green(dark)/gray(light) background for 'lifecycleOdd'. Only the ECU with the highest amount of messages will be decorated.
   - Lifecycles can be filtered for ( "enable"/"disable").
+  - Message view can be **sorted by time** by using the icon in the document title bar. Messages are properly sorted by the **calculated time** and not the received times.
 - **Export/filter DLT file...**
   - Merge multiple DLT files into on file.
   - Sort msgs within lifecycles by timestamp (**reorder msgs by calculated time? option**)

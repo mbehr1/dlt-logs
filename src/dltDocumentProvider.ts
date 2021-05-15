@@ -420,6 +420,14 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
             }
         }));
 
+        context.subscriptions.push(vscode.commands.registerTextEditorCommand('dlt-logs.toggleSortOrder', async (textEditor: vscode.TextEditor) => {
+            console.log(`dlt-logs.toggleSortOrder(textEditor.uri = ${textEditor.document.uri.toString()}) called...`);
+            const doc = this._documents.get(textEditor.document.uri.toString());
+            if (doc) {
+                return doc.toggleSortOrder();
+            }
+        }));
+
         this._subscriptions.push(vscode.commands.registerCommand("dlt-logs.addFilter", async (...args) => {
             args.forEach(a => { console.log(` arg='${JSON.stringify(a)}'`); });
             if (args.length < 2) { return; }

@@ -34,7 +34,8 @@
 			"supported": "limited",
 			"description": "Filter can contain regex and conv functions and thus need to come from a trusted workspace only.",
 			"restrictedConfigurations": [
-				"dlt-logs.filters"
+				"dlt-logs.filters",
+				"dlt-logs.plugins"
 			]
 		}
 	},
@@ -607,6 +608,11 @@
 				"icon": "$(list-unordered)"
 			},
 			{
+				"command": "dlt-logs.toggleSortOrder",
+				"title": "toggle sort order",
+				"icon": "$(list-ordered)"
+			},
+			{
 				"command": "dlt-logs.testRestQuery",
 				"title": "test rest query"
 			}
@@ -665,15 +671,20 @@
 			],
 			"editor/title": [
 				{
+					"command": "dlt-logs.toggleSortOrder",
+					"when": "resourceLangId == dlt-log",
+					"group": "navigation@1"
+				},
+				{
 					"command": "dlt-logs.configureColumns",
 					"when": "resourceLangId == dlt-log",
-					"group": "navigation"
+					"group": "navigation@2"
 				},
 				{
 					"command": "dlt-logs.toggleTimeSync",
 					"alt": "dlt-logs.sendTimeSyncEvents",
 					"when": "editorLangId == dlt-log",
-					"group": "navigation"
+					"group": "navigation@3"
 				}
 			]
 		},
