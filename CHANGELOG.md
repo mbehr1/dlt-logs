@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs':
 
+## [1.19.0](https://github.com/mbehr1/dlt-logs/compare/v1.18.1...v1.19.0) (2021-05-15)
+
+
+### Features
+
+* allow view to sort by time instead of index ([4f6678a](https://github.com/mbehr1/dlt-logs/commit/4f6678a8039393f5521dfda3104c7d0dbab069ed))
+
 ### [1.18.1](https://github.com/mbehr1/dlt-logs/compare/v1.18.0...v1.18.1) (2021-05-14)
 
 
