@@ -66,6 +66,10 @@ export class DltDocument {
     filteredMsgs: DltMsg[] | undefined = undefined;
     lifecycles = new Map<string, DltLifecycleInfo[]>();
 
+    // max index of the msgs
+    private _maxMsgIndex: number = 0;
+    private _maxFilteredMsgIndex: number = 0;
+
     // configured columns:
     private _columns: ColumnConfig[] = [];
     // filters:
@@ -889,6 +893,7 @@ export class DltDocument {
         const oldNrMsgs = this.filteredMsgs ? this.filteredMsgs.length : this.msgs.length;
         try {
             this.filteredMsgs = [];
+            this._maxFilteredMsgIndex = 0;
             // we can in parallel check criteria todo
             // but then add into filteredMsgs sequentially only
 
@@ -979,6 +984,7 @@ export class DltDocument {
 
                 if (foundAfterNegFilters) {
                     this.filteredMsgs.push(msg);
+                    if (msg.index > this._maxFilteredMsgIndex) { this._maxFilteredMsgIndex = msg.index; }
                     // any decorations? todo remove log-level ones once filter are extended to MSTP, MTIN.
 
                     msg.decorations = [];
@@ -1052,7 +1058,7 @@ export class DltDocument {
                     }
                 });
 
-                if (maxEcu) {
+                if (maxEcu) { // todo this has a bug if lifecycles are filtered...
                     const lcs = this.lifecycles.get(maxEcu);
                     if (lcs) {
                         // console.log(` applyFilter decorating lifecycles for ecu:'${ecu}'`);
@@ -1101,7 +1107,7 @@ export class DltDocument {
             if (!filter.atLoadTime && filter.enabled && (filter.type === DltFilterType.POSITIVE || filter.type === DltFilterType.NEGATIVE)) { nrEnabledFilters++; }
         });
         const nrAllFilters = this.allFilters.length;
-        item.tooltip = `DLT: ${this._fileUri.fsPath}, showing max ${this._maxNrMsgs} msgs, ${this._timeAdjustMs / 1000}s time-adjust, ${this.timeSyncs.length} time-sync events, ${nrEnabledFilters}/${nrAllFilters} enabled filters`;
+        item.tooltip = `DLT: ${this._fileUri.fsPath}, showing max ${this._maxNrMsgs} msgs, ${this._timeAdjustMs / 1000}s time-adjust, ${this.timeSyncs.length} time-sync events, ${nrEnabledFilters}/${nrAllFilters} enabled filters, sorted by ${this._sortOrderByTime ? 'time' : 'index'}`;
     }
 
     lineCloseTo(index: number, ignoreSkip = false): number {
@@ -1570,7 +1576,7 @@ export class DltDocument {
             }
         }
         // length of max index
-        const maxIndexLength = Math.floor(Math.log10(msgs[msgs.length - 1].index)) + 1;
+        const maxIndexLength = Math.floor(Math.log10(this.filteredMsgs ? this._maxFilteredMsgIndex : this._maxMsgIndex)) + 1;
 
         let startTime = process.hrtime();
         for (let j = numberStart; j <= numberEnd && j < msgs.length; ++j) {
@@ -1722,6 +1728,7 @@ export class DltDocument {
                         }
                     } while (read > 0);
                     fs.closeSync(fd);
+                    this._maxMsgIndex = this.msgs.length > 0 ? this.msgs[this.msgs.length - 1].index : 0;
                     const readEnd = process.hrtime(fnStart);
                     console.info('checkFileChanges read took: %ds %dms', readEnd[0], readEnd[1] / 1000000);
                     progress.report({ message: `reading done. Determining lifecycles...` });
