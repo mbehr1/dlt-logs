@@ -18,6 +18,9 @@
     "react": "^16.8.4",
     "react-dom": "^16.8.4"
   },
+  "resolutions": {
+    "@docusaurus/preset-classic/**/trim": "^0.0.3"
+  },
   "browserslist": {
     "production": [
       ">0.2%",
