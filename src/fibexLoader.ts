@@ -1,14 +1,17 @@
 /* --------------------
  * Copyright(C) Matthias Behr. 2021
  *
+ * loader for ASAM MCD-2 NET (aka Fibex) based files.
+ *
  * todos:
+ * - implement sequence-number checks/sorts
  */
 
 import * as fastXmlParser from 'fast-xml-parser';
 import * as fs from 'fs';
 import * as path from 'path';
 
-type Service = {
+export type Service = {
     sid: number,
     shortName: string,
     desc?: any,
@@ -64,11 +67,32 @@ export type Method = {
     orig?: any
 };
 
+export type Frame = {
+    id: string,
+    type?: string,
+    byteLength?: number,
+    shortName: string,
+    pdus: Pdu[],
+    manufacturerExt?: any,
+    orig?: any
+};
+
+export type Pdu = {
+    id: string,
+    shortName?: string,
+    desc?: string,
+    byteLength?: number,
+    signalRefs?: string[],
+    orig?: any
+};
 
 export class FibexLoader {
     private static _codings: Map<string, Coding> = new Map();
     private static _datatypes: Map<string, Datatype> = new Map();
     private static _services: Map<number, Service> = new Map();
+    private static _frames: Map<string, Frame> = new Map();
+    private static _framesWithKey: Map<string, Frame> = new Map();
+    private static _pdus: Map<string, Pdu> = new Map();
     private static _loadedFibex: string[] = [];
 
 
@@ -83,6 +107,9 @@ export class FibexLoader {
             FibexLoader._codings.clear();
             FibexLoader._datatypes.clear();
             FibexLoader._services.clear();
+            FibexLoader._frames.clear();
+            FibexLoader._framesWithKey.clear();
+            FibexLoader._pdus.clear();
             FibexLoader._loadedFibex = [];
         }
         try {
@@ -92,7 +119,10 @@ export class FibexLoader {
 
             dir.forEach(file => {
                 if (path.extname(file).toLowerCase() === ".xml") {
-                    FibexLoader.loadFibex(path.join(fibexDir, file));
+                    const fileName = path.join(fibexDir, file);
+                    if (!this._loadedFibex.includes(fileName)) {
+                        FibexLoader.loadFibex(fileName);
+                    }
                 }
             });
         }
@@ -106,7 +136,24 @@ export class FibexLoader {
             try {
                 console.log(`FibexLoader.loadFibex(${fibex})'`);
                 const xmlData = fs.readFileSync(fibex, { encoding: 'utf8' });
-                const fibexJson = fastXmlParser.parse(xmlData, { ignoreAttributes: false });
+                const fibexJson = fastXmlParser.parse(xmlData, {
+                    ignoreAttributes: false, arrayMode: (m) => {
+                        switch (m) {
+                            case 'fx:PDU':
+                            case 'fx:PDU-INSTANCE':
+                            case 'fx:FRAME':
+                            case 'fx:SERVICE-INTERFACE':
+                            case 'fx:SIGNAL-INSTANCE':
+                            case 'fx:SWITCHED-PDU-INSTANCE':
+                            case 'fx:CODING':
+                            case 'fx:CHANNEL':
+                            case 'fx:FRAME-TRIGGERING':
+                                return true;
+                            default:
+                                return false;
+                        }
+                    }
+                });
                 console.log(` got fibexJson[fx:FIBEX].keys='${Object.keys(fibexJson['fx:FIBEX'])}'`);
                 // we do need "PROCESSING-INFORMATION"/UNIT_SPEC/UNITS /CODINGS /VARIANTS
 
@@ -118,11 +165,25 @@ export class FibexLoader {
                 } catch (err) {
                     console.warn(`FibexLoader parseCodings or Datatypes got err='${err}'`);
                 }
-                const services = fibexJson['fx:FIBEX']['fx:ELEMENTS']['fx:SERVICE-INTERFACES']['fx:SERVICE-INTERFACE'];
-                if (Array.isArray(services)) {
+
+                try {
+                    this.parseFibexPdus(fibexJson['fx:FIBEX']['fx:ELEMENTS']['fx:PDUS']['fx:PDU']);
+                } catch (err) {
+                    console.warn(`FibexLoader loading pdus got err='${err}'`);
+                }
+
+                try {
+                    const services = fibexJson['fx:FIBEX']['fx:ELEMENTS']['fx:SERVICE-INTERFACES']['fx:SERVICE-INTERFACE'];
                     this.parseFibexServices(services);
-                } else {
-                    this.parseFibexServices([services]);
+                } catch (err) {
+                    console.warn(`FibexLoader.loadFibex(${fibex}) loading services got err='${err}'`);
+                }
+
+                try {
+                    const frames = fibexJson['fx:FIBEX']['fx:ELEMENTS']['fx:FRAMES']['fx:FRAME'];
+                    this.parseFibexFrames(frames);
+                } catch (err) {
+                    console.warn(`FibexLoader.loadFibex(${fibex}) loading frames got err='${err}'`);
                 }
 
             } catch (err) {
@@ -188,6 +249,84 @@ export class FibexLoader {
                 }
             } catch (e) {
                 console.warn(`parseFibexService: couldn't parse '${JSON.stringify(serviceInterface)} ' due to '${e} '`);
+            }
+        }
+    }
+
+    private static parseFibexPdus(xmlPdus: any[]) {
+        console.log(`FibexLoader.parseFibexPdus got ${xmlPdus.length} pdus`);
+        for (let i = 0; i < xmlPdus.length; ++i) {
+            const xmlPdu = xmlPdus[i];
+            try {
+                const signalRefs: undefined | string[] = xmlPdu?.['fx:SIGNAL-INSTANCES']?.['fx:SIGNAL-INSTANCE'].map((xSig: any) => {
+                    const pduRef = xSig['fx:SIGNAL-REF']?.['@_ID-REF'];
+                    // todo handle fx:SEQUENCE-NUMBER
+                    return typeof pduRef === 'string' ? pduRef : 'unknown';
+                });
+
+                const pdu: Pdu = {
+                    id: xmlPdu['@_ID'] || 'no id',
+                    shortName: xmlPdu['ho:SHORT-NAME'],
+                    byteLength: xmlPdu['fx:BYTE-LENGTH'],
+                    desc: xmlPdu['ho:DESC'],
+                    signalRefs: signalRefs,
+                    orig: xmlPdu
+                };
+                if (FibexLoader._pdus.has(pdu.id)) {
+                    console.warn(` got pdu already: ${pdu.id}: ${JSON.stringify(pdu)}`);
+                } else {
+                    FibexLoader._pdus.set(pdu.id, pdu);
+                }
+            } catch (e) {
+                console.warn(`parseFibexPdu: couldn't parse '${JSON.stringify(xmlPdu)}' due to '${e} '`);
+            }
+        }
+    }
+
+    private static parseFibexFrames(xmlFrames: any[]) {
+        console.log(`FibexLoader.parseFibexFrames got ${xmlFrames.length} frames`);
+        for (let i = 0; i < xmlFrames.length; ++i) {
+            const xmlFrame = xmlFrames[i];
+            try {
+                // todo sort by fx:SEQUENCE-NUMBER
+                const pdus = xmlFrame?.['fx:PDU-INSTANCES']?.['fx:PDU-INSTANCE']?.map((xPdu: any) => {
+                    const pduRef = xPdu['fx:PDU-REF']['@_ID-REF'];
+                    // find the pdu
+                    return FibexLoader._pdus.get(pduRef);
+                }) || [];
+
+                const frame: Frame = {
+                    id: xmlFrame['@_ID'] || 'no id',
+                    byteLength: xmlFrame['fx:BYTE-LENGTH'],
+                    shortName: xmlFrame['ho:SHORT-NAME'],
+                    pdus: pdus,
+                    manufacturerExt: xmlFrame['fx:MANUFACTURER-EXTENSION'],
+                    orig: xmlFrame
+                };
+                // this is not really generic... but maintain a 2nd map as well:
+                const apid = frame.manufacturerExt ? frame.manufacturerExt.APPLICATION_ID : undefined;
+                const ctid = frame.manufacturerExt ? frame.manufacturerExt.CONTEXT_ID : undefined;
+                const key = `${frame.id},${apid},${ctid}`;
+
+                if (FibexLoader._frames.has(frame.id)) {
+                    if (FibexLoader._framesWithKey.has(key)) {
+                        console.warn(` got frame already, skipping: ${frame.id}: ${JSON.stringify(frame)}`);
+                    } else {
+                        FibexLoader._framesWithKey.set(key, frame);
+                        // logically we should set the _frames for the one which has no
+                        // apid, ctid
+                        // so that for multiple frames with same id frames contains the one
+                        // without apid/ctid:
+                        if (apid === undefined && ctid === undefined) {
+                            FibexLoader._frames.set(frame.id, frame);
+                        }
+                    }
+                } else {
+                    FibexLoader._frames.set(frame.id, frame);
+                    FibexLoader._framesWithKey.set(key, frame);
+                }
+            } catch (e) {
+                console.warn(`parseFibexFrames: couldn't parse '${JSON.stringify(xmlFrame)}' due to '${e}'`);
             }
         }
     }
@@ -449,5 +588,7 @@ export class FibexLoader {
     static get codings() { return FibexLoader._codings; }
     static get datatypes() { return FibexLoader._datatypes; }
     static get services() { return FibexLoader._services; }
+    static get frames() { return FibexLoader._frames; }
+    static get framesWithKey() { return FibexLoader._framesWithKey; }
 
 }

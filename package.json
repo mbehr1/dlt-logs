@@ -295,7 +295,7 @@
 								"properties": {
 									"name": {
 										"type": "string",
-										"description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp' and 'Rewrite' are available.",
+										"description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp', 'NonVerbose' and 'Rewrite' are available.",
 										"enum": [
 											"FileTransfer"
 										]
@@ -333,7 +333,7 @@
 								"properties": {
 									"name": {
 										"type": "string",
-										"description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp' and 'Rewrite' are available.",
+										"description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp', 'NonVerbose' and 'Rewrite' are available.",
 										"enum": [
 											"SomeIp"
 										]
@@ -361,11 +361,33 @@
 							},
 							{
 								"type": "object",
+								"title": "Non-Verbose plugin",
+								"properties": {
+									"name": {
+										"type": "string",
+										"description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp', 'NonVerbose' and 'Rewrite' are available.",
+										"enum": [
+											"NonVerbose"
+										]
+									},
+									"enabled": {
+										"type": "boolean",
+										"description": "Determines whether the plugin is currently enabled.",
+										"default": true
+									},
+									"fibexDir": {
+										"type": "string",
+										"description": "The path to directory with the FIBEX files. Can be empty if shared folder with SomeIp is used."
+									}
+								}
+							},
+							{
+								"type": "object",
 								"title": "Rewrite plugin",
 								"properties": {
 									"name": {
 										"type": "string",
-										"description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp' and 'Rewrite' are available.",
+										"description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp', 'NonVerbose' and 'Rewrite' are available.",
 										"enum": [
 											"Rewrite"
 										]
@@ -424,6 +446,14 @@
 								"enabled": true,
 								"allowSave": true,
 								"keepFLDA": false
+							},
+							{
+								"name": "SomeIp",
+								"enabled": false
+							},
+							{
+								"name": "NonVerbose",
+								"enabled": false
 							},
 							{
 								"name": "Rewrite",

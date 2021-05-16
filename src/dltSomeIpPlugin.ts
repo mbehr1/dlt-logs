@@ -98,6 +98,8 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
         return `${this.enabled ? '' : "disabled: "}plugin SOME/IP`;
     }
 
+    changesOnlyPayloadString(): boolean { return true; };
+
     matches(msg: DltMsg): boolean {
         if (!this.enabled) {
             return false;

@@ -102,19 +102,21 @@ export class DltMsg {
     readonly sessionId: number;
     /* readonly rewrite msg plugin might change it */ timeStamp: number;
     readonly verbose: boolean;
-    readonly mstp: MSTP; // message type from MSIN (message info)
-    readonly mtin: number; // message type info from MSIN
-    readonly noar: number; // number of arguments
+    /* readonly non-verb. might change */ mstp: MSTP; // message type from MSIN (message info)
+    /* readonly non-verb. might change */ mtin: number; // message type info from MSIN
+    /* readonly non-verb. might change */ noar: number; // number of arguments
     get apid(): string { return this._eac.a; }
     get ctid(): string { return this._eac.c; }
     get withEID(): boolean { return (this._htyp & 0x04) ? true : false; }
     private _eac: EAC;
-    private _payloadData: Buffer;
+    /* non-verbose plugin ... private */ _payloadData: Buffer;
     public _payloadArgs: Array<any> | undefined = undefined;
     public /* no friend class ... DltSomeIpPlugin private*/ _payloadText: string | undefined = undefined;
     private _transformCb: ((msg: DltMsg) => void) | undefined = undefined;
     lifecycle: DltLifecycleInfo | undefined = undefined;
     decorations: Array<[vscode.TextEditorDecorationType, Array<vscode.DecorationOptions>]> = [];
+
+    get isBigEndian(): boolean { return (this._htyp & 0x02) ? true : false; }
 
     constructor(storageHeaderEcu: string, stdHdr: any, index: number, timeAsNumber: number, data: Buffer) {
         this.index = index;
@@ -130,7 +132,7 @@ export class DltMsg {
         // 0x08 _WSID with session ID (next 4 byte after standard header)
         // 0x10 _WTMS with timestamp // in 0.1mi (next 4 byte after standard header)
         const useExtHeader: boolean = (this._htyp & 0x01) ? true : false;
-        const isBigEndian: boolean = (this._htyp & 0x02) ? true : false;
+        // const isBigEndian: boolean = (this._htyp & 0x02) ? true : false;
         const withEID: boolean = (this._htyp & 0x04) ? true : false;
         const withSID: boolean = (this._htyp & 0x08) ? true : false;
         const withTMS: boolean = (this._htyp & 0x10) ? true : false;
@@ -179,6 +181,22 @@ export class DltMsg {
         this._payloadData = data.slice(payloadOffset);
         assert.equal(this._payloadData.byteLength, stdHdr["len"] - (payloadOffset - DLT_STORAGE_HEADER_SIZE));
         // we parse the payload only on demand
+    }
+
+    /**
+     * set ECU, APID, CTID at once.
+     * As the 3 strings are stored differently this method is provided.
+     * @param e ECU
+     * @param a APID
+     * @param c CTID
+     */
+    setEAC(e: string, a: string, c: string) {
+        const eac: EAC = {
+            e: e,
+            a: a,
+            c: c
+        };
+        this._eac = getEACFromIdx(getIdxFromEAC(eac)) || eac;
     }
 
     asRestObject(idHint: number): RestObject {
@@ -308,9 +326,14 @@ export class DltMsg {
                             this._payloadArgs = [];
                             const payloadLen = this._payloadData.length;
                             if (payloadLen >= 4) {
-                                const messageId: number = this._payloadData.readUInt32LE(0);
+                                const messageId: number = this.isBigEndian ? this._payloadData.readUInt32BE(0) : this._payloadData.readUInt32LE(0);
+                                // store the orig data as well for the non-verbose plugin
+                                // todo or let the non-verbose plugin process before?
+                                this._payloadArgs.push({ type: Number, v: messageId });
+                                const nvPayload = this._payloadData.slice(4);
+                                this._payloadArgs.push({ type: Buffer, v: Buffer.from(nvPayload) }); // create a copy here as the reference might be a huge mem block
                                 // output in the same form as dlt viewer:
-                                this._payloadText += `[${messageId}] ${printableAscii(this._payloadData.slice(4))}|${toHexString(this._payloadData.slice(4))}`;
+                                this._payloadText += `[${messageId}] ${printableAscii(nvPayload)}|${toHexString(nvPayload)}`;
                             }
                             break;
                         }
@@ -677,6 +700,11 @@ export class DltParser {
                                         if (transformPlugin.matches(newMsg)) {
                                             // add callback
                                             newMsg.transformCb = transformPlugin.getTransformCb();
+                                            if (!transformPlugin.changesOnlyPayloadString()) {
+                                                // we apply it already here:
+                                                newMsg.payloadString; // todo find a better way than the indirect payloadString...
+                                                // this removes the transformCb again...
+                                            }
                                         }
                                     }
 

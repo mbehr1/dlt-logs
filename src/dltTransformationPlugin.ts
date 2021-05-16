@@ -27,6 +27,16 @@ export class DltTransformationPlugin extends DltFilter {
     }
 
     /**
+     * return whether that plugin changes only the 
+     * payload string.
+     * Payload string will be transformed on demand/deferred.
+     * (e.g. SomeIP)
+     * If anything else will be changed (e.g. non-verbose changes mtin,...)
+     * it will be transformed directly after loading the msg.
+     */
+    changesOnlyPayloadString(): boolean { return false; };
+
+    /**
      * return true if this plugin can transform the message.
      * The message itself is not transformed/modified yet.
      */

@@ -67,7 +67,8 @@ A more detailed documentation is available here: [Docs](https://mbehr1.github.io
   - zoom out: disable all positive filters and enable all neg. filters (so provide less details/logs)
 
 - Support **DLT file transfer** file extraction (and automatic filtering of FLDA msgs). Shows the file transfers and allows to save any file.
-- **SOME/IP decoder** plugin supporting multiple FIBEX files. All known services and methods are listed in the treeview incl. description texts in the tooltips!
+- **SOME/IP decoder** plugin supporting multiple FIBEX files. All known services and methods are listed in the treeview incl. description texts in the tooltips! Note: disabled by default. Need to add option "fibexDir" to use it.
+- **Non-verbose** plugin supporting DLT non-verbose mode to readable text conversion using FIBEX files. Known IDs are listed in the treeview. Note: disabled by default. Need to add option "fibexDir" to use it or share with SOME/IP decoder.
 - **Rewrite** plugin supporting rewriting/changing messages. E.g. timestamp of DLT logs with embedded syslog timestamps can be changed automatically.
 - **Quickly configurable columns**. Simply press the "select columns..." button in upper right corner of the document and select which one to show. The changes get stored permanently as global settings `dlt-logs.columns`.
 ![Quickly configureable columns](https://github.com/mbehr1/dlt-logs/raw/master/images/selectColumns.png)
@@ -89,7 +90,6 @@ The extension uses telemetry with two events (`activate` (no parameters) and `op
 - Add support for file changes (growing) and load/update automatically.
 - Saving of logs/selections allowing e.g. to add comments as proper logs.
 - Use custom editor interface to be able to support regular file open mechanism.
-- Add full non-verbose support including mapping table and payload args.
 - support for: charts.red, charts.blue, charts.yellow, charts.orange, charts.green, charts.purple, charts.foreground, charts.lines: Colors intended to be used by data visualization extensions.
 - add Treeview colored icons (1.51 vscode feature)
 

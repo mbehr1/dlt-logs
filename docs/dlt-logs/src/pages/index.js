@@ -32,7 +32,7 @@ const features = [
     description: (
       <>
         Extracting logs by criteria into smaller files, resorting logs by
-        timestamps, SOME/IP decoder,... support you in complex log/failure analysis.
+        timestamps, SOME/IP decoder,non-verbose mode,... support you in complex log/failure analysis.
       </>
     ),
   },
