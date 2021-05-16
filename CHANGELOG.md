@@ -1,5 +1,17 @@
 # Change log for 'DLT-Logs':
 
+## [1.20.0](https://github.com/mbehr1/dlt-logs/compare/v1.19.0...v1.20.0) (2021-05-16)
+
+
+### Features
+
+* non-verbose mode support ([de9c570](https://github.com/mbehr1/dlt-logs/commit/de9c570192c7fc394abafbfe098fb2368c7a0b6b))
+
+
+### Bug Fixes
+
+* width of index column wrong for sort order time ([5c5d683](https://github.com/mbehr1/dlt-logs/commit/5c5d683c9522178f2c0f594f8ae002e5a666ab09))
+
 ## [1.19.0](https://github.com/mbehr1/dlt-logs/compare/v1.18.1...v1.19.0) (2021-05-15)
 
 
