@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs':
 
+### [1.20.1](https://github.com/mbehr1/dlt-logs/compare/v1.20.0...v1.20.1) (2021-05-16)
+
+
+### Bug Fixes
+
+* build use VSCE_PAT and not VSCE_TOKEN ([4979fd1](https://github.com/mbehr1/dlt-logs/commit/4979fd1e2cb0d6ce5b29455f5470d15a7c74b3a8))
+
 ## [1.20.0](https://github.com/mbehr1/dlt-logs/compare/v1.19.0...v1.20.0) (2021-05-16)
 
 
