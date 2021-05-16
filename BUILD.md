@@ -207,13 +207,13 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v1
         with:
-          node-version: 12
+          node-version: 14
       - name: Install dependencies
         run: npm ci
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VSCE_TOKEN: ${{ secrets.VSCE_TOKEN }}
+          VSCE_PAT: ${{ secrets.VSCE_TOKEN }}
         run: npx semantic-release
 ```
 This needs a ```VSCE_TOKEN``` secret defined in github/repo/settings/secrets.
