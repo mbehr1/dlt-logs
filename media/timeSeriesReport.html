@@ -9,6 +9,9 @@
     <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@0.7.7"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@0.5.7/chartjs-plugin-annotation.min.js"></script>
+    <!-- for timelines-chart: -->
+    <script src="https://unpkg.com/timelines-chart@2.11.2"></script>
+    <script src="${{media}}/timeLinesChart.js"></script>
 
     <script>
         const vscode = acquireVsCodeApi(); // acquireVsCodeApi can only be invoked once
@@ -65,6 +68,17 @@
         button:active {
             outline: none;
         }
+        .timelines-chart .axises .grp-axis text {
+            fill: var(--vscode-editor-foreground);
+        }
+        .timelines-chart .axises .y-axis text {
+            fill: var(--vscode-editor-foreground);
+        }
+        .timelines-chart .reset-zoom-btn {
+            fill: var(--vscode-button-foreground);
+        }
+
+
     </style>
     <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
 </head>
@@ -92,7 +106,9 @@
             </div>
         </div>
     </div>
-
+    <div class="w3-container">
+        <div id="timeline"></div>
+    </div>
     <script>
         const vscodeStyles = window.getComputedStyle(document.body);
         var dragOptions = {
@@ -172,13 +188,15 @@
                     zoom: {
                         pan: {
                             enabled: true,
-                            mode: 'x'
+                            mode: 'x',
+                            onPanComplete: handlePanZoomComplete
                         },
                         zoom: {
                             enabled: true,
                             drag: false,
                             mode: 'x',
-                            speed: 0.05
+                            speed: 0.05,
+                            onZoomComplete: handlePanZoomComplete
                         }
                     }
                 },
@@ -212,10 +230,30 @@
                     // var label = window.myReport.data.xLabels[clickedElement[0]._index];
                     var dataPoint = window.myReport.data.datasets[smallElement._datasetIndex].data[smallElement._index];
                     vscode.postMessage({ message: 'clicked', dataPoint: dataPoint });
+                    timelineChartUpdate({selectedTime:new Date(dataPoint.x)});
                 }
             } catch (err) {
                 vscode.postMessage({ message: 'clicked got err ' + err });
             }
+        }
+
+        function handlePanZoomComplete({chart}){
+            //console.log(`handlePanZoomComplete`, chart);
+            //console.log(`handlePanZoomComplete`, chart.scales['x-axis-0']);
+            const minDate = new Date(chart.scales['x-axis-0'].min);
+            const maxDate = new Date(chart.scales['x-axis-0'].max);
+            //console.log(`handlePanZoomComplete ${minDate}-${maxDate}`);
+            timelineChartUpdate({zoomX: [minDate, maxDate]});
+        };
+
+        function handleTimelineChartZoom(startDate, endDate){
+            const chart = window.myReport;
+            //console.log(`handleTimelineChartZoom ${startDate}/${startDate.valueOf()}-${endDate}, cur=${chart.scales['x-axis-0'].min }-${chart.scales['x-axis-0'].max}`);
+            //config.options.scales.xAxes[0].min = startDate.valueOf();
+            //config.options.scales.xAxes[0].max = endDate.valueOf();
+            chart.scales['x-axis-0'].options.time.min = startDate.valueOf();
+            chart.scales['x-axis-0'].options.time.max = endDate.valueOf();
+            chart.update();
         }
 
         window.onload = function () {
@@ -296,8 +334,53 @@
                 fontStyle:'normal',
                 fontColor: vscodeStyles.getPropertyValue('--vscode-editor-foreground')
             },
-            value: null // wont be shown
+            value: null, // wont be shown
+            tag_: 'msg' // I hope its unused by the plugin (first one needs to have msg tag)
         }];
+
+        const updateSelectedTimeAnnotations = (times, tag) => {
+            const tagAnnotations = selectedTimeAnnotations.filter(t => t.tag_ === tag);
+            while (times.length > tagAnnotations.length){
+                // clone the first element but change a few attributes:
+                // todo better use a proper clone here. if e.g. new object attributes are added they are not cloned
+                const newAnn = {...selectedTimeAnnotations[0], label: {...selectedTimeAnnotations[0].label}, value: null, id: selectedTimeAnnotations[0].id + `_${selectedTimeAnnotations.length+1}`, tag_: tag};
+                selectedTimeAnnotations.push(newAnn);
+                tagAnnotations.push(newAnn);
+                // console.warn(` created ${JSON.stringify(selectedTimeAnnotations[selectedTimeAnnotations.length-1], undefined, 2)}`);
+            }
+            for (let i=0; i<tagAnnotations.length; ++i)
+            {
+                const timeAnnotation = tagAnnotations[i];
+                const hadSelectedTime = timeAnnotation.value !== null;
+                const [timeVal, timeLabel] = i < times.length ? (typeof times[i]==='object' ? [times[i].value, times[i].label] : [times[i],undefined]) : [null, undefined];
+                timeAnnotation.value = timeVal;
+                timeAnnotation.label.content = `${moment(timeAnnotation.value).format('LTS.SSS [ms]')}${timeLabel ? `: ${timeLabel}`:''}`;
+                const haveSelectedTime = timeAnnotation.value !== null;
+                //console.warn(` onDidChangeSelectedTime times #${i} had=${hadSelectedTime} have=${haveSelectedTime} label=${selectedTimeAnnotation.label.content} annotations=${config.options.annotation.annotations.length}`);
+                if (haveSelectedTime && !hadSelectedTime){
+                    config.options.annotation.annotations.push(timeAnnotation);
+                } else if (hadSelectedTime && !haveSelectedTime){
+                    const index = config.options.annotation.annotations.findIndex((e) => e.id === timeAnnotation.id);
+                    if (index > -1){
+                        config.options.annotation.annotations.splice(index, 1);
+                    }else{
+                        console.warn(`logical error! cant delete! i=${i}, index=${index}`, config.options.annotation.annotations, timeAnnotation);
+                    }
+                }else if (haveSelectedTime && hadSelectedTime){
+                    // need to modify elements directly: (fixed with chartjs v3...)
+                    window.myReport.annotation.elements[timeAnnotation.id].options.value = timeAnnotation.value;
+                    window.myReport.annotation.elements[timeAnnotation.id].options.label.content = timeAnnotation.label.content;
+                }
+            }
+
+        };
+
+        function handleTimelineChartSelectedTime(times){
+            const chart = window.myReport;
+            console.log(`handleTimelineChartSelectedTimes`, times);
+            updateSelectedTimeAnnotations(times, 'tl');
+            window.myReport.update();
+        }
 
         window.addEventListener('message', event => {
             try {
@@ -312,76 +395,58 @@
                         updateYAxes(config.options.scales.yAxes ,message.data ); // afterwards dataSet.yAxisID is set if dataSet.yAxis was set
                         // remove labels for all type 'category' axes:
                         config.options.scales.yAxes.forEach(yAxis => { if (yAxis.type === 'category') {yAxis.labels = []; }}); // remove labels here. we merge (=add) all values here later
-                        for (let i = 0; i < message.data.length; ++i) {
-
-                            if (i >= config.data.datasets.length) {
+                        for (let i = 0,d=0; i < message.data.length; ++i) {
+                            const messageData = message.data[i];
+                            if (messageData.label.startsWith("TL_")) {continue;}
+                            if (d >= config.data.datasets.length) {
                                 config.data.datasets.push({ // todo check for multiple yLabels
-                                    type: ('type' in message.data[i]) ? message.data[i].type : 'line',
-                                    label: message.data[i].label,
-                                    data: message.data[i].dataYLabels.data,
+                                    type: ('type' in messageData) ? messageData.type : 'line',
+                                    label: messageData.label,
+                                    data: messageData.dataYLabels.data,
                                     fill: false,
                                     borderWidth: 1,
                                     pointRadius: 2,
-                                    yAxisID: message.data[i].yAxisID
+                                    yAxisID: messageData.yAxisID
                                 });
                             }
 
-                            if (i < config.data.datasets.length) {
-                                config.data.datasets[i].label = message.data[i].label;
-                                config.data.datasets[i].type = ('type' in message.data[i]) ? message.data[i].type : 'line';
-                                if (message.data[i].dataYLabels.yLabels !== undefined) { // todo! yAxisID could be set!
-                                    vscode.postMessage({ message: 'update config.data.yLabels=' + config.data.yLabels + ' with ' + message.data[i].dataYLabels.yLabels });
-                                    const dsi = config.data.datasets[i];
-                                    const yAxis = message.data[i].yAxisID !== undefined ? config.options.scales.yAxes.find(yAxis => yAxis.id===message.data[i].yAxisID) : config.options.scales.yAxes[1];
-                                    config.data.datasets[i].yAxisID = yAxis.id;
-                                    config.data.datasets[i].lineTension = 0;
-                                    for (let j = 0; j < message.data[i].dataYLabels.yLabels.length; ++j) {
-                                        if (!(yAxis.labels.includes(message.data[i].dataYLabels.yLabels[j])))
-                                            yAxis.labels.push(message.data[i].dataYLabels.yLabels[j]);
+                            if (d < config.data.datasets.length) {
+                                const configDataset = config.data.datasets[d];
+                                configDataset.label = messageData.label;
+                                configDataset.hidden = messageData.yAxis?.hidden;
+                                configDataset.type = ('type' in messageData) ? messageData.type : 'line';
+                                if (messageData.dataYLabels.yLabels !== undefined) { // todo! yAxisID could be set!
+                                    vscode.postMessage({ message: 'update config.data.yLabels=' + config.data.yLabels + ' with ' + messageData.dataYLabels.yLabels });
+                                    const dsi = configDataset;
+                                    const yAxis = messageData.yAxisID !== undefined ? config.options.scales.yAxes.find(yAxis => yAxis.id===messageData.yAxisID) : config.options.scales.yAxes[1];
+                                    configDataset.yAxisID = yAxis.id;
+                                    configDataset.lineTension = 0;
+                                    for (let j = 0; j < messageData.dataYLabels.yLabels.length; ++j) {
+                                        if (!(yAxis.labels.includes(messageData.dataYLabels.yLabels[j])))
+                                            yAxis.labels.push(messageData.dataYLabels.yLabels[j]);
                                     }
                                 } else {
-                                    config.data.datasets[i].yAxisID = message.data[i].yAxisID !== undefined ? message.data[i].yAxisID : config.options.scales.yAxes[0].id;
-                                    config.data.datasets[i].lineTension = 0.4;
+                                    configDataset.yAxisID = messageData.yAxisID !== undefined ? messageData.yAxisID : config.options.scales.yAxes[0].id;
+                                    configDataset.lineTension = 0.4;
                                 }
-                                config.data.datasets[i].data = message.data[i].dataYLabels.data;
+                                configDataset.data = messageData.dataYLabels.data;
                             }
+                            ++d;
                         }
                         window.myReport.update();
+                        timelineChartUpdate({datasets:message.data.filter(d=>d.label.startsWith("TL_")), onZoom: handleTimelineChartZoom, onSelectedTime:handleTimelineChartSelectedTime});
                         vscode.postMessage({ message: 'updated report data ' + message.data.length });
 
                         break;
                     case 'onDidChangeSelectedTime':
                         { // todo check if times are within boundaries of this report?
                             const times = Array.isArray(message.selectedTime) ? message.selectedTime : [message.selectedTime];
-                            while (times.length > selectedTimeAnnotations.length){
-                                // clone the first element but change a few attributes:
-                                // todo better use a proper clone here. if e.g. new object attributes are added they are not cloned
-                                selectedTimeAnnotations.push({...selectedTimeAnnotations[0], label: {...selectedTimeAnnotations[0].label}, value: null, id: selectedTimeAnnotations[0].id + `_${selectedTimeAnnotations.length+1}`});
-                                // console.warn(` created ${JSON.stringify(selectedTimeAnnotations[selectedTimeAnnotations.length-1], undefined, 2)}`);
+                            updateSelectedTimeAnnotations(times, 'msg');
+
+                            if (selectedTimeAnnotations.length>0 && selectedTimeAnnotations[0].value !== null){ // relies on first one being tagged with 'msg'
+                                timelineChartUpdate({selectedTime:new Date(selectedTimeAnnotations[0].value)}); 
                             }
-                            for (let i=0; i<selectedTimeAnnotations.length; ++i)
-                            {
-                                const selectedTimeAnnotation = selectedTimeAnnotations[i];
-                                const hadSelectedTime = selectedTimeAnnotation.value !== null;
-                                selectedTimeAnnotation.value = i < times.length ? times[i] : null;
-                                selectedTimeAnnotation.label.content = `${moment(selectedTimeAnnotation.value).format('LTS.SSS [ms]')}`;
-                                const haveSelectedTime = selectedTimeAnnotation.value !== null;
-                                //console.warn(` onDidChangeSelectedTime times #${i} had=${hadSelectedTime} have=${haveSelectedTime} label=${selectedTimeAnnotation.label.content} annotations=${config.options.annotation.annotations.length}`);
-                                if (haveSelectedTime && !hadSelectedTime){
-                                    config.options.annotation.annotations.push(selectedTimeAnnotation);
-                                } else if (hadSelectedTime && !haveSelectedTime){
-                                    const index = config.options.annotation.annotations.findIndex((e) => e.id === selectedTimeAnnotation.id);
-                                    if (index > -1){
-                                        config.options.annotation.annotations.splice(index, 1);
-                                    }else{
-                                        console.warn(`logical error! cant delete! i=${i}, index=${index}`, config.options.annotation.annotations, selectedTimeAnnotation);
-                                    }
-                                }else if (haveSelectedTime && hadSelectedTime){
-                                    // need to modify elements directly: (fixed with chartjs v3...)
-                                    window.myReport.annotation.elements[selectedTimeAnnotation.id].options.value = selectedTimeAnnotation.value;
-                                    window.myReport.annotation.elements[selectedTimeAnnotation.id].options.label.content = selectedTimeAnnotation.label.content;
-                                }
-                            }
+
                             window.myReport.update();
                         }
                         break;
@@ -389,11 +454,12 @@
                         config.data.xLabels = message.labels;
                         minDataPointTime = message.minDataPointTime;
                         window.myReport.update();
+                        // todo ? timelineChartUpdate({config:config});
                         vscode.postMessage({ message: 'update labels #' + message.labels.length });
                         break;
                 }
             } catch (err) {
-                vscode.postMessage({ message: 'update got err:' + err });
+                vscode.postMessage({ message: `update(${event.data.command}) got err:${err}` });
             }
         });
 
@@ -417,10 +483,19 @@
                 }
             }
             window.myReport.update();
+            // todo ? timelineChartUpdate({config:config});
         });
 
         window.resetZoom = function () {
+            const chart = window.myReport;
+            // have to delete them as timelineChart zoom might have set them
+            delete chart.scales['x-axis-0'].options.time.min;
+            delete chart.scales['x-axis-0'].options.time.max;
+
             window.myReport.resetZoom();
+            const minDate = new Date(chart.scales['x-axis-0'].min);
+            const maxDate = new Date(chart.scales['x-axis-0'].max);
+            timelineChartUpdate({zoomX: [minDate, maxDate]});
         }
 
         window.toggleDragMode = function () {
@@ -429,6 +504,7 @@
             window.myReport.options.plugins.zoom.pan.enabled = zoomOptions.drag ? false : true;
 
             window.myReport.update();
+            // doesn't change zoom or any other data... timelineChartUpdate({config:config});
             document.getElementById('drag-switch').innerText = zoomOptions.drag ? "Disable drag mode" : "Enable drag mode";
         }
 

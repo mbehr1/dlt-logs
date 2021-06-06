@@ -9,6 +9,12 @@ import { DltLifecycleInfo } from './dltLifecycle';
 import { DltFilter } from './dltFilter';
 import { DltDocument } from './dltDocument';
 
+enum DataPointType {
+    Default = 0, // can be used but better to not set t_ then at all
+    PrevStateEnd = 1,
+    LifecycleEnd = 2
+}
+
 export class DltReport implements vscode.Disposable {
 
     panel: vscode.WebviewPanel | undefined;
@@ -22,7 +28,10 @@ export class DltReport implements vscode.Disposable {
     constructor(private context: vscode.ExtensionContext, private doc: DltDocument, private callOnDispose: (r: DltReport) => any) {
 
         this.panel = vscode.window.createWebviewPanel("dlt-logs.report", `dlt-logs report`, vscode.ViewColumn.Beside,
-            { enableScripts: true, retainContextWhenHidden: true });
+            {
+                enableScripts: true, retainContextWhenHidden: true,
+                localResourceRoots: [vscode.Uri.file(path.join(context.extensionPath, 'media'))]
+            });
         //  for ${filter.name} todo think about nice naming title
 
         this.panel.onDidDispose(() => {
@@ -73,7 +82,9 @@ export class DltReport implements vscode.Disposable {
         // load template and set a html:
         const htmlFile = fs.readFileSync(path.join(this.context.extensionPath, 'media', 'timeSeriesReport.html'));
         if (htmlFile.length) {
-            this.panel.webview.html = htmlFile.toString();
+            let htmlStr = htmlFile.toString();
+            htmlStr = htmlStr.replace('${{media}}', `${this.panel.webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'media'))}`);
+            this.panel.webview.html = htmlStr;
         } else {
             vscode.window.showErrorMessage(`couldn't load timeSeriesReport.html`);
             // throw?
@@ -144,7 +155,7 @@ export class DltReport implements vscode.Disposable {
         const lcEndDate: Date = lcDates[lcDates.length - 1];
         console.log(`updateReport lcStartDate=${lcStartDate}, lcEndDate=${lcEndDate}`);
 
-        let dataSets = new Map<string, { data: { x: Date, y: string | number, lcId: number }[], yLabels?: string[], yAxis?: any }>();
+        let dataSets = new Map<string, { data: { x: Date, y: string | number, lcId: number, t_?: DataPointType }[], yLabels?: string[], yAxis?: any }>();
 
         let minDataPointTime: Date | undefined = undefined;
 
@@ -168,7 +179,7 @@ export class DltReport implements vscode.Disposable {
                     // do we have a prev. state in same lifecycle?
                     const lastDP = lastDataPoints.get(label);
                     if (lastDP) {
-                        const prevStateDP = { x: new Date(time.valueOf() - 1), y: lastDP.y, lcId: lastDP.lcId };
+                        const prevStateDP = { x: new Date(time.valueOf() - 1), y: lastDP.y, lcId: lastDP.lcId, t_: DataPointType.PrevStateEnd };
                         if (prevStateDP.y !== dataPoint.y && dataPoint.lcId === prevStateDP.lcId && prevStateDP.x.valueOf() > lastDP.x.valueOf()) {
                             // console.log(`inserting prev state datapoint with y=${prevStateDP.y}`);
                             dataSet.data.push(prevStateDP);
@@ -235,6 +246,10 @@ export class DltReport implements vscode.Disposable {
                                         const groups = convertedMatches !== undefined ? convertedMatches : matches.groups;
                                         Object.keys(groups).forEach((valueName) => {
                                             // console.log(` found ${valueName}=${matches.groups[valueName]}`);
+                                            if (valueName.startsWith("TL_")) {
+                                                // for timelineChart
+                                                insertDataPoint(msg.lifecycle!, valueName, time, groups[valueName], false);
+                                            } else
                                             if (valueName.startsWith("STATE_")) {
                                                 // if value name starts with STATE_ we make this a non-numeric value aka "state handling"
                                                 // represented as string
@@ -382,15 +397,15 @@ export class DltReport implements vscode.Disposable {
                     lcInfos.forEach((lcInfo) => {
                         console.log(`checking lifecycle ${lcInfo.uniqueId}`);
                         if (data.yLabels !== undefined) {
-                            // for STATE_ we want a different behaviour.
+                            // for STATE_ or TL_ we want a different behaviour.
                             // we treat datapoints/events as state changes that persists
                             // until there is a new state.
                             // search the last value:
                             const lastState = leftNeighbor(data.data, lcInfo.lifecycleEnd, lcInfo.uniqueId);
                             console.log(`got lastState = ${lastState}`);
                             if (lastState !== undefined) {
-                                data.data.push({ x: new Date(lcInfo.lifecycleEnd.valueOf() - 1), y: lastState, lcId: lcInfo.uniqueId });
-                                data.data.push({ x: lcInfo.lifecycleEnd, y: '_unus_lbl_', lcId: lcInfo.uniqueId });
+                                data.data.push({ x: new Date(lcInfo.lifecycleEnd.valueOf() - 1), y: lastState, lcId: lcInfo.uniqueId, t_: DataPointType.PrevStateEnd });
+                                data.data.push({ x: lcInfo.lifecycleEnd, y: '_unus_lbl_', lcId: lcInfo.uniqueId, t_: DataPointType.LifecycleEnd });
                                 // need to sort already here as otherwise those data points are found...
                                 data.data.sort((a, b) => {
                                     const valA = a.x.valueOf();
