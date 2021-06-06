@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs':
 
+## [1.21.0](https://github.com/mbehr1/dlt-logs/compare/v1.20.1...v1.21.0) (2021-06-06)
+
+
+### Features
+
+* timeline/swimlane report chart ([a3b6f43](https://github.com/mbehr1/dlt-logs/commit/a3b6f434916ffaaf17280107acc7cea77d2f095c))
+
 ### [1.20.1](https://github.com/mbehr1/dlt-logs/compare/v1.20.0...v1.20.1) (2021-05-16)
 
 
