@@ -68,6 +68,9 @@
         button:active {
             outline: none;
         }
+        .timelines-chart .series-group {
+            fill-opacity: 0.2;
+        }
         .timelines-chart .axises .grp-axis text {
             fill: var(--vscode-editor-foreground);
         }
@@ -77,7 +80,33 @@
         .timelines-chart .reset-zoom-btn {
             fill: var(--vscode-button-foreground);
         }
-
+        .brusher .grid-background { /* background for time overview below the swimlanes */
+            fill: var(--vscode-editor-background);
+        }
+        .brusher .grid-background .selection { /* selected time range for time overview */
+            fill: var(--vscode-list-focusOutline); /*var(--vscode-editor-selectionBackground);*/
+            stroke: var(--vscode-list-focusOutline);
+        }
+        .brusher .brush .selection { /* selected time range for time overview */
+            fill: var(--vscode-list-focusOutline); /*var(--vscode-editor-selectionBackground);*/
+            stroke: var(--vscode-list-focusOutline);
+        }
+        .brusher .tick { /* horz small lines for time overview */
+            stroke: var(--vscode-editor-foreground);
+        }
+        .brusher .grid line { /* horz lines for time overview */
+            stroke: var(--vscode-editor-foreground);
+        }
+        .brusher .grid path { /* horz lines for time overview */
+            stroke: var(--vscode-editor-foreground);
+        }
+        .chart-tooltip {
+            font-family: var(--vscode-editor-font-family);
+            background: var(--vscode-editorHoverWidget-background);
+            color: var(--vscode-editorHoverWidget-foreground);
+            border-color: var(--vscode-editorHoverWidget-border);
+            border-width: 1;
+        }
 
     </style>
     <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
