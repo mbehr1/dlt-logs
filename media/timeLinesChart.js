@@ -38,9 +38,14 @@ colorScale.domain = (a) => {
 };
 
 const segmentTooltipContent = (seg) => {
-    console.log(`segmentTooltipContent nyi`, seg);
-    // we want time format LTS.sss [ms]
-    return `${seg.group}.${seg.label}= <strong>${seg.val}</strong><br>${seg.timeRange[0]}-${seg.timeRange[1]}`;
+    const startTime = seg.timeRange[0];
+    const endTime = seg.timeRange[1];
+    if (startTime === endTime) {
+        return `'${seg.group}.${seg.label}' = '<strong>${seg.labelVal}</strong>'<br>${moment(startTime).format('LTS.SSS [ms]')}`;
+    } else {
+        const durS = (endTime - startTime) / 1000;
+        return `'${seg.group}.${seg.label}' = '<strong>${seg.labelVal}</strong>'<br>${moment(startTime).format('LTS.SSS [ms]')}-${moment(endTime).format('LTS.SSS [ms]')}<br>duration ${durS.toFixed(3)}s`;
+    }
 };
 
 const handleSegmentClick = (ev) => {
@@ -215,6 +220,7 @@ const timelineChartUpdate = (options) => {
                 .zScaleLabel('actions')
                 .zQualitative(true)
                 .zColorScale(colorScale)
+                .rightMargin(200)
                 .enableAnimations(false)
                 .useUtc(false)
                 .data(timelineData)
@@ -222,7 +228,7 @@ const timelineChartUpdate = (options) => {
                 .onSegmentClick(handleSegmentClick)
                 .onLabelClick(handleLabelClick)
                 .onZoom(handleZoom)
-                //.segmentTooltipContent(segmentTooltipContent) todo use own, add group,label, no To: for |,...
+                .segmentTooltipContent(segmentTooltipContent)
                 .timeFormat('%I:%M:%S %p.%L [ms]')
                 (document.getElementById('timeline'));
             resizeObserver.observe(document.getElementById('timeline'));
