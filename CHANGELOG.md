@@ -1,5 +1,13 @@
 # Change log for 'DLT-Logs':
 
+### [1.21.1](https://github.com/mbehr1/dlt-logs/compare/v1.21.0...v1.21.1) (2021-06-07)
+
+
+### Bug Fixes
+
+* timeline chart layout changes ([9144d91](https://github.com/mbehr1/dlt-logs/commit/9144d91a78ee85aea9739cf83b1d9f8b49b5efbd))
+* timeline margin and tooltip ([fa22370](https://github.com/mbehr1/dlt-logs/commit/fa22370c466b07fd491d0c354d1f311337795d54))
+
 ## [1.21.0](https://github.com/mbehr1/dlt-logs/compare/v1.20.1...v1.21.0) (2021-06-06)
 
 
