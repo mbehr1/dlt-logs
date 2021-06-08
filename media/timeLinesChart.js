@@ -152,7 +152,7 @@ const addTimeLineData = (groupName, labelName, valueName, time, options) => {
         const valueTooltip = valueParts[1]; // works for isFinished as well -> ''
         const valueColor = valueParts[2]; // could be undef.
         label.data.push({
-            timeRange: [time, isFinished ? time + 10 : time + (3600) * 1000], // todo determine better end
+            timeRange: [time, isFinished ? new Date(time.valueOf() + 1) : new Date(time.valueOf() + (3600) * 1000)], // todo determine better end
             val: { g: groupName, l: labelName, v: labelVal, c: valueColor, t: valueTooltip?.length ? valueTooltip : undefined },
             labelVal: labelVal,
             isFinished: isFinished,
