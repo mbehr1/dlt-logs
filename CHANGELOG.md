@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs':
 
+### [1.21.2](https://github.com/mbehr1/dlt-logs/compare/v1.21.1...v1.21.2) (2021-06-08)
+
+
+### Bug Fixes
+
+* add tooltip and color to values ([88b3882](https://github.com/mbehr1/dlt-logs/commit/88b3882be6c50b536cf70bc99b18fcba3adc7fd1))
+
 ### [1.21.1](https://github.com/mbehr1/dlt-logs/compare/v1.21.0...v1.21.1) (2021-06-07)
 
 
