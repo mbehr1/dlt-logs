@@ -21,6 +21,8 @@ const colorScaleData = {
 };
 const colorScale = (a) => {
     const v = typeof a === 'string' ? a : a.v;
+    const color = typeof a === 'object' ? a.c : undefined;
+    if (color) { return color; } // dont add to domain?
     const index = colorScaleData.domains.indexOf(v);
     if (index >= 0) {
         return colorScaleData.colors[index % colorScaleData.colors.length];
@@ -40,11 +42,12 @@ colorScale.domain = (a) => {
 const segmentTooltipContent = (seg) => {
     const startTime = seg.timeRange[0];
     const endTime = seg.timeRange[1];
+    const toolTip = seg?.val.t;
     if (startTime === endTime) {
-        return `'${seg.group}.${seg.label}' = '<strong>${seg.labelVal}</strong>'<br>${moment(startTime).format('LTS.SSS [ms]')}`;
+        return `'${seg.group}.${seg.label}' = '<strong>${seg.labelVal}</strong>'${toolTip ? `<br>${toolTip}<br>` : '<br>'}${moment(startTime).format('LTS.SSS [ms]')}`;
     } else {
         const durS = (endTime - startTime) / 1000;
-        return `'${seg.group}.${seg.label}' = '<strong>${seg.labelVal}</strong>'<br>${moment(startTime).format('LTS.SSS [ms]')}-${moment(endTime).format('LTS.SSS [ms]')}<br>duration ${durS.toFixed(3)}s`;
+        return `'${seg.group}.${seg.label}' = '<strong>${seg.labelVal}</strong>'${toolTip ? `<br>${toolTip}<br>` : '<br>'}${moment(startTime).format('LTS.SSS [ms]')}-${moment(endTime).format('LTS.SSS [ms]')}<br>duration ${durS.toFixed(3)}s`;
     }
 };
 
@@ -117,8 +120,8 @@ const MARKER_FINISH = '|';
 const MARKER_PERSIST = '$';
 
 const addTimeLineData = (groupName, labelName, valueName, time, options) => {
-    // group.label.value
-    // const [groupName, labelName, valueName] = event.split('.');
+    // valueName can contain tooltip desc. and color as well.
+    // valueName [|tooltip[|color]][MARKER]
     let group = timelineData.find(g => g.group === groupName);
     if (!group) {
         group = { group: groupName, data: [] };
@@ -144,10 +147,14 @@ const addTimeLineData = (groupName, labelName, valueName, time, options) => {
     if (!valueName) {
     } else {
         const isFinished = valueName.endsWith(MARKER_FINISH) ? true : undefined;
+        const valueParts = valueName.split('|');
+        const labelVal = valueParts[0];
+        const valueTooltip = valueParts[1]; // works for isFinished as well -> ''
+        const valueColor = valueParts[2]; // could be undef.
         label.data.push({
             timeRange: [time, isFinished ? time + 10 : time + (3600) * 1000], // todo determine better end
-            val: { g: groupName, l: labelName, v: valueName },
-            labelVal: valueName,
+            val: { g: groupName, l: labelName, v: labelVal, c: valueColor, t: valueTooltip?.length ? valueTooltip : undefined },
+            labelVal: labelVal,
             isFinished: isFinished,
             isPersisted: valueName.endsWith(MARKER_PERSIST) ? true : undefined,
         });
