@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs':
 
+### [1.21.3](https://github.com/mbehr1/dlt-logs/compare/v1.21.2...v1.21.3) (2021-06-08)
+
+
+### Bug Fixes
+
+* use 1ms for finished TL_ events ([adc0541](https://github.com/mbehr1/dlt-logs/commit/adc0541289da90689ff977b5e982b9038dd9a1d0))
+
 ### [1.21.2](https://github.com/mbehr1/dlt-logs/compare/v1.21.1...v1.21.2) (2021-06-08)
 
 
