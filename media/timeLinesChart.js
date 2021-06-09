@@ -144,7 +144,7 @@ const addTimeLineData = (groupName, labelName, valueName, time, options) => {
             if (!valueName) { prevValue.isFinished = true; }
         }
     }
-    if (!valueName) {
+    if (!valueName || valueName.length === 0) {
     } else {
         const isFinished = valueName.endsWith(MARKER_FINISH) ? true : undefined;
         const valueParts = valueName.split('|');
@@ -203,7 +203,7 @@ const timelineChartUpdate = (options) => {
                     if (data.t_ === 2) {
                         addTimeLineData(groupName, labelName, null, new Date(data.x), { lcEnd: true });
                     } else {
-                        const val = data.y || '<noval>';
+                        const val = data.y; // empty value '' will be treated like null -> can be used to end prev. one.
                         addTimeLineData(groupName, labelName, val, new Date(data.x));
                     }
                 }
