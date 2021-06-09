@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs':
 
+### [1.21.4](https://github.com/mbehr1/dlt-logs/compare/v1.21.3...v1.21.4) (2021-06-09)
+
+
+### Bug Fixes
+
+* treat empty value name as end marker ([10fade7](https://github.com/mbehr1/dlt-logs/commit/10fade7fc49dcd8495d78ddefde1288e2bc28cdf))
+
 ### [1.21.3](https://github.com/mbehr1/dlt-logs/compare/v1.21.2...v1.21.3) (2021-06-08)
 
 
