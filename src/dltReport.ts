@@ -155,14 +155,14 @@ export class DltReport implements vscode.Disposable {
         const lcEndDate: Date = lcDates[lcDates.length - 1];
         console.log(`updateReport lcStartDate=${lcStartDate}, lcEndDate=${lcEndDate}`);
 
-        let dataSets = new Map<string, { data: { x: Date, y: string | number, lcId: number, t_?: DataPointType }[], yLabels?: string[], yAxis?: any }>();
+        let dataSets = new Map<string, { data: { x: Date, y: string | number | any, lcId: number, t_?: DataPointType }[], yLabels?: string[], yAxis?: any }>();
 
         let minDataPointTime: Date | undefined = undefined;
 
         // we keep the last data point by each "label"/data source name:
-        let lastDataPoints = new Map<string, { x: Date, y: string | number, lcId: number }>();
+        let lastDataPoints = new Map<string, { x: Date, y: string | number | any, lcId: number }>();
 
-        const insertDataPoint = function (lifecycle: DltLifecycleInfo, label: string, time: Date, value: number | string, insertPrevState = false) {
+        const insertDataPoint = function (lifecycle: DltLifecycleInfo, label: string, time: Date, value: number | string | any, insertPrevState = false, insertYLabels = true) {
             let dataSet = dataSets.get(label);
 
             if ((minDataPointTime === undefined) || minDataPointTime.valueOf() > time.valueOf()) {
@@ -190,7 +190,7 @@ export class DltReport implements vscode.Disposable {
                 lastDataPoints.set(label, dataPoint);
             }
             // yLabels?
-            if (typeof value === 'string') {
+            if (typeof value === 'string' && insertYLabels) {
                 const label = `${value}`;
                 if (dataSet.yLabels === undefined) {
                     dataSet.yLabels = ['', label];
@@ -248,7 +248,7 @@ export class DltReport implements vscode.Disposable {
                                             // console.log(` found ${valueName}=${matches.groups[valueName]}`);
                                             if (valueName.startsWith("TL_")) {
                                                 // for timelineChart
-                                                insertDataPoint(msg.lifecycle!, valueName, time, groups[valueName], false);
+                                                insertDataPoint(msg.lifecycle!, valueName, time, groups[valueName], false, false);
                                             } else
                                             if (valueName.startsWith("STATE_")) {
                                                 // if value name starts with STATE_ we make this a non-numeric value aka "state handling"
@@ -277,6 +277,10 @@ export class DltReport implements vscode.Disposable {
                 }
             }
         }
+
+        // support "lazy" evaluation mainly for TL_...
+        // if datapoint.y is an object with an entry 'y' we replace that with the entry.
+        dataSets.forEach((data) => { data.data.forEach(dp => { if (typeof (dp.y) === 'object') { if (dp.y.y) { dp.y = dp.y.y; } } }); });
 
         console.log(` have ${dataSets.size} data sets:`);
         dataSets.forEach((data, key) => { console.log(`  ${key} with ${data.data.length} entries and ${data.yLabels?.length} yLabels`); });
