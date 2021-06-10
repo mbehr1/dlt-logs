@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs':
 
+### [1.21.5](https://github.com/mbehr1/dlt-logs/compare/v1.21.4...v1.21.5) (2021-06-10)
+
+
+### Bug Fixes
+
+* support lazy/late eval for TL_ ([fda593b](https://github.com/mbehr1/dlt-logs/commit/fda593bbd13ad38c1df728f9e90e2f6cdb9c4ca6))
+
 ### [1.21.4](https://github.com/mbehr1/dlt-logs/compare/v1.21.3...v1.21.4) (2021-06-09)
 
 
