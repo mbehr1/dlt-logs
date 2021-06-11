@@ -399,14 +399,14 @@ export class DltReport implements vscode.Disposable {
                 // add some NaN data at the end of each lifecycle to get real gaps (and not interpolated line)
                 this.doc.lifecycles.forEach((lcInfos) => {
                     lcInfos.forEach((lcInfo) => {
-                        console.log(`checking lifecycle ${lcInfo.uniqueId}`);
+                        //console.log(`checking lifecycle ${lcInfo.uniqueId}`);
                         if (data.yLabels !== undefined) {
                             // for STATE_ or TL_ we want a different behaviour.
                             // we treat datapoints/events as state changes that persists
                             // until there is a new state.
                             // search the last value:
                             const lastState = leftNeighbor(data.data, lcInfo.lifecycleEnd, lcInfo.uniqueId);
-                            console.log(`got lastState = ${lastState}`);
+                            //console.log(`got lastState = ${lastState}`);
                             if (lastState !== undefined) {
                                 data.data.push({ x: new Date(lcInfo.lifecycleEnd.valueOf() - 1), y: lastState, lcId: lcInfo.uniqueId, t_: DataPointType.PrevStateEnd });
                                 data.data.push({ x: lcInfo.lifecycleEnd, y: '_unus_lbl_', lcId: lcInfo.uniqueId, t_: DataPointType.LifecycleEnd });
