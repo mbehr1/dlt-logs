@@ -1,6 +1,10 @@
 /**
  * time-line / swimlanes alike chart based on TL_ states/events.
  * (c) Matthias Behr, 2021
+ *
+ * todo:
+ * - once PR https://github.com/vasturiano/timelines-chart/pull/28 is supported/merged
+ *  add text to the rectangles
  */
 
 //console.log(`timeLinesChart called...`);
@@ -224,10 +228,13 @@ const timelineChartUpdate = (options) => {
         if (timelineChart === undefined) {
             timelineChart = TimelinesChart();
             timelineChart
-                .zScaleLabel('actions')
+                //.zScaleLabel('actions')
                 .zQualitative(true)
                 .zColorScale(colorScale)
+                .maxHeight(50000) // avoid too small lines. prefer scrolling
                 .rightMargin(200)
+                .leftMargin(150)
+                .maxLineHeight(12) // 12 is default anyhow... lets not make it smaller to keep space for texts inside rects
                 .enableAnimations(false)
                 .useUtc(false)
                 .data(timelineData)
