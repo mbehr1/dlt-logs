@@ -193,7 +193,7 @@ const timelineChartUpdate = (options) => {
         // todo cleanup into sep. functions/data
         for (let i = 0; i < datasets.length; ++i) {
             const dataset = datasets[i];
-            console.log(`timelineChartUpdate got dataset.type=${dataset.type} .label='${dataset.label}' .data.length=${dataset.dataYLabels.data?.length}`);
+            //console.log(`timelineChartUpdate got dataset.type=${dataset.type} .label='${dataset.label}' .data.length=${dataset.dataYLabels.data?.length}`);
             if (dataset.label.startsWith('TL_')) {
                 const label = dataset.label.slice(3);
                 const first_ = label.indexOf('_');

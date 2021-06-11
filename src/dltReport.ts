@@ -282,8 +282,8 @@ export class DltReport implements vscode.Disposable {
         // if datapoint.y is an object with an entry 'y' we replace that with the entry.
         dataSets.forEach((data) => { data.data.forEach(dp => { if (typeof (dp.y) === 'object') { if (dp.y.y) { dp.y = dp.y.y; } } }); });
 
-        console.log(` have ${dataSets.size} data sets:`);
-        dataSets.forEach((data, key) => { console.log(`  ${key} with ${data.data.length} entries and ${data.yLabels?.length} yLabels`); });
+        console.log(` have ${dataSets.size} data sets`);
+        //dataSets.forEach((data, key) => { console.log(`  ${key} with ${data.data.length} entries and ${data.yLabels?.length} yLabels`); });
 
         for (let f = 0; f < this.filter.length; ++f) {
             const filter = this.filter[f];
