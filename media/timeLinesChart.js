@@ -3,6 +3,7 @@
  * (c) Matthias Behr, 2021
  *
  * todo:
+ * - after expand/collapse keep prev. time zoom
  * - once PR https://github.com/vasturiano/timelines-chart/pull/28 is supported/merged
  *  add text to the rectangles
  */
@@ -64,34 +65,115 @@ const handleSegmentClick = (ev) => {
     }
 };
 
-const handleLabelClick = (labelOrGroup, group) => {
-    console.log(`handleLabelClick`, labelOrGroup, group);
-    if (group === undefined) { // click on group... (but name in labelOrGroup)
-        // collapse or extend the group
-        const groupObjArr = timelineData.filter(a => a.group === labelOrGroup);
+// adapted from here: https://stackoverflow.com/questions/30472556/how-to-find-all-overlapping-ranges-and-partition-them-into-chunks/30473019
+const partitionIntoOverlappingRanges = (array) => {
+    if (!array.length) { return array; }
+    array.sort(function (a, b) {
+        if (a.timeRange[0].valueOf() < b.timeRange[0].valueOf()) { return -1; }
+        if (a.timeRange[0].valueOf() > b.timeRange[0].valueOf()) { return 1; }
+        // equal start, sort by end:
+        if (a.timeRange[1].valueOf() < b.timeRange[1].valueOf()) { return -1; }
+        if (a.timeRange[1].valueOf() > b.timeRange[1].valueOf()) { return 1; }
+        return 0;
+    });
+    var rarray = [];
+    var g = 0;
+    rarray[g] = array[0];
+
+    const copyVal = (val) => {
+        const toRet = { ...val, isCopied: true };
+        toRet.timeRange = [...val.timeRange];
+        toRet.val = { ...val.val };
+        return toRet;
+    };
+
+    for (var i = 1, l = array.length; i < l; i++) {
+        const arrIStart = array[i].timeRange[0].valueOf();
+        const arrIEnd = array[i].timeRange[1].valueOf();
+        const rIStart = rarray[g].timeRange[0].valueOf();
+        const rIEnd = rarray[g].timeRange[1].valueOf();
+        //console.log(`collapse: rI=${rIStart}-${rIEnd} arrI=${arrIStart}-${arrIEnd}`);
+        if (((arrIStart >= array[i - 1].timeRange[0].valueOf()) && (arrIStart < rIEnd))
+            || (arrIStart === rIStart)
+        ) { // do overlap -> merge with the first
+            // need to do a copy first to not modify the orig object
+            if (!rarray[g].isCopied) {
+                rarray[g] = copyVal(rarray[g]);
+            }
+
+            // we do overlap so we have 3 new areas:
+            // start, overlap, end
+            const lastR = rarray[g];
+            const r1 = [lastR.timeRange[0].valueOf(), arrIStart];
+            const r2 = [arrIStart, Math.min(arrIEnd, lastR.timeRange[1].valueOf())];
+            const r3 = [Math.min(arrIEnd, lastR.timeRange[1].valueOf()), Math.max(arrIEnd, lastR.timeRange[1].valueOf())];
+            const hasR1 = r1[0] < r1[1];
+            const hasR2 = true; // r len===0 r2[0] < r2[1];
+            const hasR3 = r3[0] < r3[1];
+            // const r3IsArrI = arrIEnd > lastR.timeRange[1].valueOf();
+            // const newR3 = hasR3 ? copyVal(r3IsArrI ? array[i] : lastR) : undefined;
+            if (hasR1) {
+                // reduce rarray to this one, but keep params
+                rarray[g].timeRange = r1.map(r => new Date(r));
+                //console.log(` collapse:modified r1`);
+            }
+            if (hasR2) { // overlapping area
+                if (hasR1) {
+                    // need to insert a new one:
+                    g++;
+                    rarray[g] = copyVal(rarray[g - 1]);
+                    // console.log(` collapse:appended r2`);
+                } else {
+                    // console.log(` collapse:modified r2`);
+                }
+                rarray[g].timeRange = r2.map(r => new Date(r));
+                if (rarray[g].labelVal !== array[i].labelVal) {
+                    rarray[g].labelVal = 'collapsed';
+                }
+                rarray[g].val.v = 'collapsed';
+                rarray[g].val.t = undefined;
+
+                if (rarray[g].val.c !== array[i].val.c) {
+                    rarray[g].val.c = 'DimGray';
+                }
+            }
+            if (hasR3) { // we cannot append as the next array item might have a smaller start then...
+                rarray[g].timeRange[1] = new Date(r3[1]);
+            }
+
+        } else {
+            if (arrIEnd === rIEnd) {
+                // they might have len 0 and end===end:
+                // console.log(` collapse:end===end ignored`);
+            } else {
+                g++;
+                rarray[g] = array[i];
+                // console.log(` collapse:appended non overlapping`);
+            }
+        }
+    }
+    return rarray;
+};
+
+const collapseOrExtendGroup = (groupName) => {
+    let doUpdate = false;
+    try {
+        const groupObjArr = timelineData.filter(a => a.group === groupName);
         if (groupObjArr.length === 1) {
             const groupObj = groupObjArr[0];
             const groupData = groupObj.data;
             const isCollapseable = groupData.length > 1;
             const isExtendable = groupData.length === 1 && groupObj.origData?.length > 1;
             console.log(` group '${groupObj.group}' isCollapseable=${isCollapseable} isExtendable=${isExtendable}`);
-            let doUpdate = false;
             if (isCollapseable) { // collapse
                 groupObj.origData = groupObj.data;
                 const collapsedData = [];
-                // flatten the data into a single label: (might not work if items overlap... todo check / merge into one then)
                 groupObj.data.forEach(labelData => collapsedData.push(...(labelData.data)));
 
                 groupObj.data = [
                     {
                         label: "collapsed",
-                        /* to collapse into just a single item:
-                        data:[{
-                            timeRange:[
-                                groupObj.data[0].data[0].timeRange[0], 
-                                groupObj.data[groupObj.data.length-1].data[groupObj.data[groupObj.data.length-1].data.length-1].timeRange[1]], // todo proper min/max...
-                            val:'collapsed'}] */
-                        data: collapsedData
+                        data: partitionIntoOverlappingRanges(collapsedData)
                     }];
                 console.log(` collapsed data=`, groupObj.data);
                 doUpdate = true;
@@ -100,13 +182,24 @@ const handleLabelClick = (labelOrGroup, group) => {
                 // todo could remove key origData
                 doUpdate = true;
             }
-            if (doUpdate) {
-                timelineChart.data(timelineData);
-            }
-
         } else {
             console.log(` bug! filter returned != 1. length=${groupObjArr.length}`);
         }
+    } catch (e) {
+        console.log(`collapseOrExtendGroup got e=${e}`);
+    }
+    return doUpdate;
+};
+
+const handleLabelClick = (labelOrGroup, group) => {
+    console.log(`handleLabelClick`, labelOrGroup, group);
+    try {
+        if (group === undefined) { // click on group... (but name in labelOrGroup)
+            // collapse or extend the group
+            const doUpdate = collapseOrExtendGroup(labelOrGroup);
+            if (doUpdate) {
+                timelineChart.data(timelineData);
+            }
     } else { // click on label
         // unselect any selected one
         // todo could be more sophisticated and allow e.g. one per label being selected
@@ -114,6 +207,9 @@ const handleLabelClick = (labelOrGroup, group) => {
         if (onSelectTimeCallback) {
             onSelectTimeCallback([]);
         }
+    }
+    } catch (e) {
+        console.log(`handleLabelClick got e=${e}`);
     }
 };
 
@@ -211,6 +307,16 @@ const timelineChartUpdate = (options) => {
                         addTimeLineData(groupName, labelName, val, new Date(data.x));
                     }
                 }
+            }
+        }
+        for (let index = 0; index < timelineData.length; ++index) {
+            const group = timelineData[index];
+            try {
+                if (group.data.length > 10) {
+                    collapseOrExtendGroup(group.group);
+                }
+            } catch (e) {
+                console.warn(`auto collapse index=${index} got e=${e}`, group);
             }
         }
     }
