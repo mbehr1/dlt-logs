@@ -1,5 +1,15 @@
 # Change log for 'DLT-Logs':
 
+### [1.21.6](https://github.com/mbehr1/dlt-logs/compare/v1.21.5...v1.21.6) (2021-06-12)
+
+
+### Bug Fixes
+
+* **report:** disabled more logs ([e6b0706](https://github.com/mbehr1/dlt-logs/commit/e6b070628135599dc139ee00bfe7d1edcb45afd6))
+* **report:** remove some logging ([a0e230e](https://github.com/mbehr1/dlt-logs/commit/a0e230e9a21d578fe662918497aa6dc72e1f45a7))
+* **report:** timeline autocollapse ([461d4ce](https://github.com/mbehr1/dlt-logs/commit/461d4ce3028e0223ce79caed5c2c737aae9a64e5))
+* **report:** timeline chart layout changes ([b834ca7](https://github.com/mbehr1/dlt-logs/commit/b834ca76276dca1278d26a473760308a06b4dfef))
+
 ### [1.21.5](https://github.com/mbehr1/dlt-logs/compare/v1.21.4...v1.21.5) (2021-06-10)
 
 
