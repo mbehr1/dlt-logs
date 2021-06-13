@@ -7,10 +7,11 @@ module.exports = {
   favicon: 'img/favicon.ico',
   organizationName: 'mbehr1', // Usually your GitHub org/user name.
   projectName: 'dlt-logs', // Usually your repo name.
-  // plugins: ['@docusaurus/plugin-google-analytics'],
+  // plugins: ['@docusaurus/plugin-google-gtag'],
   themeConfig: {
-    googleAnalytics: {
+    gtag: {
       trackingID: 'UA-180286216-1',
+      anonymizeIP: true
     },
     navbar: {
       title: 'DLT-Logs',
@@ -110,9 +111,6 @@ module.exports = {
         theme: {
           customCss: require.resolve('./src/css/custom.css'),
         },
-        //googleAnalytics: {
-        //  trackingID: 'UA-180286216-1'
-        //},
       },
     ],
   ],
