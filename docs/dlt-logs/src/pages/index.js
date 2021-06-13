@@ -23,6 +23,9 @@ const features = [
       <>
         Visualizing helps a lot to find the needle in the hay stack and
         to better understand the overall picture as well.
+        Graphical reports help you to understand data.
+        Timeline / swim-lane views can provide a quick overview
+        of e.g. complex state machines.
       </>
     ),
   },

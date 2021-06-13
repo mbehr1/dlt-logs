@@ -118,6 +118,7 @@ value name | expected type | comment
 ---------- | ------------- | -------
 STATE_* | enum | Used to represent distinct states. Will use 2nd axix. Can be ints or strings. See reportOptions/valueMap on how to map to better readable names.
 EVENT_* | float | will use scatter/event - dot based and not line based chart.
+TL_* | enum | Used to create data for [timeline / swimlane charts](#timeline--swimlane-charts). Details see [TL format details](#tl_-format-details). If TL_ datapoints are used the timeline chart will appear as well.
 INT_* | int | will use parseInt(). Can be used if e.g. hex values should be converted.
 other | float | will use parseFloat().
 
@@ -345,3 +346,63 @@ If you want to open the report as a new view you can hold the alt/options key be
 :::note
 Multiple reports share the same y-axis. So if you mix small values (e.g 0-1) with huge values (0-1000) you loose all details from the small values. See [y-axis options](#specifying-y-axis-options) above on how to avoid that.
 :::
+
+## Timeline / swimlane charts
+
+By using `TL_` events you can generate "timeline/swimlane" charts like:
+todo add picture
+
+Each swimlane belongs to one group.
+
+:::note
+If you use it with a regular graphical report in one graph this helps e.g. to map CPU load and similar data to states from state machines like services active/not active, ports open/closed...
+:::
+
+### Collapsing/expanding groups
+
+Groups can be collapsed, i.e. drawn as a single lane by clicking on the group name. To expand it click on the group name again.
+
+:::note
+If a group contains more than 10 lanes it's automatically *collapsed*.
+Simply click on the group name to *expand* it.
+:::
+
+### Interaction
+
+- The selected time from the dlt-log line is shown in the swimlane as a vertical line.
+- The timeline / swimlane view adjusts automatically to the selected timerange in the graphical report on top.
+- On selection of a swimlane event the start/end time gets shown in the graphical report.
+- Clicking on the label hides the start/end time.
+- The ruler below the swimlanes can be used to change zoom or move the selected time range.
+
+### TL_ format details
+
+The name for the `TL_` event/datapoint should follow a specific syntax:
+
+`TL_<groupname>_<lanename>`.
+
+:::note
+`groupname` should contain only [a-zA-Z0-9.-] and not `_|,:;\/`.
+ `lanename` can additionally contain `_`.
+:::
+
+The value can be single numbers or strings but it allows to provide some more information:
+
+`<value>[|tooltip[|color][|,$]]`.
+
+attribute | description
+--------- | -----------
+value | Number or string with the value. If no color is used the value added to the legend on top of the swimlanes.
+tooltip | optional tooltip that gets shown on mouse hover. Keep empty if only color should be provided (e.g. <code>\|\|</code> )
+color | optional color in html format (e.g. 'red' or #ff0000). If color is provided the value is not added to the legend.
+<code>\|</code> | optional indicator that the value ends here. Usually swimlane events are like states and will be drawn until the lifecycle ends or the next value appears. The parser checks whether the pipe symbol  is at the end of the value.
+<code>$</code> | optional indicator that the value persists lifecycle boundaries. So this value will be drawn until the next event in that lane occurs. The parser checks whether the dollar symbol is at the end of the value. To not make the `$` part of the value, tooltip or color it's best to prepend with a <code>\|</code>.
+
+### Examples
+
+TL_name:value | description
+------------- | -----------
+<code>TL_group1_lane1:"active\|\|green"</code> | lane1 in group1 showing value "active" and no specific tooltip in color green until the lifecycle end or the next event in lane1.
+<code>TL_group1_lane2:"reset\|lane 2 had a reset\|red\|"</code> | lane2 in group1 showing value "reset" and tooltip "lane 2 had a reset" for that timepoint only in color red.
+<code>TL_group1_lane2:"up\|startup done"</code> | lane2 in group1 showing value "up" and tooltip "startup done" in any of the default colors.
+<code>TL_group1_lane2:"unavailable\|port not open\|\|$"</code> | lane2 in group1 showing value "unavailable" and tooltip "port not open" until next value even if in new lifecycle.
