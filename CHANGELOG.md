@@ -1,5 +1,17 @@
 # Change log for 'DLT-Logs':
 
+### [1.21.7](https://github.com/mbehr1/dlt-logs/compare/v1.21.6...v1.21.7) (2021-06-13)
+
+
+### Bug Fixes
+
+* **report:** better collapse function ([44fbc76](https://github.com/mbehr1/dlt-logs/commit/44fbc76b81ec94570be57ef8bdd47bd037a0dc8e))
+
+
+### Performance Improvements
+
+* avoid evaluating report filters multiple times ([859d01f](https://github.com/mbehr1/dlt-logs/commit/859d01f30b34da3c7a9899124fe273a36ab07b93))
+
 ### [1.21.6](https://github.com/mbehr1/dlt-logs/compare/v1.21.5...v1.21.6) (2021-06-12)
 
 
