@@ -3,12 +3,11 @@
  * (c) Matthias Behr, 2021
  *
  * todo:
+ * - investigate color from first partially shown are wrong
  * - after expand/collapse keep prev. time zoom
  * - once PR https://github.com/vasturiano/timelines-chart/pull/28 is supported/merged
  *  add text to the rectangles
  */
-
-//console.log(`timeLinesChart called...`);
 
 let onZoomCallback = undefined;
 let onSelectTimeCallback = undefined;
@@ -65,6 +64,13 @@ const handleSegmentClick = (ev) => {
     }
 };
 
+const copyVal = (val) => {
+    const toRet = { ...val, isCopied: true };
+    toRet.timeRange = [...val.timeRange];
+    toRet.val = { ...val.val };
+    return toRet;
+};
+
 // adapted from here: https://stackoverflow.com/questions/30472556/how-to-find-all-overlapping-ranges-and-partition-them-into-chunks/30473019
 const partitionIntoOverlappingRanges = (array) => {
     if (!array.length) { return array; }
@@ -79,13 +85,6 @@ const partitionIntoOverlappingRanges = (array) => {
     var rarray = [];
     var g = 0;
     rarray[g] = array[0];
-
-    const copyVal = (val) => {
-        const toRet = { ...val, isCopied: true };
-        toRet.timeRange = [...val.timeRange];
-        toRet.val = { ...val.val };
-        return toRet;
-    };
 
     for (var i = 1, l = array.length; i < l; i++) {
         const arrIStart = array[i].timeRange[0].valueOf();
@@ -155,6 +154,132 @@ const partitionIntoOverlappingRanges = (array) => {
     return rarray;
 };
 
+const collapsedLabelText = 'collapsed';
+const collapsedLabelCol = 'Tan'; // or 'Sienna'; //? a brown color (mix of colors...)
+
+// from https://stackoverflow.com/questions/30304719/javascript-fastest-way-to-remove-object-from-array
+const arrayRemoveIf = (array, pred) => {
+    let i, j;
+
+    for (i = 0, j = 0; i < array.length; ++i) {
+        if (!pred(array[i])) {
+            array[j] = array[i];
+            ++j;
+        }
+    }
+
+    while (j < array.length) {
+        array.pop();
+    }
+};
+
+const reduceOverlapping = (array) => {
+    if (!array.length) { return array; }
+    array.sort(function (a, b) {
+        if (a.timeRange[0].valueOf() < b.timeRange[0].valueOf()) { return -1; }
+        if (a.timeRange[0].valueOf() > b.timeRange[0].valueOf()) { return 1; }
+        // equal start, sort by end:
+        if (a.timeRange[1].valueOf() < b.timeRange[1].valueOf()) { return -1; }
+        if (a.timeRange[1].valueOf() > b.timeRange[1].valueOf()) { return 1; }
+        return 0;
+    });
+    var rarray = [];
+    var g = 0;
+    let prevVal = undefined;
+
+    const nextMinStartTime = (array, minTime) => {
+        const elem = array.find(e => e.timeRange[0].valueOf() > minTime);
+        if (elem) { return elem.timeRange[0].valueOf(); }
+        return undefined;
+    };
+    const minEndTime = (array, startTime) => {
+        // find the min end time from elems with startTime <= startTime
+        const indexOfNextStartTime = array.findIndex(e => e.timeRange[0].valueOf() > startTime);
+        if (indexOfNextStartTime >= 0) {
+            let minTime = array[0].timeRange[1].valueOf();
+            for (let i = 0; i < indexOfNextStartTime; ++i) {
+                const e = array[i];
+                if (e.timeRange[1].valueOf() < minTime) { minTime = e.timeRange[1].valueOf(); }
+            }
+            return minTime;
+        } else {
+            // they are sorted be endtime?
+            let minTime = array[0].timeRange[1].valueOf();
+            array.forEach((e) => { if (e.timeRange[1].valueOf() < minTime) { minTime = e.timeRange[1].valueOf(); } });
+            return minTime;
+        }
+    };
+
+
+    let startTime = array[0].timeRange[0].valueOf();
+    while (array.length) {
+        //console.log(`collapse: array[0]=${array[0].timeRange[0].valueOf()}-${array[0].timeRange[1].valueOf()} startTime=${startTime}`);
+        // determine next startTime > startTime
+        const minStartTime = nextMinStartTime(array, startTime);
+        // determine min endTime from all with curr starttime
+        const minEnd = minEndTime(array, startTime);
+
+        const endTime = minStartTime === undefined ? minEnd : Math.min(minStartTime - 1, minEnd); // we'll end at next end or one before next start
+        //console.log(`collapse: r=${startTime}-${endTime}, minStartTime=${minStartTime} minEnd=${minEnd}`);
+        if (startTime === undefined || endTime === undefined) { break; }
+        if (startTime > endTime) {
+            console.warn(`logical error. endTime < startTime`);
+            break;
+        }
+        // find all items that fall into that range:
+        const indexOfFirstOutSideTmp = array.findIndex(e => e.timeRange[0].valueOf() > endTime);
+        const indexOfFirstOutSide = indexOfFirstOutSideTmp < 0 ? array.length : indexOfFirstOutSideTmp;
+        // determine common values...
+        let newLabelVal = array[0].labelVal;
+        let newColor = array[0].val.c;
+        if (indexOfFirstOutSide > 1) {
+            for (let i = 1; i < indexOfFirstOutSide; ++i) {
+                const el = array[i];
+                if (el.labelVal !== newLabelVal) {
+                    newLabelVal = collapsedLabelText;
+                    break;
+                }
+            }
+            for (let i = 1; i < indexOfFirstOutSide; ++i) {
+                const el = array[i];
+                if (el.val.c !== newColor) {
+                    newColor = collapsedLabelCol;
+                    break;
+                }
+            }
+        }
+
+        // create item with startTime/endTime
+        prevVal = copyVal(array[0]);
+        prevVal.timeRange[0] = new Date(startTime);
+        prevVal.timeRange[1] = new Date(endTime);
+        prevVal.val.v = newLabelVal;
+        prevVal.val.t = undefined; //`indexOfFirstOutSide=${indexOfFirstOutSide}`;
+        prevVal.val.c = newColor;
+        prevVal.labelVal = newLabelVal;
+        rarray.push(prevVal);
+
+        // erase all items that have endTime<=endTime
+        // we cannot rely on sorting by endTime here as the startTimes are sorted first...
+        // todo find a faster way to abort search... this one is at least O(n)! (but called often)
+        // might better revert sort order from the array and access last elem instead of first...
+        const arrLenBefore = array.length;
+        arrayRemoveIf(array, e => e.timeRange[1].valueOf() <= endTime);
+        let removed = arrLenBefore - array.length;
+        if (array.length > 0) {
+            const firstElemStart = array[0].timeRange[0].valueOf();
+            const oldStart = startTime;
+            startTime = firstElemStart > endTime ? firstElemStart : (endTime + 1);
+            if (!removed && oldStart === startTime) {
+                array = [];
+                console.warn(`logical error. none removed and startTime same`);
+            }
+        }
+    }
+
+    return rarray;
+};
+
 const collapseOrExtendGroup = (groupName) => {
     let doUpdate = false;
     try {
@@ -166,16 +291,24 @@ const collapseOrExtendGroup = (groupName) => {
             const isExtendable = groupData.length === 1 && groupObj.origData?.length > 1;
             console.log(` group '${groupObj.group}' isCollapseable=${isCollapseable} isExtendable=${isExtendable}`);
             if (isCollapseable) { // collapse
+                const t0 = performance.now();
                 groupObj.origData = groupObj.data;
-                const collapsedData = [];
-                groupObj.data.forEach(labelData => collapsedData.push(...(labelData.data)));
+                if (groupObj.collapsedData !== undefined) {
+                    groupObj.data = groupObj.collapsedData;
+                } else {
+                    const collapsedData = [];
+                    groupObj.data.forEach(labelData => collapsedData.push(...(labelData.data)));
 
-                groupObj.data = [
-                    {
-                        label: "collapsed",
-                        data: partitionIntoOverlappingRanges(collapsedData)
-                    }];
-                console.log(` collapsed data=`, groupObj.data);
+                    groupObj.data = [
+                        {
+                            label: "collapsed",
+                            data: reduceOverlapping(collapsedData) // partitionIntoOverlappingRanges(collapsedData)
+                        }];
+                    groupObj.collapsedData = groupObj.data;
+                }
+                const t1 = performance.now();
+                console.log(` collapsing ${groupName} took ${t1 - t0}ms`);
+                //console.log(` collapsed data=`, groupObj.data);
                 doUpdate = true;
             } else if (isExtendable) { // extend
                 groupObj.data = groupObj.origData;
@@ -324,8 +457,8 @@ const timelineChartUpdate = (options) => {
     if (timelineData.length) {
         if (datasets) {
             console.log(`timelineChartData got ${timelineData.length} groups with ${timelineData.map(g => g.data.length)} labels`);
-            console.log(`timelineChartData group 0.label0.length=${timelineData[0]?.data?.[0]?.data?.length}`);
-            console.log(`timelineChartData group 0.label0.slice(10)=${JSON.stringify(timelineData[0]?.data?.[0]?.data?.slice(0, 10))}`);
+            //console.log(`timelineChartData group 0.label0.length=${timelineData[0]?.data?.[0]?.data?.length}`);
+            //console.log(`timelineChartData group 0.label0.slice(10)=${JSON.stringify(timelineData[0]?.data?.[0]?.data?.slice(0, 10))}`);
         }
         if (selectedTime) {
             console.log(`timelineChartData selectedTime=${JSON.stringify(selectedTime)}`);
@@ -369,5 +502,3 @@ const timelineChartUpdate = (options) => {
 };
 
 timelineChartUpdate(undefined);
-
-// console.log(`timeLinesChart done`);
