@@ -112,15 +112,24 @@ export class DltReport implements vscode.Disposable {
         }
     };
 
-    addFilter(filter: DltFilter) {
+    addFilter(filterOrArray: DltFilter | DltFilter[]) {
         if (!this.panel) { return; }
 
-        if (filter.isReport && (filter.payloadRegex !== undefined)) {
-            if (!this.filter.includes(filter)) {
-                filter.enabled = true; // todo... rethink whether disabled report filter make sense!
-                this.filter.push(filter);
-                this.updateReport();
+        let doUpdate = false;
+
+        const filters = Array.isArray(filterOrArray) ? filterOrArray : [filterOrArray];
+        for (let i = 0; i < filters.length; ++i) {
+            const filter = filters[i];
+            if (filter.isReport && (filter.payloadRegex !== undefined)) {
+                if (!this.filter.includes(filter)) {
+                    filter.enabled = true; // todo... rethink whether disabled report filter make sense!
+                    this.filter.push(filter);
+                    doUpdate = true;
+                }
             }
+        }
+        if (doUpdate) {
+            this.updateReport();
         }
     }
 

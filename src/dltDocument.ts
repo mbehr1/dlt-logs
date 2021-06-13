@@ -1829,7 +1829,7 @@ export class DltDocument {
     }
 
     private _reports: DltReport[] = [];
-    onOpenReport(context: vscode.ExtensionContext, filter: DltFilter, newReport: boolean = false, reportToAdd: DltReport | undefined = undefined) {
+    onOpenReport(context: vscode.ExtensionContext, filter: DltFilter | DltFilter[], newReport: boolean = false, reportToAdd: DltReport | undefined = undefined) {
         console.log(`onOpenReport called...`);
 
         if (!newReport && (this._reports.length > 0 || reportToAdd !== undefined)) {
@@ -1942,11 +1942,7 @@ export class DltDocument {
                                 }
                                 // now open the report:
                                 if (filters.length > 0) {
-                                    const newReport = this.onOpenReport(context, filters[0], true);
-                                    // add the others:
-                                    for (let i = 1; i < filters.length; ++i) {
-                                        this.onOpenReport(context, filters[i], false, newReport);
-                                    }
+                                    const newReport = this.onOpenReport(context, filters, true);
                                 } else {
                                     if (!Array.isArray(retObj.error)) { retObj.error = []; }
                                     retObj.error?.push({ title: `report failed as no filters defined` });
