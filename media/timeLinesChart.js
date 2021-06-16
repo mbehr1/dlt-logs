@@ -12,7 +12,10 @@
 let onZoomCallback = undefined;
 let onSelectTimeCallback = undefined;
 
-const handleZoom = ([startDate, endDate], [startY, endY]) => {
+const handleZoom = (dates, lines) => {
+    if (!dates) return;
+    const [startDate, endDate] = dates;
+    const [startY, endY] = lines || [-1, -1];
     console.log(`handleZoom ${startDate}-${endDate}, ${startY}-${endY}`);
     if (onZoomCallback) {
         onZoomCallback(startDate, endDate);
