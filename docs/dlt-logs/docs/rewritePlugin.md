@@ -81,7 +81,7 @@ You have to configure the 'rewrite' plugin. To configure the plugin call
 ```
 
 :::note
-If you changed the content of the folder for now you do need to open a new file or use `Developer: Reload window` to reload the window incl. the extension host.
+If you changed the config you do need to open a new file or use `Developer: Reload window` to reload the window incl. the extension host.
 :::
 
 ## Treeview
