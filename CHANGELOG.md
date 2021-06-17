@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs':
 
+### [1.21.8](https://github.com/mbehr1/dlt-logs/compare/v1.21.7...v1.21.8) (2021-06-17)
+
+
+### Bug Fixes
+
+* timelines avoid destruct error ([91595a6](https://github.com/mbehr1/dlt-logs/commit/91595a61dbd7d6c03f19a04564b82917ef04efa7))
+
 ### [1.21.7](https://github.com/mbehr1/dlt-logs/compare/v1.21.6...v1.21.7) (2021-06-13)
 
 
