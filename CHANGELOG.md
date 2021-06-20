@@ -1,4 +1,4 @@
-# Change log for 'DLT-Logs':
+# Change log for 'DLT-Logs' ([documentation](https://mbehr1.github.io/dlt-logs)):
 
 ## [1.22.0](https://github.com/mbehr1/dlt-logs/compare/v1.21.8...v1.22.0) (2021-06-20)
 
