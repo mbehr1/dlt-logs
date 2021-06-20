@@ -12,6 +12,11 @@ module.exports = {
           "label": "Features",
           "items": ['lifecycleDetection', 'toggleSortOrder', 'timeSync', 'reports', 'exportAndFilter', 'fileTransfer', 'someIpPlugin', 'nonVerbosePlugin', 'rewritePlugin'],
           "collapsed": false
+        },
+        {
+          "type": "link",
+          "label": "Changelog",
+          href: "https://github.com/mbehr1/dlt-logs/blob/master/CHANGELOG.md"
         }
       ]
   }
