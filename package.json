@@ -808,7 +808,7 @@
 				"@semantic-release/changelog",
 				{
 					"changelogFile": "CHANGELOG.md",
-					"changelogTitle": "# Change log for 'DLT-Logs':"
+					"changelogTitle": "# Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))"
 				}
 			],
 			[
