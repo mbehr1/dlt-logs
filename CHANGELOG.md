@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs':
 
+## [1.22.0](https://github.com/mbehr1/dlt-logs/compare/v1.21.8...v1.22.0) (2021-06-20)
+
+
+### Features
+
+* welcome or whats new ([0ca9e53](https://github.com/mbehr1/dlt-logs/commit/0ca9e531ec14b488d2871e14b0f8bfd7a10edae4))
+
 ### [1.21.8](https://github.com/mbehr1/dlt-logs/compare/v1.21.7...v1.21.8) (2021-06-17)
 
 
