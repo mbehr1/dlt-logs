@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as util from './util';
+import { extensionId } from './constants';
 import { DltDocument } from './dltDocument';
 import TelemetryReporter from 'vscode-extension-telemetry';
 import { DltFilter } from './dltFilter';
@@ -701,7 +702,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                         switch (paths[0]) {
                             case 'version':
                                 {
-                                    const extension = vscode.extensions.getExtension('mbehr1.dlt-logs');
+                                    const extension = vscode.extensions.getExtension(extensionId);
                                     if (extension) {
                                         const extensionVersion = extension.packageJSON.version;
                                         retObj.data = {
@@ -709,7 +710,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                                             "id": "1",
                                             "attributes": {
                                                 version: extensionVersion,
-                                                name: 'mbehr1.dlt-logs'
+                                                name: extensionId
                                             }
                                         };
                                     } else {

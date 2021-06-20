@@ -3,6 +3,7 @@
  */
 
 import * as vscode from 'vscode';
+import { extensionId } from './constants';
 import { MultiStepInput, PickItem } from './quickPick';
 import { DltFilter, DltFilterType } from './dltFilter';
 import { DltDocument } from './dltDocument';
@@ -454,7 +455,7 @@ async function doExport(exportOptions: ExportDltOptions) {
 
                                 // write the first msg with infos about the conversion:
                                 if (!wroteFirstMsg && minMsgInfo.lifecycle !== undefined) { // we need info from first proper message to not influence lifecycle calc.
-                                    const extension = vscode.extensions.getExtension('mbehr1.dlt-logs'); // todo use const from extension.ts
+                                    const extension = vscode.extensions.getExtension(extensionId);
                                     let ecu = minMsgInfo.lifecycle.ecu;
                                     let timeMs = minMsgInfo.timeAsNumber;
                                     if (exportOptions.rewriteMsgTimes) {
