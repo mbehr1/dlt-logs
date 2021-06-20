@@ -4,12 +4,11 @@
 
 import * as vscode from 'vscode';
 import TelemetryReporter from 'vscode-extension-telemetry';
+import { extensionId, dltScheme, GlobalState } from './constants';
 import * as dltDocument from './dltDocumentProvider';
 import { exportDlt } from './dltExport';
 // import { DltLogCustomReadonlyEditorProvider } from './dltCustomEditorProvider';
 
-const extensionId = 'mbehr1.dlt-logs';
-const dltScheme = 'dlt-log';
 let reporter: TelemetryReporter;
 
 export function activate(context: vscode.ExtensionContext) {
@@ -17,12 +16,14 @@ export function activate(context: vscode.ExtensionContext) {
 	// Use the console to output diagnostic information (console.log) and errors (console.error)
 	// This line of code will only be executed once when your extension is activated
 
-	console.log(`${extensionId} is now active!`);
 	const extension = vscode.extensions.getExtension(extensionId);
 
-	if (extension) {
-		const extensionVersion = extension.packageJSON.version;
+	const prevVersion = context.globalState.get<string>(GlobalState.Version);
+	let extensionVersion = '0.0.0'; // default value in case query ext fails...
 
+	if (extension) {
+		extensionVersion = extension.packageJSON.version;
+		console.log(`${extensionId} v${extensionVersion} ${prevVersion !== extensionVersion ? `prevVersion: ${prevVersion} ` : ''}is now active!`);
 		// the aik is not really sec_ret. but lets avoid bo_ts finding it too easy:
 		const strKE = 'ZjJlMDA4NTQtNmU5NC00ZDVlLTkxNDAtOGFiNmIzNTllODBi';
 		const strK = Buffer.from(strKE, "base64").toString();
@@ -84,6 +85,9 @@ export function activate(context: vscode.ExtensionContext) {
 		);
 	}));
 
+	void showWelcomeOrWhatsNew(context, extensionVersion, prevVersion);
+
+	void context.globalState.update(GlobalState.Version, extensionVersion);
 
 	// register custom editor to allow easier file open (hacking...)
 	/* not working yet. see dltCustomEditorProvider.ts
@@ -103,4 +107,70 @@ export function activate(context: vscode.ExtensionContext) {
 // this method is called when your extension is deactivated
 export function deactivate() {
 	console.log(`${extensionId} is deactivated.`);
+}
+
+async function showWelcomeOrWhatsNew(context: vscode.ExtensionContext, version: string, prevVersion: string | undefined) {
+
+	let showFunction: undefined | ((version: string) => Promise<void>) = undefined;
+
+	if (!prevVersion) {
+		// first time install... point to docs todo
+		showFunction = showWelcomeMessage;
+	} else if (prevVersion !== version) {
+		const [major, minor] = version.split('.').map(v => parseInt(v, 10));
+		const [prevMajor, prevMinor] = prevVersion.split('.').map(v => parseInt(v, 10));
+		if ((major === prevMajor && minor === prevMinor) ||
+			(major < prevMajor) || // ignore downgrades
+			(major === prevMajor && minor < prevMinor)) {
+			return;
+		}
+		// major/minor version is higher
+		showFunction = showWhatsNewMessage;
+	}
+	if (showFunction) {
+		if (vscode.window.state.focused) {
+			await context.globalState.update(GlobalState.PendingWhatNewOnFocus, undefined);
+			void showFunction(version);
+		} else {
+			await context.globalState.update(GlobalState.PendingWhatNewOnFocus, true);
+			const disposable = vscode.window.onDidChangeWindowState(e => {
+				if (!e.focused) { return; }
+				disposable.dispose();
+
+				if (context.globalState.get(GlobalState.PendingWhatNewOnFocus) === true) {
+					void context.globalState.update(GlobalState.PendingWhatNewOnFocus, undefined);
+					if (showFunction) {
+						void showFunction(version);
+					}
+				}
+			});
+			context.subscriptions.push(disposable);
+		}
+	}
+}
+
+async function showWhatsNewMessage(version: string) {
+	const message = `DLT-Logs has been updated to v${version} - check out what's new!`;
+	const actions: vscode.MessageItem[] = [{ title: "What's New" }, { title: '❤ Sponsor' }];
+	const result = await vscode.window.showInformationMessage(message, ...actions);
+	if (result !== undefined) {
+		if (result === actions[0]) {
+			await vscode.env.openExternal(vscode.Uri.parse('https://github.com/mbehr1/dlt-logs/blob/master/CHANGELOG.md'));
+		} else if (result === actions[1]) {
+			await vscode.env.openExternal(vscode.Uri.parse('https://github.com/sponsors/mbehr1'));
+		}
+	}
+}
+
+async function showWelcomeMessage(version: string) {
+	const message = `DLT-Logs v${version} has been installed - check out the docs!`;
+	const actions: vscode.MessageItem[] = [{ title: "Docs" }, { title: '❤ Sponsor' }];
+	const result = await vscode.window.showInformationMessage(message, ...actions);
+	if (result !== undefined) {
+		if (result === actions[0]) {
+			await vscode.env.openExternal(vscode.Uri.parse('https://mbehr1.github.io/dlt-logs/docs/#first-use'));
+		} else if (result === actions[1]) {
+			await vscode.env.openExternal(vscode.Uri.parse('https://github.com/sponsors/mbehr1'));
+		}
+	}
 }
