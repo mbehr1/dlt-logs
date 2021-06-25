@@ -1754,7 +1754,8 @@ export class DltDocument {
                 }
             ).then(() => {
                 const fnEnd = process.hrtime(fnStart);
-                console.info('checkFileChanges took: %ds %dms', fnEnd[0], fnEnd[1] / 1000000);
+                const usedHeap = process.memoryUsage().heapUsed / 1024 / 1024;
+                console.info('checkFileChanges took: %ds %dms, heapUsed=%f MB', fnEnd[0], fnEnd[1] / 1000000, usedHeap);
             });
         } else {
             console.log(`checkFileChanges no file size increase (size=${stats.size} vs ${this._parsedFileLen})`);
