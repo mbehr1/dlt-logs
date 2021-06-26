@@ -1,3 +1,12 @@
+# Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
+
+### [1.22.1](https://github.com/mbehr1/dlt-logs/compare/v1.22.0...v1.22.1) (2021-06-26)
+
+
+### Bug Fixes
+
+* output of time to load and include heap used ([f98e07f](https://github.com/mbehr1/dlt-logs/commit/f98e07f146831d213e3ff146099ea45eb6378d16))
+
 # Change log for 'DLT-Logs' ([documentation](https://mbehr1.github.io/dlt-logs)):
 
 ## [1.22.0](https://github.com/mbehr1/dlt-logs/compare/v1.21.8...v1.22.0) (2021-06-20)
