@@ -14,7 +14,7 @@ A more detailed documentation is available here: [Docs](https://mbehr1.github.io
 
 ## Features
 
-- Open DLT files (Mac: &#8679;&#8984;P "Open DLT file...", Linux/Win: Strg+P "Open DLT file..." ) without any size restriction. (Tested with ~1500MB files). With files of approx 2GB you get out of memory problems. A "load time filter assistant..." helps you in reducing number of messages while opening files >512MB.
+- Open DLT files (Mac: &#8679;&#8984;P "Open DLT file...", Linux/Win: Ctrl+Shift+P "Open DLT file..." ) without any size restriction. (Tested with ~1500MB files). With files of approx 2GB you get out of memory problems. A "load time filter assistant..." helps you in reducing number of messages while opening files >512MB.
 - **Time sync** feature.
   - Calculates time for each line based on timestamp and reception/storage time.
   - An offset for the full time can be set via context menu item *adjust-time...*.
