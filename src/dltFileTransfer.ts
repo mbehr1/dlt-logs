@@ -214,12 +214,12 @@ export class DltFileTransferPlugin extends DltFilter {
         if (msg.mstp === MSTP.TYPE_LOG && msg.mtin === MTIN_LOG.LOG_INFO) {
             if (msg.noar === 8) { // FLST?
                 if (DltFileTransferPlugin.isType(msg, "FLST")) {
-                    const serial: number = msg.payloadArgs[1].v;
-                    const fileName: string = msg.payloadArgs[2].v;
-                    const fileSize: number = msg.payloadArgs[3].v;
-                    const fileCreationDate: string = msg.payloadArgs[4].v;
-                    const nrPackages: number = msg.payloadArgs[5].v;
-                    const bufferSize: number = msg.payloadArgs[6].v;
+                    const serial: number = msg.payloadArgs[1];
+                    const fileName: string = msg.payloadArgs[2];
+                    const fileSize: number = msg.payloadArgs[3];
+                    const fileCreationDate: string = msg.payloadArgs[4];
+                    const nrPackages: number = msg.payloadArgs[5];
+                    const bufferSize: number = msg.payloadArgs[6];
 
                     console.log(`DltFileTransferPlugin got FLST: serial = ${serial} name = '${fileName}'`);
                     let actTransfer = this._transfers.get(serial);
@@ -233,12 +233,12 @@ export class DltFileTransferPlugin extends DltFilter {
                 }
             } else if (msg.noar === 5) { // FLDA?
                 if (DltFileTransferPlugin.isType(msg, "FLDA")) {
-                    const serial: number = msg.payloadArgs[1].v;
-                    const packageToTransfer: number = msg.payloadArgs[2].v;
+                    const serial: number = msg.payloadArgs[1];
+                    const packageToTransfer: number = msg.payloadArgs[2];
                     //console.log(`DltFileTransferPlugin got FLDA ${packageToTransfer} for serial = ${serial}`);
                     let actTransfer = this._transfers.get(serial);
                     if (actTransfer) {
-                        actTransfer.addFLDA(packageToTransfer, msg.payloadArgs[3].v);
+                        actTransfer.addFLDA(packageToTransfer, msg.payloadArgs[3]);
                     } else {
                         // incomplete // we might handle/recover it if this is the first package!
                         actTransfer = new DltFileTransfer(this._uri, this.treeViewNode, this.allowSave, serial, "<unknown>", undefined, undefined, undefined, undefined, msg);
@@ -246,7 +246,7 @@ export class DltFileTransferPlugin extends DltFilter {
                         this._treeEventEmitter.fire(this.treeViewNode);
                         // we might handle it if this is the first package!
                         if (!packageToTransfer) {
-                            actTransfer.addFLDA(packageToTransfer, msg.payloadArgs[3].v);
+                            actTransfer.addFLDA(packageToTransfer, msg.payloadArgs[3]);
                         }
                     }
                     if (actTransfer && actTransfer.isComplete) {
@@ -259,7 +259,7 @@ export class DltFileTransferPlugin extends DltFilter {
             } else if (msg.noar === 3) { // FLFI
                 if (DltFileTransferPlugin.isType(msg, "FLFI")) {
                     try {
-                        const serial: number = msg.payloadArgs[1].v;
+                        const serial: number = msg.payloadArgs[1];
                         console.log(`DltFileTransferPlugin got FLFI for serial = ${serial}`);
                         const actTransfer = this._transfers.get(serial);
                         if (actTransfer) {
@@ -291,8 +291,8 @@ export class DltFileTransferPlugin extends DltFilter {
         // the msg for a type starts and ends with that string
         try {
             const payloadArgs = msg.payloadArgs;
-            const str0: string = payloadArgs[0].v;
-            const str1: string = payloadArgs[msg.noar - 1].v;
+            const str0: string = payloadArgs[0];
+            const str1: string = payloadArgs[msg.noar - 1];
             if (str0 === typeStr && str1 === typeStr) {
                 return true;
             }

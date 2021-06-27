@@ -317,7 +317,7 @@ export class DltLifecycleInfo {
 
         if (msg.mstp === MSTP.TYPE_CONTROL && msg.mtin === MTIN_CTRL.CONTROL_RESPONSE) {
             if (msg.noar === 1) {
-                if (msg.payloadArgs[0].v === CTRL_SERVICE_ID.GET_SW_VERSION) {
+                if (msg.payloadArgs[0] === CTRL_SERVICE_ID.GET_SW_VERSION) {
                     const swVStr = msg.payloadString;
                     if (swVStr.startsWith("get_software_version, ok,")) { // hackish...
                         const swV = swVStr.slice(25);
@@ -327,7 +327,7 @@ export class DltLifecycleInfo {
                         }
                     }
                 } else
-                    if (msg.payloadArgs[0].v === CTRL_SERVICE_ID.GET_LOG_INFO) {
+                    if (msg.payloadArgs[0] === CTRL_SERVICE_ID.GET_LOG_INFO) {
                         if (msg.payloadArgs.length > msg.noar) {
                             // the first one is the array of apid infos:
                             const apids = msg.payloadArgs[msg.noar];

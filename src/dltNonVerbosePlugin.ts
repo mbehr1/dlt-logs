@@ -107,7 +107,7 @@ export class DltNonVerbosePlugin extends DltTransformationPlugin {
             // and modify the msg._payloadText if we find the infos
             const isBigEndian = msg.isBigEndian;
             if (msg._payloadArgs && msg._payloadArgs.length === 2) {
-                const id = `ID_${msg._payloadArgs[0].v}`;
+                const id = `ID_${msg._payloadArgs[0]}`;
                 const msgApid = msg.apid;
                 const msgCtid = msg.ctid;
                 const frame = msgApid.length > 0 && msgCtid.length > 0 ? FibexLoader.framesWithKey.get(`${id},${msgApid},${msgCtid}`) : FibexLoader.frames.get(id);
@@ -115,8 +115,8 @@ export class DltNonVerbosePlugin extends DltTransformationPlugin {
                     //console.warn(`DltNonVerbosePlugin.transformCb found frame ${frame.id} '${frame.shortName}' ${JSON.stringify(frame)}`);
                     const payload = msg._payloadArgs[1];
                     let text = '';
-                    if (payload.type === Buffer) {
-                        const buf: Buffer = payload.v;
+                    if (payload?.constructor === Buffer) {
+                        const buf: Buffer = payload;
                         if (buf.length !== frame.byteLength) {
                             console.warn(`DltNonVerbosePlugin frame ${frame.id} '${frame.shortName} 'byteLength ${buf.length}!=${frame.byteLength}!`);
                         } else {

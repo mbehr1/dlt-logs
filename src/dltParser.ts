@@ -244,49 +244,49 @@ export class DltMsg {
                                     assert(tyle === 1 || tyle === 0, `wrong tyle=${tyle} for boolean`);
                                     assert(!(typeInfo & 0x100), "no array support for boolean");
                                     let v = this._payloadData.readUInt8(argOffset) ? true : false;
-                                    this._payloadArgs.push({ type: Boolean, v: v });
+                                    this._payloadArgs.push(v);
                                     this._payloadText += `${v ? "true " : "false "}`;
                                     argOffset += 1;
                                 } else if (typeInfo & 0x20) { // type SINT
                                     assert(tyle >= 1 && tyle <= 5, `type SINT has unsupported tyle=${tyle} vari=${vari} fixp=${fixp}`);
                                     assert(!(typeInfo & 0x100), "no aray support for SINT");
                                     switch (tyle) {
-                                        case 1: this._payloadArgs.push({ type: Number, v: this._payloadData.readInt8(argOffset) }); break;
-                                        case 2: this._payloadArgs.push({ type: Number, v: this._payloadData.readInt16LE(argOffset) }); break; // todo endianess
-                                        case 3: this._payloadArgs.push({ type: Number, v: this._payloadData.readInt32LE(argOffset) }); break; // todo endianess
-                                        case 4: this._payloadArgs.push({ type: BigInt, v: this._payloadData.readBigInt64LE(argOffset) }); break; // todo end.
+                                        case 1: this._payloadArgs.push(this._payloadData.readInt8(argOffset)); break;
+                                        case 2: this._payloadArgs.push(this._payloadData.readInt16LE(argOffset)); break; // todo endianess
+                                        case 3: this._payloadArgs.push(this._payloadData.readInt32LE(argOffset)); break; // todo endianess
+                                        case 4: this._payloadArgs.push(this._payloadData.readBigInt64LE(argOffset)); break; // todo end.
                                         case 5: break; // this._payloadArgs.push({ type: BigInt, v: this._payloadData.readBigUInt128LE(argOffset) }); break; // todo end.
                                     }
-                                    this._payloadText += `${this._payloadArgs[this._payloadArgs.length - 1].v} `;
+                                    this._payloadText += `${this._payloadArgs[this._payloadArgs.length - 1]} `;
                                     argOffset += (1 << (tyle - 1));
                                 } else if (typeInfo & 0x40) { // type UINT
                                     assert(tyle >= 1 && tyle <= 5, `type UINT has unsupported tyle=${tyle}`);
                                     assert(!(typeInfo & 0x100), "no aray support for UINT");
                                     switch (tyle) {
-                                        case 1: this._payloadArgs.push({ type: Number, v: this._payloadData.readUInt8(argOffset) }); break;
-                                        case 2: this._payloadArgs.push({ type: Number, v: this._payloadData.readUInt16LE(argOffset) }); break; // todo endianess
-                                        case 3: this._payloadArgs.push({ type: Number, v: this._payloadData.readUInt32LE(argOffset) }); break; // todo endianess
-                                        case 4: this._payloadArgs.push({ type: BigInt, v: this._payloadData.readBigUInt64LE(argOffset) }); break; // todo end.
+                                        case 1: this._payloadArgs.push(this._payloadData.readUInt8(argOffset)); break;
+                                        case 2: this._payloadArgs.push(this._payloadData.readUInt16LE(argOffset)); break; // todo endianess
+                                        case 3: this._payloadArgs.push(this._payloadData.readUInt32LE(argOffset)); break; // todo endianess
+                                        case 4: this._payloadArgs.push(this._payloadData.readBigUInt64LE(argOffset)); break; // todo end.
                                         case 5: break; // this._payloadArgs.push({ type: BigInt, v: this._payloadData.readBigUInt128LE(argOffset) }); break; // todo end.
                                     }
-                                    this._payloadText += `${this._payloadArgs[this._payloadArgs.length - 1].v} `;
+                                    this._payloadText += `${this._payloadArgs[this._payloadArgs.length - 1]} `;
                                     argOffset += (1 << (tyle - 1));
                                 } else if (typeInfo & 0x80) { // type FLOA
                                     assert(!(typeInfo & 0x100), "no aray support for FLOA");
                                     switch (tyle) {
                                         case 3: // single 32bit
-                                            this._payloadArgs.push({ type: Number, v: this._payloadData.readFloatLE(argOffset) }); // todo endianess
+                                            this._payloadArgs.push(this._payloadData.readFloatLE(argOffset)); // todo endianess
                                             argOffset += 4;
                                             break;
                                         case 4: // double 64bit
-                                            this._payloadArgs.push({ type: Number, v: this._payloadData.readDoubleLE(argOffset) }); // todo endianess
+                                            this._payloadArgs.push(this._payloadData.readDoubleLE(argOffset)); // todo endianess
                                             argOffset += 8;
                                             break;
                                         default:
                                             console.log(`todo impl FLOA parsing for tyle=${tyle}`);
                                             break;
                                     }
-                                    this._payloadText += `${this._payloadArgs[this._payloadArgs.length - 1].v} `;
+                                    this._payloadText += `${this._payloadArgs[this._payloadArgs.length - 1]} `;
                                 } else if (typeInfo & 0x100) { // type ARAY but it might be used with flags already...
                                     /*                                    const nrDims: number = this._payloadData.readUInt16LE(argOffset);
                                                                         argOffset += 2;
@@ -304,7 +304,8 @@ export class DltMsg {
                                         let strText = this._payloadData.toString((scod === 1 ? "utf8" : "latin1"), argOffset, argOffset + strLenInclTerm - gotTerm);
                                         // replace CRLF with ' '
                                         // todo assemble payloadAsText ... msgText += strText.replace(/(\r\n|\n|\r)/gm, " "); // this is slow...
-                                        this._payloadArgs.push({ type: String, v: strText });
+                                        const needStr = (this.noar === 3 || this.noar === 5 || this.noar === 8) ? true : false;
+                                        this._payloadArgs.push(needStr ? strText : null); // todo need to get rid of this to reduce mem load. dltFileTransfer plugin uses it...
                                         this._payloadText += `${strText.replace(/\r?\n|\r/g, " ")} `;
                                     } else {
                                         console.log("ignored strlen due to sanity check!");
@@ -314,7 +315,7 @@ export class DltMsg {
                                     const lenRaw: number = this._payloadData.readUInt16LE(argOffset);
                                     argOffset += 2;
                                     const rawd = this._payloadData.slice(argOffset, argOffset + lenRaw);
-                                    this._payloadArgs.push({ type: Buffer, v: Buffer.from(rawd) }); // we make a copy here to avoid referencing the payloadData that we want to release/gc afterwards
+                                    this._payloadArgs.push(Buffer.from(rawd)); // we make a copy here to avoid referencing the payloadData that we want to release/gc afterwards
                                     this._payloadText += rawd.toString("hex");
                                     argOffset += lenRaw;
                                 } else { break; } // todo VARI, FIXP, TRAI, STRU
@@ -322,16 +323,16 @@ export class DltMsg {
                             assert.strictEqual(argOffset, this._payloadData.byteLength, "didn't process all payloadData"); // all data processed
                             assert.strictEqual(this.noar, this._payloadArgs.length, "noars != payloadArgs.length");
                             //this._payloadArgs = []; // todo to see how much faster it gets
-                        } else {
+                        } else { // !verbose
                             this._payloadArgs = [];
                             const payloadLen = this._payloadData.length;
                             if (payloadLen >= 4) {
                                 const messageId: number = this.isBigEndian ? this._payloadData.readUInt32BE(0) : this._payloadData.readUInt32LE(0);
                                 // store the orig data as well for the non-verbose plugin
                                 // todo or let the non-verbose plugin process before?
-                                this._payloadArgs.push({ type: Number, v: messageId });
+                                this._payloadArgs.push(messageId);
                                 const nvPayload = this._payloadData.slice(4);
-                                this._payloadArgs.push({ type: Buffer, v: Buffer.from(nvPayload) }); // create a copy here as the reference might be a huge mem block
+                                this._payloadArgs.push(Buffer.from(nvPayload)); // create a copy here as the reference might be a huge mem block
                                 // output in the same form as dlt viewer:
                                 this._payloadText += `[${messageId}] ${printableAscii(nvPayload)}|${toHexString(nvPayload)}`;
                             }
@@ -343,7 +344,7 @@ export class DltMsg {
                         const serviceId = isBigEndian ? this._payloadData.readUInt32BE(0) : this._payloadData.readUInt32LE(0);
                         this._payloadArgs = [];
                         if (this.noar >= 1) {
-                            this._payloadArgs.push({ type: Number, v: serviceId });
+                            this._payloadArgs.push(serviceId);
                             if (serviceId > 0 && serviceId < serviceIds.length) {
                                 this._payloadText += serviceIds[serviceId];
                             } else {

@@ -157,8 +157,8 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
             // identify the service id:
             if (msg._payloadArgs && msg._payloadArgs.length >= 2) {
                 const payload = msg._payloadArgs[1];
-                if (payload.type === Buffer) {
-                    const buf: Buffer = payload.v;
+                if (payload?.constructor === Buffer) {
+                    const buf: Buffer = payload;
                     if (buf.length < 16) { return; }
                     const serviceId = buf.readUInt16BE(0);
                     const methodOrEventId = buf.readUInt16BE(2);
@@ -176,7 +176,7 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                     const isReturn = messageType === 0x80 || messageType === 0x23;
                     const service: any = FibexLoader.services.get(serviceId);
                     if (service) {
-                        let header: Buffer = msg._payloadArgs[0].v;
+                        let header: Buffer = msg._payloadArgs[0];
                         let instId: number = 0;
                         switch (header.length) {
                             case 9: instId = header.readUInt8(8); break;
