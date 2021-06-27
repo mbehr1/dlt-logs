@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+### [1.22.2](https://github.com/mbehr1/dlt-logs/compare/v1.22.1...v1.22.2) (2021-06-27)
+
+
+### Bug Fixes
+
+* reduce memory load/usage ([a316f7b](https://github.com/mbehr1/dlt-logs/commit/a316f7b5cb1ab75cac4fa421bee00c00060dc46c))
+
 ### [1.22.1](https://github.com/mbehr1/dlt-logs/compare/v1.22.0...v1.22.1) (2021-06-26)
 
 
