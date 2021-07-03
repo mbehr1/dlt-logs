@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+### [1.22.3](https://github.com/mbehr1/dlt-logs/compare/v1.22.2...v1.22.3) (2021-07-03)
+
+
+### Bug Fixes
+
+* someipplugin remove a_float32 warning ([b0fefe3](https://github.com/mbehr1/dlt-logs/commit/b0fefe3c9542c54236d405ff4c8e58539d070935))
+
 ### [1.22.2](https://github.com/mbehr1/dlt-logs/compare/v1.22.1...v1.22.2) (2021-06-27)
 
 
