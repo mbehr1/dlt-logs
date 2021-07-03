@@ -358,7 +358,6 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                     }
                     objToRet = buf.readFloatBE(offset);
                     parsedBits = 32;
-                    console.warn(`DltSomeIpPlugin.parseSingleCoding untested A_FLOAT32 returning '${objToRet}' from '${buf.slice(offset, offset + (parsedBits / 8)).toString('hex')}'`);
                     break;
                 case 'A_FLOAT64':
                     if ((bitLength !== undefined && bitLength !== 64) || (bitMod !== 0)) {
