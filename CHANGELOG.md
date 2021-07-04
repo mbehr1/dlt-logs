@@ -1,5 +1,13 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+### [1.22.4](https://github.com/mbehr1/dlt-logs/compare/v1.22.3...v1.22.4) (2021-07-04)
+
+
+### Bug Fixes
+
+* report speed up sorting dataset ([6d7a03a](https://github.com/mbehr1/dlt-logs/commit/6d7a03a4eab6bd89506dbc46aac2a6cc7337f0a9))
+* time lines chart handling large data set ([690d464](https://github.com/mbehr1/dlt-logs/commit/690d464878d14042297da28d485c796febae1f51))
+
 ### [1.22.3](https://github.com/mbehr1/dlt-logs/compare/v1.22.2...v1.22.3) (2021-07-03)
 
 
