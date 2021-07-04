@@ -164,7 +164,7 @@ export class DltReport implements vscode.Disposable {
         const lcEndDate: Date = lcDates[lcDates.length - 1];
         console.log(`updateReport lcStartDate=${lcStartDate}, lcEndDate=${lcEndDate}`);
 
-        let dataSets = new Map<string, { data: { x: Date, y: string | number | any, lcId: number, t_?: DataPointType }[], yLabels?: string[], yAxis?: any }>();
+        let dataSets = new Map<string, { data: { x: Date, y: string | number | any, lcId: number, t_?: DataPointType, idx_?: number }[], yLabels?: string[], yAxis?: any }>();
 
         let minDataPointTime: Date | undefined = undefined;
 
@@ -420,13 +420,15 @@ export class DltReport implements vscode.Disposable {
                                 data.data.push({ x: new Date(lcInfo.lifecycleEnd.valueOf() - 1), y: lastState, lcId: lcInfo.uniqueId, t_: DataPointType.PrevStateEnd });
                                 data.data.push({ x: lcInfo.lifecycleEnd, y: '_unus_lbl_', lcId: lcInfo.uniqueId, t_: DataPointType.LifecycleEnd });
                                 // need to sort already here as otherwise those data points are found...
+                                data.data.forEach((d, index) => d.idx_ = index);
                                 data.data.sort((a, b) => {
                                     const valA = a.x.valueOf();
                                     const valB = b.x.valueOf();
                                     if (valA < valB) { return -1; }
                                     if (valA > valB) { return 1; }
-                                    return data.data.indexOf(a) - data.data.indexOf(b); // if same time keep order!
+                                    return a.idx_! - b.idx_!; // if same time keep order!
                                 });
+                                data.data.forEach((d) => delete d.idx_);
                             }
                         } else {
                             data.data.push({ x: lcInfo.lifecycleEnd, y: NaN, lcId: lcInfo.uniqueId }); // todo not quite might end at wrong lifecycle. rethink whether one dataset can come from multiple LCs
@@ -435,13 +437,17 @@ export class DltReport implements vscode.Disposable {
                     });
                 });
                 if (dataNeedsSorting) {
+                    // javascript sort is by definition not stable...
+                    // so we add the index first to prevent a .indexOf(a), .indexOf(b) search...
+                    data.data.forEach((d, index) => d.idx_ = index);
                     data.data.sort((a, b) => {
                         const valA = a.x.valueOf();
                         const valB = b.x.valueOf();
                         if (valA < valB) { return -1; }
                         if (valA > valB) { return 1; }
-                        return data.data.indexOf(a) - data.data.indexOf(b);
+                        return a.idx_! - b.idx_!;
                     });
+                    data.data.forEach((d) => delete d.idx_);
                 }
 
                 datasetArray.push({ label: label, dataYLabels: data, type: label.startsWith('EVENT_') ? 'scatter' : 'line', yAxis: data.yAxis });
