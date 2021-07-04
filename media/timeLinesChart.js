@@ -13,7 +13,7 @@ let onZoomCallback = undefined;
 let onSelectTimeCallback = undefined;
 
 const handleZoom = (dates, lines) => {
-    if (!dates) return;
+    if (!dates) { return; }
     const [startDate, endDate] = dates;
     const [startY, endY] = lines || [-1, -1];
     console.log(`handleZoom ${startDate}-${endDate}, ${startY}-${endY}`);
@@ -300,13 +300,32 @@ const collapseOrExtendGroup = (groupName) => {
                     groupObj.data = groupObj.collapsedData;
                 } else {
                     const collapsedData = [];
-                    groupObj.data.forEach(labelData => collapsedData.push(...(labelData.data)));
-
+                    try {
+                        groupObj.data.forEach(labelData => {
+                            try {
+                                collapsedData.push(...(labelData.data));
+                            } catch (e) {
+                                console.log(`collapseOrExtendGroup pushing labelData '${labelData.label}' (labelData.data.length=${labelData.data.length}, collapsedData.length=${collapsedData.length}) failed with e=${e}`);
+                            }
+                        });
+                    } catch (e) {
+                        console.log(`collapseOrExtendGroup pushing failed with e=${e}`);
+                    }
+                    try {
                     groupObj.data = [
                         {
                             label: "collapsed",
                             data: reduceOverlapping(collapsedData) // partitionIntoOverlappingRanges(collapsedData)
                         }];
+                    } catch (e) {
+                        console.log(`collapseOrExtendGroup reduceOverlapping failed with e=${e}`);
+                        groupObj.data = [
+                            {
+                                label: "collapsed too big",
+                                data: []
+                            }
+                        ];
+                    }
                     groupObj.collapsedData = groupObj.data;
                 }
                 const t1 = performance.now();
