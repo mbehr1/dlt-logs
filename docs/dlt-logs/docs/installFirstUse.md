@@ -30,9 +30,9 @@ After installation you can open DLT files via
         {label: 'Linux', value: 'linux'}
     ]
 }>
-<TabItem value="win">Use F1 and enter/select command "Open DLT file...".</TabItem>
-<TabItem value="mac">Use Cmd+P and enter/select command "Open DLT file...".</TabItem>
-<TabItem value="linux">Use Ctrl+P and enter/select command "Open DLT file...".</TabItem>
+<TabItem value="win">Use F1 or Ctrl+Shift+P and enter/select command "Open DLT file...".</TabItem>
+<TabItem value="mac">Use &#8679;&#8984;P and enter/select command "Open DLT file...".</TabItem>
+<TabItem value="linux">Use Ctrl+Shift+P and enter/select command "Open DLT file...".</TabItem>
 </Tabs>
 and select the DLT file to open from the opened file selection dialog.
 

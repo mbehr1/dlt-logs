@@ -48,9 +48,9 @@ You have to configure the 'rewrite' plugin. To configure the plugin call
         {label: 'Linux', value: 'linux'}
     ]
     }>
-<TabItem value="win">Use F1 and enter/select command "Preferences: Open Settings (JSON)".</TabItem>
-<TabItem value="mac">Use Cmd+P and enter/select command "Preferences: Open Settings (JSON)".</TabItem>
-<TabItem value="linux">Use Ctrl+P and enter/select command "Preferences: Open Settings (JSON)".</TabItem>
+<TabItem value="win">Use F1 or Ctrl+Shift+P and enter/select command "Preferences: Open Settings (JSON)".</TabItem>
+<TabItem value="mac">Use &#8679;&#8984;P and enter/select command "Preferences: Open Settings (JSON)".</TabItem>
+<TabItem value="linux">Use Ctrl+Shift+P and enter/select command "Preferences: Open Settings (JSON)".</TabItem>
 </Tabs>
 
 ```jsonc
