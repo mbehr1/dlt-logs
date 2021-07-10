@@ -12,6 +12,8 @@
 let onZoomCallback = undefined;
 let onSelectTimeCallback = undefined;
 
+let lastZoomX = undefined; // array with startDate, endDate
+
 const handleZoom = (dates, lines) => {
     if (!dates) { return; }
     const [startDate, endDate] = dates;
@@ -19,6 +21,7 @@ const handleZoom = (dates, lines) => {
     console.log(`handleZoom ${startDate}-${endDate}, ${startY}-${endY}`);
     if (onZoomCallback) {
         onZoomCallback(startDate, endDate);
+        lastZoomX = [startDate, endDate];
     }
 };
 
@@ -354,6 +357,9 @@ const handleLabelClick = (labelOrGroup, group) => {
             const doUpdate = collapseOrExtendGroup(labelOrGroup);
             if (doUpdate) {
                 timelineChart.data(timelineData);
+                if (lastZoomX !== undefined) {
+                    timelineChart.zoomX(lastZoomX);
+                }
             }
     } else { // click on label
         // unselect any selected one
@@ -517,8 +523,12 @@ const timelineChartUpdate = (options) => {
                 // e.g. check scale vs. delta to last
             } // todo could optimize perfo for both
             if (zoomX) {
-                timelineChart.zoomX(zoomX);
+                lastZoomX = zoomX;
             }
+            if (lastZoomX !== undefined) {
+                timelineChart.zoomX(lastZoomX);
+            }
+
         }
     }
 };
