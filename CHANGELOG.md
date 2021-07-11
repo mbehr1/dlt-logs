@@ -1,5 +1,19 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.23.0](https://github.com/mbehr1/dlt-logs/compare/v1.22.4...v1.23.0) (2021-07-11)
+
+
+### Features
+
+* thin out data on timeline charts ([f064aea](https://github.com/mbehr1/dlt-logs/commit/f064aea4cbcda9097f38b2699b7c1b03f61b08d9))
+
+
+### Bug Fixes
+
+* timeline reset zoom only resetting zoom from tl ([0103823](https://github.com/mbehr1/dlt-logs/commit/0103823bf79f18e3c9164cf3947430d9b404da6e))
+* timelinechart keep zoom on collapse ([b1e0d5b](https://github.com/mbehr1/dlt-logs/commit/b1e0d5b413732dd2e4a6cb48483d3ae2a945d72e))
+* vscode.dev is not yet a trusted svg provider ([a843c26](https://github.com/mbehr1/dlt-logs/commit/a843c26319c9f64d491745118d4dd36f62bfac3a))
+
 ### [1.22.4](https://github.com/mbehr1/dlt-logs/compare/v1.22.3...v1.22.4) (2021-07-04)
 
 
