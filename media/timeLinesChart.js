@@ -4,7 +4,6 @@
  *
  * todo:
  * - investigate color from first partially shown are wrong
- * - after expand/collapse keep prev. time zoom
  * - once PR https://github.com/vasturiano/timelines-chart/pull/28 is supported/merged
  *  add text to the rectangles
  */
@@ -14,6 +13,14 @@ let onSelectTimeCallback = undefined;
 
 let lastZoomX = undefined; // array with startDate, endDate
 
+let timelineData = [];
+let timelineChart = undefined; // TimelinesChart();
+
+let lastThinTarget = undefined;
+
+const MARKER_FINISH = '|';
+const MARKER_PERSIST = '$';
+
 const handleZoom = (dates, lines) => {
     if (!dates) { return; }
     const [startDate, endDate] = dates;
@@ -21,7 +28,14 @@ const handleZoom = (dates, lines) => {
     console.log(`handleZoom ${startDate}-${endDate}, ${startY}-${endY}`);
     if (onZoomCallback) {
         onZoomCallback(startDate, endDate);
-        lastZoomX = [startDate, endDate];
+    }
+    lastZoomX = [startDate, endDate];
+
+    // thin out again to reveal more precise data e.g. on zooming in
+    const timelineDataWasUpdated = thinAllLines();
+    if (timelineDataWasUpdated) {
+        timelineChart.data(timelineData);
+        timelineChart.zoomX(lastZoomX);
     }
 };
 
@@ -337,7 +351,7 @@ const collapseOrExtendGroup = (groupName) => {
                 doUpdate = true;
             } else if (isExtendable) { // extend
                 groupObj.data = groupObj.origData;
-                // todo could remove key origData
+                groupObj.origData = undefined;
                 doUpdate = true;
             }
         } else {
@@ -373,12 +387,6 @@ const handleLabelClick = (labelOrGroup, group) => {
         console.log(`handleLabelClick got e=${e}`);
     }
 };
-
-let timelineData = [];
-let timelineChart = undefined; // TimelinesChart();
-
-const MARKER_FINISH = '|';
-const MARKER_PERSIST = '$';
 
 const addTimeLineData = (groupName, labelName, valueName, time, options) => {
     // valueName can contain tooltip desc. and color as well.
@@ -432,6 +440,20 @@ const resizeObserver = new ResizeObserver((entries) => {
         if (widthOffset !== null) {
             if (timelineChart.width() - widthOffset !== rect.width) {
                 timelineChart.width(rect.width + widthOffset);
+
+                // do we need to add more data that we removed with thinning?
+                if (lastThinTarget !== undefined) {
+                    const thinTarget = Math.max(100, Math.ceil(timelineChart ? ((rect.width + widthOffset) / 2) : 200));
+                    if (thinTarget > (lastThinTarget * 1.25)) {
+                        // console.log(`resizeObserver rethinning thinTarget=${thinTarget} lastThinTarget=${lastThinTarget}`);
+                        // significantly more so lets recalc:
+                        const timelineDataWasUpdated = thinAllLines();
+                        if (timelineDataWasUpdated) {
+                            timelineChart.data(timelineData);
+                            timelineChart.zoomX(lastZoomX);
+                        }
+                    }
+                }
             }
         } else {
             widthOffset = timelineChart.width() - rect.width;
@@ -439,12 +461,118 @@ const resizeObserver = new ResizeObserver((entries) => {
     }
 });
 
+const thinLine = (line, timeArr) => {
+
+    // we target pixel width / 2 number of items max. default to 200 on first call
+    // and min. 100 on small width
+    // see dupl. code above inside resizeObserver
+    const thinTarget = Math.max(100, Math.ceil(timelineChart ? (timelineChart.width() / 2) : 200));
+    lastThinTarget = thinTarget;
+
+    if (line.origData === undefined) {
+        line.origData = line.data;
+    }
+    // console.log(`thinLine line.label=${line.label} with line.origData.length=${line.origData.length} timeArr=${timeArr ? timeArr[0] + '-' + timeArr[1] : 'undefined'}`);
+    const origData = line.origData;
+    const newData = [];
+    line.data = newData;
+    // now we thin our data based on origData and timeArr
+
+    // we keep the first and last fitting from the time range
+    let origAmount = origData.length;
+    let origFirst = -1;
+    let origLast = origAmount - 1;
+    if (timeArr !== undefined) {
+        const startTimeVal = timeArr[0].valueOf();
+        const endTimeVal = timeArr[1].valueOf();
+        // update first/last/amount based on the timeArr
+        for (let i = 0; i < origAmount && origLast === (origAmount - 1); ++i) {
+            const dp = origData[i];
+            if (origFirst === -1 && dp.timeRange[1].valueOf() > startTimeVal) {
+                origFirst = i; // i has its end > startTime
+            }
+            if (dp.timeRange[0].valueOf() > endTimeVal) {
+                origLast = i - 1; // i has its start > endTime, so is out
+            }
+        }
+        if (origLast < origFirst) { origAmount = 0; } else {
+            origAmount = 1 + origLast - origFirst;
+        }
+        //console.log(`thinLine line.label=${line.label} timeArr first=${origFirst} last=${origLast} amount=${origAmount}`);
+    } else { // no time given
+        origFirst = 0;
+        origLast = origAmount - 1;
+        //console.log(`thinLine line.label=${line.label} no time first=${origFirst} last=${origLast} amount=${origAmount}`);
+    }
+
+    if (origAmount < thinTarget) {
+        // keep all from origFirst to origLast
+        for (let i = origFirst; i <= origLast; ++i) {
+            newData.push(origData[i]);
+        }
+        //console.log(`thinLine line.label=${line.label} after keep all have ${newData.length}`);
+    } else {
+        // keep first and last and then every origAmount/100 only (so target 100 items)
+        // todo use a better algo that uses e.g. labelCol or a probablistic distribution / monte carlo alike
+        const skipRatio = origAmount / thinTarget;
+        newData.push(origData[origFirst]);
+
+        let skipped = 0;
+        let keeped = 1;
+        for (let i = origFirst + 1; i < origLast; ++i) {
+            if ((skipped / keeped) < skipRatio) { ++skipped; } else { ++keeped; newData.push(origData[i]); }
+        }
+
+        newData.push(origData[origLast]);
+        //console.log(`thinLine line.label=${line.label} after thinning have ${newData.length}`);
+    }
+
+};
+
+const thinAllLines = () => {
+    let updated = false;
+    for (let index = 0; index < timelineData.length; ++index) {
+        const group = timelineData[index];
+        // .collapsedData = cached collapsed data
+        // .origData = origData (even if currently extended)
+        const isCollapsed = group.origData && group.origData !== group.data;
+
+        try {
+            const data = isCollapsed ? group.origData : group.data;
+            let updatedGroup = false;
+            for (let l = 0; l < data.length; ++l) {
+                const line = data[l];
+                if (line.origData !== undefined) {
+                    thinLine(line, lastZoomX);
+                    updatedGroup = true;
+                }
+            }
+            // if the group was updated we clear the collapsedData and recalc:
+            if (updatedGroup && group.collapsedData) {
+                group.collapsedData = undefined;
+                if (isCollapsed) {
+                    group.data = group.origData; // extend.
+                    // recollapse:
+                    collapseOrExtendGroup(group.group);
+                }
+            }
+
+            if (updatedGroup) { updated = true; }
+        } catch (e) {
+            console.warn(`thinAllLines index=${index} got e=${e}`, group);
+        }
+    }
+    return updated;
+};
+
 const timelineChartUpdate = (options) => {
     if (!options) { return; }
     const { datasets = undefined, selectedTime = undefined, zoomX = undefined, onZoom = undefined, onSelectedTime = undefined } = options;
     if (onZoom) { onZoomCallback = onZoom; }
     if (onSelectedTime) { onSelectTimeCallback = onSelectedTime; }
+    let timelineDataWasUpdated = false;
     if (datasets) {
+        timelineDataWasUpdated = true;
         timelineData = [];
         console.log(`timelineChartUpdate got data`);
         // todo cleanup into sep. functions/data
@@ -473,6 +601,15 @@ const timelineChartUpdate = (options) => {
         for (let index = 0; index < timelineData.length; ++index) {
             const group = timelineData[index];
             try {
+
+                // thin out single lines with >500 items first according to current times:
+                for (let l = 0; l < group.data.length; ++l) {
+                    const line = group.data[l];
+                    if (line.data.length > 500) {
+                        thinLine(line, lastZoomX);
+                    }
+                }
+
                 if (group.data.length > 10) {
                     collapseOrExtendGroup(group.group);
                 }
@@ -483,8 +620,8 @@ const timelineChartUpdate = (options) => {
     }
 
     if (timelineData.length) {
-        if (datasets) {
-            console.log(`timelineChartData got ${timelineData.length} groups with ${timelineData.map(g => g.data.length)} labels`);
+        if (timelineDataWasUpdated) {
+            console.log(`timelineChartData timelineDataWasUpdated: got ${timelineData.length} groups with ${timelineData.map(g => g.data.length)} labels`);
             //console.log(`timelineChartData group 0.label0.length=${timelineData[0]?.data?.[0]?.data?.length}`);
             //console.log(`timelineChartData group 0.label0.slice(10)=${JSON.stringify(timelineData[0]?.data?.[0]?.data?.slice(0, 10))}`);
         }
@@ -514,8 +651,9 @@ const timelineChartUpdate = (options) => {
                 (document.getElementById('timeline'));
             resizeObserver.observe(document.getElementById('timeline'));
         } else {
-            if (datasets) {
+            if (timelineDataWasUpdated) {
                 timelineChart.data(timelineData);
+                timelineDataWasUpdated = false;
             }
             if (selectedTime) {
                 timelineChart.dateMarker(selectedTime);
@@ -526,6 +664,12 @@ const timelineChartUpdate = (options) => {
                 lastZoomX = zoomX;
             }
             if (lastZoomX !== undefined) {
+
+                // thin out again to reveal more precise data e.g. on zooming in
+                timelineDataWasUpdated = thinAllLines();
+                if (timelineDataWasUpdated) {
+                    timelineChart.data(timelineData);
+                }
                 timelineChart.zoomX(lastZoomX);
             }
 
