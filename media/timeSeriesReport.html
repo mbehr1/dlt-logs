@@ -276,13 +276,17 @@
         };
 
         function handleTimelineChartZoom(startDate, endDate){
-            const chart = window.myReport;
-            //console.log(`handleTimelineChartZoom ${startDate}/${startDate.valueOf()}-${endDate}, cur=${chart.scales['x-axis-0'].min }-${chart.scales['x-axis-0'].max}`);
-            //config.options.scales.xAxes[0].min = startDate.valueOf();
-            //config.options.scales.xAxes[0].max = endDate.valueOf();
-            chart.scales['x-axis-0'].options.time.min = startDate.valueOf();
-            chart.scales['x-axis-0'].options.time.max = endDate.valueOf();
-            chart.update();
+            if (startDate === undefined || endDate === undefined){
+                window.resetZoom();
+            }else{
+                const chart = window.myReport;
+                //console.log(`handleTimelineChartZoom ${startDate}/${startDate.valueOf()}-${endDate}, cur=${chart.scales['x-axis-0'].min }-${chart.scales['x-axis-0'].max}`);
+                //config.options.scales.xAxes[0].min = startDate.valueOf();
+                //config.options.scales.xAxes[0].max = endDate.valueOf();
+                chart.scales['x-axis-0'].options.time.min = startDate.valueOf();
+                chart.scales['x-axis-0'].options.time.max = endDate.valueOf();
+                chart.update();
+            }
         }
 
         window.onload = function () {

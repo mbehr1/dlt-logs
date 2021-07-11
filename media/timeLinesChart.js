@@ -22,7 +22,12 @@ const MARKER_FINISH = '|';
 const MARKER_PERSIST = '$';
 
 const handleZoom = (dates, lines) => {
-    if (!dates) { return; }
+    if (!dates) {  // e.g. on resetZoom button from timeline
+        if (onZoomCallback) {
+            onZoomCallback(undefined, undefined);
+        }
+        return;
+    }
     const [startDate, endDate] = dates;
     const [startY, endY] = lines || [-1, -1];
     console.log(`handleZoom ${startDate}-${endDate}, ${startY}-${endY}`);
