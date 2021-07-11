@@ -178,7 +178,7 @@ Open an [issue](https://github.com/mbehr1/dlt-logs/issues) or create a pull requ
 
 [GitHub ♥︎ Sponsors are welcome!](https://github.com/sponsors/mbehr1)
 
-[![Open in Visual Studio Code](https://open.vscode.dev/badges/open-in-vscode.svg)](https://open.vscode.dev/mbehr1/dlt-logs)
+[![Open in Visual Studio Code](https://open.vscode.dev/badges/open-in-vscode.png)](https://open.vscode.dev/mbehr1/dlt-logs)
 
 ## Contributors
 
