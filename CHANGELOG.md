@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.24.0](https://github.com/mbehr1/dlt-logs/compare/v1.23.0...v1.24.0) (2021-07-14)
+
+
+### Features
+
+* add verbose/non-verbose option for filters ([4659a10](https://github.com/mbehr1/dlt-logs/commit/4659a10ebad0d0ec2f830417f6b884b02fcd96ca))
+
 ## [1.23.0](https://github.com/mbehr1/dlt-logs/compare/v1.22.4...v1.23.0) (2021-07-11)
 
 
