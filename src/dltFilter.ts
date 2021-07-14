@@ -25,6 +25,7 @@ export class DltFilter {
     ctid: string | undefined;
     logLevelMin: number | undefined;
     logLevelMax: number | undefined;
+    verbose: boolean | undefined;
     payload: string | undefined;
     payloadRegex: RegExp | undefined;
     lifecycles: number[] | undefined; // array with persistentIds from lifecycles
@@ -85,6 +86,7 @@ export class DltFilter {
         obj.ctid = this.ctid;
         obj.logLevelMin = this.logLevelMin;
         obj.logLevelMax = this.logLevelMax;
+        obj.verbose = this.verbose;
         obj.payload = this.payload;
         obj.payloadRegex = this.payloadRegex !== undefined ? this.payloadRegex.source : undefined;
         obj.lifecycles = this.lifecycles;
@@ -135,6 +137,8 @@ export class DltFilter {
             this.mstp = 0;
             this.logLevelMax = options.logLevelMax;
         } else { this.logLevelMax = undefined; }
+
+        this.verbose = 'verbose' in options ? options.verbose : undefined;
 
         this.payload = 'payload' in options ? options.payload : undefined;
 
@@ -196,6 +200,7 @@ export class DltFilter {
         if (this.ecu && msg.ecu !== this.ecu) { return negated; }
         if (this.apid && msg.apid !== this.apid) { return negated; }
         if (this.ctid && msg.ctid !== this.ctid) { return negated; }
+        if (this.verbose !== undefined && msg.verbose !== this.verbose) { return negated; }
         if (this.payload && !msg.payloadString.includes(this.payload)) { return negated; }
         if (this.payloadRegex !== undefined && !this.payloadRegex.test(msg.payloadString)) { return negated; }
         if (this.lifecycles !== undefined && this.lifecycles.length > 0) {
@@ -265,6 +270,7 @@ export class DltFilter {
         if (this.ecu) { nameStr += `ECU:${this.ecu} `; } // we ignore empty strings
         if (this.apid) { nameStr += `APID:${this.apid} `; }
         if (this.ctid) { nameStr += `CTID:${this.ctid} `; }
+        if (this.verbose !== undefined) { nameStr += this.verbose ? 'VERB ' : 'NON-VERB '; }
         if (this.payload) { nameStr += `payload contains '${this.payload}' `; }
         if (this.payloadRegex !== undefined) { nameStr += `payload matches '${this.payloadRegex.source}'`; }
         if (this.lifecycles !== undefined) { nameStr += ` in ${this.lifecycles.length} LCs`; }
