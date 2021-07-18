@@ -71,6 +71,8 @@ export class DltRewriteMsgPlugin extends DltTransformationPlugin {
         return `${this.enabled ? '' : "disabled: "} plugin 'rewrite'`;
     }
 
+    changesOnlyPayloadString(): boolean { return false; };
+
     matches(msg: DltMsg): boolean {
         if (!this.enabled) {
             return false;
