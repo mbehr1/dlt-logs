@@ -1,5 +1,17 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.25.0](https://github.com/mbehr1/dlt-logs/compare/v1.24.0...v1.25.0) (2021-07-18)
+
+
+### Features
+
+* **export:** use less memory, filter on pass 1 ([733b76c](https://github.com/mbehr1/dlt-logs/commit/733b76cc381ac9eddba1ce8ad16c7b6f553eb6ae))
+
+
+### Bug Fixes
+
+* rewrite plugin  allow to change more than text ([a1deee2](https://github.com/mbehr1/dlt-logs/commit/a1deee2009f53ea37585d6e1a0f83886888bf4ef))
+
 ## [1.24.0](https://github.com/mbehr1/dlt-logs/compare/v1.23.0...v1.24.0) (2021-07-14)
 
 
