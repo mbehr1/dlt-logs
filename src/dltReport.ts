@@ -431,7 +431,7 @@ export class DltReport implements vscode.Disposable {
                                 data.data.forEach((d) => delete d.idx_);
                             }
                         } else {
-                            data.data.push({ x: lcInfo.lifecycleEnd, y: NaN, lcId: lcInfo.uniqueId }); // todo not quite might end at wrong lifecycle. rethink whether one dataset can come from multiple LCs
+                            data.data.push({ x: lcInfo.lifecycleEnd, y: NaN, lcId: lcInfo.uniqueId, t_: DataPointType.LifecycleEnd }); // todo not quite might end at wrong lifecycle. rethink whether one dataset can come from multiple LCs
                             dataNeedsSorting = true;
                         }
                     });
