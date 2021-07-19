@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+### [1.25.1](https://github.com/mbehr1/dlt-logs/compare/v1.25.0...v1.25.1) (2021-07-19)
+
+
+### Bug Fixes
+
+* **report:** persistent timelines chart end at lc ([a62e025](https://github.com/mbehr1/dlt-logs/commit/a62e025d670f93e3c8e0a828a1feec329d79924d))
+
 ## [1.25.0](https://github.com/mbehr1/dlt-logs/compare/v1.24.0...v1.25.0) (2021-07-18)
 
 
