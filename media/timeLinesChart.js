@@ -426,7 +426,7 @@ const addTimeLineData = (groupName, labelName, valueName, time, options) => {
         const valueTooltip = valueParts[1]; // works for isFinished as well -> ''
         const valueColor = valueParts[2]; // could be undef.
         label.data.push({
-            timeRange: [time, isFinished ? new Date(time.valueOf() + 1) : new Date(time.valueOf() + (3600) * 1000)], // todo determine better end
+            timeRange: [time, isFinished ? new Date(time.valueOf() + 1) : new Date(time.valueOf() + 864_000_000)], // we can use a really long value (here 10d) as the end is determined by last LC end
             val: { g: groupName, l: labelName, v: labelVal, c: valueColor, t: valueTooltip?.length ? valueTooltip : undefined },
             labelVal: labelVal,
             isFinished: isFinished,
@@ -595,7 +595,8 @@ const timelineChartUpdate = (options) => {
                     if (data.t_ === 1) { continue; } // skip the PrevStateEnd helpers...
                     // but could use 2 for DataPointType.LifecycleEnd...
                     if (data.t_ === 2) {
-                        addTimeLineData(groupName, labelName, null, new Date(data.x), { lcEnd: true });
+                        const isLastLc = j === dataset.dataYLabels.data.length - 1; // we treat the last LC differently as its the end of the report as well.
+                        addTimeLineData(groupName, labelName, null, new Date(data.x), { lcEnd: !isLastLc });
                     } else {
                         const val = data.y; // empty value '' will be treated like null -> can be used to end prev. one.
                         addTimeLineData(groupName, labelName, val, new Date(data.x));
