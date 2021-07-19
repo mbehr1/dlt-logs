@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+### [1.25.2](https://github.com/mbehr1/dlt-logs/compare/v1.25.1...v1.25.2) (2021-07-19)
+
+
+### Bug Fixes
+
+* **report:** end persisted states at report (last lc) end ([acfdecf](https://github.com/mbehr1/dlt-logs/commit/acfdecff0fdd232bb9e39b220a552735d32872bd))
+
 ### [1.25.1](https://github.com/mbehr1/dlt-logs/compare/v1.25.0...v1.25.1) (2021-07-19)
 
 
