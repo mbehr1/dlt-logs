@@ -4,9 +4,11 @@
 
 import * as vscode from 'vscode';
 import TelemetryReporter from 'vscode-extension-telemetry';
-import { extensionId, dltScheme, GlobalState } from './constants';
+import { extensionId, dltScheme, adltScheme, GlobalState } from './constants';
 import * as dltDocument from './dltDocumentProvider';
 import { exportDlt } from './dltExport';
+import { ADltDocumentProvider } from './adltDocumentProvider';
+
 // import { DltLogCustomReadonlyEditorProvider } from './dltCustomEditorProvider';
 
 let reporter: TelemetryReporter;
@@ -53,7 +55,25 @@ export function activate(context: vscode.ExtensionContext) {
 		);
 	}));
 
-	// register our command to open dlt files as "dlt-logs":
+	// register our document provider that knows how to handle "dlt-logs"
+	let adltProvider = new ADltDocumentProvider(context, reporter);
+	context.subscriptions.push(vscode.workspace.registerFileSystemProvider(adltScheme, adltProvider, { isReadonly: false, isCaseSensitive: true }));
+
+	// register our command to open dlt files via adlt:
+	context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.dltOpenAdltFile', async () => {
+		return vscode.window.showOpenDialog({ canSelectFiles: true, canSelectFolders: false, canSelectMany: true, filters: { 'DLT Logs': <Array<string>>(vscode.workspace.getConfiguration().get("dlt-logs.fileExtensions")) }, openLabel: 'Select DLT file to open...' }).then(
+			async (uris: vscode.Uri[] | undefined) => {
+				if (uris) {
+					console.log(`open dlt via adlt got URIs=${uris}`);
+					let dltUri = uris[0].with({ scheme: adltScheme }); // todo encode all files
+					vscode.workspace.openTextDocument(dltUri).then((value) => { vscode.window.showTextDocument(value, { preview: false }); });
+				}
+			}
+		);
+	}));
+
+
+	// register our command to export dlt files:
 	context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.dltExportFile', async () => {
 		return vscode.window.showOpenDialog({ canSelectFiles: true, canSelectFolders: false, canSelectMany: true, filters: { 'DLT Logs': <Array<string>>(vscode.workspace.getConfiguration().get("dlt-logs.fileExtensions")) }, openLabel: 'Select DLT files to filter/export...' }).then(
 			async (uris: vscode.Uri[] | undefined) => {

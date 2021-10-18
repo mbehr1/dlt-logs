@@ -25,7 +25,9 @@
 	],
 	"activationEvents": [
 		"onFileSystem:dlt-log",
+		"onFileSystem:adlt-log",
 		"onCommand:dlt-logs.dltOpenFile",
+		"onCommand:dlt-logs.dltOpenAdltFile",
 		"onCommand:dlt-logs.dltExportFile"
 	],
 	"capabilities": {
@@ -565,6 +567,10 @@
 				"title": "Open DLT file..."
 			},
 			{
+				"command": "dlt-logs.dltOpenAdltFile",
+				"title": "Open DLT file via adlt..."
+			},
+			{
 				"command": "dlt-logs.adjustTime",
 				"title": "adjust time..."
 			},
@@ -764,6 +770,7 @@
 		"@types/node": "^15.0.2",
 		"@types/uuid": "^8.3.0",
 		"@types/vscode": "^1.50.0",
+		"@types/ws": "^8.2.0",
 		"@typescript-eslint/eslint-plugin": "^4.22.1",
 		"@typescript-eslint/parser": "^4.22.1",
 		"eslint": "^7.26.0",
@@ -787,7 +794,8 @@
 		"timelines-chart": "^2.11.2",
 		"uuid": "^8.3.2",
 		"vscode-extension-telemetry": "^0.1.7",
-		"w3-css": "^4.1.0"
+		"w3-css": "^4.1.0",
+		"ws": "^8.2.2"
 	},
 	"commitlint": {
 		"extends": [
