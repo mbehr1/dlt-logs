@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 
-const dltScheme = 'dlt-log';
+import { dltScheme } from './constants';
 
 class DltLogCustomDocument implements vscode.CustomDocument {
     constructor(public uri: vscode.Uri) {
