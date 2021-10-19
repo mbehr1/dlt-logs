@@ -30,7 +30,9 @@ export class DltReport implements vscode.Disposable {
         this.panel = vscode.window.createWebviewPanel("dlt-logs.report", `dlt-logs report`, vscode.ViewColumn.Beside,
             {
                 enableScripts: true, retainContextWhenHidden: true,
-                localResourceRoots: [vscode.Uri.file(path.join(context.extensionPath, 'media'))]
+                localResourceRoots: [
+                    vscode.Uri.file(path.join(context.extensionPath, 'media')),
+                    vscode.Uri.file(path.join(context.extensionPath, 'node_modules'))]
             });
         //  for ${filter.name} todo think about nice naming title
 
@@ -83,7 +85,10 @@ export class DltReport implements vscode.Disposable {
         const htmlFile = fs.readFileSync(path.join(this.context.extensionPath, 'media', 'timeSeriesReport.html'));
         if (htmlFile.length) {
             let htmlStr = htmlFile.toString();
-            htmlStr = htmlStr.replace('${{media}}', `${this.panel.webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'media'))}`);
+            const mediaPart = this.panel.webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'media')).toString();
+            htmlStr = htmlStr.replace(/\${{media}}/g, mediaPart);
+            const scriptsPart = this.panel.webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'node_modules')).toString();
+            htmlStr = htmlStr.replace(/\${{scripts}}/g, scriptsPart);
             this.panel.webview.html = htmlStr;
         } else {
             vscode.window.showErrorMessage(`couldn't load timeSeriesReport.html`);
@@ -259,20 +264,20 @@ export class DltReport implements vscode.Disposable {
                                                 // for timelineChart
                                                 insertDataPoint(msg.lifecycle!, valueName, time, groups[valueName], false, false);
                                             } else
-                                            if (valueName.startsWith("STATE_")) {
-                                                // if value name starts with STATE_ we make this a non-numeric value aka "state handling"
-                                                // represented as string
-                                                // as we will later use a line diagram we model a state behaviour here:
-                                                //  we insert the current state value directly before:
-                                                insertDataPoint(msg.lifecycle!, valueName, time, groups[valueName], true);
-                                            } else
-                                                if (valueName.startsWith("INT_")) {
-                                                    const value: number = Number.parseInt(groups[valueName]);
-                                                    insertDataPoint(msg.lifecycle!, valueName, time, value);
-                                                } else {
-                                                    const value: number = Number.parseFloat(groups[valueName]);
-                                                    insertDataPoint(msg.lifecycle!, valueName, time, value);
-                                                }
+                                                if (valueName.startsWith("STATE_")) {
+                                                    // if value name starts with STATE_ we make this a non-numeric value aka "state handling"
+                                                    // represented as string
+                                                    // as we will later use a line diagram we model a state behaviour here:
+                                                    //  we insert the current state value directly before:
+                                                    insertDataPoint(msg.lifecycle!, valueName, time, groups[valueName], true);
+                                                } else
+                                                    if (valueName.startsWith("INT_")) {
+                                                        const value: number = Number.parseInt(groups[valueName]);
+                                                        insertDataPoint(msg.lifecycle!, valueName, time, value);
+                                                    } else {
+                                                        const value: number = Number.parseFloat(groups[valueName]);
+                                                        insertDataPoint(msg.lifecycle!, valueName, time, value);
+                                                    }
                                         });
                                     } else {
                                         const value: number = Number.parseFloat(matches[matches.length - 1]);
