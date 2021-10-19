@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.26.0](https://github.com/mbehr1/dlt-logs/compare/v1.25.2...v1.26.0) (2021-10-19)
+
+
+### Features
+
+* ship dependencies for reports ([5e1f745](https://github.com/mbehr1/dlt-logs/commit/5e1f7452133545fe4d6101a1498062b8e87b6c34))
+
 ### [1.25.2](https://github.com/mbehr1/dlt-logs/compare/v1.25.1...v1.25.2) (2021-07-19)
 
 
