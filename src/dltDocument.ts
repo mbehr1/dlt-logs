@@ -541,7 +541,7 @@ export class DltDocument {
     autoEnableConfigs() {
         if (!this._didAutoEnableConfigs && this.lifecycles.size > 0) {
             let ecus: string[] = [];
-            this.lifecycles.forEach((lci, ecu) => ecus.push(ecu));
+            this.lifecycles.forEach((lci, ecu) => ecus.push(ecu.startsWith('<SH>_') ? ecu.substr(5) : ecu));
             console.log(`autoEnableConfigs with ${ecus.length} ECUs: ${ecus.join(',')}`);
 
             // now iterate through all configs and autoEnable if it matches a regex:
@@ -1765,6 +1765,8 @@ export class DltDocument {
     private updateLifecycleTreeNode() {
         this.lifecycleTreeNode.reset(); // .children = [];
         this.lifecycles.forEach((lcInfo, ecu) => {
+            // determine orig ecu name:
+            const ecuWoSh = ecu.startsWith('<SH>_') ? ecu.substr(5) : ecu;
             // determine SW names:
             let sw: string[] = [];
             lcInfo.forEach(lc => lc.swVersions.forEach(lsw => { if (!sw.includes(lsw)) { sw.push(lsw); } }));
@@ -1797,11 +1799,11 @@ export class DltDocument {
                     });
                 }));
 
-                const apidsNode = new DynFilterNode(`APIDs (${apidSet.size}) / CTIDs`, undefined, ecuNode, `symbol-misc`, { ecu: ecu, apid: null, ctid: null, payload: null, payloadRegex: null, not: null, mstp: null, logLevelMin: null, logLevelMax: null, lifecycles: null }, this);
+                const apidsNode = new DynFilterNode(`APIDs (${apidSet.size}) / CTIDs`, undefined, ecuNode, `symbol-misc`, { ecu: ecuWoSh, apid: null, ctid: null, payload: null, payloadRegex: null, not: null, mstp: null, logLevelMin: null, logLevelMax: null, lifecycles: null }, this);
                 apidSet.forEach((info, apid) => {
-                    const apidNode = new DynFilterNode(`'${apid}'(${info.ctids.size})${info.desc.length ? `: ${info.desc}` : ''}`, `desc='${info.desc}', apid = 0x${Buffer.from(apid).toString("hex")}`, apidsNode, undefined, { ecu: ecu, apid: apid, ctid: null, payload: null, payloadRegex: null, not: null, mstp: null, logLevelMin: null, logLevelMax: null, lifecycles: null }, this);
+                    const apidNode = new DynFilterNode(`'${apid}'(${info.ctids.size})${info.desc.length ? `: ${info.desc}` : ''}`, `desc='${info.desc}', apid = 0x${Buffer.from(apid).toString("hex")}`, apidsNode, undefined, { ecu: ecuWoSh, apid: apid, ctid: null, payload: null, payloadRegex: null, not: null, mstp: null, logLevelMin: null, logLevelMax: null, lifecycles: null }, this);
                     info.ctids.forEach((ctidInfo, ctid) => {
-                        const ctidNode = new DynFilterNode(`'${ctid}'${ctidInfo.desc.length ? `: ${ctidInfo.desc} ` : ''}`, `desc='${ctidInfo.desc}', ctid = 0x${Buffer.from(ctid).toString("hex")}`, apidNode, undefined, { ecu: ecu, apid: apid, ctid: ctid, payload: null, payloadRegex: null, not: null, mstp: null, logLevelMin: null, logLevelMax: null, lifecycles: null }, this);
+                        const ctidNode = new DynFilterNode(`'${ctid}'${ctidInfo.desc.length ? `: ${ctidInfo.desc} ` : ''}`, `desc='${ctidInfo.desc}', ctid = 0x${Buffer.from(ctid).toString("hex")}`, apidNode, undefined, { ecu: ecuWoSh, apid: apid, ctid: ctid, payload: null, payloadRegex: null, not: null, mstp: null, logLevelMin: null, logLevelMax: null, lifecycles: null }, this);
                         apidNode.children.push(ctidNode);
                     });
                     apidNode.children.sort((a, b) => { return a.label.localeCompare(b.label); });
@@ -1991,7 +1993,7 @@ export class DltDocument {
                                                     attributes: {
                                                         index: idx + 1,
                                                         id: lc.persistentId, // todo to ease parsing with jsonPath...
-                                                        ecu: ecu,
+                                                        ecu: ecu, // todo or without <SH>_ ?
                                                         label: lc.getTreeNodeLabel(),
                                                         startTimeUtc: lc.lifecycleStart.toUTCString(),
                                                         endTimeUtc: lc.lifecycleEnd.toUTCString(),
