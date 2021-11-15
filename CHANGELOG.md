@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+### [1.26.1](https://github.com/mbehr1/dlt-logs/compare/v1.26.0...v1.26.1) (2021-11-15)
+
+
+### Bug Fixes
+
+* apid/ctid tree view filter for SH ecus ([d8e6ab0](https://github.com/mbehr1/dlt-logs/commit/d8e6ab013e828728c8a4e2bfbc3279837fea452b))
+
 ## [1.26.0](https://github.com/mbehr1/dlt-logs/compare/v1.25.2...v1.26.0) (2021-10-19)
 
 
