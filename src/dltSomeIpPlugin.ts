@@ -539,7 +539,7 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                     if (((bitOffset + parsedBits) & 7) !== 0) {
                         console.warn(`parseSingleStructBit array start not at byte border: bitOffset=${bitOffset} parsedBits=${parsedBits}`);
                     }
-                    const arrBuf = buf.slice(offset, offset + arrLen);
+                    const arrBuf = arrLen > 0 ? buf.slice(offset, offset + arrLen) : buf.slice(offset);
                     const valueArr: any[] = [];
                     let parsedArrBits = 0;
                     let nrElems = 0;
