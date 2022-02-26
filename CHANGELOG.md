@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+### [1.26.3](https://github.com/mbehr1/dlt-logs/compare/v1.26.2...v1.26.3) (2022-02-26)
+
+
+### Bug Fixes
+
+* **someip:** support array of unions ([e1629c6](https://github.com/mbehr1/dlt-logs/commit/e1629c6aed18b1b30f62a301e4be9e4ec9eee5e2))
+
 ### [1.26.2](https://github.com/mbehr1/dlt-logs/compare/v1.26.1...v1.26.2) (2022-02-26)
 
 
