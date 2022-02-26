@@ -191,7 +191,7 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                         const datatype = method && method.datatype ? FibexLoader.datatypes.get(method.datatype) : undefined;
                         const arrayInfo = method?.array;
 
-                        // console.warn(`transformCb: datatype=${method?.datatype} ${JSON.stringify(datatype)}`);
+                        // console.warn(`transformCb: datatype=${method?.datatype} ${JSON.stringify(datatype)} arrayInfo=${JSON.stringify(arrayInfo)}`);
                         // parameter payload:
                         const parameters = buf.slice(16);
                         //console.warn(`transformCb: parameters=${parameters.length} ${parameters.toString('hex')}`);
@@ -374,7 +374,7 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                     // check for ENCODING UTF-8 and TERMINATION="ZERO" todo
                     // assert(bitLength === undefined || bitLength === 16);
                     if (bitMod !== 0) {
-                        console.error(`parseSingleCodingBits A_UNICODE2STRING with bitMod=${bitMod} bitLength=${bitLength}`);
+                        console.error(`parseSingleCodingBits A_UNICODE2STRING with bitOffset=${bitOffset} bitMod=${bitMod} bitLength=${bitLength}`);
                     }
                     let encoding: BufferEncoding | undefined;
                     switch (coding.codedType['@_ENCODING']) {
@@ -404,7 +404,7 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                                         parsedBytes += 3;
                                         strLenBomZero -= 3;
                                     } else {
-                                        console.warn(`A_UNICODE2STRING: strLenBomZero=${strLenBomZero} unexpected utf8 BOM! buf=${buf.slice(offset, offset + 4 + strLenBomZero).toString('hex')} coding=${JSON.stringify(coding)}`);
+                                        console.warn(`A_UNICODE2STRING: strLenBomZero=${strLenBomZero} unexpected utf8 BOM! buf=${buf.slice(offset, offset + 4 + strLenBomZero).toString('hex')} coding=${JSON.stringify(coding)} bitLength=${bitLength}`);
                                     }
                                     break;
                                 case 'ucs2':
@@ -413,7 +413,8 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                                         parsedBytes += 2;
                                         strLenBomZero -= 2;
                                     } else {
-                                        console.warn(`A_UNICODE2STRING: strLenBomZero=${strLenBomZero} unexpected ucs2 BOM! buf=${buf.slice(offset, offset + 4 + strLenBomZero).toString('hex')}`);
+                                        console.warn(`A_UNICODE2STRING: strLenBomZero=${strLenBomZero} unexpected ucs2 BOM! buf=${buf.slice(offset, offset + 4 + strLenBomZero).toString('hex')} coding=${JSON.stringify(coding)} bitLength=${bitLength}`);
+                                        throw Error("unexpected ucs2 BOM"); // this eases checking which msg has the problem
                                     }
                                     break;
                             }
@@ -433,6 +434,49 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
         }
         return [parsedBits, objToRet];
     }
+
+    private parseSingleUnion(buf: Buffer, bitOffset: number, bitLengthPar: number | undefined, datatype: Datatype) {
+        let objToRet: any = {};
+        let parsedBits = 0;
+        const offset = (bitOffset + parsedBits) >> 3;
+        if (((bitOffset + parsedBits) & 7) !== 0) {
+            console.error(`parseSingleUnion union start not at byte border: bitOffset=${bitOffset} parsedBits=${parsedBits}`);
+        }
+        if (datatype.complexUnionMembers) {
+            const length = buf.readUInt32BE(offset); // see PRS_SOMEIP_00126: size of data and padding in bytes. does not include the length and type field
+            let parsedBytes = 4;
+            const unionType = buf.readUInt32BE(offset + parsedBytes);
+            parsedBytes += 4;
+            // iterate through all members with fx:INDEX === unionType?
+            let found = false;
+            let complexUnionMembers = Array.isArray(datatype.complexUnionMembers) ? datatype.complexUnionMembers : [datatype.complexUnionMembers];
+            for (let i = 0; i < complexUnionMembers.length; ++i) {
+                const unionInfo = complexUnionMembers[i];
+                const fxIndex = unionInfo['fx:INDEX'];
+                if (fxIndex === unionType || (i === 0 && complexUnionMembers.length === 1)) { // todo or simply use the index???
+                    found = true;
+                    const unionDatatype = FibexLoader.datatypes.get(unionInfo['fx:DATATYPE-REF']['@_ID-REF']);
+                    if (unionDatatype) {
+                        const [parsed, valueObj] = this.parseParameters(buf, bitOffset + (parsedBytes * 8), undefined /*todo get from fx:UTIL...*/, unionDatatype, undefined);
+                        objToRet = valueObj;
+                        if (parsed > (length << 3)) {
+                            console.warn(` datatype.complexUnion=${JSON.stringify(unionInfo)} parsed ${parsed} expected ${length << 3}`);
+                        }
+                    } else {
+                        console.warn(` datatype.complexUnion=${JSON.stringify(unionInfo)} without datatype!`);
+                    }
+                    break;
+                }
+            }
+            if (!found) {
+                console.warn(`parseSingleUnion found no union member for unionType=${unionType} of : ${JSON.stringify(datatype)})`);
+            }
+            parsedBytes += length;
+            parsedBits += parsedBytes * 8;
+        }
+        return [parsedBits, objToRet];
+    }
+
 
     private parseSingleStruct(buf: Buffer, bitOffset: number, bitLengthPar: number | undefined, datatype: Datatype): [number, any | undefined] {
         const objToRet: any = {};
@@ -549,7 +593,7 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
      * @returns parsed bit number and object with the data
      */
     private parseParameters(buf: Buffer, bitOffset: number, bitLength: number | undefined, datatype: Datatype, arrayInfo?: ArrayInfo): [number, any | string | number | undefined] {
-        //console.warn(`DltSomeIpPlugin.parseParameters(offset=${offset}, datatype.shortName=${datatype.shortName})`);
+        //console.warn(`DltSomeIpPlugin.parseParameters(offset=${bitOffset}, bitLength=${bitLength} datatype=${JSON.stringify(datatype)})`);
         if ((bitOffset >> 3) >= buf.length) {
             //console.warn(`DltSomeIpPlugin.parseParameters out of range for: datatype ${JSON.stringify(datatype)})`);
             return [0, undefined];
@@ -596,6 +640,9 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                                 console.warn(`DltSomeIpPlugin.parseParameters parsing after ${parsedArrBits} / ${arrLen * 8} bits failed for coding ${coding.shortName} from ${datatype.shortName}`);
                                 parsedArrBits = arrLen * 8;
                             } else {
+                                if (parsed > 0xffff) {
+                                    console.warn(`DltSomeIpPlugin.parseParameters sanity check failed. parsed too much after ${parsedArrBits} / ${arrLen * 8} coding ${coding.shortName} from ${JSON.stringify(datatype)}`);
+                                }
                                 if (datatype.enums && valueObj !== undefined) { // value an enum?
                                     const enumObj = datatype.enums.get(valueObj);
                                     if (enumObj) { valueObj = enumObj.synonym; }
@@ -617,6 +664,9 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                 //console.warn(` datatype.coding=${JSON.stringify(coding)})`);
                 if (coding) {
                     let [parsed, valueObj] = this.parseSingleCoding(buf, bitOffset, bitLength, coding);
+                    if (parsed > 0xffff) {
+                        console.warn(`DltSomeIpPlugin.parseParameters sanity check failed. parsed too much bitLength=${bitLength} coding ${coding.shortName} from ${JSON.stringify(datatype)}`);
+                    }
                     if (datatype.enums && valueObj !== undefined) { // value an enum?
                         const enumObj = datatype.enums.get(valueObj);
                         if (enumObj) { valueObj = enumObj.synonym; }
@@ -678,44 +728,53 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                 objToRet = valueObj;
             }
         } else if (datatype.complexUnionMembers) {
-            // todo arrayInfo...
-            if (arrayInfo) { console.warn(`DltSomeIpPlugin.parseParameters array of UNION`); }
-            //console.warn(`DltSomeIpPlugin.parseParameters(bitOffset=${bitOffset}, datatype.shortName=${datatype.shortName})`);
-            //console.warn(` datatype.complexUnionMembers=${JSON.stringify(datatype.complexUnionMembers)}, arrayInfo=${JSON.stringify(arrayInfo)})`);
-            // todo nyi. parse length 32bit, type 32bit, data...
-            const offset = (bitOffset + parsedBits) >> 3;
-            if (((bitOffset + parsedBits) & 7) !== 0) {
-                console.error(`parseParametersBit union start not at byte border: bitOffset=${bitOffset} parsedBits=${parsedBits}`);
-            }
-            const length = buf.readUInt32BE(offset);
-            let parsedBytes = 4;
-            const unionType = buf.readUInt32BE(offset + parsedBytes);
-            parsedBytes += 4;
-            // iterate through all members with fx:INDEX === unionType?
-            let found = false;
-            for (let i = 0; i < datatype.complexUnionMembers.length; ++i) {
-                const unionInfo = datatype.complexUnionMembers[i];
-                const fxIndex = unionInfo['fx:INDEX'];
-                if (fxIndex === unionType) {
-                    found = true;
-                    const unionDatatype = FibexLoader.datatypes.get(unionInfo['fx:DATATYPE-REF']['@_ID-REF']);
-                    if (unionDatatype) {
-                        const [parsed, valueObj] = this.parseParameters(buf, offset + (parsedBytes * 8), undefined /*todo get from fx:UTIL...*/, unionDatatype, undefined);
-                        objToRet = valueObj;
-                        if (parsed !== (length << 3)) {
-                            console.warn(` datatype.complexUnion=${JSON.stringify(unionInfo)} parsed ${parsed} expected ${length << 3}`);
-                        }
-                    } else {
-                        console.warn(` datatype.complexUnion=${JSON.stringify(unionInfo)} without datatype!`);
+            // console.warn(`DltSomeIpPlugin.parseParameters(bitOffset=${bitOffset}, datatype.shortName=${datatype.shortName})`);
+            // console.warn(` datatype.complexUnionMembers=${JSON.stringify(datatype.complexUnionMembers)}, arrayInfo=${JSON.stringify(arrayInfo)})`);
+            if (arrayInfo) { // array of union
+                if (arrayInfo.dim !== 1) { console.warn(`DltSomeIpPlugin.parseParameters union with dim ${arrayInfo.dim} not supported yet!`); }
+                // if (arrayInfo.minSize) { console.warn(`DltSomeIpPlugin.parseParameters struct with minSize ${arrayInfo.minSize} ${arrayInfo.maxSize} not supported yet!`); }
+                let arrLen = 0;
+                if (arrayInfo.minSize && arrayInfo.maxSize && arrayInfo.minSize === arrayInfo.maxSize) {
+                    arrLen = arrayInfo.minSize;
+                    if (arrayInfo.minSize) { console.warn(`DltSomeIpPlugin.parseParameters union assuming fixed size array with const size ${arrayInfo.minSize}`); }
+                } else {
+                    const offset = (bitOffset + parsedBits) >> 3;
+                    if (((bitOffset + parsedBits) & 7) !== 0) {
+                        console.error(`parseParametersBit union array start not at byte border: bitOffset=${bitOffset} parsedBits=${parsedBits}`);
                     }
-                    break;
+                    arrLen = buf.readUInt32BE(offset);
+                    parsedBits += 32;
+                    if (arrLen > 0xffff) {
+                        console.warn(`parseParameters array of union len sanity check failed (too large). arrLen=${arrLen} datatype=${JSON.stringify(datatype)}`);
+                        arrLen = 1;
+                    }
                 }
+                if (arrLen) {
+                    const offset = (bitOffset + parsedBits) >> 3;
+                    const arrBuf = buf.slice(offset, offset + arrLen);
+                    const valueArr: any[] = [];
+                    let parsedArrBits = 0;
+                    while ((parsedArrBits >> 3) < arrLen) {
+                        // console.warn(`parseParameters array of union #${valueArr.length}, ${parsedArrBits} bits ${parsedArrBits >> 3}/${arrLen} bytes parseSingleUnion:`);
+                        let [parsed, valueObj] = this.parseSingleUnion(arrBuf, parsedArrBits, bitLength, datatype);
+                        if (!parsed) {
+                            console.warn(`DltSomeIpPlugin.parseParameters parsing after ${parsedArrBits} / ${arrLen * 8} bits failed for array of union from ${datatype.shortName}`);
+                            parsedArrBits = arrLen * 8;
+                        } else {
+                            parsedArrBits += parsed;
+                            valueArr.push(valueObj);
+                        }
+                    }
+                    objToRet = valueArr;
+                    parsedBits += arrLen * 8;
+                } else {
+                    objToRet = [];
+                }
+            } else { // no array, just a union
+                const [parsed, valueObj] = this.parseSingleUnion(buf, bitOffset, bitLength, datatype);
+                parsedBits += parsed;
+                objToRet = valueObj;
             }
-            if (!found) {
-                console.warn(` datatype.complexUnion found no union member for unionType=${unionType} of : ${JSON.stringify(datatype)})`);
-            }
-            parsedBytes += length;
-            parsedBits += parsedBytes * 8;
         }
         //console.warn(` parseParameters returning ${parsedBytes} ${JSON.stringify(objToRet)}`);
         return [parsedBits, objToRet];

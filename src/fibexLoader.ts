@@ -357,7 +357,12 @@ export class FibexLoader {
                                 const member = Array.isArray(members) ? members[0] : members;
                                 const isArrayDecl = ('fx:ARRAY-DECLARATION' in member);
                                 if (!isArrayDecl) {
-                                    typedefs.push([datatypeObj['@_ID'], member['fx:DATATYPE-REF']['@_ID-REF']]);
+                                    if (isUnion) {
+                                        // need to keep here the array of unions (and not array of the first union member type)
+                                        //console.error(`parseFibexDatatypes not pushing array of union datatype ${member['fx:DATATYPE-REF']['@_ID-REF']} for ${datatypeObj['@_ID']}`);
+                                    } else {
+                                        typedefs.push([datatypeObj['@_ID'], member['fx:DATATYPE-REF']['@_ID-REF']]);
+                                    }
                                     // will be created now but then overwritten as a link...
                                 } else {
                                     if (!Array.isArray(members)) {
