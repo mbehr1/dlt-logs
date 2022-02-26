@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+### [1.26.5](https://github.com/mbehr1/dlt-logs/compare/v1.26.4...v1.26.5) (2022-02-26)
+
+
+### Bug Fixes
+
+* **someip:** static array getting no buffer ([e812141](https://github.com/mbehr1/dlt-logs/commit/e812141770b11eea0e9df35b390bdb53a86576ab))
+
 ### [1.26.4](https://github.com/mbehr1/dlt-logs/compare/v1.26.3...v1.26.4) (2022-02-26)
 
 
