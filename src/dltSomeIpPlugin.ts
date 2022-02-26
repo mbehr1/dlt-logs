@@ -436,6 +436,7 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
     }
 
     private parseSingleUnion(buf: Buffer, bitOffset: number, bitLengthPar: number | undefined, datatype: Datatype) {
+        // console.warn(`parseSingleUnion(buf.length=${buf.length} bitOffset=${bitOffset}, bitLengthPar=${bitLengthPar} datatype=${JSON.stringify(datatype)})`);
         let objToRet: any = {};
         let parsedBits = 0;
         const offset = (bitOffset + parsedBits) >> 3;
@@ -448,6 +449,7 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
             const unionType = buf.readUInt32BE(offset + parsedBytes);
             parsedBytes += 4;
             let complexUnionMembers = Array.isArray(datatype.complexUnionMembers) ? datatype.complexUnionMembers : [datatype.complexUnionMembers];
+            // console.warn(`parseSingleUnion length=${length} unionType=${unionType} complexUnionMembers=${JSON.stringify(complexUnionMembers)}`);
             if (unionType > 0 && unionType <= complexUnionMembers.length) {
                 const unionInfo = complexUnionMembers[unionType - 1];
                     const unionDatatype = FibexLoader.datatypes.get(unionInfo['fx:DATATYPE-REF']['@_ID-REF']);
@@ -501,9 +503,11 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
 
                 //console.warn(`DltSomeIpPlugin.parseParameters complexStruct nyi ARRAY ${JSON.stringify(member, undefined, 2)} ${JSON.stringify(datatype)} from size:${buf.length - (offset + parsedBytes)} '${buf.slice(offset + parsedBytes).toString('hex')}'`);
                 let arrLen = 0;
+                let arrFixedNrElems = 0;
                 if (memberArrayInfo.minSize && memberArrayInfo.maxSize && memberArrayInfo.minSize === memberArrayInfo.maxSize) {
-                    arrLen = memberArrayInfo.minSize;
-                    //if (memberArrayInfo.minSize) { console.warn(`DltSomeIpPlugin.parseSingleStruct array assuming fixed size array with minSize ${memberArrayInfo.minSize} ${memberArrayInfo.maxSize}`); }
+                    arrFixedNrElems = memberArrayInfo.maxSize;
+                    // todo only is serialization parameters indicate no array len bytes!
+                    // if (memberArrayInfo.minSize) { console.warn(`DltSomeIpPlugin.parseSingleStruct array assuming fixed size array with minSize ${memberArrayInfo.minSize} ${memberArrayInfo.maxSize}`); }
                 } else {
                     // assume an array starts with a 4 byte len: (byte size of the full array)
                     const offset = (bitOffset + parsedBits) >> 3;
@@ -521,7 +525,7 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                     }
                 }
                 // console.log(`DltSomeIpPlugin.parseParameters complexStruct ARRAY arrLen=${arrLen}'`);
-                if (arrLen === 0) {
+                if (arrLen === 0 && arrFixedNrElems === 0) {
                     objToRet[memberShortName] = [];
                     continue;
                 } // done in that case!
@@ -538,7 +542,8 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                     const arrBuf = buf.slice(offset, offset + arrLen);
                     const valueArr: any[] = [];
                     let parsedArrBits = 0;
-                    while ((parsedArrBits >> 3) < arrLen) {
+                    let nrElems = 0;
+                    while (arrLen ? ((parsedArrBits >> 3) < arrLen) : (nrElems < arrFixedNrElems)) {
                         const [parsed, valueObj] = this.parseParameters(arrBuf, parsedArrBits, bitLength, memberDatatype);
                         if (!parsed) {
                             if (!DltSomeIpPlugin._warningsShown.has(`${datatype.shortName}.${memberShortName}`)) {
@@ -546,13 +551,15 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                                 console.warn(`DltSomeIpPlugin.parseParameters parsing after ${parsedArrBits} / ${arrLen * 8} bits failed for array member ${i + 1}/${members.length}: ${datatype.shortName}.${memberShortName} bitLength=${bitLength} memberDatatype=${JSON.stringify(memberDatatype)} member=${JSON.stringify(member)}`);
                             }
                             parsedArrBits = arrLen * 8;
+                            nrElems = arrFixedNrElems;
                         } else {
                             valueArr.push(valueObj);
                             parsedArrBits += parsed;
+                            nrElems++;
                         }
                     }
                     objToRet[memberShortName] = valueArr;
-                    parsedBits += arrLen * 8;
+                    parsedBits += arrLen ? (arrLen * 8) : parsedArrBits;
                 }
             } else { // member is no array
                 //console.warn(`  memberDatatype ${i + 1}: ${memberShortName}: `);
@@ -602,7 +609,7 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                 if (isArray.dim !== 1) { console.warn(`DltSomeIpPlugin.parseParameters array with dim ${isArray.dim} not supported yet!`); }
                 let arrLen = 0;
                 if (isArray.minSize && isArray.maxSize && isArray.minSize === isArray.maxSize) {
-                    arrLen = isArray.minSize;
+                    arrLen = isArray.minSize; // todo fix! this is the amount of elements not the byte size!
                     if (isArray.minSize) { console.warn(`DltSomeIpPlugin.parseParameters array assuming fixed size array with const size ${isArray.minSize}`); }
                 } else {
                     const offset = (bitOffset + parsedBits) >> 3;
@@ -677,7 +684,7 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                 // if (arrayInfo.minSize) { console.warn(`DltSomeIpPlugin.parseParameters struct with minSize ${arrayInfo.minSize} ${arrayInfo.maxSize} not supported yet!`); }
                 let arrLen = 0;
                 if (arrayInfo.minSize && arrayInfo.maxSize && arrayInfo.minSize === arrayInfo.maxSize) {
-                    arrLen = arrayInfo.minSize;
+                    arrLen = arrayInfo.minSize; // todo fix: this is the nr elements not the byte size!
                     if (arrayInfo.minSize) { console.warn(`DltSomeIpPlugin.parseParameters struct assuming fixed size array with const size ${arrayInfo.minSize}`); }
                 } else {
                     const offset = (bitOffset + parsedBits) >> 3;
@@ -687,7 +694,7 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                     arrLen = buf.readUInt32BE(offset);
                     parsedBits += 32;
                     if (arrLen > 0xffff) {
-                        console.warn(`parseParameters array len sanity check failed (too large). arrLen=${arrLen} datatype=${JSON.stringify(datatype)}`);
+                        console.warn(`parseParameters struct array len sanity check failed (too large). arrLen=${arrLen} datatype=${JSON.stringify(datatype)}`);
                         arrLen = 1;
                     }
                 }
@@ -726,9 +733,11 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                 if (arrayInfo.dim !== 1) { console.warn(`DltSomeIpPlugin.parseParameters union with dim ${arrayInfo.dim} not supported yet!`); }
                 // if (arrayInfo.minSize) { console.warn(`DltSomeIpPlugin.parseParameters struct with minSize ${arrayInfo.minSize} ${arrayInfo.maxSize} not supported yet!`); }
                 let arrLen = 0;
+                let arrFixedNrElems = 0;
                 if (arrayInfo.minSize && arrayInfo.maxSize && arrayInfo.minSize === arrayInfo.maxSize) {
-                    arrLen = arrayInfo.minSize;
-                    if (arrayInfo.minSize) { console.warn(`DltSomeIpPlugin.parseParameters union assuming fixed size array with const size ${arrayInfo.minSize}`); }
+                    arrFixedNrElems = arrayInfo.maxSize;
+                    // todo only if serializationParameters are missing or specify an array length of 0 bytes!
+                    // if (arrayInfo.minSize) { console.warn(`DltSomeIpPlugin.parseParameters union assuming fixed size array with const size ${arrayInfo.minSize}`); }
                 } else {
                     const offset = (bitOffset + parsedBits) >> 3;
                     if (((bitOffset + parsedBits) & 7) !== 0) {
@@ -741,24 +750,30 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                         arrLen = 1;
                     }
                 }
-                if (arrLen) {
+                if (arrLen || arrFixedNrElems > 0) {
                     const offset = (bitOffset + parsedBits) >> 3;
-                    const arrBuf = buf.slice(offset, offset + arrLen);
+                    const arrBuf = arrLen ? buf.slice(offset, offset + arrLen) : buf.slice(offset);
                     const valueArr: any[] = [];
                     let parsedArrBits = 0;
-                    while ((parsedArrBits >> 3) < arrLen) {
-                        // console.warn(`parseParameters array of union #${valueArr.length}, ${parsedArrBits} bits ${parsedArrBits >> 3}/${arrLen} bytes parseSingleUnion:`);
+                    let nrElems = 0;
+                    while (arrLen ? ((parsedArrBits >> 3) < arrLen) : (nrElems < arrFixedNrElems)) {
+                        // console.warn(`parseParameters array of union #${valueArr.length}, ${parsedArrBits} bits ${parsedArrBits >> 3}/${arrLen} bytes, nrElems=${nrElems}/${arrFixedNrElems} parseSingleUnion:`);
                         let [parsed, valueObj] = this.parseSingleUnion(arrBuf, parsedArrBits, bitLength, datatype);
                         if (!parsed) {
                             console.warn(`DltSomeIpPlugin.parseParameters parsing after ${parsedArrBits} / ${arrLen * 8} bits failed for array of union from ${datatype.shortName}`);
-                            parsedArrBits = arrLen * 8;
+                            if (arrLen > 0) {
+                                parsedArrBits = arrLen * 8;
+                            } else {
+                                nrElems = arrFixedNrElems;
+                            }
                         } else {
                             parsedArrBits += parsed;
                             valueArr.push(valueObj);
+                            nrElems++;
                         }
                     }
                     objToRet = valueArr;
-                    parsedBits += arrLen * 8;
+                    parsedBits += arrLen ? arrLen * 8 : parsedArrBits;
                 } else {
                     objToRet = [];
                 }
