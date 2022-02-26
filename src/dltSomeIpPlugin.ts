@@ -343,7 +343,7 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                     }
                     objToRet = buf.readBigInt64BE(offset);
                     parsedBits = 64;
-                    console.warn(`DltSomeIpPlugin.parseSingleCoding untested A_INT64 returning '${objToRet}' from '${buf.slice(offset, offset + (parsedBits / 8)).toString('hex')}'`);
+                    //console.warn(`DltSomeIpPlugin.parseSingleCoding untested A_INT64 returning '${objToRet}' from '${buf.slice(offset, offset + (parsedBits / 8)).toString('hex')}'`);
                     break;
                 case 'A_UINT64':
                     if ((bitLength !== undefined && bitLength !== 64) || (bitMod !== 0)) {
@@ -365,7 +365,6 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                     }
                     objToRet = buf.readDoubleBE(offset);
                     parsedBits = 64;
-                    console.warn(`DltSomeIpPlugin.parseSingleCoding untested A_FLOAT64 returning '${objToRet}' from '${buf.slice(offset, offset + (parsedBits / 8)).toString('hex')}'`);
                     break;
                 case 'A_UNICODE2STRING':
                     // console.log(`A_UNICODE2STRING: ${JSON.stringify(coding.codedType)}`);
