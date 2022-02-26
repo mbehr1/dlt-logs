@@ -304,6 +304,9 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
             const codedBaseType = coding.codedType['@_ho:BASE-DATA-TYPE'];
             const bitLength = bitLengthPar || coding.codedType['ho:BIT-LENGTH']; // we prefer the parent bit length
             const offset = bitOffset >> 3;
+            if (offset >= buf.length) {
+                return [0, undefined];
+            }
             const bitMod = bitOffset & 7;
             switch (codedBaseType) {
                 case 'A_UINT8':
@@ -471,8 +474,15 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                     if (((bitOffset + parsedBits) & 7) !== 0) {
                         console.warn(`parseSingleStructBit array len start not at byte border: bitOffset=${bitOffset} parsedBits=${parsedBits}`);
                     }
+                    if (offset >= buf.length) {
+                        return [0, undefined];
+                    }
                     arrLen = buf.readUInt32BE(offset);
                     parsedBits += 32;
+                    if (arrLen > 0xffff) {
+                        console.warn(`parseSingleStruct array len sanity check failed (too large) arrLen=${arrLen} member=${JSON.stringify(member)}`);
+                        arrLen = 1;
+                    }
                 }
                 // console.log(`DltSomeIpPlugin.parseParameters complexStruct ARRAY arrLen=${arrLen}'`);
                 if (arrLen === 0) {
@@ -565,6 +575,10 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                     }
                     arrLen = buf.readUInt32BE(offset);
                     parsedBits += 4 * 8;
+                    if (arrLen > 0xffff) {
+                        console.warn(`parseParameters array len sanity check failed (too large). arrLen=${arrLen} datatype=${JSON.stringify(datatype)}`);
+                        arrLen = 1;
+                    }
                 }
                 // console.log(`DltSomeIpPlugin.parseParameters coding ARRAY arrLen=${arrLen}'`);
                 if (arrLen) {
@@ -630,6 +644,10 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                     }
                     arrLen = buf.readUInt32BE(offset);
                     parsedBits += 32;
+                    if (arrLen > 0xffff) {
+                        console.warn(`parseParameters array len sanity check failed (too large). arrLen=${arrLen} datatype=${JSON.stringify(datatype)}`);
+                        arrLen = 1;
+                    }
                 }
                 if (arrLen) {
                     const offset = (bitOffset + parsedBits) >> 3;
