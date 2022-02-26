@@ -1,5 +1,13 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+### [1.26.4](https://github.com/mbehr1/dlt-logs/compare/v1.26.3...v1.26.4) (2022-02-26)
+
+
+### Bug Fixes
+
+* **someip:** impl fixed array size ([14b746b](https://github.com/mbehr1/dlt-logs/commit/14b746b35469591576354431c7d9da024b2f6707))
+* **someip:** use unionType as index into members ([e260a8a](https://github.com/mbehr1/dlt-logs/commit/e260a8a7dbcb7b662f585a3b421b2faa1c11594a))
+
 ### [1.26.3](https://github.com/mbehr1/dlt-logs/compare/v1.26.2...v1.26.3) (2022-02-26)
 
 
