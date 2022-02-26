@@ -447,14 +447,9 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
             let parsedBytes = 4;
             const unionType = buf.readUInt32BE(offset + parsedBytes);
             parsedBytes += 4;
-            // iterate through all members with fx:INDEX === unionType?
-            let found = false;
             let complexUnionMembers = Array.isArray(datatype.complexUnionMembers) ? datatype.complexUnionMembers : [datatype.complexUnionMembers];
-            for (let i = 0; i < complexUnionMembers.length; ++i) {
-                const unionInfo = complexUnionMembers[i];
-                const fxIndex = unionInfo['fx:INDEX'];
-                if (fxIndex === unionType || (i === 0 && complexUnionMembers.length === 1)) { // todo or simply use the index???
-                    found = true;
+            if (unionType > 0 && unionType <= complexUnionMembers.length) {
+                const unionInfo = complexUnionMembers[unionType - 1];
                     const unionDatatype = FibexLoader.datatypes.get(unionInfo['fx:DATATYPE-REF']['@_ID-REF']);
                     if (unionDatatype) {
                         const [parsed, valueObj] = this.parseParameters(buf, bitOffset + (parsedBytes * 8), undefined /*todo get from fx:UTIL...*/, unionDatatype, undefined);
@@ -465,10 +460,7 @@ export class DltSomeIpPlugin extends DltTransformationPlugin {
                     } else {
                         console.warn(` datatype.complexUnion=${JSON.stringify(unionInfo)} without datatype!`);
                     }
-                    break;
-                }
-            }
-            if (!found) {
+            } else {
                 console.warn(`parseSingleUnion found no union member for unionType=${unionType} of : ${JSON.stringify(datatype)})`);
             }
             parsedBytes += length;
