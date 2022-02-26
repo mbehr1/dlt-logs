@@ -1,5 +1,13 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+### [1.26.2](https://github.com/mbehr1/dlt-logs/compare/v1.26.1...v1.26.2) (2022-02-26)
+
+
+### Bug Fixes
+
+* **someip:** limit arrLen to 16bit ([cdfd626](https://github.com/mbehr1/dlt-logs/commit/cdfd6260d98c9b1fdd5ca0a36522cd23539e650d))
+* **someip:** remove warnings on untested coding ([8796320](https://github.com/mbehr1/dlt-logs/commit/87963202cc7754122899bd379829ae2f141d5978))
+
 ### [1.26.1](https://github.com/mbehr1/dlt-logs/compare/v1.26.0...v1.26.1) (2021-11-15)
 
 
