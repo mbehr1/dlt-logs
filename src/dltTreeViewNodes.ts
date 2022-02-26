@@ -245,6 +245,18 @@ export class ConfigNode implements TreeViewNode {
     }
 }
 
+export interface FilterableDocument {
+    uri: vscode.Uri;
+    onFilterDelete(filter: DltFilter, callTriggerApplyFilter?: boolean): boolean;
+    onFilterAdd(filter: DltFilter, callTriggerApplyFilter?: boolean): boolean;
+}
+
+export interface FilterableLifecycleInfo {
+    persistentId: number;
+    tooltip: string;
+    getTreeNodeLabel(): string;
+}
+
 /**
  * TreeViewNode representing the "Detected lifecycles" root node
  * Has a specific icon and methods supporting lifecycle filters
@@ -256,12 +268,12 @@ export class LifecycleRootNode implements TreeViewNode {
     parent: TreeViewNode | null = null;
     iconPath?: vscode.ThemeIcon;
     private lcFilter?: DltFilter;
-    private lcsFiltered: DltLifecycleInfo[] = [];
+    private lcsFiltered: FilterableLifecycleInfo[] = [];
 
     get label(): string { return "Detected lifecycles"; };
     get uri(): vscode.Uri | null { return this.doc.uri; }
 
-    constructor(private doc: DltDocument) {
+    constructor(private doc: FilterableDocument) {
         this.id = createUniqueId();
         this.iconPath = new vscode.ThemeIcon('list-selection');
     }
@@ -281,7 +293,7 @@ export class LifecycleRootNode implements TreeViewNode {
      * Return whether a lifecycle is currently filtered.
      * @param lc lifecycle to get the info for
      */
-    hasLcFiltered(lc: DltLifecycleInfo): boolean {
+    hasLcFiltered(lc: FilterableLifecycleInfo): boolean {
         if (this.lcsFiltered.indexOf(lc) < 0) { return false; };
         return this.lcFilter !== undefined && this.lcFilter.enabled;
     }
@@ -291,7 +303,7 @@ export class LifecycleRootNode implements TreeViewNode {
      * @param lc lifecycle so filter/remove from filter
      * @param doFilter indicate whether the lifecycle should be filtered or not
      */
-    filterLc(lc: DltLifecycleInfo, doFilter: boolean) {
+    filterLc(lc: FilterableLifecycleInfo, doFilter: boolean) {
         let filtersChanged = false;
 
         // if the filter is currently disabled and the filter should be set
@@ -335,7 +347,7 @@ export class LifecycleNode implements TreeViewNode {
     tooltip: string | undefined;
     get children(): TreeViewNode[] { return []; } // no children 
     constructor(public uri: vscode.Uri | null, public parent: TreeViewNode,
-        private lcRootNode: LifecycleRootNode, private lc: DltLifecycleInfo, private lcNr: number) {
+        private lcRootNode: LifecycleRootNode, private lc: FilterableLifecycleInfo, private lcNr: number) {
         this.id = createUniqueId();
         this.label = `LC#${lcNr}: ${lc.getTreeNodeLabel()}`;
         this.tooltip = lc.tooltip;

@@ -72,6 +72,15 @@ export function activate(context: vscode.ExtensionContext) {
 		);
 	}));
 
+	// register common (adlt/dlt) commands:
+	context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.enableFilter', async (...args: any[]) => {
+		dltProvider.onTreeNodeCommand('enableFilter', args[0]);
+		adltProvider.onTreeNodeCommand('enableFilter', args[0]);
+	}));
+	context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.disableFilter', async (...args: any[]) => {
+		dltProvider.onTreeNodeCommand('disableFilter', args[0]);
+		adltProvider.onTreeNodeCommand('disableFilter', args[0]);
+	}));
 
 	// register our command to export dlt files:
 	context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.dltExportFile', async () => {

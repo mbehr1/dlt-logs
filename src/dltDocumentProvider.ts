@@ -478,41 +478,12 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
             }
         }));
 
-        const modifyNode = async (node: TreeViewNode, command: string) => {
-            const treeviewNode = node;
-            const parentUri = treeviewNode.parent?.uri; // why from parent?
-            if (parentUri) {
-                const doc = this._documents.get(parentUri.toString());
-                if (doc) {
-                    console.log(`${command} Filter(${treeviewNode.label}) called for doc=${parentUri}`);
-                    let doApplyFilter = false;
-                    if (node.applyCommand) {
-                        node.applyCommand(command);
-                        doApplyFilter = true;
-                    }
-                    if (doApplyFilter) {
-                        doc.triggerApplyFilter();
-                        this._onDidChangeTreeData.fire(doc.treeNode); // as filters in config might be impacted as well! 
-                    }
-                }
-            }
-
-        };
-
-        context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.enableFilter', async (...args: any[]) => {
-            modifyNode(args[0], 'enable');
-        }));
-
-        context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.disableFilter', async (...args: any[]) => {
-            modifyNode(args[0], 'disable');
-        }));
-
         context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.zoomIn', async (...args: any[]) => {
-            modifyNode(args[0], 'zoomIn');
+            this.modifyNode(args[0], 'zoomIn');
         }));
 
         context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.zoomOut', async (...args: any[]) => {
-            modifyNode(args[0], 'zoomOut');
+            this.modifyNode(args[0], 'zoomOut');
         }));
 
         context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.openReport', async (...args: any[]) => {
@@ -569,6 +540,37 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
             this.checkActiveExtensions();
         }, 2000);
     };
+
+
+
+    private async modifyNode(node: TreeViewNode, command: string) {
+        const treeviewNode = node;
+        const parentUri = treeviewNode.parent?.uri; // why from parent?
+        if (parentUri) {
+            const doc = this._documents.get(parentUri.toString());
+            if (doc) {
+                console.log(`${command} Filter(${treeviewNode.label}) called for doc=${parentUri}`);
+                let doApplyFilter = false;
+                if (node.applyCommand) {
+                    node.applyCommand(command);
+                    doApplyFilter = true;
+                }
+                if (doApplyFilter) {
+                    doc.triggerApplyFilter();
+                    this._onDidChangeTreeData.fire(doc.treeNode); // as filters in config might be impacted as well! 
+                }
+            }
+        }
+    };
+
+    public onTreeNodeCommand(command: string, node: TreeViewNode) {
+        switch (command) {
+            case 'enableFilter': this.modifyNode(node, 'enable'); break;
+            case 'disableFilter': this.modifyNode(node, 'disable'); break;
+            default:
+                console.error(`adlt.onTreeNodeCommand unknown command '${command}'`); break;
+        }
+    }
 
     updateDecorations(data: DltDocument) {
         // console.log('updateDecorations...');
