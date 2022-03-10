@@ -7,7 +7,7 @@ import { extensionId } from './constants';
 import { MultiStepInput, PickItem } from './quickPick';
 import { DltFilter, DltFilterType } from './dltFilter';
 import { DltDocument } from './dltDocument';
-import { DltLifecycleInfo } from './dltLifecycle';
+import { DltLifecycleInfoMinIF, DltLifecycleInfo } from './dltLifecycle';
 import * as util from './util';
 import * as fs from 'fs';
 import { DltMsg, MSTP, MTIN_CTRL, createStorageMsgAsBuffer, MTIN_LOG } from './dltParser';
@@ -34,7 +34,7 @@ interface ExportDltOptions {
     dstUri: vscode.Uri;
     reorderMsgsByTime: boolean;
     rewriteMsgTimes: boolean;
-    lcsToKeep: DltLifecycleInfo[]; // empty = all,
+    lcsToKeep: DltLifecycleInfoMinIF[]; // empty = all,
     timeFrom?: number,
     timeTo?: number
 }
@@ -362,7 +362,7 @@ async function doExport(exportOptions: ExportDltOptions) {
     const rewriteMsgTimes = exportOptions.rewriteMsgTimes;
     const keepAllLcs = exportOptions.lcsToKeep.length === 0;
 
-    const keepLc = (lc: DltLifecycleInfo): boolean => {
+    const keepLc = (lc: DltLifecycleInfoMinIF): boolean => {
         const lcsToKeep = exportOptions.lcsToKeep;
         if (!lcsToKeep.length) { return true; }
         for (let i = 0; i < lcsToKeep.length; ++i) {
@@ -401,8 +401,8 @@ async function doExport(exportOptions: ExportDltOptions) {
         // console.log(`pass1EarlyRemove(msgs.length=${msgs.length}) lastIdx = ${lastIdx} `);
         let removed = 0;
 
-        if (context.keepLcSet === undefined) { context.keepLcSet = new Set<DltLifecycleInfo>(); }
-        if (context.removeLcSet === undefined) { context.removeLcSet = new Set<DltLifecycleInfo>(); }
+        if (context.keepLcSet === undefined) { context.keepLcSet = new Set<DltLifecycleInfoMinIF>(); }
+        if (context.removeLcSet === undefined) { context.removeLcSet = new Set<DltLifecycleInfoMinIF>(); }
 
         // check all msgs from lastIdx to end:
         for (let i = lastIdx; i < msgs.length - MARGIN_MSGS; ++i) {
@@ -464,7 +464,7 @@ async function doExport(exportOptions: ExportDltOptions) {
             });
 
             // maintain a set (fast lookup) of lifecycles to keep:
-            const lcsToKeep = new Set<DltLifecycleInfo>();
+            const lcsToKeep = new Set<DltLifecycleInfoMinIF>();
             if (exportOptions.lcsToKeep.length > 0) {
                 // map the lifecycles from first run to new run from here (new objects, might have slightly different times due to filters applied)
                 exportOptions.lcsToKeep.forEach(p1Lc => {
@@ -678,7 +678,7 @@ const pass1ReadUri = async (
                     const msg = msgs[m];
                     // we treat CTRL_REQUEST separately: we dont store a lifecycle. so later one the reception time is used an not the calc. time
                     if (minMsgInfos !== undefined) {
-                    minMsgInfos.push({ uri: fileUri, msgOffset: parsedFileLen + msgOffsets[m], msgLen: msgLengths[m], timeStamp: msg.timeStamp, lifecycle: (msg.mstp === MSTP.TYPE_CONTROL && msg.mtin === MTIN_CTRL.CONTROL_REQUEST) ? undefined : msg.lifecycle, timeAsNumber: msg.timeAsNumber });
+                        minMsgInfos.push({ uri: fileUri, msgOffset: parsedFileLen + msgOffsets[m], msgLen: msgLengths[m], timeStamp: msg.timeStamp, lifecycle: (msg.mstp === MSTP.TYPE_CONTROL && msg.mtin === MTIN_CTRL.CONTROL_REQUEST) ? undefined : msg.lifecycle as DltLifecycleInfo, timeAsNumber: msg.timeAsNumber });
                     }
                     index++;
                 }

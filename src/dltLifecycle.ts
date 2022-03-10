@@ -8,7 +8,19 @@ import { DltParser, DltMsg, MSTP, MTIN_CTRL, CTRL_SERVICE_ID } from './dltParser
 
 let _nextLcUniqueId = 1;
 
-export class DltLifecycleInfo {
+export interface DltLifecycleInfoMinIF {
+    ecu: string,
+    persistentId: number,
+    lifecycleStart: Date,
+    lifecycleEnd: Date,
+    getTreeNodeLabel(): string,
+    tooltip: string,
+    swVersions: string[],
+    nrMsgs: number,
+    logMessages?: DltMsg[],
+}
+
+export class DltLifecycleInfo implements DltLifecycleInfoMinIF {
     uniqueId: number;
     private _startTime: number; // in ms / within log
     readonly startIndex: number;
@@ -46,6 +58,10 @@ export class DltLifecycleInfo {
         this.parseMessage(logMsg);
         // will be set later by _updateLines based on current filter
         console.log(`DltLifecycleInfo() startTime=${this._startTime} lifecycleStart=${this._lifecycleStart}`);
+    }
+
+    get nrMsgs(): number {
+        return this.logMessages.length;
     }
 
     get lifecycleStart(): Date {

@@ -1,23 +1,35 @@
 // This file was auto-generated from Rust code by bincode-typescript v0.1.0
-
 import { TextEncoder, TextDecoder } from 'util';
 
-
 export type BinType =
-  | { tag: 'Lifecycles'; value: Array<BinLifecycle> };
+  | { tag: 'FileInfo'; value: BinFileInfo }
+  | { tag: 'Lifecycles'; value: Array<BinLifecycle> }
+  | { tag: 'DltMsgs'; value: [number, Array<BinDltMsg>] }; 
 
 export module BinType {
+  export const FileInfo = (value: BinFileInfo): BinType => ({ tag: 'FileInfo', value });
   export const Lifecycles = (value: Array<BinLifecycle>): BinType => ({ tag: 'Lifecycles', value });
+  export const DltMsgs = (value: [number, Array<BinDltMsg>]): BinType => ({ tag: 'DltMsgs', value }); 
 }
 
 export function writeBinType(value: BinType, sinkOrBuf?: SinkOrBuf): Sink {
   const sink = Sink.create(sinkOrBuf);
   switch (value.tag) {
-    case 'Lifecycles':
+    case 'FileInfo':
       writeU32(0, sink);
-      const val1 = value as { value: Array<BinLifecycle> };
-      writeSeq(writeBinLifecycle)(val1.value, sink);
+      const val1 = value as { value: BinFileInfo };
+      writeBinFileInfo(val1.value, sink);
       break;
+    case 'Lifecycles':
+      writeU32(1, sink);
+      const val2 = value as { value: Array<BinLifecycle> };
+      writeSeq(writeBinLifecycle)(val2.value, sink);
+      break;
+    case 'DltMsgs':
+      writeU32(2, sink);
+      const val3 = value as { value: [number, Array<BinDltMsg>] };
+      writeTuple<[number, Array<BinDltMsg>]>(writeU32, writeSeq(writeBinDltMsg))(val3.value, sink);
+      break; 
     default:
       throw new Error(`'${(value as any).tag}' is invalid tag for enum 'BinType'`);
   }
@@ -30,8 +42,16 @@ export function readBinType(sinkOrBuf: SinkOrBuf): BinType {
   const value = readU32(sink);
   switch (value) {
     case 0:
+      return BinType.FileInfo(
+        readBinFileInfo(sink),
+      );
+    case 1:
       return BinType.Lifecycles(
-        readSeq(readBinLifecycle)(sink),
+        readSeq(readBinLifecycle)(sink), 
+      );
+    case 2:
+      return BinType.DltMsgs(
+        readTuple<[number, Array<BinDltMsg>]>(readU32, readSeq(readBinDltMsg))(sink),
       );
     default:
       throw new Error(`'${value}' is invalid value for enum 'BinType'`);
@@ -43,7 +63,7 @@ export function readBinType(sinkOrBuf: SinkOrBuf): BinType {
 
 export interface BinLifecycle {
   id: number;
-  ecu: Uint8Array;
+  ecu: number;
   nr_msgs: number;
   start_time: bigint;
   end_time: bigint;
@@ -52,10 +72,10 @@ export interface BinLifecycle {
 export function writeBinLifecycle(value: BinLifecycle, sinkOrBuf?: SinkOrBuf): Sink {
   const sink = Sink.create(sinkOrBuf);
   writeU32(value.id, sink);
-  writeTypedArray(value.ecu, sink);
+  writeU32(value.ecu, sink);
   writeU32(value.nr_msgs, sink);
   writeU64(value.start_time, sink);
-  writeU64(value.end_time, sink);
+  writeU64(value.end_time, sink); 
   return sink;
 }
 
@@ -63,10 +83,77 @@ export function readBinLifecycle(sinkOrBuf: SinkOrBuf): BinLifecycle {
   const sink = Sink.create(sinkOrBuf);
   return {
     id: readU32(sink),
-    ecu: readTypedArray(Uint8Array)(sink),
+    ecu: readU32(sink),
     nr_msgs: readU32(sink),
     start_time: readU64(sink),
-    end_time: readU64(sink),
+    end_time: readU64(sink), 
+  };
+}
+
+export interface BinDltMsg {
+  index: number;
+  reception_time: bigint;
+  timestamp_dms: number;
+  ecu: number;
+  apid: number;
+  ctid: number;
+  lifecycle_id: number;
+  htyp: number;
+  mcnt: number;
+  verb_mstp_mtin: number;
+  noar: number;
+  payload_as_text: string;
+}
+
+export function writeBinDltMsg(value: BinDltMsg, sinkOrBuf?: SinkOrBuf): Sink {
+  const sink = Sink.create(sinkOrBuf);
+  writeU32(value.index, sink);
+  writeU64(value.reception_time, sink);
+  writeU32(value.timestamp_dms, sink);
+  writeU32(value.ecu, sink);
+  writeU32(value.apid, sink);
+  writeU32(value.ctid, sink);
+  writeU32(value.lifecycle_id, sink);
+  writeU8(value.htyp, sink);
+  writeU8(value.mcnt, sink);
+  writeU8(value.verb_mstp_mtin, sink);
+  writeU8(value.noar, sink);
+  writeString(value.payload_as_text, sink);
+  return sink;
+}
+
+export function readBinDltMsg(sinkOrBuf: SinkOrBuf): BinDltMsg {
+  const sink = Sink.create(sinkOrBuf);
+  return {
+    index: readU32(sink),
+    reception_time: readU64(sink),
+    timestamp_dms: readU32(sink),
+    ecu: readU32(sink),
+    apid: readU32(sink),
+    ctid: readU32(sink),
+    lifecycle_id: readU32(sink),
+    htyp: readU8(sink),
+    mcnt: readU8(sink),
+    verb_mstp_mtin: readU8(sink),
+    noar: readU8(sink),
+    payload_as_text: readString(sink),
+  };
+}
+
+export interface BinFileInfo {
+  nr_msgs: number;
+}
+
+export function writeBinFileInfo(value: BinFileInfo, sinkOrBuf?: SinkOrBuf): Sink {
+  const sink = Sink.create(sinkOrBuf);
+  writeU32(value.nr_msgs, sink);
+  return sink;
+}
+
+export function readBinFileInfo(sinkOrBuf: SinkOrBuf): BinFileInfo {
+  const sink = Sink.create(sinkOrBuf);
+  return {
+    nr_msgs: readU32(sink),
   };
 }
 
@@ -97,7 +184,7 @@ export class Sink {
   }
 
   public static create(input?: SinkOrBuf): Sink {
-    if (input == undefined) {
+    if (input === undefined) {
       return new Sink(new ArrayBuffer(0));
     }
 
@@ -320,7 +407,7 @@ function writeI128(value: bigint, sink: Sink): Sink {
 }
 
 function readBool(sink: Sink): boolean {
-  return readU8(sink) == 1;
+  return readU8(sink) === 1;
 }
 
 function writeBool(value: boolean, sink: Sink): Sink {
@@ -358,9 +445,9 @@ function writeOption<T>(
   writeFunc: (value: T, sink: Sink) => Sink
 ): (value: T | undefined, sink: Sink) => Sink {
   return (value: T | undefined, sink: Sink) => {
-    writeBool(value != undefined, sink);
+    writeBool(value !== undefined, sink);
 
-    if (value != undefined) {
+    if (value !== undefined) {
       writeFunc(value, sink);
     }
 

@@ -4,7 +4,7 @@
 
 import * as vscode from 'vscode';
 import * as assert from 'assert';
-import { DltLifecycleInfo } from './dltLifecycle';
+import { DltLifecycleInfo, DltLifecycleInfoMinIF } from './dltLifecycle';
 import { DltFilter } from './dltFilter';
 import { printableAscii, toHexString, RestObject } from './util';
 import { DltTransformationPlugin } from './dltTransformationPlugin';
@@ -89,7 +89,20 @@ function getEACFromIdx(idx: number): EAC | undefined {
     return eac;
 }
 
-export class DltMsg {
+export interface FilterableDltMsg {
+    timeStamp: number; // timestamp_dms [deci=0.1 ms]
+    mstp: number;
+    mtin: number;
+    //readonly mcnt: number,
+    ecu: string;
+    apid: string;
+    ctid: string;
+    verbose: boolean;
+    payloadString: string;
+    lifecycle?: DltLifecycleInfoMinIF;
+}
+
+export class DltMsg implements FilterableDltMsg {
     readonly index: number; // index/nr of this msg inside orig file/stream/buffer
     readonly timeAsNumber: number; // time in ms. Date uses more memory!
     get timeAsDate(): Date { return new Date(this.timeAsNumber); }
@@ -113,7 +126,7 @@ export class DltMsg {
     public _payloadArgs: Array<any> | undefined = undefined;
     public /* no friend class ... DltSomeIpPlugin private*/ _payloadText: string | undefined = undefined;
     private _transformCb: ((msg: DltMsg) => void) | undefined = undefined;
-    lifecycle: DltLifecycleInfo | undefined = undefined;
+    lifecycle: DltLifecycleInfoMinIF | DltLifecycleInfo | undefined = undefined;
     decorations: Array<[vscode.TextEditorDecorationType, Array<vscode.DecorationOptions>]> = [];
 
     get isBigEndian(): boolean { return (this._htyp & 0x02) ? true : false; }

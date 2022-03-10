@@ -40,43 +40,26 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
     private _subscriptions: Array<vscode.Disposable> = new Array<vscode.Disposable>();
 
     private _onDidChangeFile = new vscode.EventEmitter<vscode.FileChangeEvent[]>();
-    private _documents = new Map<string, DltDocument>();
+    public _documents = new Map<string, DltDocument>();
     get onDidChangeFile() {
         return this._onDidChangeFile.event;
     }
 
     private _dltLifecycleTreeView: vscode.TreeView<TreeViewNode> | undefined = undefined;
-    private _treeRootNodes: TreeViewNode[] = []; // one root node per document.
-    private _onDidChangeTreeData: vscode.EventEmitter<TreeViewNode | null> = new vscode.EventEmitter<TreeViewNode | null>();
     readonly onDidChangeTreeData: vscode.Event<TreeViewNode | null> = this._onDidChangeTreeData.event;
 
     private _didChangeSelectedTimeSubscriptions: Array<vscode.Disposable> = new Array<vscode.Disposable>();
     private _onDidChangeSelectedTime: vscode.EventEmitter<SelectedTimeData> = new vscode.EventEmitter<SelectedTimeData>();
     readonly onDidChangeSelectedTime: vscode.Event<SelectedTimeData> = this._onDidChangeSelectedTime.event;
 
-    private _onDidChangeActiveRestQueryDoc: vscode.EventEmitter<vscode.Uri | undefined> = new vscode.EventEmitter<vscode.Uri | undefined>();
-    /**
-     * event that we'll trigger once the active rest query doc
-     * (aka the one on top of the tree or with the fallback within restquery) changes
-     */
-    readonly onDidChangeActiveRestQueryDoc: vscode.Event<vscode.Uri | undefined> = this._onDidChangeActiveRestQueryDoc.event;
 
-    private _lastActiveQueryDocUri: vscode.Uri | undefined = undefined;
-    checkActiveRestQueryDocChanged(): boolean {
-        const newDoc0Uri = this.getRestQueryDocById('0')?.uri;
-        if (newDoc0Uri !== this._lastActiveQueryDocUri) {
-            this._lastActiveQueryDocUri = newDoc0Uri;
-            this._onDidChangeActiveRestQueryDoc.fire(newDoc0Uri);
-            return true;
-        }
-        return false;
-    }
 
     private _autoTimeSync = false; // todo config
 
     private _statusBarItem: vscode.StatusBarItem | undefined;
 
-    constructor(context: vscode.ExtensionContext, reporter?: TelemetryReporter) {
+    constructor(context: vscode.ExtensionContext, private _treeRootNodes: TreeViewNode[], private _onDidChangeTreeData: vscode.EventEmitter<TreeViewNode | null>,
+        private checkActiveRestQueryDocChanged: () => boolean, reporter?: TelemetryReporter) {
         console.log(`dlt-logs.DltDocumentProvider()...`);
         this._reporter = reporter;
         this._subscriptions.push(vscode.workspace.onDidOpenTextDocument((event: vscode.TextDocument) => {
@@ -130,34 +113,6 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
             }
         }));
 
-        this._subscriptions.push(vscode.workspace.onDidCloseTextDocument((event: vscode.TextDocument) => {
-            // todo investigate why we sometimes dont get a onDidClose for our documents??? (its the garbage collector, ...we get a didOpen and didChange...)
-            const uriStr = event.uri.toString();
-            console.log(`DltDocumentProvider onDidCloseTextDocument uri=${uriStr}`);
-            // is it one of our documents?
-            const doc = this._documents.get(uriStr);
-            if (doc) {
-                console.log(` dlt-logs.onDidCloseTextDocument: found document with uri=${uriStr}`);
-                if (doc.textDocument) {
-                    console.log(`  deleting document with uri=${doc.textDocument.uri.toString()}`);
-                    doc.textDocument = undefined;
-                    let childNode: TreeViewNode = doc.treeNode;
-                    for (let i = 0; i < this._treeRootNodes.length; ++i) {
-                        if (this._treeRootNodes[i] === childNode) {
-                            this._treeRootNodes.splice(i, 1);
-                            //console.log(`  deleting rootNode with #${i}`);
-                            break;
-                        }
-                    }
-                    this._documents.delete(uriStr);
-                    this._onDidChangeTreeData.fire(null);
-                    if (this._documents.size === 0 && this._statusBarItem) {
-                        this._statusBarItem.hide();
-                    }
-                    this.checkActiveRestQueryDocChanged();
-                }
-            }
-        }));
         // check for changes of the documents
         this._subscriptions.push(vscode.workspace.onDidChangeTextDocument(async (event) => {
             let uriStr = event.document.uri.toString();
@@ -205,66 +160,6 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
             if (hideStatusBar) {
                 this._statusBarItem?.hide();
             }
-        }));
-
-        this._subscriptions.push(vscode.window.onDidChangeVisibleTextEditors((editors: vscode.TextEditor[]) => {
-            //console.log(`DltDocumentProvider.onDidChangeVisibleTextEditors= ${editors.length}`);
-            const visibleDocs: DltDocument[] = [];
-            for (const editor of editors) {
-                //console.log(` DltDocumentProvider.onDidChangeVisibleTextEditors editor.document.uri=${editor.document.uri} editor.viewColumn=${editor.viewColumn} editor.document.isClosed=${editor.document.isClosed}`);
-                let data = this._documents.get(editor.document.uri.toString());
-                if (data) {
-                    //console.log(` DltDocumentProvider.onDidChangeVisibleTextEditors got doc!`);
-                    if (!editor.document.isClosed) { visibleDocs.push(data); }
-                }
-            }
-
-            // show/hide the status bar if no doc is visible
-            if (this._statusBarItem) {
-                if (visibleDocs.length === 0) {
-                    this._statusBarItem.hide();
-                } else {
-                    this._statusBarItem.show();
-                }
-            }
-
-            // now close all but the visibleDocs:
-            const notVisibleDocs: DltDocument[] = [];
-            this._documents.forEach(doc => {
-                if (!visibleDocs.includes(doc)) { notVisibleDocs.push(doc); }
-            });
-            let doFire = false;
-            notVisibleDocs.forEach(doc => {
-                if (doc) {
-                    if (doc.textDocument) {
-                        //console.log(` dlt-logs.onDidChangeVisibleTextEditors: hiding doc uri=${doc.textDocument.uri.toString()}`);
-                        let childNode: TreeViewNode = doc.treeNode;
-                        // this._dltLifecycleTreeView?.reveal(childNode, { select: false, focus: false, expand: false });
-                        // reveal:false to collapse doesn't work. so remove them completely from the tree:
-                        let idx = this._treeRootNodes.indexOf(childNode);
-                        if (idx >= 0) {
-                            this._treeRootNodes.splice(idx, 1);
-                        }
-                        doFire = true;
-                    }
-                }
-            });
-            // and add the visible ones:
-            visibleDocs.forEach(doc => {
-                if (doc && doc.textDocument) {
-                    //console.log(` dlt-logs.onDidChangeVisibleTextEditors: hiding doc uri=${doc.textDocument.uri.toString()}`);
-                    let childNode: TreeViewNode = doc.treeNode;
-                    if (childNode) {
-                        if (!this._treeRootNodes.includes(childNode)) {
-                            this._treeRootNodes.push(childNode);
-                            doFire = true;
-                        }
-                    }
-                }
-            });
-
-            if (doFire) { this._onDidChangeTreeData.fire(null); }
-            this.checkActiveRestQueryDocChanged();
         }));
 
         // todo doesn't work with skipped msgs... this._subscriptions.push(vscode.languages.registerDocumentSymbolProvider('dlt-log', this, { label: "DLT Lifecycles" }));
@@ -486,29 +381,6 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
             this.modifyNode(args[0], 'zoomOut');
         }));
 
-        context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.openReport', async (...args: any[]) => {
-            const filterNode = <FilterNode>args[0];
-            const parentUri = filterNode.parent?.uri;
-            if (parentUri) {
-                const doc = this._documents.get(parentUri.toString());
-                if (doc) {
-                    console.log(`openReport(${filterNode.label}) called for doc=${parentUri}`);
-                    doc.onOpenReport(context, filterNode.filter);
-                }
-            }
-        }));
-
-        context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.openNewReport', async (...args: any[]) => {
-            const filterNode = <FilterNode>args[0];
-            const parentUri = filterNode.parent?.uri;
-            if (parentUri) {
-                const doc = this._documents.get(parentUri.toString());
-                if (doc) {
-                    console.log(`openNewReport(${filterNode.label}) called for doc=${parentUri}`);
-                    doc.onOpenReport(context, filterNode.filter, true);
-                }
-            }
-        }));
 
         context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.fileTransferSave', async (...args: any[]) => {
             const fileTransfer = <DltFileTransfer>args[0];
@@ -634,239 +506,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
         }
     }
 
-    private getRestQueryDocByIdDidLoadSub: vscode.Disposable | undefined;
-    getRestQueryDocById(id: string): DltDocument | undefined {
-        let doc = this._documents.get(id);
-        // fallback to index:
-        if (!doc) {
-            const docIdx: number = Number(id);
 
-            // take the docIdx th. dlt doc that is visible:
-            if (this._treeRootNodes.length > docIdx) {
-                const childNode = this._treeRootNodes[docIdx];
-                // now find the document for that:
-                this._documents.forEach(aDoc => {
-                    if (aDoc.treeNode === childNode) { doc = aDoc; }
-                });
-            }
-            if (!doc) { // fallback to prev. method. which is ok for one doc, but not for mult....
-                // if (this._documents.size > 1) { console.warn(`DltDocumentProvider.restQuery: you're using a deprecated method to access documents! Please only refer to visible documents!`); }
-                if (docIdx >= 0 && docIdx < this._documents.size) {
-                    const iter = this._documents.entries();
-                    for (let i = 0; i <= docIdx; ++i) {
-                        const [, aDoc] = iter.next().value;
-                        if (i === docIdx) { doc = aDoc; }
-                    }
-                }
-            }
-        }
-        // if the doc is not yet fully loaded we'll return undefined as the restQuery will return wrong results otherwise:
-        if (doc && !doc.isLoaded) {
-            if (this.getRestQueryDocByIdDidLoadSub) { this.getRestQueryDocByIdDidLoadSub.dispose(); };
-            this.getRestQueryDocByIdDidLoadSub = doc.onDidLoad(load => {
-                console.warn(`DltDocumentProvider.getRestQueryDocById.onDidLoad called...`);
-                if (this.getRestQueryDocByIdDidLoadSub) {
-                    this.getRestQueryDocByIdDidLoadSub.dispose();
-                    this.getRestQueryDocByIdDidLoadSub = undefined;
-                }
-                this.checkActiveRestQueryDocChanged();
-            });
-            return undefined;
-        }
-        return doc;
-    }
-
-    /**
-     * support info query in JSON API format (e.g. used by fishbone ext.)
-     * input: query : string, e.g. '/get/docs' or '/get/version'
-     * output: JSON obj as string. e.g. '{"errors":[]}' or '{"data":[...]}'
-     */
-    /// support info query in JSON API format (e.g. used by fishbone ext.)
-    restQuery(context: vscode.ExtensionContext, query: string): string {
-        console.log(`restQuery(${query}))...`);
-        const retObj: { error?: [Object], data?: [Object] | Object } = {};
-
-        // parse as regex: ^\/(?<cmd>.*?)\/(?<path>.*?)($|\?(?<options>.+)$)
-        var re = /^\/(?<cmd>.*?)\/(?<path>.*?)($|\?(?<options>.+)$)/;
-        const regRes = re.exec(query);
-        if (regRes?.length && regRes.groups) {
-            //console.log(`got regRes.length=${regRes.length}`);
-            //regRes.forEach(regR => console.log(JSON.stringify(regR)));
-            const cmd = regRes.groups['cmd'];
-            const path = regRes.groups['path'];
-            const options = regRes.groups['options'];
-            console.log(` restQuery cmd='${cmd}' path='${path}' options='${options}'`);
-            switch (cmd) {
-                case 'get':
-                    {
-                        // split path:
-                        const paths = path.split('/');
-                        switch (paths[0]) {
-                            case 'version':
-                                {
-                                    const extension = vscode.extensions.getExtension(extensionId);
-                                    if (extension) {
-                                        const extensionVersion = extension.packageJSON.version;
-                                        retObj.data = {
-                                            "type": "version",
-                                            "id": "1",
-                                            "attributes": {
-                                                version: extensionVersion,
-                                                name: extensionId
-                                            }
-                                        };
-                                    } else {
-                                        retObj.error = [{ title: `${cmd}/${paths[0]} extension object undefined.` }];
-                                    }
-                                }
-                                break;
-                            case 'docs':
-                                {
-                                    if (paths.length === 1) {
-                                        // get info about available documents:
-                                        const arrRes: Object[] = [];
-                                        this._documents.forEach((doc) => {
-                                            const resObj: { type: string, id: string, attributes?: Object } =
-                                                { type: "docs", id: encodeURIComponent(doc.uri.toString()) };
-                                            let ecusObj = { data: {} };
-                                            this.restQueryDocsEcus(cmd, [paths[0], '', 'ecus'], options, doc, ecusObj);
-                                            resObj.attributes = {
-                                                name: doc.uri.fsPath,
-                                                msgs: doc.msgs.length,
-                                                ecus: ecusObj.data,
-                                                filters: util.createRestArray(doc.allFilters, (obj: object, i: number) => { const filter = obj as DltFilter; return filter.asRestObject(i); })
-                                            };
-                                            arrRes.push(resObj);
-                                        });
-                                        retObj.data = arrRes;
-                                    } else {
-                                        // get info about one document:
-                                        // e.g. get/docs/<id>/ecus/<ecuid>/lifecycles/<lifecycleid>
-                                        // or   get/docs/<id>/filters
-                                        if (paths.length >= 2) {
-                                            const docId = decodeURIComponent(paths[1]);
-                                            let doc = this.getRestQueryDocById(docId);
-                                            if (doc) {
-                                                if (paths.length === 2) { // get/docs/<id>
-                                                    const resObj: { type: string, id: string, attributes?: Object } =
-                                                        { type: "docs", id: encodeURIComponent(doc.uri.toString()) };
-                                                    resObj.attributes = {
-                                                        name: doc.uri.fsPath,
-                                                        msgs: doc.msgs.length,
-                                                        ecus: [...doc.lifecycles.keys()].map((ecu => {
-                                                            return {
-                                                                name: ecu, lifecycles: doc!.lifecycles.get(ecu)?.length
-                                                            };
-                                                        })),
-                                                        filters: util.createRestArray(doc.allFilters, (obj: object, i: number) => { const filter = obj as DltFilter; return filter.asRestObject(i); })
-                                                    };
-                                                    retObj.data = resObj;
-                                                } else { // get/docs/<id>/...
-                                                    switch (paths[2]) {
-                                                        case 'ecus': // get/docs/<id>/ecus
-                                                            this.restQueryDocsEcus(cmd, paths, options, doc, retObj);
-                                                            break;
-                                                        case 'filters': // get/docs/<id>/filters
-                                                            doc.restQueryDocsFilters(context, cmd, paths, options, retObj);
-                                                            break;
-                                                        default:
-                                                            retObj.error = [{ title: `${cmd}/${paths[0]}/<docid>/${paths[2]} not supported:'${paths[2]}. Valid: 'ecus' or 'filters'.` }];
-                                                            break;
-                                                    }
-                                                }
-                                            } else {
-                                                retObj.error = [{ title: `${cmd}/${paths[0]} unknown doc id:'${docId}'` }];
-                                            }
-                                        }
-
-                                    }
-                                }
-                                break;
-                            default:
-                                retObj.error = [{ title: `${cmd}/${paths[0]} unknown/not supported.` }];
-                                break;
-                        }
-                    }
-                    break;
-                default:
-                    retObj.error = [{ title: `cmd ('${cmd}') unknown/not supported.` }];
-                    break;
-            }
-
-        } else {
-            retObj.error = [{ title: 'query failed regex parsing' }];
-        }
-
-        const retStr = JSON.stringify(retObj);
-        console.log(`restQuery() returning : len=${retStr.length} errors=${retObj?.error?.length}`);
-        return retStr;
-    }
-
-    /**
-     * process /<cmd>/docs/<id>/ecus(paths[2])... restQuery requests
-     * @param cmd get|patch|delete
-     * @param paths docs/<id>/ecus[...]
-     * @param options e.g. ecu=<name>
-     * @param doc DltDocument identified by <id>
-     * @param retObj output: key errors or data has to be filled
-     */
-
-    private restQueryDocsEcus(cmd: string, paths: string[], options: string, doc: DltDocument, retObj: { error?: object[], data?: object[] | object }) {
-        const optionArr = options ? options.split('&') : [];
-        let ecuNameFilter: string | undefined = undefined;
-        optionArr.forEach((opt) => {
-            console.log(`got opt=${opt}`);
-            if (opt.startsWith('ecu=')) {
-                ecuNameFilter = decodeURIComponent(opt.slice(opt.indexOf('=') + 1));
-                // allow the string be placed in "":
-                // we treat 'null' as undefined but "null" as ECU named null.
-                if (ecuNameFilter === 'null') { ecuNameFilter = undefined; } else {
-                    ecuNameFilter = ecuNameFilter.replace(/^"(.*?)"$/g, (match, p1, offset) => p1);
-                    if (ecuNameFilter.length === 0) { ecuNameFilter = undefined; } else {
-                        console.log(`restQueryDocsEcus got ecuNameFilter='${ecuNameFilter}'`);
-                    }
-                }
-            }
-        });
-        if (paths.length === 3) { // .../ecus
-            const arrRes: Object[] = [];
-            doc.lifecycles.forEach((lcInfo, ecu) => {
-                if (!ecuNameFilter || ecuNameFilter === ecu) {
-                    const resObj: { type: string, id: string, attributes?: Object } =
-                        { type: "ecus", id: encodeURIComponent(ecu) };
-
-                    // determine SW names:
-                    let sw: string[] = [];
-                    lcInfo.forEach(lc => lc.swVersions.forEach(lsw => { if (!sw.includes(lsw)) { sw.push(lsw); } }));
-
-                    resObj.attributes = {
-                        name: ecu,
-                        lifecycles: [...lcInfo.map((lc, idx) => {
-                            return {
-                                type: "lifecycles", id: lc.persistentId,
-                                attributes: {
-                                    index: idx + 1,
-                                    id: lc.persistentId, // todo to ease parsing with jsonPath...
-                                    label: lc.getTreeNodeLabel(),
-                                    startTimeUtc: lc.lifecycleStart.toUTCString(),
-                                    endTimeUtc: lc.lifecycleEnd.toUTCString(),
-                                    sws: lc.swVersions,
-                                    msgs: lc.logMessages.length,
-                                    // todo apids/ctids
-                                }
-                            };
-                        })],
-                        sws: sw,
-                        // todo collect APID infos and CTID infos...
-                    };
-                    arrRes.push(resObj);
-                }
-            });
-            retObj.data = arrRes;
-        } else { // .../ecus/
-            retObj.error = [{ title: `${cmd}/${paths[0]}/${paths[1]}/${paths[2]}/${paths[3]} for ecus not yet implemented.` }];
-        }
-    }
 
     dispose() {
         console.log("DltDocumentProvider dispose() called");

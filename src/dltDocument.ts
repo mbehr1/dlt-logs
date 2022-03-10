@@ -94,6 +94,10 @@ export class DltDocument {
         return this._text;
     }
 
+    get fileInfoNrMsgs(): number {
+        return this.msgs.length;
+    }
+
     treeNode: TreeViewNode;
     lifecycleTreeNode: LifecycleRootNode;
     filterTreeNode: FilterRootNode;
@@ -1212,7 +1216,7 @@ export class DltDocument {
             let apidDesc = '';
             let ctidDesc = '';
             if (msg.lifecycle !== undefined) {
-                const apidInfos = msg.lifecycle.apidInfos.get(msg.apid); // todo might get this from all lifecycles...
+                const apidInfos = (msg.lifecycle as DltLifecycleInfo).apidInfos.get(msg.apid); // todo might get this from all lifecycles...
                 if (apidInfos !== undefined) {
                     apidDesc = `: ${util.escapeMarkdown(apidInfos.desc)}`;
                     const ctidInfo = apidInfos.ctids.get(msg.ctid);
@@ -1851,7 +1855,7 @@ export class DltDocument {
             report.addFilter(filter);
             return report;
         } else {
-            let report = new DltReport(context, this, (r: DltReport) => {
+            let report = new DltReport(context, this, this.msgs, (r: DltReport) => {
                 console.log(`onOpenReport onDispose called... #reports=${this._reports.length}`);
                 const idx = this._reports.indexOf(r);
                 if (idx >= 0) {

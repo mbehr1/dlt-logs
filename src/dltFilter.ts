@@ -4,7 +4,7 @@
 
 import { ThemeIcon } from 'vscode';
 //import * as assert from 'assert';
-import { DltMsg, MSTP, MTIN_LOG, MTIN_CTRL, MSTP_strs, MTIN_LOG_strs } from './dltParser';
+import { FilterableDltMsg, MSTP, MTIN_LOG, MTIN_CTRL, MSTP_strs, MTIN_LOG_strs } from './dltParser';
 import * as util from './util';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -187,7 +187,7 @@ export class DltFilter {
 
     }
 
-    matches(msg: DltMsg): boolean {
+    matches(msg: FilterableDltMsg): boolean {
         if (!this.enabled) {
             return false; // negateMatch doesn't negate this!
         }
