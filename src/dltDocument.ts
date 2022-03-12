@@ -1555,8 +1555,8 @@ export class DltDocument {
         }
 
         let startTime = process.hrtime();
-        const msgIndexEnd = msgIndexEndIncl < msgs.length ? msgs.length : msgIndexEndIncl;
-        for (let j = msgIndexStart; j <= msgIndexEnd; ++j) {
+        const msgIndexEnd = (msgIndexEndIncl + 1) < msgs.length ? (msgIndexEndIncl + 1) : msgs.length;
+        for (let j = msgIndexStart; j < msgIndexEnd; ++j) {
             const msg = msgs[j];
             try {
                 if (showIndex) { toRet += String(msg.index).padStart(maxIndexLength) + ' '; }
@@ -1598,7 +1598,7 @@ export class DltDocument {
                 if (showPayload) { toRet += msg.payloadString; }
                 toRet += '\n';
             } catch (error) {
-                console.error(`dltDocument.addLinesForMsgs error ${error} at msg ${j}`);
+                console.error(`dltDocument.textLinesForMsgs error ${error} at msg ${j}`);
                 await util.sleep(100); // avoid hard busy loops!
             }
             if (progress && (j % 1000 === 0)) {
