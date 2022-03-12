@@ -133,9 +133,9 @@ export async function exportDlt(srcUris: vscode.Uri[], allFilters: DltFilter[] |
             for (let i = 0; i < srcUris.length; ++i) {
                 const firstMsg = getFirstMsg(srcUris[i]);
                 if (firstMsg !== undefined) {
-                    minSrcMsgTimes.set(srcUris[i].toString(), firstMsg.timeAsNumber);
-                    if (firstMsgTime === undefined || firstMsgTime > firstMsg.timeAsNumber) {
-                        firstMsgTime = firstMsg.timeAsNumber;
+                    minSrcMsgTimes.set(srcUris[i].toString(), firstMsg.receptionTimeInMs);
+                    if (firstMsgTime === undefined || firstMsgTime > firstMsg.receptionTimeInMs) {
+                        firstMsgTime = firstMsg.receptionTimeInMs;
                     }
                 } else {
                     console.log(`no msg from ${srcUris[i].toString()}`); // todo might consider to remove it...
@@ -410,7 +410,7 @@ async function doExport(exportOptions: ExportDltOptions) {
             if (msg !== undefined) {
                 let removeMsg = false;
                 // check 1) if a min time is set and the cur msgs time is below we can safely remove it. Even if the finalLifecycle might change it can only change to earlier.
-                const msgTimeMs: number = (rewriteMsgTimes && msg.lifecycle !== undefined) ? Math.floor(msg.lifecycle.finalLifecycle.lifecycleStart.valueOf() + (msg.timeStamp / 10)) : msg.timeAsNumber;
+                const msgTimeMs: number = (rewriteMsgTimes && msg.lifecycle !== undefined) ? Math.floor(msg.lifecycle.finalLifecycle.lifecycleStart.valueOf() + (msg.timeStamp / 10)) : msg.receptionTimeInMs;
 
                 if (keepMinTime > msgTimeMs) { removeMsg = true; } else
                     if (keepMaxTime < (msgTimeMs - MARGIN_MAXTIME_MS)) { removeMsg = true; } else // that was check 2)
@@ -506,8 +506,8 @@ async function doExport(exportOptions: ExportDltOptions) {
                     if (a === undefined) { return 1; }
                     if (b === undefined) { return -1; }
 
-                    const timeA = (a.lifecycle === undefined ? a.timeAsNumber : (a.lifecycle.lifecycleStart.valueOf() + (a.timeStamp / 10)));
-                    const timeB = (b.lifecycle === undefined ? b.timeAsNumber : (b.lifecycle.lifecycleStart.valueOf() + (b.timeStamp / 10)));
+                    const timeA = (a.lifecycle === undefined ? a.receptionTimeInMs : (a.lifecycle.lifecycleStart.valueOf() + (a.timeStamp / 10)));
+                    const timeB = (b.lifecycle === undefined ? b.receptionTimeInMs : (b.lifecycle.lifecycleStart.valueOf() + (b.timeStamp / 10)));
                     if (timeA === timeB) { return a.msgOffset - b.msgOffset; }
                     return timeA - timeB; // this is not stable! So if same time sort by offset (assuming from different files dont have same offset)
                 });
@@ -531,7 +531,7 @@ async function doExport(exportOptions: ExportDltOptions) {
                         for (let m = 0; m < minMsgInfos.length; ++m) {
                             const minMsgInfo = minMsgInfos[m];
                             if (minMsgInfo !== undefined) {
-                                const msgTimeMs: number = (rewriteMsgTimes && minMsgInfo.lifecycle !== undefined) ? Math.floor(minMsgInfo.lifecycle.lifecycleStart.valueOf() + (minMsgInfo.timeStamp / 10)) : minMsgInfo.timeAsNumber;
+                                const msgTimeMs: number = (rewriteMsgTimes && minMsgInfo.lifecycle !== undefined) ? Math.floor(minMsgInfo.lifecycle.lifecycleStart.valueOf() + (minMsgInfo.timeStamp / 10)) : minMsgInfo.receptionTimeInMs;
                                 if (!keepAllLcs && (minMsgInfo.lifecycle === undefined || !lcsToKeep.has(minMsgInfo.lifecycle))) {
                                     // if not keepAllLcs we remove msgs without lifecycles. Those are main CTRL_REQUEST msgs
                                     // skipping that msg
@@ -544,7 +544,7 @@ async function doExport(exportOptions: ExportDltOptions) {
                                     if (!wroteFirstMsg && minMsgInfo.lifecycle !== undefined) { // we need info from first proper message to not influence lifecycle calc.
                                         const extension = vscode.extensions.getExtension(extensionId);
                                         let ecu = minMsgInfo.lifecycle.ecu;
-                                        let timeMs = minMsgInfo.timeAsNumber;
+                                        let timeMs = minMsgInfo.receptionTimeInMs;
                                         if (exportOptions.rewriteMsgTimes) {
                                             timeMs = Math.floor(minMsgInfo.lifecycle.lifecycleStart.valueOf() + (minMsgInfo.timeStamp / 10));
                                         }
@@ -622,7 +622,7 @@ interface MinMsgInfo {
     uri: vscode.Uri; // todo could be optimized as index:number (16bit) together with msgLen (16bit)
     readonly msgOffset: number; // offset in src file
     readonly msgLen: number; // len of message in src file
-    readonly timeAsNumber: number; // time in ms.
+    readonly receptionTimeInMs: number; // time in ms.
     readonly timeStamp: number;
     lifecycle: DltLifecycleInfo | undefined;
 }
@@ -678,7 +678,7 @@ const pass1ReadUri = async (
                     const msg = msgs[m];
                     // we treat CTRL_REQUEST separately: we dont store a lifecycle. so later one the reception time is used an not the calc. time
                     if (minMsgInfos !== undefined) {
-                        minMsgInfos.push({ uri: fileUri, msgOffset: parsedFileLen + msgOffsets[m], msgLen: msgLengths[m], timeStamp: msg.timeStamp, lifecycle: (msg.mstp === MSTP.TYPE_CONTROL && msg.mtin === MTIN_CTRL.CONTROL_REQUEST) ? undefined : msg.lifecycle as DltLifecycleInfo, timeAsNumber: msg.timeAsNumber });
+                        minMsgInfos.push({ uri: fileUri, msgOffset: parsedFileLen + msgOffsets[m], msgLen: msgLengths[m], timeStamp: msg.timeStamp, lifecycle: (msg.mstp === MSTP.TYPE_CONTROL && msg.mtin === MTIN_CTRL.CONTROL_REQUEST) ? undefined : msg.lifecycle as DltLifecycleInfo, receptionTimeInMs: msg.receptionTimeInMs });
                     }
                     index++;
                 }

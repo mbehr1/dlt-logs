@@ -2,6 +2,9 @@
  * Copyright(C) Matthias Behr.
  */
 
+// todo before release:
+// [ ] implement onNewMessages and reduce msg load by keeping only the data points but not the processed msgs
+
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';

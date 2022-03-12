@@ -102,10 +102,17 @@ export interface FilterableDltMsg {
     lifecycle?: DltLifecycleInfoMinIF;
 }
 
+export interface ViewableDltMsg extends FilterableDltMsg {
+    receptionTimeInMs: number;
+    index: number;
+    mcnt: number;
+}
+
 export class DltMsg implements FilterableDltMsg {
     readonly index: number; // index/nr of this msg inside orig file/stream/buffer
-    readonly timeAsNumber: number; // time in ms. Date uses more memory!
-    get timeAsDate(): Date { return new Date(this.timeAsNumber); }
+    readonly receptionTimeInMs: number; // time in ms. Date uses more memory!
+    get timeAsDate(): Date { return new Date(this.receptionTimeInMs); }
+    // todo could add this if e.g. some fba queries use that. get timeAsNumber(): number { return this.recordedTimeInMs; }
 
     // parsed from data:
     readonly mcnt: number;
@@ -131,9 +138,9 @@ export class DltMsg implements FilterableDltMsg {
 
     get isBigEndian(): boolean { return (this._htyp & 0x02) ? true : false; }
 
-    constructor(storageHeaderEcu: string, stdHdr: any, index: number, timeAsNumber: number, data: Buffer) {
+    constructor(storageHeaderEcu: string, stdHdr: any, index: number, receptionTimeInMs: number, data: Buffer) {
         this.index = index;
-        this.timeAsNumber = timeAsNumber;
+        this.receptionTimeInMs = receptionTimeInMs;
 
         // the following code could be moved into a function to allow parallel/delayed processing
         this.mcnt = stdHdr["mcnt"];
@@ -663,7 +670,7 @@ export class DltParser {
             if (storageHeader.pattern === DLT_STORAGE_HEADER_PATTERN) {
                 const msgOffset = offset;
                 offset += DLT_STORAGE_HEADER_SIZE;
-                const timeAsNumber = (storageHeader.secs * 1000) + (storageHeader.micros / 1000);
+                const receptionTimeInMs = (storageHeader.secs * 1000) + (storageHeader.micros / 1000);
                 const stdHeader = dltParseStdHeader(buf, offset);
                 // do we have the remaining data in buf?
                 const len: number = stdHeader.len;
@@ -694,7 +701,7 @@ export class DltParser {
 
                         if (len >= MIN_STD_HEADER_SIZE) {
                             try {
-                                const newMsg = new DltMsg(storageHeader.ecu, stdHeader, startIndex + nrMsgs, timeAsNumber, buf.slice(msgOffset, offset));
+                                const newMsg = new DltMsg(storageHeader.ecu, stdHeader, startIndex + nrMsgs, receptionTimeInMs, buf.slice(msgOffset, offset));
                                 // do we need to filter this one?
                                 let keepAfterNegBeforePosFilters: boolean = true;
                                 if (negBeforePosFilters?.length) {

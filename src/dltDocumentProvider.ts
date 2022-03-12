@@ -8,7 +8,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as util from './util';
 import { extensionId } from './constants';
-import { DltDocument } from './dltDocument';
+import { DltDocument, ColumnConfig } from './dltDocument';
 import TelemetryReporter from 'vscode-extension-telemetry';
 import { DltFilter } from './dltFilter';
 import { DltFileTransfer } from './dltFileTransfer';
@@ -59,7 +59,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
     private _statusBarItem: vscode.StatusBarItem | undefined;
 
     constructor(context: vscode.ExtensionContext, private _treeRootNodes: TreeViewNode[], private _onDidChangeTreeData: vscode.EventEmitter<TreeViewNode | null>,
-        private checkActiveRestQueryDocChanged: () => boolean, reporter?: TelemetryReporter) {
+        private checkActiveRestQueryDocChanged: () => boolean, private _columns: ColumnConfig[], reporter?: TelemetryReporter) {
         console.log(`dlt-logs.DltDocumentProvider()...`);
         this._reporter = reporter;
         this._subscriptions.push(vscode.workspace.onDidOpenTextDocument((event: vscode.TextDocument) => {
@@ -305,14 +305,6 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                 //console.warn(`dlt-logs.onDidChangeConfiguration(e.affects('dlt-logs')) called...`);
                 // pass it to all documents:
                 this._documents.forEach(doc => doc.onDidChangeConfiguration(e));
-            }
-        }));
-
-        context.subscriptions.push(vscode.commands.registerTextEditorCommand('dlt-logs.configureColumns', async (textEditor: vscode.TextEditor) => {
-            // console.log(`dlt-logs.configureColumns(textEditor.uri = ${textEditor.document.uri.toString()}) called...`);
-            const doc = this._documents.get(textEditor.document.uri.toString());
-            if (doc) {
-                return doc.configureColumns();
             }
         }));
 
@@ -670,7 +662,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
         console.log(`dlt-logs.stat(uri=${uri.toString()})... isDirectory=${realStat.isDirectory()}}`);
         if (!document && realStat.isFile() && (true /* todo dlt extension */)) {
             try {
-                document = new DltDocument(uri, this._onDidChangeFile, this._onDidChangeTreeData, this._treeRootNodes, this._reporter);
+                document = new DltDocument(uri, this._onDidChangeFile, this._onDidChangeTreeData, this._treeRootNodes, this._columns, this._reporter);
                 this._documents.set(uri.toString(), document);
                 if (this._documents.size === 1) {
                     this.checkActiveRestQueryDocChanged();
@@ -698,7 +690,7 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
         let doc = this._documents.get(uri.toString());
         console.log(`dlt-logs.readFile(uri=${uri.toString()})...`);
         if (!doc) {
-            doc = new DltDocument(uri, this._onDidChangeFile, this._onDidChangeTreeData, this._treeRootNodes, this._reporter);
+            doc = new DltDocument(uri, this._onDidChangeFile, this._onDidChangeTreeData, this._treeRootNodes, this._columns, this._reporter);
             this._documents.set(uri.toString(), doc);
             if (this._documents.size === 1) {
                 this.checkActiveRestQueryDocChanged();

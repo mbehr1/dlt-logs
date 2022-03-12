@@ -2,6 +2,20 @@
  * Copyright(C) Matthias Behr.
  */
 
+/// todo: major issues before release:
+/// [ ] bin msg and payload for logs
+/// [ ] auto load adlt binary
+/// [ ] version comparison with adlt
+/// [ ] decorations
+
+/// not mandatory for first release:
+/// [ ] opening of multiple dlt files 
+/// [ ] sw version info/support
+/// [ ] cache strings for ecu/apid/ctid
+/// [ ] someip support (in adlt)
+/// [ ] filetransfer support (in adlt)
+/// [ ] hover support
+/// [ ] jump to time/log
 
 import * as vscode from 'vscode';
 import TelemetryReporter from 'vscode-extension-telemetry';
@@ -11,11 +25,12 @@ import * as util from './util';
 import * as path from 'path';
 import { DltFilter, DltFilterType } from './dltFilter';
 import { DltReport, NewMessageSink } from './dltReport';
-import { FilterableDltMsg, MSTP, MTIN_CTRL } from './dltParser';
+import { FilterableDltMsg, ViewableDltMsg, MSTP, MTIN_CTRL } from './dltParser';
 import { DltLifecycleInfoMinIF, DltLifecycleInfo } from './dltLifecycle';
 import { TreeViewNode, FilterNode, LifecycleRootNode, LifecycleNode, FilterRootNode } from './dltTreeViewNodes';
 
 import * as remote_types from './remote_types';
+import { DltDocument, ColumnConfig } from './dltDocument';
 
 function char4U32LeToString(char4le: number): string {
     let codes = [char4le & 0xff, 0xff & (char4le >> 8), 0xff & (char4le >> 16), 0xff & (char4le >> 24)];
@@ -69,8 +84,11 @@ class AdltLifecycleInfo implements DltLifecycleInfoMinIF {
 
 }
 
+interface AdltMsg extends ViewableDltMsg {
+}
+
 interface StreamMsgData {
-    msgs: FilterableDltMsg[],
+    msgs: AdltMsg[],
     sink: NewMessageSink
 };
 
@@ -78,7 +96,10 @@ interface StreamMsgData {
 export class AdltDocument {
     private realStat: fs.Stats;
     private webSocket: WebSocket;
-    private streamId: number; // 0 none
+    private streamId: number = 0; // 0 none, neg stop in progress. stream for the messages that reflect the main log/view
+    private visibleMsgs?: AdltMsg[]; // the array with the msgs that should be shown. set on startStream and cleared on stopStream
+    private _maxNrMsgs: number; //  setting 'dlt-logs.maxNumberLogs'. That many messages are displayed at once
+    private _skipMsgs: number = 0; // that many messages are skipped from the top (here not loaded for cur streamId)
 
     private editPending: boolean = false;
     private pendingTextUpdate: string = "";
@@ -123,7 +144,7 @@ export class AdltDocument {
             let binMsg = msgs[i];
             let msg = {
                 index: binMsg.index,
-                // todo bigint doesn't serialize well reception_time: Number(binMsg.reception_time),
+                receptionTimeInMs: Number(binMsg.reception_time),
                 timeStamp: binMsg.timestamp_dms,
                 ecu: char4U32LeToString(binMsg.ecu), // todo from map...
                 apid: char4U32LeToString(binMsg.apid),
@@ -148,12 +169,9 @@ export class AdltDocument {
     }
 
     constructor(public uri: vscode.Uri, private emitDocChanges: vscode.EventEmitter<vscode.FileChangeEvent[]>, treeEventEmitter: vscode.EventEmitter<TreeViewNode | null>,
-        parentTreeNode: TreeViewNode[], reporter?: TelemetryReporter) {
+        parentTreeNode: TreeViewNode[], private _columns: ColumnConfig[], reporter?: TelemetryReporter) {
 
         this._treeEventEmitter = treeEventEmitter;
-
-        this.text = "loading...\n";
-        this.streamId = 0;
 
         // todo add support for multiple uris encoded...
         const fileUri = uri.with({ scheme: "file" });
@@ -162,6 +180,13 @@ export class AdltDocument {
             throw Error(`AdltDocument file ${fileUri.fsPath} doesn't exist!`);
         }
         this.realStat = fs.statSync(fileUri.fsPath);
+
+        // configuration:
+        const maxNrMsgsConf = vscode.workspace.getConfiguration().get<number>('dlt-logs.maxNumberLogs');
+        this._maxNrMsgs = maxNrMsgsConf ? maxNrMsgsConf : 400000; // 400k default
+        this._maxNrMsgs = 1000; // todo for testing only
+
+        this.text = `Loading adlt document from uri=${fileUri.toString()} with max ${this._maxNrMsgs} msgs per page...`;
 
         // connect to adlt via websocket:
         const url = "ws://localhost:6665";
@@ -178,9 +203,9 @@ export class AdltDocument {
                         let bin_type = remote_types.readBinType(data);
                         // console.warn(`adlt.on(binary):`, bin_type.tag);
                         switch (bin_type.tag) {
-                            case 'DltMsgs': {
+                            case 'DltMsgs': { // raw messages
                                 let [streamId, msgs] = bin_type.value;
-                                //console.warn(`adlt.on(binary): DltMsgs stream=${streamId}, nr_msgs=${msgs.length}`);
+                                console.warn(`adlt.on(binary): DltMsgs stream=${streamId}, nr_msgs=${msgs.length}`);
                                 let streamData = this.streamMsgs.get(streamId);
                                 if (streamData && !Array.isArray(streamData)) {
                                     this.processBinDltMsgs(msgs, streamId, streamData);
@@ -224,17 +249,16 @@ export class AdltDocument {
                     if (text.startsWith("stream:")) { // todo change to binary
                         let firstSpace = text.indexOf(" ");
                         const id = Number.parseInt(text.substring(7, firstSpace));
-                        if (id === this.streamId) {
+                        if (id === 0 /*this.streamId*/) {
                             this.addText(text.substring(firstSpace + 1) + '\n');
 
                         } else {
-                            console.warn(`dlt-logs.AdltDocumentProvider.on(message) stream for unexpected id ${id} exp ${this.streamId}`);
-                            // todo similar logic as for streamMsgs needed!
+                            console.warn(`dlt-logs.AdltDocumentProvider.on(message) stream for unexpected id ${id} exp ${0 /*this.streamId*/}`);
                         }
                     } else if (text.startsWith("info:")) { // todo change to binary and add status bar
                         console.info(`dlt-logs.AdltDocumentProvider.on(message) info:`, text);
                     } else if (this._reqCallbacks.length > 0) { // response to a request:
-                        console.info(`dlt-logs.AdltDocumentProvider.on(message) for not unknown request:`, text);
+                        console.info(`dlt-logs.AdltDocumentProvider.on(message) response for request:`, text);
                         let cb = this._reqCallbacks.shift();
                         if (cb) { cb(text); }
 
@@ -251,15 +275,7 @@ export class AdltDocument {
                 console.log(`adlt.on open got response:'${response}'`);
                 this.isLoaded = true;
                 this._onDidLoad.fire(this.isLoaded);
-
-                // start stream: // set filters: todo
-                return this.sendAndRecvAdltMsg(`stream {"window":[0,1000000]}`);
-            }).then((response) => {
-                console.log(`adlt.on initial stream got response:'${response}'`);
-                const streamObj = JSON.parse(response.substring(11));
-                console.log(`adtl ok:stream`, JSON.stringify(streamObj));
-                this.streamId = streamObj.id;
-                this.text = "";
+                this.startStream();
             });
         });
 
@@ -361,8 +377,9 @@ export class AdltDocument {
     clearText() {
         const editor = vscode.window.activeTextEditor;
         if (this.editPending || !editor) {
-            //this.pendingTextUpdate += text;
-            console.error(`adlt.clearText() unhandled case!`);
+            this.pendingTextUpdate = "";
+            this.text = "";
+            console.error(`adlt.clearText() unhandled case! (editPending=${this.editPending})`);
         } else {
             const lineCount = editor.document.lineCount;
             this.pendingTextUpdate = "";
@@ -386,6 +403,7 @@ export class AdltDocument {
             // we do invalidate it already now:
             let oldStreamId = this.streamId;
             this.streamId = -this.streamId;
+            this.visibleMsgs = undefined;
             return this.sendAndRecvAdltMsg(`stop ${oldStreamId}`).then((text) => {
                 console.log(`adlt on stop resp: ${text}`);
                 // todo verify streamId?
@@ -397,15 +415,100 @@ export class AdltDocument {
 
     startStream() {
         // start stream:
-        let filterStr = this.allFilters.map(f => JSON.stringify(f.asConfiguration())).join(',');
-        this.sendAndRecvAdltMsg(`stream {"window":[0,1000000], "filters":[${filterStr}]}`).then((response) => {
+        let filterStr = this.allFilters.filter(f => !f.isReport).map(f => JSON.stringify(f.asConfiguration())).join(',');
+        this.sendAndRecvAdltMsg(`stream {"window":[${this._skipMsgs},${this._skipMsgs + this._maxNrMsgs}], "binary":true, "filters":[${filterStr}]}`).then((response) => {
             console.log(`adlt.on startStream got response:'${response}'`);
             const streamObj = JSON.parse(response.substring(11));
             console.log(`adtl ok:stream`, JSON.stringify(streamObj));
             this.streamId = streamObj.id;
             this.text = "";
+            this.visibleMsgs = [];
+            let viewMsgs = this.visibleMsgs;
+            let doc = this;
+            let sink: NewMessageSink = {
+                onDone() {
+                    console.log(`adlt.startStream onDone() nyi!`);
+                },
+                onNewMessages(nrNewMsgs: number) {
+                    console.warn(`adlt.startStream onNewMessages(${nrNewMsgs}) viewMsgs.length=${viewMsgs.length} nyi!`);
+                    // process the nrNewMsgs
+                    // calc the new text
+                    // append text and trigger file changes
+                    if (nrNewMsgs) {
+                        DltDocument.textLinesForMsgs(doc._columns, viewMsgs, viewMsgs.length - nrNewMsgs, viewMsgs.length - 1, 8 /*todo*/, undefined).then((newTxt: string) => {
+                            doc.text += newTxt;
+                            doc.emitDocChanges.fire([{ type: vscode.FileChangeType.Changed, uri: doc.uri }]);
+                        });
+                    }
+                }
+            };
+            // here some data might be already there for that stream.
+            // this can happen even though the wss data arrives sequentially but the processing
+            // here for wss data is a direct call vs. an asyn .then()...
+            let curStreamMsgData = this.streamMsgs.get(streamObj.id);
+            let streamData = { msgs: viewMsgs, sink: sink };
+            this.streamMsgs.set(streamObj.id, streamData);
+            if (curStreamMsgData && Array.isArray(curStreamMsgData)) {
+                // process the data now:
+                curStreamMsgData.forEach((msgs) => this.processBinDltMsgs(msgs, streamObj.id, streamData));
+            }
         });
     }
+
+    // window support:
+    notifyVisibleRange(range: vscode.Range) {
+        console.warn(`adlt.notifyVisibleRange ${range.start.line}-${range.end.line} maxNrMsgs=${this._maxNrMsgs}`);
+
+        // we do show max _maxNrMsgs from [_skipMsgs, _skipMsgs+_maxNrMsgs)
+        // and trigger a reload if in the >4/5 or <1/5
+        // and jump by 0.5 then
+
+        const triggerAboveLine = range.start.line;
+        const triggerBelowLine = range.end.line;
+
+        if (triggerAboveLine <= (this._maxNrMsgs * 0.2)) {
+            // can we scroll to the top?
+            if (this._skipMsgs > 0) {
+                console.log(` notifyVisibleRange(visible: [${triggerAboveLine}-${triggerBelowLine}]) current: [${this._skipMsgs}-${this._skipMsgs + this._maxNrMsgs}) triggerAbove`);
+
+                if (this.textEditors && this.textEditors.length > 0) {
+                    this.textEditors.forEach((editor) => {
+                        const shiftByLines = +this._maxNrMsgs * 0.5;
+                        // todo check for <0
+                        let newRange = new vscode.Range(triggerAboveLine + shiftByLines, range.start.character,
+                            triggerBelowLine + shiftByLines, range.end.character);
+                        editor.revealRange(newRange, vscode.TextEditorRevealType.AtTop);
+                    });
+                }
+                this._skipMsgs -= (this._maxNrMsgs * 0.5);
+                if (this._skipMsgs < 0) { this._skipMsgs = 0; }
+                this.stopStream();
+                this.startStream();
+            }
+        }
+
+        if (triggerBelowLine >= (this._maxNrMsgs * 0.8)) {
+            // can we load more msgs?
+            const msgs = this.visibleMsgs;
+            if (msgs && this._maxNrMsgs === msgs.length) { // we assume more msgs are there (might be none) (todo test that case)
+                console.log(` notifyVisibleRange(visible: [${triggerAboveLine}-${triggerBelowLine}]) current: [${this._skipMsgs}-${this._skipMsgs + this._maxNrMsgs}) triggerBelow`);
+                if (this.textEditors.length > 0) {
+                    this.textEditors.forEach((editor) => {
+                        const shiftByLines = -this._maxNrMsgs * 0.5;
+                        let newRange = new vscode.Range(triggerAboveLine + shiftByLines, range.start.character,
+                            triggerBelowLine + shiftByLines, range.end.character);
+                        editor.revealRange(newRange, vscode.TextEditorRevealType.AtTop);
+                    });
+                }
+                this._skipMsgs += (this._maxNrMsgs * 0.5);
+                this.stopStream();
+                this.startStream(); // todo if (as usual) the windows overlap we could optimize and query only the new ones on top, splice the visibleMsgs...
+            }
+        }
+    };
+
+
+    // filter change support:
 
     onFilterAdd(filter: DltFilter, callTriggerApplyFilter: boolean = true): boolean {
         this.filterTreeNode.children.push(new FilterNode(null, this.filterTreeNode, filter));
@@ -487,9 +590,10 @@ export class AdltDocument {
         this._applyFilterRunning = true;
         // stop current stream:
         this.stopStream().then(() => {
-            this.clearText();
+            //this.clearText(); (done by startStream)
         }).catch(() => { }); // errors are ok
         // start new stream with current allFilters: (no need to chain it)
+        this._skipMsgs = 0; // todo or determine the time to scroll to or scroll to top?
         this.startStream();
         this._applyFilterRunning = false;
     }
@@ -522,7 +626,7 @@ export class AdltDocument {
                 console.log(`adlt.on startStream got response:'${response}'`);
                 const streamObj = JSON.parse(response.substring(11));
                 console.log(`adtl ok:stream`, JSON.stringify(streamObj));
-                let streamMsgs: FilterableDltMsg[] = [];
+                let streamMsgs: AdltMsg[] = [];
                 let report = new DltReport(context, this, streamMsgs, (r: DltReport) => { // todo msgs
                     console.log(`onOpenReport onDispose called... #reports=${this._reports.length}`);
                     const idx = this._reports.indexOf(r);
@@ -559,14 +663,28 @@ export class AdltDocument {
         if (msg.lifecycle) {
             return new Date(msg.lifecycle.lifecycleStart.valueOf() + (msg.timeStamp / 10));
         }
-        return new Date(/* todo this._timeAdjustMs + */ /* todo msg.timeAsNumber +*/(msg.timeStamp / 10));
+        return new Date(/* todo this._timeAdjustMs + */ /* todo msg.receptionTimeInMs +*/(msg.timeStamp / 10));
     }
     lineCloseToDate(date: Date): number {
         // ideas:
         // a) we recv already msgs incl the info for time, lifecycle from adlt
-        // b) we recv a long text only and additional metadata like time for each line (and others like hovertext...)
-        // c) we ask adlt on specific need -> can this func be async?
         return -1; // todo
+    }
+
+    msgByLine(line: number): AdltMsg | undefined {
+        let msgs = this.visibleMsgs;
+        if (msgs && line < msgs.length) {
+            return msgs[line];
+        }
+        return undefined;
+    }
+
+    public provideHover(position: vscode.Position): vscode.ProviderResult<vscode.Hover> {
+        if (position.character > 21) { return; } // we show hovers only at the begin of the line
+        const msg = this.msgByLine(position.line);
+        if (!msg) { return; }
+
+        return new vscode.Hover(new vscode.MarkdownString(`todo impl provideHover\n- index: ${msg.index}\n- ecu: ${msg.ecu}`));
     }
 
     // process lifecycle updates from adlt:
@@ -885,7 +1003,7 @@ export class AdltDocument {
     getMatchingMessages(filters: DltFilter[], maxMsgsToReturn: number): Promise<FilterableDltMsg[]> {
         let p = new Promise<FilterableDltMsg[]>((resolve, reject) => {
 
-            const matchingMsgs: FilterableDltMsg[] = [];
+            const matchingMsgs: AdltMsg[] = [];
             // sort the filters here into the enabled pos and neg:
             try {
                 let filterStr = filters.map(f => JSON.stringify(f.asConfiguration())).join(',');
@@ -893,8 +1011,6 @@ export class AdltDocument {
                     console.log(`adlt.getMatchingMessages startQuery got response:'${response}'`);
                     const streamObj = JSON.parse(response.substring(10));
                     console.log(`adtl.getMatchingMessages streamObj`, JSON.stringify(streamObj));
-                    //streamObj.id;
-                    //let streamMsgs: FilterableDltMsg[] = [];
 
                     let sink: NewMessageSink = {
                         onDone() {
@@ -952,7 +1068,7 @@ export class ADltDocumentProvider implements vscode.TreeDataProvider<TreeViewNod
     readonly onDidChangeTreeData: vscode.Event<TreeViewNode | null> = this._onDidChangeTreeData.event;
 
     constructor(context: vscode.ExtensionContext, private _treeRootNodes: TreeViewNode[], private _onDidChangeTreeData: vscode.EventEmitter<TreeViewNode | null>,
-        private checkActiveRestQueryDocChanged: () => boolean, private _reporter?: TelemetryReporter) {
+        private checkActiveRestQueryDocChanged: () => boolean, private _columns: ColumnConfig[], private _reporter?: TelemetryReporter) {
         console.log(`dlt-logs.AdltDocumentProvider()...`);
 
         this._subscriptions.push(vscode.workspace.onDidOpenTextDocument((event: vscode.TextDocument) => {
@@ -1013,6 +1129,8 @@ export class ADltDocumentProvider implements vscode.TreeDataProvider<TreeViewNod
                 //todo return doc.toggleSortOrder();
             }
         }));*/
+
+        context.subscriptions.push(vscode.languages.registerHoverProvider({ scheme: "adlt-log" }, this));
     }
 
     dispose() {
@@ -1024,6 +1142,14 @@ export class ADltDocumentProvider implements vscode.TreeDataProvider<TreeViewNod
                 value.dispose();
             }
         });
+    }
+
+    public provideHover(doc: vscode.TextDocument, position: vscode.Position): vscode.ProviderResult<vscode.Hover> {
+        const data = this._documents.get(doc.uri.toString());
+        if (!data) {
+            return;
+        }
+        return data.provideHover(position);
     }
 
     private async modifyNode(node: TreeViewNode, command: string) {
@@ -1101,7 +1227,7 @@ export class ADltDocumentProvider implements vscode.TreeDataProvider<TreeViewNod
         console.log(`adlt-logs.stat(uri=${uri.toString()})... isDirectory=${realStat.isDirectory()}}`);
         if (!document && realStat.isFile() && (true /* todo dlt extension */)) {
             try {
-                document = new AdltDocument(uri, this._onDidChangeFile, this._onDidChangeTreeData, this._treeRootNodes, this._reporter);
+                document = new AdltDocument(uri, this._onDidChangeFile, this._onDidChangeTreeData, this._treeRootNodes, this._columns, this._reporter);
                 this._documents.set(uri.toString(), document);
                 if (this._documents.size === 1) {
                     // this.checkActiveRestQueryDocChanged();
@@ -1129,7 +1255,7 @@ export class ADltDocumentProvider implements vscode.TreeDataProvider<TreeViewNod
         let doc = this._documents.get(uri.toString());
         console.log(`adlt-logs.readFile(uri=${uri.toString()})...`);
         if (!doc) {
-            doc = new AdltDocument(uri, this._onDidChangeFile, this._onDidChangeTreeData, this._treeRootNodes, this._reporter);
+            doc = new AdltDocument(uri, this._onDidChangeFile, this._onDidChangeTreeData, this._treeRootNodes, this._columns, this._reporter);
             this._documents.set(uri.toString(), doc);
             if (this._documents.size === 1) {
                 // todo this.checkActiveRestQueryDocChanged();

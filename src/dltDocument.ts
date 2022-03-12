@@ -7,7 +7,7 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as util from './util';
-import { DltParser, DltMsg, MSTP, MTIN_LOG, MTIN_CTRL, MTIN_CTRL_strs, MTIN_LOG_strs, MTIN_TRACE_strs, MTIN_NW_strs } from './dltParser';
+import { DltParser, DltMsg, MSTP, MTIN_LOG, MTIN_CTRL, MTIN_CTRL_strs, MTIN_LOG_strs, MTIN_TRACE_strs, MTIN_NW_strs, ViewableDltMsg } from './dltParser';
 import { DltLifecycleInfo } from './dltLifecycle';
 import { TimeSyncData } from './dltDocumentProvider';
 import { TreeViewNode, ConfigNode, FilterRootNode, FilterNode, LifecycleNode, LifecycleRootNode, DynFilterNode } from './dltTreeViewNodes';
@@ -22,7 +22,7 @@ import { DltReport } from './dltReport';
 import { loadTimeFilterAssistant } from './dltLoadTimeAssistant';
 import { v4 as uuidv4 } from 'uuid';
 
-class ColumnConfig implements vscode.QuickPickItem {
+export class ColumnConfig implements vscode.QuickPickItem {
     name: string;
     icon: string | undefined;
     visible: boolean = true;
@@ -70,8 +70,6 @@ export class DltDocument {
     private _maxMsgIndex: number = 0;
     private _maxFilteredMsgIndex: number = 0;
 
-    // configured columns:
-    private _columns: ColumnConfig[] = [];
     // filters:
     allFilters: DltFilter[] = [];
 
@@ -138,7 +136,7 @@ export class DltDocument {
     private _sortOrderByTime = false;
 
     constructor(uri: vscode.Uri, docEventEmitter: vscode.EventEmitter<vscode.FileChangeEvent[]>, treeEventEmitter: vscode.EventEmitter<TreeViewNode | null>,
-        parentTreeNode: TreeViewNode[], reporter?: TelemetryReporter) {
+        parentTreeNode: TreeViewNode[], private _columns: ColumnConfig[], reporter?: TelemetryReporter) {
         this.uri = uri;
         this._reporter = reporter;
         this._docEventEmitter = docEventEmitter;
@@ -148,18 +146,6 @@ export class DltDocument {
             throw Error(`DltDocument file ${this._fileUri.fsPath} doesn't exist!`);
         }
         this._realStat = fs.statSync(uri.fsPath);
-
-        // load column config:
-        {
-            const columnObjs = vscode.workspace.getConfiguration().get<Array<object>>("dlt-logs.columns");
-            columnObjs?.forEach((obj) => {
-                try {
-                    this._columns.push(new ColumnConfig(obj));
-                } catch (err) {
-                    console.error(`error '${err} parsing '`, obj);
-                }
-            });
-        }
 
         this.lifecycleTreeNode = new LifecycleRootNode(this); 
         this.filterTreeNode = new FilterRootNode(this.uri);
@@ -1162,7 +1148,7 @@ export class DltDocument {
         for (let i = 0; i < msgs.length; ++i) {
             const logMsg = msgs[i];
             if (!(logMsg.mstp === MSTP.TYPE_CONTROL && logMsg.mtin === MTIN_CTRL.CONTROL_REQUEST)) {
-                const startDate = logMsg.lifecycle ? logMsg.lifecycle.lifecycleStart.valueOf() : logMsg.timeAsNumber;
+                const startDate = logMsg.lifecycle ? logMsg.lifecycle.lifecycleStart.valueOf() : logMsg.receptionTimeInMs;
                 if (startDate + (logMsg.timeStamp / 10) >= (logMsg.lifecycle ? dateValueLC : dateValueNoLC)) {
                     console.log(`DltDocument.lineCloseToDate(${date.toLocaleTimeString()}) found line ${i}`);
                     return this.revealByMsgsIndex(i);
@@ -1189,7 +1175,7 @@ export class DltDocument {
         if (msg.lifecycle) {
             return new Date(msg.lifecycle.lifecycleStart.valueOf() + (msg.timeStamp / 10));
         }
-        return new Date(this._timeAdjustMs + msg.timeAsNumber + (msg.timeStamp / 10));
+        return new Date(this._timeAdjustMs + msg.receptionTimeInMs + (msg.timeStamp / 10));
     }
 
     provideTimeByLine(line: number): Date | undefined {
@@ -1227,7 +1213,7 @@ export class DltDocument {
                 `| lifecycle | ${util.escapeMarkdown(msg.lifecycle?.getTreeNodeLabel())}|\n` +
                 `| ecu session id | ${util.escapeMarkdown(msg.ecu)} ${msg.sessionId} |\n` +
                 `| timestamp | ${msg.timeStamp / 10000} s |\n` +
-                `| reception time | ${util.escapeMarkdown(msg.timeAsDate.toLocaleTimeString())}.${String(Number(msg.timeAsNumber % 1000).toFixed(0)).padStart(3, '0')} |\n` +
+                `| reception time | ${util.escapeMarkdown(msg.timeAsDate.toLocaleTimeString())}.${String(Number(msg.receptionTimeInMs % 1000).toFixed(0)).padStart(3, '0')} |\n` +
                 `| apid | ${util.escapeMarkdown(msg.apid)}${apidDesc} |\n` +
                 `| ctid | ${msg.ctid}${ctidDesc} |\n`);
             mdString.appendMarkdown(`\n\n-- -\n\n`);
@@ -1385,8 +1371,8 @@ export class DltDocument {
                     return a.index - b.index;
                 }
 
-                const timeA = (a.lifecycle === undefined ? a.timeAsNumber : (a.lifecycle.lifecycleStart.valueOf() + (a.timeStamp / 10)));
-                const timeB = (b.lifecycle === undefined ? b.timeAsNumber : (b.lifecycle.lifecycleStart.valueOf() + (b.timeStamp / 10)));
+                const timeA = (a.lifecycle === undefined ? a.receptionTimeInMs : (a.lifecycle.lifecycleStart.valueOf() + (a.timeStamp / 10)));
+                const timeB = (b.lifecycle === undefined ? b.receptionTimeInMs : (b.lifecycle.lifecycleStart.valueOf() + (b.timeStamp / 10)));
                 return timeA === timeB ? (a.index - b.index) : (timeA - timeB); // the sort is stable. i.e. keeps the orig order on equality. anyhow sort in that case by index as well to be on the safe side
             });
         } else { // sort by orig index
@@ -1396,53 +1382,6 @@ export class DltDocument {
         }
 
         return this.applyFilter(undefined);
-    }
-
-    async configureColumns(): Promise<void> {
-        console.log(`DltDocument.configureColumns()...`);
-        let columns = this._columns;
-
-        vscode.window.showQuickPick(columns, {
-            canPickMany: true,
-            placeHolder: "select all columns to show"
-        }).then((selColumns: ColumnConfig[] | undefined) => {
-            if (selColumns) {
-                if (selColumns.length > 0) {
-                    columns.forEach((column) => { column.visible = false; });
-                    selColumns?.forEach((column) => { column.visible = true; });
-
-                    if (true) { // store/update config:
-                        const columnObjs = vscode.workspace.getConfiguration().get<Array<object>>("dlt-logs.columns");
-                        columnObjs?.forEach((obj: any) => {
-                            columns.forEach((column) => {
-                                try {
-                                    if (obj.name === column.name) {
-                                        obj.visible = column.visible;
-                                    }
-                                } catch (err) {
-                                    console.error(` err ${err} at updating config obj!`);
-                                }
-                            });
-                            try {
-                                vscode.workspace.getConfiguration().update("dlt-logs.columns", columnObjs, vscode.ConfigurationTarget.Global).then(() => {
-                                    // todo might need a better solution if workspace config is used.
-                                    // the changes wont be reflected at next startup. (default->global->workspace)
-                                    // would need to inspect first.
-                                    console.log("updated column config.");
-                                });
-                            } catch (err) {
-                                console.error(` err ${err} at updating configuration!`);
-                            }
-                        });
-                    }
-                    return vscode.window.withProgress({ cancellable: false, location: vscode.ProgressLocation.Notification, title: "applying filter..." },
-                        (progress) => this.applyFilter(progress)).then(() => console.log(`DltDocument.configureColumns() applyFilter() done`));
-                } else { // we disallow unselecting all columns
-                    vscode.window.showWarningMessage("At least one column need to be selected. Ignoring selection.");
-                }
-            } // else we don't change anything
-            console.log(`DltDocument.configureColumns()... done`);
-        });
     }
 
     async renderLines(skipMsgs: number, progress?: vscode.Progress<{ increment?: number | undefined, message?: string | undefined, }>): Promise<void> {
@@ -1546,7 +1485,42 @@ export class DltDocument {
             toRet += this.staticLinesAbove[0];
         }
         // todo render some at the end?
+        // length of max index
+        const maxIndexLength = Math.floor(Math.log10(this.filteredMsgs ? this._maxFilteredMsgIndex : this._maxMsgIndex)) + 1;
 
+        toRet += await DltDocument.textLinesForMsgs(this._columns, msgs, numberStart, numberEnd, maxIndexLength, progress);
+
+        // need to remove current text in the editor and insert new one.
+        // otherwise the editor tries to identify the changes. that
+        // lasts long on big files...
+        // tried using editor.edit(replace or remove/insert) but that leads to a 
+        // doc marked with changes and then FileChange event gets ignored...
+        // so we add empty text interims wise:
+        this._text = "...revealing new range...";
+        this._docEventEmitter.fire([{ type: vscode.FileChangeType.Changed, uri: this.uri }]);
+        await util.sleep(100);
+
+        this._text = Buffer.from(toRet).toString(); // to reduce number of strings/sliced strings
+        const fnEnd = process.hrtime(fnStart);
+        console.info('DltDocument.renderLines() took: %ds %dms', fnEnd[0], fnEnd[1] / 1000000);
+        await util.sleep(10); // todo not needed anylonger?
+        this._docEventEmitter.fire([{ type: vscode.FileChangeType.Changed, uri: this.uri }]);
+        this._renderPending = false;
+
+    }
+
+    /**
+     * 
+     * @param columns ColumnConfig describing which columns should be output
+     * @param msgs msgs to be output [msgIndexStart..msgIndexEndIncl]
+     * @param msgIndexStart first index of the msgs to be output
+     * @param msgIndexEndIncl last index (inclusive) of the msgs to be output
+     * @param maxIndexLength length of the index column
+     * @param progress optional progress that will receive a progress update every 100ms
+     * @returns 
+     */
+    static async textLinesForMsgs(columns: ColumnConfig[], msgs: ViewableDltMsg[], msgIndexStart: number, msgIndexEndIncl: number, maxIndexLength: number, progress?: vscode.Progress<{ increment?: number | undefined, message?: string | undefined, }>): Promise<string> {
+        let toRet: string = "";
         // which columns should be shown?
         let showIndex: boolean = true;
         let showTime: boolean = false;
@@ -1560,8 +1534,8 @@ export class DltDocument {
         let showMode: boolean = false;
         let showPayload: boolean = true;
 
-        for (let c = 0; c < this._columns.length; ++c) {
-            const column = this._columns[c];
+        for (let c = 0; c < columns.length; ++c) {
+            const column = columns[c];
             switch (column.name) {
                 case 'index': showIndex = column.visible; break;
                 case 'recorded time': showTime = column.visible; break;
@@ -1579,15 +1553,14 @@ export class DltDocument {
                 } break;
             }
         }
-        // length of max index
-        const maxIndexLength = Math.floor(Math.log10(this.filteredMsgs ? this._maxFilteredMsgIndex : this._maxMsgIndex)) + 1;
 
         let startTime = process.hrtime();
-        for (let j = numberStart; j <= numberEnd && j < msgs.length; ++j) {
+        const msgIndexEnd = msgIndexEndIncl < msgs.length ? msgs.length : msgIndexEndIncl;
+        for (let j = msgIndexStart; j <= msgIndexEnd; ++j) {
             const msg = msgs[j];
             try {
                 if (showIndex) { toRet += String(msg.index).padStart(maxIndexLength) + ' '; }
-                if (showTime) { toRet += msg.timeAsDate.toLocaleTimeString() + ' '; } // todo pad to one len?
+                if (showTime) { toRet += new Date(msg.receptionTimeInMs).toLocaleTimeString() + ' '; } // todo pad to one len?
                 if (showTimestamp) { toRet += String(msg.timeStamp).padStart(8) + ' '; }
                 if (showMcnt) { toRet += String(msg.mcnt).padStart(3) + ' '; }
                 if (showEcu) { toRet += String(msg.ecu).padEnd(5); } // 5 as we need a space anyhow
@@ -1616,6 +1589,8 @@ export class DltDocument {
                         case MSTP.TYPE_NW_TRACE:
                             subStr = MTIN_NW_strs[msg.mtin] + ' ';
                             break;
+                        default:
+                            subStr = ""; break;
                     }
                     toRet += subStr.padEnd(9); // 9 = min length = len(response)+1
                 }
@@ -1623,10 +1598,10 @@ export class DltDocument {
                 if (showPayload) { toRet += msg.payloadString; }
                 toRet += '\n';
             } catch (error) {
-                console.error(`error ${error} at parsing msg ${j}`);
+                console.error(`dltDocument.addLinesForMsgs error ${error} at msg ${j}`);
                 await util.sleep(100); // avoid hard busy loops!
             }
-            if (j % 1000 === 0) {
+            if (progress && (j % 1000 === 0)) {
                 let curTime = process.hrtime(startTime);
                 if (curTime[1] / 1000000 > 100) { // 100ms passed
                     if (progress) {
@@ -1637,24 +1612,7 @@ export class DltDocument {
                 }
             }
         }
-
-        // need to remove current text in the editor and insert new one.
-        // otherwise the editor tries to identify the changes. that
-        // lasts long on big files...
-        // tried using editor.edit(replace or remove/insert) but that leads to a 
-        // doc marked with changes and then FileChange event gets ignored...
-        // so we add empty text interims wise:
-        this._text = "...revealing new range...";
-        this._docEventEmitter.fire([{ type: vscode.FileChangeType.Changed, uri: this.uri }]);
-        await util.sleep(100);
-
-        this._text = Buffer.from(toRet).toString(); // to reduce number of strings/sliced strings
-        const fnEnd = process.hrtime(fnStart);
-        console.info('DltDocument.renderLines() took: %ds %dms', fnEnd[0], fnEnd[1] / 1000000);
-        await util.sleep(10); // todo not needed anylonger?
-        this._docEventEmitter.fire([{ type: vscode.FileChangeType.Changed, uri: this.uri }]);
-        this._renderPending = false;
-
+        return toRet;
     }
 
     async checkFileChanges() {

@@ -2,6 +2,9 @@
 * Copyright (C) Matthias Behr, 2020 - 2022
 */
 
+// todo: fix major regressions:
+// [ ] status line support
+
 import * as vscode from 'vscode';
 import TelemetryReporter from 'vscode-extension-telemetry';
 import { extensionId, dltScheme, adltScheme, GlobalState } from './constants';
@@ -11,7 +14,7 @@ import { ADltDocumentProvider, AdltDocument } from './adltDocumentProvider';
 import { FilterNode } from './dltTreeViewNodes';
 import { TreeviewAbleDocument } from './dltReport';
 import { TreeViewNode } from './dltTreeViewNodes';
-import { DltDocument } from './dltDocument';
+import { ColumnConfig, DltDocument } from './dltDocument';
 import { DltFilter } from './dltFilter';
 import * as util from './util';
 
@@ -65,9 +68,22 @@ export function activate(context: vscode.ExtensionContext) {
 		return false;
 	};
 
+	// we manage the columns to show here for all documents only once:
+	let columns: ColumnConfig[] = [];
+	// load column config:
+	{
+		const columnObjs = vscode.workspace.getConfiguration().get<Array<object>>("dlt-logs.columns");
+		columnObjs?.forEach((obj) => {
+			try {
+				columns.push(new ColumnConfig(obj));
+			} catch (err) {
+				console.error(`error '${err} parsing '`, obj);
+			}
+		});
+	}
 
 	// register our document provider that knows how to handle "dlt-logs"
-	let dltProvider = new dltDocument.DltDocumentProvider(context, _treeRootNodes, _onDidChangeTreeData, checkActiveRestQueryDocChanged, reporter);
+	let dltProvider = new dltDocument.DltDocumentProvider(context, _treeRootNodes, _onDidChangeTreeData, checkActiveRestQueryDocChanged, columns, reporter);
 	context.subscriptions.push(vscode.workspace.registerFileSystemProvider(dltScheme, dltProvider, { isReadonly: false, isCaseSensitive: true }));
 
 	// register our command to open dlt files as "dlt-logs":
@@ -86,7 +102,7 @@ export function activate(context: vscode.ExtensionContext) {
 	}));
 
 	// register our document provider that knows how to handle "dlt-logs"
-	let adltProvider = new ADltDocumentProvider(context, _treeRootNodes, _onDidChangeTreeData, checkActiveRestQueryDocChanged, reporter);
+	let adltProvider = new ADltDocumentProvider(context, _treeRootNodes, _onDidChangeTreeData, checkActiveRestQueryDocChanged, columns, reporter);
 	context.subscriptions.push(vscode.workspace.registerFileSystemProvider(adltScheme, adltProvider, { isReadonly: false, isCaseSensitive: true }));
 
 	// register our command to open dlt files via adlt:
@@ -162,6 +178,64 @@ export function activate(context: vscode.ExtensionContext) {
 		);
 	}));
 
+	context.subscriptions.push(vscode.commands.registerTextEditorCommand('dlt-logs.configureColumns', async (textEditor: vscode.TextEditor) => {
+		// console.log(`dlt-logs.configureColumns(textEditor.uri = ${textEditor.document.uri.toString()}) called...`);
+		vscode.window.showQuickPick(columns, {
+			canPickMany: true,
+			placeHolder: "select all columns to show"
+		}).then((selColumns: ColumnConfig[] | undefined) => {
+			if (selColumns) {
+				if (selColumns.length > 0) {
+					columns.forEach((column) => { column.visible = false; });
+					selColumns?.forEach((column) => { column.visible = true; });
+
+					if (true) { // store/update config:
+						const columnObjs = vscode.workspace.getConfiguration().get<Array<object>>("dlt-logs.columns");
+						columnObjs?.forEach((obj: any) => {
+							columns.forEach((column) => {
+								try {
+									if (obj.name === column.name) {
+										obj.visible = column.visible;
+									}
+								} catch (err) {
+									console.error(` err ${err} at updating config obj!`);
+								}
+							});
+						});
+						try {
+							vscode.workspace.getConfiguration().update("dlt-logs.columns", columnObjs, vscode.ConfigurationTarget.Global).then(() => {
+								// todo might need a better solution if workspace config is used.
+								// the changes wont be reflected at next startup. (default->global->workspace)
+								// would need to inspect first.
+								console.log("updated column config.");
+							});
+						} catch (err) {
+							console.error(` err ${err} at updating configuration!`);
+						}
+					}
+					return true;
+				} else { // we disallow unselecting all columns
+					vscode.window.showWarningMessage("At least one column need to be selected. Ignoring selection.");
+					return false;
+				}
+			} // else we don't change anything
+			return false;
+		}).then((ok) => {
+			if (ok) {
+				console.warn(`Dlt.configureColumns()... columns ok`);
+				// retrigger drawing of all docs (and not just the active one?) (todo)
+				const doc = dltProvider._documents.get(textEditor.document.uri.toString()) || adltProvider._documents.get(textEditor.document.uri.toString());
+				if (doc) {
+					return vscode.window.withProgress({ cancellable: false, location: vscode.ProgressLocation.Notification, title: "applying columns to active document..." },
+						(progress) => doc.applyFilter(progress)).then(() => console.log(`Dlt.configureColumns() applyFilter() done`));
+				}
+			} else {
+				console.warn(`Dlt.configureColumns()... not ok`);
+			}
+		});
+
+	}));
+
 	// register a command to test restQuery:
 	context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.testRestQuery', async () => {
 		return vscode.window.showInputBox({
@@ -179,19 +253,30 @@ export function activate(context: vscode.ExtensionContext) {
 		);
 	}));
 
+	context.subscriptions.push(vscode.window.onDidChangeTextEditorVisibleRanges(util.throttle((e) => {
+		if (e.visibleRanges.length === 1) {
+			const uriStr = e.textEditor.document.uri.toString();
+			const doc = dltProvider._documents.get(uriStr) || adltProvider._documents.get(uriStr);
+			if (doc) {
+				// console.log(`dlt-log.onDidChangeTextEditorVisibleRanges(${e.visibleRanges[0].start.line}-${e.visibleRanges[0].end.line})`);
+				doc.notifyVisibleRange(e.visibleRanges[0]);
+			}
+		}
+	}, 200)));
+
+
 	// maintain list of visible(aka opened) documents for the treeview and maintenance of
 	// the last used one (for restQuery)
-
 
 	context.subscriptions.push(vscode.window.onDidChangeVisibleTextEditors((editors: vscode.TextEditor[]) => {
 		//console.log(`DltDocumentProvider.onDidChangeVisibleTextEditors= ${editors.length}`);
 		const visibleDocs: TreeviewAbleDocument[] = [];
 		for (const editor of editors) {
 			//console.log(` DltDocumentProvider.onDidChangeVisibleTextEditors editor.document.uri=${editor.document.uri} editor.viewColumn=${editor.viewColumn} editor.document.isClosed=${editor.document.isClosed}`);
-			let data = dltProvider._documents.get(editor.document.uri.toString()) || adltProvider._documents.get(editor.document.uri.toString());
-			if (data) {
+			let doc = dltProvider._documents.get(editor.document.uri.toString()) || adltProvider._documents.get(editor.document.uri.toString());
+			if (doc) {
 				//console.log(` DltDocumentProvider.onDidChangeVisibleTextEditors got doc!`);
-				if (!editor.document.isClosed) { visibleDocs.push(data); }
+				if (!editor.document.isClosed) { visibleDocs.push(doc); }
 			}
 		}
 

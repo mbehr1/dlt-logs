@@ -48,7 +48,7 @@ export class DltLifecycleInfo implements DltLifecycleInfoMinIF {
             this.allCtrlRequests = false;
         }
         this.ecu = logMsg.ecu;
-        this._startTime = logMsg.timeAsNumber;
+        this._startTime = logMsg.receptionTimeInMs;
         this.adjustTimeMs = 0;
         this.startIndex = logMsg.index;
         this._lifecycleStart = this._startTime - (timeStamp / 10);
@@ -232,15 +232,15 @@ export class DltLifecycleInfo implements DltLifecycleInfoMinIF {
         const lifecycleEndTime = lifecycleStartTime + (this._maxTimeStamp / 10);
 
         // calc _lifecycleStart for the new msg:
-        let newLifecycleStart: number = logMsg.timeAsNumber - (logMsg.timeStamp / 10); // - unknown bufferingDelay_msg
+        let newLifecycleStart: number = logMsg.receptionTimeInMs - (logMsg.timeStamp / 10); // - unknown bufferingDelay_msg
 
         const bufferingDelay_b = newLifecycleStart - lifecycleStartTime;
 
         const realTime_b = lifecycleStartTime + (logMsg.timeStamp / 10);
-        const realTime_c = newLifecycleStart + (logMsg.timeStamp / 10); // same as logMsg.timeAsNumber
+        const realTime_c = newLifecycleStart + (logMsg.timeStamp / 10); // same as logMsg.receptionTimeInMs
 
-        const timeToTimeStr = (timeAsNumber: number) => {
-            return `${new Date(timeAsNumber).toLocaleTimeString()}.${Number(timeAsNumber % 1000).toFixed(1).padStart(3, '0')}`;
+        const timeToTimeStr = (receptionTimeInMs: number) => {
+            return `${new Date(receptionTimeInMs).toLocaleTimeString()}.${Number(receptionTimeInMs % 1000).toFixed(1).padStart(3, '0')}`;
         };
 
 
@@ -260,10 +260,10 @@ export class DltLifecycleInfo implements DltLifecycleInfoMinIF {
             console.log(`DltLifecycleInfo:update (logMsg(index=${logMsg.index} at ${logMsg.timeAsDate}:${logMsg.timeStamp}) not part of this lifecycle(startIndex=${this.startIndex} end=${this.lifecycleEnd} ) `);
             return false; // treat as new lifecycle
         }
-        if (logMsg.timeAsNumber + 1000 < this._startTime) {
+        if (logMsg.receptionTimeInMs + 1000 < this._startTime) {
             this._logCntNewStarttimeEarlier++;
             if (this._logCntNewStarttimeEarlier < 10 || this._logCntNewStarttimeEarlier % 1000 === 0) {
-                console.log(`DltLifecycleInfo:update new starttime earlier? ${this._logCntNewStarttimeEarlier}x`, this._startTime, logMsg.timeAsNumber);
+                console.log(`DltLifecycleInfo:update new starttime earlier? ${this._logCntNewStarttimeEarlier}x`, this._startTime, logMsg.receptionTimeInMs);
             }
         }
 
