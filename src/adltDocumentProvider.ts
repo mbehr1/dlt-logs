@@ -3,7 +3,8 @@
  */
 
 /// todo: major issues before release:
-/// [ ] bin msg and payload for logs
+/// [ ] logs explorer tree view interaction with dlt/adlt
+
 /// [ ] auto load adlt binary
 /// [ ] version comparison with adlt
 /// [ ] decorations
@@ -16,6 +17,14 @@
 /// [ ] filetransfer support (in adlt)
 /// [ ] hover support
 /// [ ] jump to time/log
+/// [ ] add/edit filter
+/// [ ] onDidChangeConfiguration
+/// [ ] reports always with sorted by time (so that filters can rely on it?)
+
+/// [x] sort order support
+/// by default logs are sorted by timestamp. If the sort order is toggled the file is closed and reopened.
+/// this can be weird/confusing with real streams.
+/// and one side effect is that any lifecycle filters are automatically disabled (as the lc.ids are not persisted across close/open)
 
 import * as vscode from 'vscode';
 import TelemetryReporter from 'vscode-extension-telemetry';
@@ -93,13 +102,15 @@ interface StreamMsgData {
 };
 
 
-export class AdltDocument {
+export class AdltDocument implements vscode.Disposable {
     private realStat: fs.Stats;
     private webSocket: WebSocket;
     private streamId: number = 0; // 0 none, neg stop in progress. stream for the messages that reflect the main log/view
     private visibleMsgs?: AdltMsg[]; // the array with the msgs that should be shown. set on startStream and cleared on stopStream
     private _maxNrMsgs: number; //  setting 'dlt-logs.maxNumberLogs'. That many messages are displayed at once
     private _skipMsgs: number = 0; // that many messages are skipped from the top (here not loaded for cur streamId)
+
+    private _sortOrderByTime = true; // we default to true // todo retrieve last from config?
 
     private editPending: boolean = false;
     private pendingTextUpdate: string = "";
@@ -231,9 +242,7 @@ export class AdltDocument {
                                 break;
                             case 'FileInfo': {
                                 let fileInfo: remote_types.BinFileInfo = bin_type.value;
-                                console.log(`adlt fileInfo: nr_msgs=${fileInfo.nr_msgs}`);
-                                this.fileInfoNrMsgs = fileInfo.nr_msgs;
-                                // todo handle info e.g. with status bar
+                                this.processFileInfoUpdates(fileInfo);
                             }
                                 break;
                             default:
@@ -271,12 +280,7 @@ export class AdltDocument {
             }
         });
         this.webSocket.on('open', () => {
-            this.sendAndRecvAdltMsg(`open ${fileUri.fsPath}`).then((response) => {
-                console.log(`adlt.on open got response:'${response}'`);
-                this.isLoaded = true;
-                this._onDidLoad.fire(this.isLoaded);
-                this.startStream();
-            });
+            this.openAdltFiles();
         });
 
         // update tree view:
@@ -298,12 +302,20 @@ export class AdltDocument {
         };
         parentTreeNode.push(this.treeNode);
 
-        this.timerId = setInterval(() => { // todo cancel on dispose!
-            this.checkTextUpdates();
+        this.timerId = setInterval(() => {
+            this.checkTextUpdates(); // todo this might not be needed at all!
         }, 1000);
 
         // todo add a static report filter for testing:
         this.onFilterAdd(new DltFilter({ type: DltFilterType.EVENT, payloadRegex: "(?<STATE_error>error)", name: "test report" }, false), false);
+    }
+
+    dispose() {
+        console.log(`AdltDocument.dispose()`);
+        clearInterval(this.timerId);
+        this.closeAdltFiles().catch((reason) => {
+            console.log(`AdltDocument.dispose closeAdltFiles failed with '${reason}'`);
+        });
     }
 
     private _reqCallbacks: ((resp: string) => void)[] = []; // could change to a map. but for now we get responses in fifo order
@@ -398,6 +410,29 @@ export class AdltDocument {
         }
     }
 
+    openAdltFiles() {
+        const fileUri = this.uri.with({ scheme: "file" });
+        this.sendAndRecvAdltMsg(`open {"sort":${this._sortOrderByTime},"files":["${fileUri.fsPath}"]}`).then((response) => {
+            console.log(`adlt.on open got response:'${response}'`);
+            if (!this.isLoaded) {
+                this.isLoaded = true;
+                this._onDidLoad.fire(this.isLoaded);
+            }
+            this.startStream();
+        });
+    }
+
+    closeAdltFiles(): Promise<void> {
+        let p = new Promise<void>((resolve, reject) => {
+            this.sendAndRecvAdltMsg(`close`).then(() => {
+                this.processFileInfoUpdates({ nr_msgs: 0 });
+                this.processLifecycleUpdates([]); // to remove any filters from lifecycles as they become invalid
+                resolve();
+            }).catch((r) => reject(r));
+        });
+        return p;
+    }
+
     stopStream() {
         if (this.streamId > 0) {
             // we do invalidate it already now:
@@ -438,6 +473,7 @@ export class AdltDocument {
                         DltDocument.textLinesForMsgs(doc._columns, viewMsgs, viewMsgs.length - nrNewMsgs, viewMsgs.length - 1, 8 /*todo*/, undefined).then((newTxt: string) => {
                             doc.text += newTxt;
                             doc.emitDocChanges.fire([{ type: vscode.FileChangeType.Changed, uri: doc.uri }]);
+                            console.log(`adlt.onNewMessages triggered doc changes.`);
                         });
                     }
                 }
@@ -457,7 +493,7 @@ export class AdltDocument {
 
     // window support:
     notifyVisibleRange(range: vscode.Range) {
-        console.warn(`adlt.notifyVisibleRange ${range.start.line}-${range.end.line} maxNrMsgs=${this._maxNrMsgs}`);
+        //console.warn(`adlt.notifyVisibleRange ${range.start.line}-${range.end.line} maxNrMsgs=${this._maxNrMsgs}`);
 
         // we do show max _maxNrMsgs from [_skipMsgs, _skipMsgs+_maxNrMsgs)
         // and trigger a reload if in the >4/5 or <1/5
@@ -598,6 +634,16 @@ export class AdltDocument {
         this._applyFilterRunning = false;
     }
 
+    async toggleSortOrder() {
+        this._sortOrderByTime = !this._sortOrderByTime;
+        console.log(`ADltDocument.toggleSortOrder() sortOrderByTime=${this._sortOrderByTime}`);
+        this.stopStream();
+        // a change of sort order needs a new file open!
+        this.closeAdltFiles().then(() => this.openAdltFiles()).catch((reason) => {
+            console.warn(`ADltDocument.toggleSortOrder() closeAdltFiles failed with '${reason}'`);
+        });
+    }
+
     private _reports: DltReport[] = [];
     onOpenReport(context: vscode.ExtensionContext, filter: DltFilter | DltFilter[], newReport: boolean = false, reportToAdd: DltReport | undefined = undefined) {
         console.log(`onOpenReport called...`);
@@ -687,9 +733,16 @@ export class AdltDocument {
         return new vscode.Hover(new vscode.MarkdownString(`todo impl provideHover\n- index: ${msg.index}\n- ecu: ${msg.ecu}`));
     }
 
+    processFileInfoUpdates(fileInfo: remote_types.BinFileInfo) {
+        console.log(`adlt fileInfo: nr_msgs=${fileInfo.nr_msgs}`);
+        this.fileInfoNrMsgs = fileInfo.nr_msgs;
+        // todo handle info e.g. with status bar
+    }
+
     // process lifecycle updates from adlt:
     processLifecycleUpdates(lifecycles: Array<remote_types.BinLifecycle>) {
         // todo check for changes compared to last update
+        // for now we check only whether some ecus or lifecycles are not needed anymore:
 
         this.lifecycleTreeNode.children = [];// .reset();
 
@@ -700,7 +753,13 @@ export class AdltDocument {
             if (!ecus.includes(ecuStr)) { ecus.push(ecuStr); }
             if (!this.lifecycles.has(ecuStr)) { this.lifecycles.set(ecuStr, []); }
         });
-        // remove the ones that dont exist any more? -> for now not
+        // remove the ones that dont exist any more
+        let ecusRemoved: string[] = [];
+        this.lifecycles.forEach((lcInfo, ecu) => {
+            if (!ecus.includes(ecu)) { ecusRemoved.push(ecu); }
+        });
+
+        let usedLcIds: number[] = [];
 
         ecus.forEach(ecu => {
             let sw: string[] = [];
@@ -710,6 +769,7 @@ export class AdltDocument {
             // add lifecycles for this ECU:
             lifecycles.filter(l => char4U32LeToString(l.ecu) === ecu).forEach((lc, i) => {
                 let persistentId = lc.id;
+                usedLcIds.push(lc.id);
                 let lcInfo = this.lifecyclesByPersistentId.get(persistentId);
                 let lcInfos = this.lifecycles.get(ecu);
                 if (lcInfo === undefined) {
@@ -723,6 +783,42 @@ export class AdltDocument {
             });
         });
         this._treeEventEmitter.fire(this.lifecycleTreeNode);
+
+        // remove the lifecycles that are not needed anymore:
+        let lcIdsRemoved: number[] = [];
+        this.lifecyclesByPersistentId.forEach((lcInfo, id) => { if (!usedLcIds.includes(id)) { lcIdsRemoved.push(id); } });
+        lcIdsRemoved.forEach((lcId) => {
+            let lcInfo = this.lifecyclesByPersistentId.get(lcId);
+            if (lcInfo) {
+                // if there is a filter active deactivate/remove it:
+                // node.applyCommand("disable")
+                if (this.lifecycleTreeNode.hasLcFiltered(lcInfo)) {
+                    //console.warn(`Adlt.processLifecycleUpdates disabling lc filter`, lcInfo);
+                    this.lifecycleTreeNode.filterLc(lcInfo, false);
+                }
+
+                let lcs = this.lifecycles.get(lcInfo.ecu);
+                if (lcs) {
+                    let idx = lcs.findIndex(l => l === lcInfo);
+                    if (idx >= 0) {
+                        lcs.splice(idx, 1);
+                    }
+                }
+                this.lifecyclesByPersistentId.delete(lcId);
+            }
+        });
+
+        // remove the ecus that are not needed anymore: (all lcInfo should be empty now)
+        ecusRemoved.forEach((ecu) => {
+            let lcInfos = this.lifecycles.get(ecu);
+            if (lcInfos) {
+                if (lcInfos.length > 0) {
+                    console.error(`Adlt.processLifecycleUpdates logical error! lcInfos >0!`);
+                }
+                this.lifecycles.delete(ecu);
+            }
+        });
+
     }
 
     lifecycleInfoForPersistentId(persistentId: number): DltLifecycleInfoMinIF | undefined {
@@ -1135,6 +1231,7 @@ export class ADltDocumentProvider implements vscode.TreeDataProvider<TreeViewNod
 
     dispose() {
         console.log("AdltDocumentProvider dispose() called");
+        this._documents.forEach((doc) => doc.dispose());
         this._documents.clear();
 
         this._subscriptions.forEach((value) => {

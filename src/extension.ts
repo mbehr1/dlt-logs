@@ -178,6 +178,16 @@ export function activate(context: vscode.ExtensionContext) {
 		);
 	}));
 
+
+	context.subscriptions.push(vscode.commands.registerTextEditorCommand('dlt-logs.toggleSortOrder', async (textEditor: vscode.TextEditor) => {
+		console.log(`dlt-logs.toggleSortOrder(textEditor.uri = ${textEditor.document.uri.toString()}) called...`);
+		const uriStr = textEditor.document.uri.toString();
+		const doc = dltProvider._documents.get(uriStr) || adltProvider._documents.get(uriStr);
+		if (doc) {
+			return doc.toggleSortOrder();
+		}
+	}));
+
 	context.subscriptions.push(vscode.commands.registerTextEditorCommand('dlt-logs.configureColumns', async (textEditor: vscode.TextEditor) => {
 		// console.log(`dlt-logs.configureColumns(textEditor.uri = ${textEditor.document.uri.toString()}) called...`);
 		vscode.window.showQuickPick(columns, {

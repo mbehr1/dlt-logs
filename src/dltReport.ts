@@ -10,7 +10,6 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { DltLifecycleInfoMinIF } from './dltLifecycle';
 import { DltFilter } from './dltFilter';
-import { DltDocument } from './dltDocument';
 import { FilterableDltMsg } from './dltParser';
 import { TreeViewNode } from './dltTreeViewNodes';
 
