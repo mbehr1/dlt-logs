@@ -1211,7 +1211,7 @@ export class DltDocument {
                     if (ctidInfo !== undefined) { ctidDesc = `: ${util.escapeMarkdown(ctidInfo)}`; }
                 }
             }
-            mdString.appendMarkdown(`| calculated time | ${util.escapeMarkdown(posTime.toLocaleTimeString())}.${String(posTime.valueOf() % 1000).padStart(3, "0")}|\n |: ---|: ---|\n` +
+            mdString.appendMarkdown(`| calculated time | ${util.escapeMarkdown(posTime.toLocaleTimeString())}.${String(posTime.valueOf() % 1000).padStart(3, "0")}|\n| :--- | :--- |\n` +
                 `| lifecycle | ${util.escapeMarkdown(msg.lifecycle?.getTreeNodeLabel())}|\n` +
                 `| ecu session id | ${util.escapeMarkdown(msg.ecu)} ${msg.sessionId} |\n` +
                 `| timestamp | ${msg.timeStamp / 10000} s |\n` +
