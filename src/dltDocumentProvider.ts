@@ -12,7 +12,6 @@ import { DltDocument, ColumnConfig } from './dltDocument';
 import TelemetryReporter from 'vscode-extension-telemetry';
 import { DltFilter } from './dltFilter';
 import { DltFileTransfer } from './dltFileTransfer';
-import { addFilter, editFilter, deleteFilter } from './dltAddEditFilter';
 import { TreeViewNode, FilterNode } from './dltTreeViewNodes';
 
 function sleep(ms: number): Promise<void> {
@@ -269,64 +268,6 @@ export class DltDocumentProvider implements vscode.FileSystemProvider,
             }
         }));
 
-        this._subscriptions.push(vscode.commands.registerCommand("dlt-logs.addFilter", async (...args) => {
-            args.forEach(a => { console.log(` arg='${JSON.stringify(a)}'`); });
-            if (args.length < 2) { return; }
-            // first arg should contain uri
-            const uri = args[0].uri;
-            if (uri) {
-                const doc = this._documents.get(uri.toString());
-                if (doc) {
-                    addFilter(doc, args[1]);
-                }
-            }
-        }));
-
-        context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.editFilter', async (...args: any[]) => {
-            const filterNode = <FilterNode>args[0];
-            const parentUri = filterNode.parent?.uri;
-            if (parentUri) {
-                const doc = this._documents.get(parentUri.toString());
-                if (doc) {
-                    console.log(`editFilter(${filterNode.label}) called for doc=${parentUri}`);
-                    editFilter(doc, filterNode.filter).then(() => {
-                        console.log(`editFilter resolved...`);
-                        this._onDidChangeTreeData.fire(filterNode);
-                    });
-                }
-            }
-        }));
-
-        context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.deleteFilter', async (...args: any[]) => {
-            const filterNode = <FilterNode>args[0];
-            const parentUri = filterNode.parent?.uri;
-            if (parentUri) {
-                const doc = this._documents.get(parentUri.toString());
-                if (doc) {
-                    console.log(`deleteFilter(${filterNode.label}) called for doc=${parentUri}`);
-                    let parentNode = filterNode.parent;
-                    vscode.window.showWarningMessage(`Do you want to delete the filter '${filterNode.filter.name}'? This cannot be undone!`,
-                        { modal: true }, 'Delete').then((value) => {
-                            if (value === 'Delete') {
-                                deleteFilter(doc, filterNode.filter).then(() => {
-                                    console.log(`deleteFilter resolved...`);
-                                    this._onDidChangeTreeData.fire(parentNode);
-                                });
-                            }
-                        });
-                }
-            }
-        }));
-
-        context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.zoomIn', async (...args: any[]) => {
-            this.modifyNode(args[0], 'zoomIn');
-        }));
-
-        context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.zoomOut', async (...args: any[]) => {
-            this.modifyNode(args[0], 'zoomOut');
-        }));
-
-
         context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.fileTransferSave', async (...args: any[]) => {
             const fileTransfer = <DltFileTransfer>args[0];
             if (fileTransfer && fileTransfer.isComplete) {
@@ -384,8 +325,10 @@ export class DltDocumentProvider implements vscode.FileSystemProvider,
         switch (command) {
             case 'enableFilter': this.modifyNode(node, 'enable'); break;
             case 'disableFilter': this.modifyNode(node, 'disable'); break;
+            case 'zoomOut': this.modifyNode(node, 'zoomOut'); break;
+            case 'zoomIn': this.modifyNode(node, 'zoomIn'); break;
             default:
-                console.error(`adlt.onTreeNodeCommand unknown command '${command}'`); break;
+                console.error(`dlt.onTreeNodeCommand unknown command '${command}'`); break;
         }
     }
 

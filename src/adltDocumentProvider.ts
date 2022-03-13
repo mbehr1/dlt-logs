@@ -7,7 +7,6 @@
 /// [ ] auto load adlt binary
 /// [ ] version comparison with adlt
 /// [ ] decorations
-/// [ ] add/edit filter
 
 /// not mandatory for first release:
 /// [ ] opening of multiple dlt files 
@@ -57,6 +56,7 @@ class AdltLifecycleInfo implements DltLifecycleInfoMinIF {
     adjustTimeMs: number = 0;
     startTime: number; // in ms
     endTime: number; // in ms
+    apidInfos: Map<string, { apid: string, desc: string, ctids: Map<string, string> }> = new Map(); // todo
 
     constructor(binLc: remote_types.BinLifecycle) {
         this.ecu = char4U32LeToString(binLc.ecu);
@@ -157,7 +157,7 @@ export class AdltDocument implements vscode.Disposable {
             let binMsg = msgs[i];
             let msg = {
                 index: binMsg.index,
-                receptionTimeInMs: Number(binMsg.reception_time),
+                receptionTimeInMs: Number(binMsg.reception_time / 1000n),
                 timeStamp: binMsg.timestamp_dms,
                 ecu: char4U32LeToString(binMsg.ecu), // todo from map...
                 apid: char4U32LeToString(binMsg.apid),
@@ -203,7 +203,7 @@ export class AdltDocument implements vscode.Disposable {
 
         // connect to adlt via websocket:
         const url = "ws://localhost:6665";
-        this.webSocket = new WebSocket(url, [], { perMessageDeflate: false, origin: "adlt-logs" }); // todo maxPayload
+        this.webSocket = new WebSocket(url, [], { perMessageDeflate: false, origin: "adlt-logs" }); // todo maxPayload (defaults to 100MiB)
         //console.warn(`adlt.webSocket.binaryType=`, this.webSocket.binaryType);
         //this.webSocket.binaryType = "nodebuffer"; // or Arraybuffer?
         this.webSocket.binaryType = "arraybuffer"; // ArrayBuffer needed for sink?
@@ -579,6 +579,17 @@ export class AdltDocument implements vscode.Disposable {
         return true;
     }
 
+    onFilterEdit(filter: DltFilter): boolean {
+        // update filterNode needs to be done by caller. a bit messy...
+
+        // we dont know whether configs have changed so lets recheck/update:
+        // this.updateConfigs(filter);
+        //dont call this or a strange warning occurs. not really clear why. this._treeEventEmitter.fire(this.configTreeNode);
+
+        this.triggerApplyFilter();
+        return true;
+    }
+
     onFilterDelete(filter: DltFilter, callTriggerApplyFilter: boolean = true): boolean {
         filter.enabled = false; // just in case
 
@@ -749,7 +760,17 @@ export class AdltDocument implements vscode.Disposable {
         const msg = this.msgByLine(position.line);
         if (!msg) { return; }
 
-        return new vscode.Hover(new vscode.MarkdownString(`todo impl provideHover\n- index: ${msg.index}\n- ecu: ${msg.ecu}`));
+        const receptionDate = new Date(msg.receptionTimeInMs);
+        const posTime = this.provideTimeByMsg(msg) || receptionDate;
+        let mdString = new vscode.MarkdownString(util.escapeMarkdown(`${posTime.toLocaleTimeString()}.${String(posTime.valueOf() % 1000).padStart(3, "0")} index#=${msg.index} timestamp=${msg.timeStamp} reception time=${receptionDate.toLocaleTimeString()} mtin=${msg.mtin}`), true);
+        mdString.appendMarkdown(`\n\n---\n\n`);
+        const args = [{ uri: this.uri }, { mstp: msg.mstp, ecu: msg.ecu, apid: msg.apid, ctid: msg.ctid, payload: msg.payloadString }];
+        const addCommandUri = vscode.Uri.parse(`command:dlt-logs.addFilter?${encodeURIComponent(JSON.stringify(args))}`);
+
+        mdString.appendMarkdown(`[$(filter) add filter...](${addCommandUri})`);
+        mdString.isTrusted = true;
+
+        return new vscode.Hover(mdString);
     }
 
     updateStatusBarItem(item: vscode.StatusBarItem) {
@@ -1271,6 +1292,8 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
         switch (command) {
             case 'enableFilter': this.modifyNode(node, 'enable'); break;
             case 'disableFilter': this.modifyNode(node, 'disable'); break;
+            case 'zoomOut': this.modifyNode(node, 'zoomOut'); break;
+            case 'zoomIn': this.modifyNode(node, 'zoomIn'); break;
             default:
                 console.error(`adlt.onTreeNodeCommand unknown command '${command}'`); break;
         }

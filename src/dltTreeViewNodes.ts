@@ -247,6 +247,7 @@ export class ConfigNode implements TreeViewNode {
 
 export interface FilterableDocument {
     uri: vscode.Uri;
+    onFilterEdit(filter: DltFilter): boolean;
     onFilterDelete(filter: DltFilter, callTriggerApplyFilter?: boolean): boolean;
     onFilterAdd(filter: DltFilter, callTriggerApplyFilter?: boolean): boolean;
 }

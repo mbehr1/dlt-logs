@@ -755,7 +755,7 @@ export class DltDocument {
         return true;
     }
 
-    onFilterEdit(filter: DltFilter) {
+    onFilterEdit(filter: DltFilter): boolean {
         // update filterNode needs to be done by caller. a bit messy...
 
         // we dont know whether configs have changed so lets recheck/update:

@@ -16,6 +16,7 @@ import { TreeviewAbleDocument } from './dltReport';
 import { TreeViewNode } from './dltTreeViewNodes';
 import { ColumnConfig, DltDocument } from './dltDocument';
 import { DltFilter } from './dltFilter';
+import { addFilter, editFilter, deleteFilter } from './dltAddEditFilter';
 import * as util from './util';
 
 // import { DltLogCustomReadonlyEditorProvider } from './dltCustomEditorProvider';
@@ -192,7 +193,6 @@ export function activate(context: vscode.ExtensionContext) {
 	}));
 
 
-
 	// register common (adlt/dlt) commands:
 	context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.enableFilter', async (...args: any[]) => {
 		dltProvider.onTreeNodeCommand('enableFilter', args[0]);
@@ -202,6 +202,67 @@ export function activate(context: vscode.ExtensionContext) {
 		dltProvider.onTreeNodeCommand('disableFilter', args[0]);
 		adltProvider.onTreeNodeCommand('disableFilter', args[0]);
 	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand("dlt-logs.addFilter", async (...args) => {
+		args.forEach(a => { console.log(` arg='${JSON.stringify(a)}'`); });
+		if (args.length < 2) { return; }
+		// first arg should contain uri
+		const uri = args[0].uri;
+		if (uri) {
+			let { doc, provider } = getDocAndProviderFor(uri.toString());
+			if (doc) {
+				addFilter(doc, args[1]);
+			}
+		}
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.editFilter', async (...args: any[]) => {
+		const filterNode = <FilterNode>args[0];
+		const parentUri = filterNode.parent?.uri;
+		if (parentUri) {
+			let { doc, provider } = getDocAndProviderFor(parentUri.toString());
+			if (doc) {
+				console.log(`editFilter(${filterNode.label}) called for doc=${parentUri}`);
+				editFilter(doc, filterNode.filter).then(() => {
+					console.log(`editFilter resolved...`);
+					_onDidChangeTreeData.fire(filterNode);
+				});
+			}
+		}
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.deleteFilter', async (...args: any[]) => {
+		const filterNode = <FilterNode>args[0];
+		const parentUri = filterNode.parent?.uri;
+		if (parentUri) {
+			let { doc, provider } = getDocAndProviderFor(parentUri.toString());
+			if (doc) {
+				console.log(`deleteFilter(${filterNode.label}) called for doc=${parentUri}`);
+				let parentNode = filterNode.parent;
+				vscode.window.showWarningMessage(`Do you want to delete the filter '${filterNode.filter.name}'? This cannot be undone!`,
+					{ modal: true }, 'Delete').then((value) => {
+						if (value === 'Delete') {
+							deleteFilter(doc!, filterNode.filter).then(() => {
+								console.log(`deleteFilter resolved...`);
+								_onDidChangeTreeData.fire(parentNode);
+							});
+						}
+					});
+			}
+		}
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.zoomIn', async (...args: any[]) => {
+		dltProvider.onTreeNodeCommand('zoomIn', args[0]);
+		adltProvider.onTreeNodeCommand('zoomIn', args[0]);
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.zoomOut', async (...args: any[]) => {
+		dltProvider.onTreeNodeCommand('zoomOut', args[0]);
+		adltProvider.onTreeNodeCommand('zoomOut', args[0]);
+	}));
+
+
 
 	context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.openReport', async (...args: any[]) => {
 		const filterNode = <FilterNode>args[0];
