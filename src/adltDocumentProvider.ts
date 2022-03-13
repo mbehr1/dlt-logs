@@ -7,7 +7,6 @@
 /// [ ] auto load adlt binary
 /// [ ] version comparison with adlt
 /// [ ] decorations
-/// [ ] status bar support
 /// [ ] add/edit filter
 
 /// not mandatory for first release:
@@ -106,6 +105,8 @@ interface StreamMsgData {
 export class AdltDocument implements vscode.Disposable {
     private realStat: fs.Stats;
     private webSocket: WebSocket;
+    private webSocketIsConnected = false;
+
     private streamId: number = 0; // 0 none, neg stop in progress. stream for the messages that reflect the main log/view
     private visibleMsgs?: AdltMsg[]; // the array with the msgs that should be shown. set on startStream and cleared on stopStream
     private _maxNrMsgs: number; //  setting 'dlt-logs.maxNumberLogs'. That many messages are displayed at once
@@ -217,7 +218,7 @@ export class AdltDocument implements vscode.Disposable {
                         switch (bin_type.tag) {
                             case 'DltMsgs': { // raw messages
                                 let [streamId, msgs] = bin_type.value;
-                                console.warn(`adlt.on(binary): DltMsgs stream=${streamId}, nr_msgs=${msgs.length}`);
+                                //console.warn(`adlt.on(binary): DltMsgs stream=${streamId}, nr_msgs=${msgs.length}`);
                                 let streamData = this.streamMsgs.get(streamId);
                                 if (streamData && !Array.isArray(streamData)) {
                                     this.processBinDltMsgs(msgs, streamId, streamData);
@@ -281,7 +282,18 @@ export class AdltDocument implements vscode.Disposable {
             }
         });
         this.webSocket.on('open', () => {
+            this.webSocketIsConnected = true;
             this.openAdltFiles();
+        });
+
+        this.webSocket.on('close', () => {
+            this.webSocketIsConnected = false;
+            this.emitDocChanges.fire([{ type: vscode.FileChangeType.Changed, uri: this.uri }]);
+        });
+        this.webSocket.on('error', (err) => {
+            console.warn(`dlt-logs.AdltDocumentProvider.on(error) wss got error:`, err);
+            this.webSocketIsConnected = false;
+            this.emitDocChanges.fire([{ type: vscode.FileChangeType.Changed, uri: this.uri }]);
         });
 
         // update tree view:
@@ -333,7 +345,13 @@ export class AdltDocument implements vscode.Disposable {
                     }
                 });
         });
-        this.webSocket.send(req);
+        this.webSocket.send(req, (err) => {
+            if (err) {
+                console.warn(`dlt-logs.AdltDocumentProvider.sendAndRecvAdltMsg wss got error:`, err);
+                this.webSocketIsConnected = false;
+                this.emitDocChanges.fire([{ type: vscode.FileChangeType.Changed, uri: this.uri }]);
+            }
+        });
         return prom;
     }
 
@@ -466,7 +484,7 @@ export class AdltDocument implements vscode.Disposable {
                     console.log(`adlt.startStream onDone() nyi!`);
                 },
                 onNewMessages(nrNewMsgs: number) {
-                    console.warn(`adlt.startStream onNewMessages(${nrNewMsgs}) viewMsgs.length=${viewMsgs.length} nyi!`);
+                    // console.warn(`adlt.startStream onNewMessages(${nrNewMsgs}) viewMsgs.length=${viewMsgs.length}`);
                     // process the nrNewMsgs
                     // calc the new text
                     // append text and trigger file changes
@@ -474,7 +492,7 @@ export class AdltDocument implements vscode.Disposable {
                         DltDocument.textLinesForMsgs(doc._columns, viewMsgs, viewMsgs.length - nrNewMsgs, viewMsgs.length - 1, 8 /*todo*/, undefined).then((newTxt: string) => {
                             doc.text += newTxt;
                             doc.emitDocChanges.fire([{ type: vscode.FileChangeType.Changed, uri: doc.uri }]);
-                            console.log(`adlt.onNewMessages triggered doc changes.`);
+                            console.log(`adlt.onNewMessages(${nrNewMsgs}) triggered doc changes.`);
                         });
                     }
                 }
@@ -735,13 +753,20 @@ export class AdltDocument implements vscode.Disposable {
     }
 
     updateStatusBarItem(item: vscode.StatusBarItem) {
-        item.text = "adlt"; /*this.filteredMsgs !== undefined ? `${this.filteredMsgs.length}/${this.msgs.length} msgs` : `${this.msgs.length} msgs`;*/
+        if (this.webSocketIsConnected) {
+
+            item.text = this.visibleMsgs !== undefined && this.visibleMsgs.length !== this.fileInfoNrMsgs ? `${this.visibleMsgs.length}/${this.fileInfoNrMsgs} msgs` : `${this.fileInfoNrMsgs} msgs`;
         let nrEnabledFilters: number = 0;
         this.allFilters.forEach(filter => {
             if (!filter.atLoadTime && filter.enabled && (filter.type === DltFilterType.POSITIVE || filter.type === DltFilterType.NEGATIVE)) { nrEnabledFilters++; }
         });
         const nrAllFilters = this.allFilters.length;
+        // todo show wss connection status
         item.tooltip = `DLT: ${this.uri.fsPath}, showing max ${this._maxNrMsgs} msgs, ${0/*this._timeAdjustMs / 1000*/}s time-adjust, ${0 /* todo this.timeSyncs.length*/} time-sync events, ${nrEnabledFilters}/${nrAllFilters} enabled filters, sorted by ${this._sortOrderByTime ? 'time' : 'index'}`;
+        } else {
+            item.text = "adlt not con!";
+            item.tooltip = `DLT: ${this.uri.fsPath}, not connected to adlt via websocket!`;
+        }
     }
 
 
