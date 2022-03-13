@@ -169,7 +169,7 @@ export function activate(context: vscode.ExtensionContext) {
 					console.warn(`dlt-logs.onDidChangeActiveTextEditor did reveal got err ${err}`);
 				}
 				//this.checkActiveTextEditor(data);
-				if (provider && 'updateDecorations' in provider) { provider.updateDecorations(doc as DltDocument); } // todo... refactor
+				doc.updateDecorations();
 
 				hideStatusBar = false;
 				doc.updateStatusBarItem(_statusBarItem);
@@ -184,6 +184,11 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.workspace.onDidChangeTextDocument(async (event) => {
 		let { doc, provider } = getDocAndProviderFor(event.document.uri.toString());
 		if (doc) {
+
+			// update decorations:
+			doc.updateDecorations();
+
+			// update status bar only for the last used/active doc:
 			let activeDoc = getRestQueryDocById("0");
 			if (doc === activeDoc) {
 				console.log(`dlt-logs.onDidChangeTextDocument for active document`);

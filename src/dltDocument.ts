@@ -320,6 +320,20 @@ export class DltDocument {
         if (doTriggerApplyFilter) { this.triggerApplyFilter(); }
     }
 
+    updateDecorations() {
+        if (this.decorations && this.textEditors) {
+            if (this.textDocument && this.textDocument.lineCount && this.textDocument.lineCount > this.staticLinesAbove.length + 1) {
+                // console.log(` setDecorations lineCount=${data.textDocument.lineCount}, staticLinesAbove=${data.staticLinesAbove.length}`);
+                this.textEditors.forEach((editor) => {
+                    this.decorations!.forEach((value, key) => {
+                        // console.log(` setDecorations ${value.length}`);
+                        editor.setDecorations(key, value);
+                    });
+                });
+            }
+        }
+    }
+
     stat(): vscode.FileStat {
         return {
             size: this._text.length, ctime: this._realStat.ctime.valueOf(), mtime: this._realStat.mtime.valueOf(),
@@ -985,7 +999,7 @@ export class DltDocument {
                     }
                     if (!gotDeco && this.decError && msg.mstp === MSTP.TYPE_LOG && msg.mtin === MTIN_LOG.LOG_ERROR) {
                         msg.decorations.push([this.decError, [{ range: new vscode.Range(this.filteredMsgs.length - 1, 0, this.filteredMsgs.length - 1, 21), hoverMessage: new vscode.MarkdownString("$(error) LOG_ERROR", true) }]]);
-                        // todo no gotDeco=true? (this would avoid other decos to be warned, but why do we do this with warn?)
+                        // todo no gotDeco=true? (this would avoid other decos to be shown, but why do we do this with warn?)
                     }
                     if (!gotDeco && this.decFatal && msg.mstp === MSTP.TYPE_LOG && msg.mtin === MTIN_LOG.LOG_FATAL) {
                         msg.decorations.push([this.decFatal, [{ range: new vscode.Range(this.filteredMsgs.length - 1, 0, this.filteredMsgs.length - 1, 21), hoverMessage: `LOG_FATAL` }]]);

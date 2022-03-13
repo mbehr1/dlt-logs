@@ -110,7 +110,7 @@ export class DltDocumentProvider implements vscode.FileSystemProvider,
                     this._dltLifecycleTreeView.reveal(data.treeNode, { select: false, focus: false, expand: true }).then(() => {
                         console.log(`dltDocProv.onDidChangeTextDocument reveal done.`);
                     });*/
-                this.updateDecorations(data);
+                // this.updateDecorations(data);
                 // time sync events?
                 if (data.timeSyncs.length) {
                     console.log(`dlt-logs.onDidChangeTextDocument broadcasting ${data.timeSyncs.length} time-syncs.`);
@@ -330,22 +330,6 @@ export class DltDocumentProvider implements vscode.FileSystemProvider,
             default:
                 console.error(`dlt.onTreeNodeCommand unknown command '${command}'`); break;
         }
-    }
-
-    updateDecorations(data: DltDocument) {
-        // console.log('updateDecorations...');
-        if (data.decorations && data.textEditors) {
-            if (data.textDocument && data.textDocument.lineCount && data.textDocument.lineCount > data.staticLinesAbove.length + 1) {
-                // console.log(` setDecorations lineCount=${data.textDocument.lineCount}, staticLinesAbove=${data.staticLinesAbove.length}`);
-                data.textEditors.forEach((editor) => {
-                    data?.decorations?.forEach((value, key) => {
-                        // console.log(` setDecorations ${value.length}`);
-                        editor.setDecorations(key, value);
-                    });
-                });
-            }
-        }
-        // console.log(' updateDecorations done');
     }
 
     public provideHover(doc: vscode.TextDocument, position: vscode.Position): vscode.ProviderResult<vscode.Hover> {

@@ -6,7 +6,6 @@
 
 /// [ ] auto load adlt binary
 /// [ ] version comparison with adlt
-/// [ ] decorations
 
 /// not mandatory for first release:
 /// [ ] opening of multiple dlt files 
@@ -18,6 +17,11 @@
 /// [ ] jump to time/log
 /// [ ] onDidChangeConfiguration
 /// [ ] timeSync support
+/// [ ] move decorations parsing/mgmt to extension
+/// [ ] think about atLoadTime filters (use them as regular ones)
+
+/// bugs:
+/// [ ] adding a 2nd report into an existing one doesn't seem to work (see todo requery in openReport)
 
 /// [x] sort order support
 /// by default logs are sorted by timestamp. If the sort order is toggled the file is closed and reopened.
@@ -32,12 +36,13 @@ import * as util from './util';
 import * as path from 'path';
 import { DltFilter, DltFilterType } from './dltFilter';
 import { DltReport, NewMessageSink } from './dltReport';
-import { FilterableDltMsg, ViewableDltMsg, MSTP, MTIN_CTRL } from './dltParser';
+import { FilterableDltMsg, ViewableDltMsg, MSTP, MTIN_CTRL, MTIN_LOG } from './dltParser';
 import { DltLifecycleInfoMinIF, DltLifecycleInfo } from './dltLifecycle';
 import { TreeViewNode, FilterNode, LifecycleRootNode, LifecycleNode, FilterRootNode } from './dltTreeViewNodes';
 
 import * as remote_types from './remote_types';
 import { DltDocument, ColumnConfig } from './dltDocument';
+import { v4 as uuidv4 } from 'uuid';
 
 function char4U32LeToString(char4le: number): string {
     let codes = [char4le & 0xff, 0xff & (char4le >> 8), 0xff & (char4le >> 16), 0xff & (char4le >> 24)];
@@ -112,6 +117,18 @@ export class AdltDocument implements vscode.Disposable {
     private _skipMsgs: number = 0; // that many messages are skipped from the top (here not loaded for cur streamId)
 
     private _sortOrderByTime = true; // we default to true // todo retrieve last from config?
+
+    // decorations: (should always reflect what we want to show in all textEditors showing this doc)
+    decorations = new Map<vscode.TextEditorDecorationType, vscode.DecorationOptions[]>();
+
+    // config options for decorations
+    private decWarning?: vscode.TextEditorDecorationType;
+    private mdWarning = new vscode.MarkdownString("$(warning) LOG_WARN", true);
+    private decError?: vscode.TextEditorDecorationType;
+    private mdError = new vscode.MarkdownString("$(error) LOG_ERROR", true);
+    private decFatal?: vscode.TextEditorDecorationType;
+    private mdFatal = new vscode.MarkdownString("$(error) LOG_FATAL", true);
+    private _decorationTypes = new Map<string, vscode.TextEditorDecorationType>(); // map with id and settings. init from config in parseDecorationsConfigs
 
     private editPending: boolean = false;
     private pendingTextUpdate: string = "";
@@ -197,6 +214,33 @@ export class AdltDocument implements vscode.Disposable {
         const maxNrMsgsConf = vscode.workspace.getConfiguration().get<number>('dlt-logs.maxNumberLogs');
         this._maxNrMsgs = maxNrMsgsConf ? maxNrMsgsConf : 400000; // 400k default
         this._maxNrMsgs = 1000; // todo for testing only
+
+        // update tree view:
+        this.lifecycleTreeNode = new LifecycleRootNode(this);
+        this.filterTreeNode = new FilterRootNode(this.uri);
+        //this.configTreeNode = { id: util.createUniqueId(), label: "Configs", uri: this.uri, parent: null, children: [], tooltip: undefined, iconPath: new vscode.ThemeIcon('references') };
+        this.pluginTreeNode = { id: util.createUniqueId(), label: "Plugins", uri: this.uri, parent: null, children: [], tooltip: undefined, iconPath: new vscode.ThemeIcon('package') };
+
+        this.treeNode = {
+            id: util.createUniqueId(),
+            label: `${path.basename(fileUri.fsPath)}`, uri: this.uri, parent: null, children: [
+                this.lifecycleTreeNode,
+                this.filterTreeNode,
+                //      this.configTreeNode,
+                this.pluginTreeNode,
+            ],
+            tooltip: undefined,
+            iconPath: new vscode.ThemeIcon('file')
+        };
+        this.treeNode.children.forEach((child) => { child.parent = this.treeNode; });
+        parentTreeNode.push(this.treeNode);
+
+        this.onDidChangeConfigFilters(); // load filters
+
+        { // load decorations: 
+            const decorationsObjs = vscode.workspace.getConfiguration().get<Array<object>>("dlt-logs.decorations");
+            this.parseDecorationsConfigs(decorationsObjs);
+        }
 
         this.text = `Loading adlt document from uri=${fileUri.toString()} with max ${this._maxNrMsgs} msgs per page...`;
 
@@ -295,31 +339,12 @@ export class AdltDocument implements vscode.Disposable {
             this.emitDocChanges.fire([{ type: vscode.FileChangeType.Changed, uri: this.uri }]);
         });
 
-        // update tree view:
-        this.lifecycleTreeNode = new LifecycleRootNode(this);
-        this.filterTreeNode = new FilterRootNode(this.uri);
-        //this.configTreeNode = { id: util.createUniqueId(), label: "Configs", uri: this.uri, parent: null, children: [], tooltip: undefined, iconPath: new vscode.ThemeIcon('references') };
-        this.pluginTreeNode = { id: util.createUniqueId(), label: "Plugins", uri: this.uri, parent: null, children: [], tooltip: undefined, iconPath: new vscode.ThemeIcon('package') };
-
-        this.treeNode = {
-            id: util.createUniqueId(),
-            label: `${path.basename(fileUri.fsPath)}`, uri: this.uri, parent: null, children: [
-                this.lifecycleTreeNode,
-                this.filterTreeNode,
-                //      this.configTreeNode,
-                this.pluginTreeNode,
-            ],
-            tooltip: undefined,
-            iconPath: new vscode.ThemeIcon('file')
-        };
-        parentTreeNode.push(this.treeNode);
-
         this.timerId = setInterval(() => {
             this.checkTextUpdates(); // todo this might not be needed at all!
         }, 1000);
 
-        // todo add a static report filter for testing:
-        this.onFilterAdd(new DltFilter({ type: DltFilterType.EVENT, payloadRegex: "(?<STATE_error>error)", name: "test report" }, false), false);
+        // add a static report filter for testing:
+        // this.onFilterAdd(new DltFilter({ type: DltFilterType.EVENT, payloadRegex: "(?<STATE_error>error)", name: "test report" }, false), false);
     }
 
     dispose() {
@@ -328,6 +353,189 @@ export class AdltDocument implements vscode.Disposable {
         this.closeAdltFiles().catch((reason) => {
             console.log(`AdltDocument.dispose closeAdltFiles failed with '${reason}'`);
         });
+    }
+
+    /**
+     * read or reread config changes for filters
+     * Will be called from constructor and on each config change for dlt-logs.filters
+     */
+    onDidChangeConfigFilters() {
+        const filterSection = "dlt-logs.filters";
+        let filterObjs = vscode.workspace.getConfiguration().get<Array<object>>(filterSection);
+
+        // we add here some migration logic for <0.30 to >=0.30 as we introduced "id" (uuid) for identifying
+        // filter configs:
+        if (filterObjs) {
+            let migrated = false;
+            try {
+                for (let i = 0; i < filterObjs.length; ++i) {
+                    let filterConf: any = filterObjs[i];
+                    if (!('id' in filterConf)) {
+                        const newId = uuidv4();
+                        console.log(` got filter: type=${filterConf?.type} without id. Assigning new one: ${newId}`);
+                        filterConf.id = newId;
+                        migrated = true;
+                    }
+                }
+                if (migrated) {
+                    // update config:
+                    util.updateConfiguration(filterSection, filterObjs);
+                    // sadly we can't wait here...
+                    vscode.window.showInformationMessage('Migration to new version: added ids to your existing filters.');
+                }
+            } catch (error) {
+                console.log(`dlt-logs migrate 0.30 add id/uuid error:${error}`);
+                vscode.window.showErrorMessage('Migration to new version: failed to add ids to your existing filters. Please add manually (id fields with uuids.). Modification of filters via UI not possible until this is resolve.');
+            }
+        }
+        this.parseFilterConfigs(filterObjs);
+    }
+
+    /**
+     * Parse the configuration filter parameters and update the list of filters
+     * (allFilters) and the filterTreeNode accordingly.
+     *
+     * Can be called multiple times.
+     * Filters with same id will be updated.
+     * Filters that are not inside the current list will be added.
+     * Filters that are not contained anylonger will be removed.
+     * "undefined" will be ignored. Pass an empty array to remove all.
+     * Order changes are applied.
+     *
+     * @param filterObjs array of filter objects as received from the configuration
+     */ // todo move to extension
+    parseFilterConfigs(filterObjs: Object[] | undefined) {
+        console.log(`AdltDocument.parseFilterConfigs: have ${filterObjs?.length} filters to parse. Currently have ${this.allFilters.length} filters...`);
+        if (filterObjs) {
+
+            let skipped = 0;
+            for (let i = 0; i < filterObjs.length; ++i) {
+                try {
+                    let filterConf: any = filterObjs[i];
+                    const targetIdx = i - skipped;
+
+                    // is this one contained?
+                    const containedIdx = this.allFilters.findIndex((filter) => filter.id === filterConf?.id);
+                    if (containedIdx < 0) {
+                        // not contained yet:
+                        let newFilter = new DltFilter(filterConf);
+                        if (newFilter.configs.length > 0) {
+                            // todo adlt this.updateConfigs(newFilter);
+                        }
+                        // insert at targetIdx:
+                        //this.filterTreeNode.children.push(new FilterNode(null, this.filterTreeNode, newFilter));
+                        //                        this.allFilters.push(newFilter);
+                        this.filterTreeNode.children.splice(targetIdx, 0, new FilterNode(null, this.filterTreeNode, newFilter));
+                        this.allFilters.splice(i - skipped, 0, newFilter);
+                        console.log(`AdltDocument.parseFilterConfigs adding filter: name='${newFilter.name}' type=${newFilter.type}, enabled=${newFilter.enabled}, atLoadTime=${newFilter.atLoadTime}`);
+                    } else {
+                        // its contained already. so lets first update the settings:
+                        const existingFilter = this.allFilters[containedIdx];
+                        if ('type' in filterConf && 'id' in filterConf) {
+                            existingFilter.configOptions = JSON.parse(JSON.stringify(filterConf)); // create a new object
+                            existingFilter.reInitFromConfiguration();
+                        } else {
+                            console.warn(`AdltDocument skipped update of existingFilter=${existingFilter.id} due to wrong config: '${JSON.stringify(filterConf)}'`);
+                        }
+                        // now check whether the order has changed:
+                        if (targetIdx !== containedIdx) {
+                            // order seems changed!
+                            // duplicates will be detected here automatically! (and removed/skipped)
+                            if (targetIdx > containedIdx) {
+                                // duplicate! the same idx is already there. skip this one
+                                console.warn(`AdltDocument.parseFilterConfigs: skipped filterConf.id='${filterConf.id}' as duplicate!`);
+                                skipped++;
+                            } else { // containedIdx > targetIdx
+                                //console.warn(`parseFilterConfigs: detected order change for existingFilter.name='${existingFilter.name} from ${containedIdx} to ${targetIdx}'`);
+                                // reorder:
+                                const removed = this.allFilters.splice(containedIdx, 1);
+                                this.allFilters.splice(targetIdx, 0, ...removed);
+                                const removedNode = this.filterTreeNode.children.splice(containedIdx, 1);
+                                this.filterTreeNode.children.splice(targetIdx, 0, ...removedNode);
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.log(`AdltDocument.parseFilterConfigs error:${error}`);
+                    skipped++;
+                }
+            }
+            // lets remove the ones not inside filterConf:
+            // that are regular DltFilter (so skip plugins...)
+            // should be the ones with pos >= filterObj.length-skipped as we ensured sort order
+            // already above
+            // we might stop at first plugin as well.
+            // currently we do e.g. delete the filters from loadTimeAssistant now as well.
+            // (but it doesn't harm as load time filters are anyhow wrong in that case)
+            // todo think about it
+            for (let i = filterObjs.length - skipped; i < this.allFilters.length; ++i) {
+                const existingFilter = this.allFilters[i];
+                if (existingFilter.constructor === DltFilter) { // not instanceof as this covers inheritance
+                    //console.log(`AdltDocument.parseFilterConfigs deleting existingFilter: name '${existingFilter.name}' ${existingFilter instanceof DltFileTransferPlugin} ${existingFilter instanceof DltFilter} ${existingFilter.constructor === DltFileTransferPlugin} ${existingFilter.constructor === DltFilter}`);
+                    this.allFilters.splice(i, 1);
+                    this.filterTreeNode.children.splice(i, 1);
+                    i--;
+                }
+            }
+        }
+    }
+
+    parseDecorationsConfigs(decorationConfigs: Object[] | undefined) {
+        console.log(`parseDecorationsConfigs: have ${decorationConfigs?.length} decorations to parse...`);
+        if (this._decorationTypes.size) {
+
+            // remove current ones from editor:
+            this.textEditors.forEach((editor) => {
+                this.decorations?.forEach((value, key) => {
+                    editor.setDecorations(key, []);
+                });
+            });
+            // todo clear... this.decorations = undefined; // todo allDecorations?
+            this._decorationTypes.clear();
+        }
+        if (decorationConfigs && decorationConfigs.length) {
+            for (let i = 0; i < decorationConfigs.length; ++i) {
+                try {
+                    const conf: any = decorationConfigs[i];
+                    if (conf.id) {
+                        console.log(` adding decoration id=${conf.id}`);
+                        let decOpt = <vscode.DecorationRenderOptions>conf.renderOptions;
+                        decOpt.isWholeLine = true;
+                        let decType = vscode.window.createTextEditorDecorationType(decOpt);
+                        this._decorationTypes.set(conf.id, decType);
+                    }
+                } catch (error) {
+                    console.log(`dlt-logs.parseDecorationsConfig error:${error}`);
+                }
+            }
+        }
+        this.decWarning = this._decorationTypes.get("warning");
+        this.decError = this._decorationTypes.get("error");
+        this.decFatal = this._decorationTypes.get("fatal");
+
+        console.log(`dlt-logs.parseDecorationsConfig got ${this._decorationTypes.size} decorations!`);
+    }
+
+    private _decorationsHoverTexts = new Map<string, vscode.MarkdownString>();
+    getDecorationFor(filter: DltFilter): [vscode.TextEditorDecorationType, vscode.MarkdownString] | undefined {
+        // for filter we use decorationId or filterColour:
+        let filterName = `MARKER_${filter.id}`;
+
+        let mdHoverText = this._decorationsHoverTexts.get(filterName);
+        if (!mdHoverText) {
+            mdHoverText = new vscode.MarkdownString(`MARKER ${filter.name}`);
+            this._decorationsHoverTexts.set(filterName, mdHoverText);
+        }
+
+        if (filter.decorationId) { let dec = this._decorationTypes.get(filter.decorationId); if (!dec) { return undefined; } else { [dec, mdHoverText]; } };
+        // now we assume at least a filterColour:
+        const decFilterName = `filterColour_${filter.filterColour}`;
+        let dec = this._decorationTypes.get(decFilterName);
+        if (dec) { return [dec, mdHoverText]; }
+        // create this decoration:
+        dec = vscode.window.createTextEditorDecorationType({ borderColor: filter.filterColour, borderWidth: "1px", borderStyle: "dotted", overviewRulerColor: filter.filterColour, overviewRulerLane: 2, isWholeLine: true });
+        this._decorationTypes.set(decFilterName, dec);
+        return [dec, mdHoverText];
     }
 
     private _reqCallbacks: ((resp: string) => void)[] = []; // could change to a map. but for now we get responses in fifo order
@@ -468,7 +676,8 @@ export class AdltDocument implements vscode.Disposable {
 
     startStream() {
         // start stream:
-        let filterStr = this.allFilters.filter(f => !f.isReport && f.enabled).map(f => JSON.stringify(f.asConfiguration())).join(',');
+        let filterStr = this.allFilters.filter(f => (f.type === DltFilterType.POSITIVE || f.type === DltFilterType.NEGATIVE) && f.enabled).map(f => JSON.stringify(f.asConfiguration())).join(',');
+        let decFilters = this.allFilters.filter(f => f.type === DltFilterType.MARKER && f.enabled);
         this.sendAndRecvAdltMsg(`stream {"window":[${this._skipMsgs},${this._skipMsgs + this._maxNrMsgs}], "binary":true, "filters":[${filterStr}]}`).then((response) => {
             console.log(`adlt.on startStream got response:'${response}'`);
             const streamObj = JSON.parse(response.substring(11));
@@ -476,6 +685,9 @@ export class AdltDocument implements vscode.Disposable {
             this.streamId = streamObj.id;
             this.text = "";
             this.visibleMsgs = [];
+            // empty all decorations
+            this.clearDecorations();
+
             let viewMsgs = this.visibleMsgs;
             let doc = this;
             let sink: NewMessageSink = {
@@ -487,11 +699,49 @@ export class AdltDocument implements vscode.Disposable {
                     // process the nrNewMsgs
                     // calc the new text
                     // append text and trigger file changes
-                    if (nrNewMsgs) {
+                    if (nrNewMsgs) { // todo depending on the amount of msgs add a progress!
                         DltDocument.textLinesForMsgs(doc._columns, viewMsgs, viewMsgs.length - nrNewMsgs, viewMsgs.length - 1, 8 /*todo*/, undefined).then((newTxt: string) => {
                             doc.text += newTxt;
                             doc.emitDocChanges.fire([{ type: vscode.FileChangeType.Changed, uri: doc.uri }]);
                             console.log(`adlt.onNewMessages(${nrNewMsgs}) triggered doc changes.`);
+                            // determine the new decorations:
+                            for (let i = viewMsgs.length - nrNewMsgs; i < viewMsgs.length - 1; ++i) {
+                                let msg = viewMsgs[i];
+                                let decs: [vscode.TextEditorDecorationType, vscode.MarkdownString][] = [];
+
+                                if (msg.mstp === MSTP.TYPE_LOG) {
+                                    if (doc.decWarning && msg.mtin === MTIN_LOG.LOG_WARN) {
+                                        decs.push([doc.decWarning, doc.mdWarning]);
+                                    } else if (doc.decError && msg.mtin === MTIN_LOG.LOG_ERROR) {
+                                        decs.push([doc.decError, doc.mdError]);
+                                    } else if (doc.decFatal && msg.mtin === MTIN_LOG.LOG_ERROR) {
+                                        decs.push([doc.decFatal, doc.mdFatal]);
+                                    }
+                                }
+                                if (decFilters.length > 0) {
+                                    for (let d = 0; d < decFilters.length; ++d) {
+                                        let decFilter = decFilters[d];
+                                        if (decFilter.matches(msg)) {
+                                            const decType = doc.getDecorationFor(decFilter);
+                                            if (decType) {
+                                                decs.push([decType[0], decType[1]]);
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if (decs.length) {
+                                    for (let dec of decs) {
+                                        let options = doc.decorations.get(dec[0]);
+                                        if (!options) {
+                                            options = [];
+                                            doc.decorations.set(dec[0], options);
+                                        }
+                                        options.push({ range: new vscode.Range(i, 0, i, 21), hoverMessage: dec[1] });
+                                    }
+                                }
+                            }
                         });
                     }
                 }
@@ -506,6 +756,23 @@ export class AdltDocument implements vscode.Disposable {
                 // process the data now:
                 curStreamMsgData.forEach((msgs) => this.processBinDltMsgs(msgs, streamObj.id, streamData));
             }
+        });
+    }
+
+    clearDecorations() {
+        this.textEditors.forEach((editor) => {
+            this.decorations.forEach((value, key) => {
+                value.length = 0; // seems a way to clear all elements
+                // this is not needed as we modify the orig array. editor.setDecorations(key, value);
+            });
+        });
+    }
+
+    updateDecorations() {
+        this.textEditors.forEach((editor) => {
+            this.decorations.forEach((value, key) => {
+                editor.setDecorations(key, value);
+            });
         });
     }
 
@@ -796,16 +1063,16 @@ export class AdltDocument implements vscode.Disposable {
         if (this.webSocketIsConnected) {
 
             item.text = this.visibleMsgs !== undefined && this.visibleMsgs.length !== this.fileInfoNrMsgs ? `${this.visibleMsgs.length}/${this.fileInfoNrMsgs} msgs` : `${this.fileInfoNrMsgs} msgs`;
-        let nrEnabledFilters: number = 0;
-        this.allFilters.forEach(filter => {
-            if (!filter.atLoadTime && filter.enabled && (filter.type === DltFilterType.POSITIVE || filter.type === DltFilterType.NEGATIVE)) { nrEnabledFilters++; }
-        });
-        const nrAllFilters = this.allFilters.length;
-        // todo show wss connection status
-        item.tooltip = `DLT: ${this.uri.fsPath}, showing max ${this._maxNrMsgs} msgs, ${0/*this._timeAdjustMs / 1000*/}s time-adjust, ${0 /* todo this.timeSyncs.length*/} time-sync events, ${nrEnabledFilters}/${nrAllFilters} enabled filters, sorted by ${this._sortOrderByTime ? 'time' : 'index'}`;
+            let nrEnabledFilters: number = 0;
+            this.allFilters.forEach(filter => {
+                if (!filter.atLoadTime && filter.enabled && (filter.type === DltFilterType.POSITIVE || filter.type === DltFilterType.NEGATIVE)) { nrEnabledFilters++; }
+            });
+            const nrAllFilters = this.allFilters.length;
+            // todo show wss connection status
+            item.tooltip = `ADLT: ${this.uri.fsPath}, showing max ${this._maxNrMsgs} msgs, ${0/*this._timeAdjustMs / 1000*/}s time-adjust, ${0 /* todo this.timeSyncs.length*/} time-sync events, ${nrEnabledFilters}/${nrAllFilters} enabled filters, sorted by ${this._sortOrderByTime ? 'time' : 'index'}`;
         } else {
             item.text = "adlt not con!";
-            item.tooltip = `DLT: ${this.uri.fsPath}, not connected to adlt via websocket!`;
+            item.tooltip = `ADLT: ${this.uri.fsPath}, not connected to adlt via websocket!`;
         }
     }
 
