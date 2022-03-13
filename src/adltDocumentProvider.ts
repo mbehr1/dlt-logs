@@ -469,7 +469,7 @@ export class AdltDocument implements vscode.Disposable {
 
     startStream() {
         // start stream:
-        let filterStr = this.allFilters.filter(f => !f.isReport).map(f => JSON.stringify(f.asConfiguration())).join(',');
+        let filterStr = this.allFilters.filter(f => !f.isReport && f.enabled).map(f => JSON.stringify(f.asConfiguration())).join(',');
         this.sendAndRecvAdltMsg(`stream {"window":[${this._skipMsgs},${this._skipMsgs + this._maxNrMsgs}], "binary":true, "filters":[${filterStr}]}`).then((response) => {
             console.log(`adlt.on startStream got response:'${response}'`);
             const streamObj = JSON.parse(response.substring(11));
@@ -697,7 +697,7 @@ export class AdltDocument implements vscode.Disposable {
             // shall we query first the messages fitting to the filters or shall we 
             // open the report first and add the messages then?
             let filters = Array.isArray(filter) ? filter : [filter];
-            let filterStr = filters.map(f => JSON.stringify(f.asConfiguration())).join(',');
+            let filterStr = filters.filter(f => f.enabled).map(f => JSON.stringify(f.asConfiguration())).join(',');
             this.sendAndRecvAdltMsg(`stream {"window":[0,1000000], "binary":true, "filters":[${filterStr}]}`).then((response) => {
                 console.log(`adlt.on startStream got response:'${response}'`);
                 const streamObj = JSON.parse(response.substring(11));
@@ -1160,7 +1160,7 @@ export class AdltDocument implements vscode.Disposable {
             const matchingMsgs: AdltMsg[] = [];
             // sort the filters here into the enabled pos and neg:
             try {
-                let filterStr = filters.map(f => JSON.stringify(f.asConfiguration())).join(',');
+                let filterStr = filters.filter(f => f.enabled).map(f => JSON.stringify(f.asConfiguration())).join(',');
                 this.sendAndRecvAdltMsg(`query {"window":[0,${maxMsgsToReturn}], "filters":[${filterStr}]}`).then((response) => {
                     console.log(`adlt.getMatchingMessages startQuery got response:'${response}'`);
                     const streamObj = JSON.parse(response.substring(10));
