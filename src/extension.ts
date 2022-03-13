@@ -45,10 +45,40 @@ export function activate(context: vscode.ExtensionContext) {
 		console.log(`${extensionId}: not found as extension!`);
 	}
 
-	let _treeRootNodes: TreeViewNode[] = []; // one root node per document.
+	const _treeRootNodes: TreeViewNode[] = []; // one root node per document.
 	let _onDidChangeTreeData: vscode.EventEmitter<TreeViewNode | null> = new vscode.EventEmitter<TreeViewNode | null>();
+	const _dltLifecycleTreeView = vscode.window.createTreeView('dltLifecycleExplorer', {
+		treeDataProvider: {
+			onDidChangeTreeData: _onDidChangeTreeData.event,
+			getChildren(element?: TreeViewNode): TreeViewNode[] | Thenable<TreeViewNode[]> {
+				//console.warn(`dlt-logs.getChildren(${element?.label}, ${element?.uri?.toString()}) called. parent=${element?.parent}`);
+				if (!element) { // if no element we have to return the root element.
+					return _treeRootNodes;
+				} else {
+					return element.children;
+				}
+			},
+			getParent(element: TreeViewNode): vscode.ProviderResult<TreeViewNode> {
+				//console.warn(`dlt-logs.getParent(${element.label}, ${element.uri?.toString()}) called. parent=${element.parent}`);
+				return element.parent;
+			},
+			getTreeItem(element: TreeViewNode): vscode.TreeItem {
+				//console.warn(`dlt-logs.getTreeItem(${element.id}:${element.label}, ${element.uri?.toString()}) called.`);
+				return {
+					id: element.id,
+					label: element.label,
+					tooltip: element.tooltip,
+					contextValue: element.contextValue,
+					command: element.command,
+					collapsibleState: element.children.length ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None,
+					iconPath: element.iconPath,
+					description: element.description
+				};
+			}
+		}
+	});
 
-
+	let _statusBarItem: vscode.StatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right);
 
 	let _onDidChangeActiveRestQueryDoc: vscode.EventEmitter<vscode.Uri | undefined> = new vscode.EventEmitter<vscode.Uri | undefined>();
 	/**
@@ -83,7 +113,7 @@ export function activate(context: vscode.ExtensionContext) {
 	}
 
 	// register our document provider that knows how to handle "dlt-logs"
-	let dltProvider = new dltDocument.DltDocumentProvider(context, _treeRootNodes, _onDidChangeTreeData, checkActiveRestQueryDocChanged, columns, reporter);
+	let dltProvider = new dltDocument.DltDocumentProvider(context, _dltLifecycleTreeView, _treeRootNodes, _onDidChangeTreeData, checkActiveRestQueryDocChanged, columns, reporter);
 	context.subscriptions.push(vscode.workspace.registerFileSystemProvider(dltScheme, dltProvider, { isReadonly: false, isCaseSensitive: true }));
 
 	// register our command to open dlt files as "dlt-logs":
@@ -102,7 +132,7 @@ export function activate(context: vscode.ExtensionContext) {
 	}));
 
 	// register our document provider that knows how to handle "dlt-logs"
-	let adltProvider = new ADltDocumentProvider(context, _treeRootNodes, _onDidChangeTreeData, checkActiveRestQueryDocChanged, columns, reporter);
+	let adltProvider = new ADltDocumentProvider(context, _dltLifecycleTreeView, _treeRootNodes, _onDidChangeTreeData, checkActiveRestQueryDocChanged, columns, reporter);
 	context.subscriptions.push(vscode.workspace.registerFileSystemProvider(adltScheme, adltProvider, { isReadonly: false, isCaseSensitive: true }));
 
 	// register our command to open dlt files via adlt:
@@ -117,6 +147,51 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 		);
 	}));
+
+	// on change of active text editor update calculated decorations:
+	context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(async (activeTextEditor: vscode.TextEditor | undefined) => {
+		let hideStatusBar = true;
+		if (activeTextEditor) {
+			//console.log(`dlt-logs.onDidChangeActiveTextEditor ${activeTextEditor.document.uri.toString()} column=${activeTextEditor.viewColumn}`);
+			let { doc, provider } = getDocAndProviderFor(activeTextEditor.document.uri.toString());
+			if (doc) {
+				if (!doc.textEditors.includes(activeTextEditor)) {
+					doc.textEditors.push(activeTextEditor);
+				} // todo remove?
+				_onDidChangeTreeData.fire(doc.treeNode);
+				//console.warn(`dlt-logs.onDidChangeActiveTextEditor revealing ${doc?.treeNode.id}:${doc?.treeNode.label}`);
+				try {
+					_dltLifecycleTreeView.reveal(doc.treeNode, { select: false, focus: true, expand: true }).then(() => {
+						//console.warn(`dlt-logs.onDidChangeActiveTextEditor did reveal ${doc?.treeNode.id}`);
+					});
+				} catch (err) {
+					console.warn(`dlt-logs.onDidChangeActiveTextEditor did reveal got err ${err}`);
+				}
+				//this.checkActiveTextEditor(data);
+				if (provider && 'updateDecorations' in provider) { provider.updateDecorations(doc as DltDocument); } // todo... refactor
+
+				hideStatusBar = false;
+				doc.updateStatusBarItem(_statusBarItem);
+				_statusBarItem.show();
+			}
+		}
+		if (hideStatusBar) {
+			_statusBarItem.hide();
+		}
+	}));
+
+	context.subscriptions.push(vscode.workspace.onDidChangeTextDocument(async (event) => {
+		let { doc, provider } = getDocAndProviderFor(event.document.uri.toString());
+		if (doc) {
+			let activeDoc = getRestQueryDocById("0");
+			if (doc === activeDoc) {
+				console.log(`dlt-logs.onDidChangeTextDocument for active document`);
+				doc.updateStatusBarItem(_statusBarItem);
+			}
+		}
+	}));
+
+
 
 	// register common (adlt/dlt) commands:
 	context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.enableFilter', async (...args: any[]) => {
@@ -291,14 +366,11 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 
 		// show/hide the status bar if no doc is visible
-		/* todo adlt move to here
-		if (this._statusBarItem) {
-			if (visibleDocs.length === 0) {
-				this._statusBarItem.hide();
-			} else {
-				this._statusBarItem.show();
-			}
-		}*/
+		if (visibleDocs.length === 0) {
+			_statusBarItem.hide();
+		} else {
+			_statusBarItem.show();
+		}
 
 		// now close all but the visibleDocs:
 		const notVisibleDocs: TreeviewAbleDocument[] = [];
@@ -309,14 +381,16 @@ export function activate(context: vscode.ExtensionContext) {
 			if (!visibleDocs.includes(doc)) { notVisibleDocs.push(doc); }
 		});
 
+		//console.log(`dlt-logs.onDidChangeVisibleTextEditors visibleDocs=${visibleDocs.map(v => v?.treeNode.uri?.toString()).join(',')} notVisibleDocs=${notVisibleDocs.map(v => v?.treeNode.uri?.toString()).join(',')}`);
+
 		let doFire = false;
 		notVisibleDocs.forEach(doc => {
 			if (doc) {
 				if (doc.textDocument) {
-					//console.log(` dlt-logs.onDidChangeVisibleTextEditors: hiding doc uri=${doc.textDocument.uri.toString()}`);
 					let childNode: TreeViewNode = doc.treeNode;
 					let idx = _treeRootNodes.indexOf(childNode);
 					if (idx >= 0) {
+						// console.log(` dlt-logs.onDidChangeVisibleTextEditors: hiding childNode doc uri=${doc.textDocument.uri.toString()}`);
 						_treeRootNodes.splice(idx, 1);
 					}
 					doFire = true;
@@ -326,13 +400,11 @@ export function activate(context: vscode.ExtensionContext) {
 		// and add the visible ones:
 		visibleDocs.forEach(doc => {
 			if (doc && doc.textDocument) {
-				//console.log(` dlt-logs.onDidChangeVisibleTextEditors: hiding doc uri=${doc.textDocument.uri.toString()}`);
 				let childNode: TreeViewNode = doc.treeNode;
-				if (childNode) {
-					if (!_treeRootNodes.includes(childNode)) {
-						_treeRootNodes.push(childNode);
-						doFire = true;
-					}
+				if (!_treeRootNodes.includes(childNode)) {
+					// console.log(` dlt-logs.onDidChangeVisibleTextEditors: adding childNode doc uri=${doc.textDocument.uri.toString()}`);
+					_treeRootNodes.push(childNode);
+					doFire = true;
 				}
 			}
 		});
@@ -370,10 +442,10 @@ export function activate(context: vscode.ExtensionContext) {
 				}
 				provider?._documents.delete(uriStr);
 				_onDidChangeTreeData.fire(null);
-				/* todo adlt statusbar
-				if (this._documents.size === 0 && this._statusBarItem) {
-					this._statusBarItem.hide();
-				}*/
+
+				if ((dltProvider._documents.size + adltProvider._documents.size) === 0) {
+					_statusBarItem.hide();
+				}
 				checkActiveRestQueryDocChanged();
 			}
 		}

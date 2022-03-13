@@ -34,7 +34,7 @@ export interface SelectedTimeData {
     timeSyncs?: Array<TimeSyncData>; // these are not specific to a selected line. Time will be 0 then.
 };
 
-export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode>, vscode.FileSystemProvider,
+export class DltDocumentProvider implements vscode.FileSystemProvider,
     vscode.DocumentSymbolProvider, vscode.Disposable {
     private _reporter?: TelemetryReporter;
     private _subscriptions: Array<vscode.Disposable> = new Array<vscode.Disposable>();
@@ -45,20 +45,14 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
         return this._onDidChangeFile.event;
     }
 
-    private _dltLifecycleTreeView: vscode.TreeView<TreeViewNode> | undefined = undefined;
-    readonly onDidChangeTreeData: vscode.Event<TreeViewNode | null> = this._onDidChangeTreeData.event;
+    private _didSubscribeLifecycleTreeView = false;
 
     private _didChangeSelectedTimeSubscriptions: Array<vscode.Disposable> = new Array<vscode.Disposable>();
     private _onDidChangeSelectedTime: vscode.EventEmitter<SelectedTimeData> = new vscode.EventEmitter<SelectedTimeData>();
     readonly onDidChangeSelectedTime: vscode.Event<SelectedTimeData> = this._onDidChangeSelectedTime.event;
-
-
-
     private _autoTimeSync = false; // todo config
 
-    private _statusBarItem: vscode.StatusBarItem | undefined;
-
-    constructor(context: vscode.ExtensionContext, private _treeRootNodes: TreeViewNode[], private _onDidChangeTreeData: vscode.EventEmitter<TreeViewNode | null>,
+    constructor(context: vscode.ExtensionContext, private _dltLifecycleTreeView: vscode.TreeView<TreeViewNode>, private _treeRootNodes: TreeViewNode[], private _onDidChangeTreeData: vscode.EventEmitter<TreeViewNode | null>,
         private checkActiveRestQueryDocChanged: () => boolean, private _columns: ColumnConfig[], reporter?: TelemetryReporter) {
         console.log(`dlt-logs.DltDocumentProvider()...`);
         this._reporter = reporter;
@@ -72,11 +66,8 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                 console.log(` dlt.logs.onDidOpenTextDocument: found document with uri=${uriStr} newlyOpened=${newlyOpened}`);
                 if (newlyOpened) {
                     doc.textDocument = event;
-                    if (!this._dltLifecycleTreeView) {
-                        // treeView support for log files
-                        this._dltLifecycleTreeView = vscode.window.createTreeView('dltLifecycleExplorer', {
-                            treeDataProvider: this
-                        });
+                    if (!this._didSubscribeLifecycleTreeView) {
+                        this._didSubscribeLifecycleTreeView = true;
                         this._subscriptions.push(this._dltLifecycleTreeView.onDidChangeSelection(event => {
                             if (event.selection.length && event.selection[0].uri && event.selection[0].uri.fragment.length) {
                                 console.log(`dltLifecycleTreeView.onDidChangeSelection(${event.selection.length} ${event.selection[0].uri} fragment='${event.selection[0].uri ? event.selection[0].uri.fragment : ''}')`);
@@ -104,11 +95,6 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                         }));
                     }
                     this._onDidChangeTreeData.fire(null);
-                    if (!this._statusBarItem) {
-                        this._statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right);
-                    }
-                    doc.updateStatusBarItem(this._statusBarItem);
-                    this._statusBarItem.show();
                 }
             }
         }));
@@ -120,45 +106,20 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
             let data = this._documents.get(uriStr);
             if (data) {
                 this._onDidChangeTreeData.fire(data.treeNode);
-                this._dltLifecycleTreeView?.reveal(data.treeNode, { select: false, focus: false, expand: true });
+                /*
+                    console.log(`dltDocProv.onDidChangeTextDocument reveal called for treeNode=${data.treeNode.label}`);
+                    this._dltLifecycleTreeView.reveal(data.treeNode, { select: false, focus: false, expand: true }).then(() => {
+                        console.log(`dltDocProv.onDidChangeTextDocument reveal done.`);
+                    });*/
                 this.updateDecorations(data);
                 // time sync events?
                 if (data.timeSyncs.length) {
                     console.log(`dlt-logs.onDidChangeTextDocument broadcasting ${data.timeSyncs.length} time-syncs.`);
                     this._onDidChangeSelectedTime.fire({ time: new Date(0), uri: data.uri, timeSyncs: data.timeSyncs });
                 }
-                if (this._statusBarItem) {
+                /* todo if (this._statusBarItem) {
                     data.updateStatusBarItem(this._statusBarItem);
-                }
-            }
-        }));
-
-        // on change of active text editor update calculated decorations:
-        this._subscriptions.push(vscode.window.onDidChangeActiveTextEditor(async (event: vscode.TextEditor | undefined) => {
-            let activeTextEditor = event;
-            let hideStatusBar = true;
-            if (activeTextEditor) {
-                console.log(`DltDocumentProvider.onDidChangeActiveTextEditor ${activeTextEditor.document.uri.toString()} column=${activeTextEditor.viewColumn}`);
-                if (this._documents.has(activeTextEditor.document.uri.toString())) {
-                    const data = this._documents.get(activeTextEditor.document.uri.toString())!;
-                    if (!data.textEditors.includes(activeTextEditor)) {
-                        data.textEditors.push(activeTextEditor);
-                    } // todo remove?
-                    // or fire as well if the active one is not supported?
-                    this._onDidChangeTreeData.fire(data.treeNode);
-                    this._dltLifecycleTreeView?.reveal(data.treeNode, { select: false, focus: true, expand: true });
-                    //this.checkActiveTextEditor(data);
-                    this.updateDecorations(data);
-
-                    if (this._statusBarItem) {
-                        hideStatusBar = false;
-                        data.updateStatusBarItem(this._statusBarItem);
-                        this._statusBarItem.show();
-                    }
-                }
-            }
-            if (hideStatusBar) {
-                this._statusBarItem?.hide();
+                }*/
             }
         }));
 
@@ -495,15 +456,6 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
     dispose() {
         console.log("DltDocumentProvider dispose() called");
         this._documents.clear(); // todo have to dispose more? check in detail...
-        if (this._dltLifecycleTreeView) {
-            this._dltLifecycleTreeView.dispose();
-            this._dltLifecycleTreeView = undefined;
-        }
-        if (this._statusBarItem) {
-            this._statusBarItem.hide();
-            this._statusBarItem.dispose();
-            this._statusBarItem = undefined;
-        }
         this._didChangeSelectedTimeSubscriptions.forEach((value) => {
             if (value !== undefined) {
                 value.dispose();
@@ -515,37 +467,6 @@ export class DltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode
                 value.dispose();
             }
         });
-    }
-
-    // lifecycle tree view support:
-    public getTreeItem(element: TreeViewNode): vscode.TreeItem {
-        // console.log(`dlt-logs.getTreeItem(${element.label}, ${element.uri?.toString()}) called.`);
-        return {
-            id: element.id,
-            label: element.label,
-            tooltip: element.tooltip,
-            contextValue: element.contextValue,
-            command: element.command,
-            collapsibleState: element.children.length ? vscode.TreeItemCollapsibleState.Collapsed : void 0,
-            iconPath: element.iconPath,
-            description: element.description
-        };
-    }
-
-    public getChildren(element?: TreeViewNode): TreeViewNode[] | Thenable<TreeViewNode[]> {
-        // console.log(`dlt-logs.getChildren(${element?.label}, ${element?.uri?.toString()}) this=${this} called (#treeRootNode=${this._treeRootNodes.length}).`);
-        if (!element) { // if no element we have to return the root element.
-            // console.log(`dlt-logs.getChildren(undefined), returning treeRootNodes`);
-            return this._treeRootNodes;
-        } else {
-            // console.log(`dlt-logs.getChildren(${element?.label}, returning children = ${element.children.length}`);
-            return element.children;
-        }
-    }
-
-    public getParent(element: TreeViewNode): vscode.ProviderResult<TreeViewNode> {
-        // console.log(`dlt-logs.getParent(${element.label}, ${element.uri?.toString()}) = ${element.parent?.label} called.`);
-        return element.parent;
     }
 
     handleDidChangeSelectedTime(ev: SelectedTimeData) {

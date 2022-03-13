@@ -1,25 +1,26 @@
 /* --------------------
- * Copyright(C) Matthias Behr.
+ * Copyright(C) Matthias Behr. 2022
  */
 
 /// todo: major issues before release:
-/// [ ] logs explorer tree view interaction with dlt/adlt
 
 /// [ ] auto load adlt binary
 /// [ ] version comparison with adlt
 /// [ ] decorations
+/// [ ] status bar support
+/// [ ] add/edit filter
 
 /// not mandatory for first release:
 /// [ ] opening of multiple dlt files 
+/// [ ] apid/ctid tree view
 /// [ ] sw version info/support
 /// [ ] cache strings for ecu/apid/ctid
 /// [ ] someip support (in adlt)
 /// [ ] filetransfer support (in adlt)
 /// [ ] hover support
 /// [ ] jump to time/log
-/// [ ] add/edit filter
 /// [ ] onDidChangeConfiguration
-/// [ ] reports always with sorted by time (so that filters can rely on it?)
+/// [ ] timeSync support
 
 /// [x] sort order support
 /// by default logs are sorted by timestamp. If the sort order is toggled the file is closed and reopened.
@@ -733,6 +734,17 @@ export class AdltDocument implements vscode.Disposable {
         return new vscode.Hover(new vscode.MarkdownString(`todo impl provideHover\n- index: ${msg.index}\n- ecu: ${msg.ecu}`));
     }
 
+    updateStatusBarItem(item: vscode.StatusBarItem) {
+        item.text = "adlt"; /*this.filteredMsgs !== undefined ? `${this.filteredMsgs.length}/${this.msgs.length} msgs` : `${this.msgs.length} msgs`;*/
+        let nrEnabledFilters: number = 0;
+        this.allFilters.forEach(filter => {
+            if (!filter.atLoadTime && filter.enabled && (filter.type === DltFilterType.POSITIVE || filter.type === DltFilterType.NEGATIVE)) { nrEnabledFilters++; }
+        });
+        const nrAllFilters = this.allFilters.length;
+        item.tooltip = `DLT: ${this.uri.fsPath}, showing max ${this._maxNrMsgs} msgs, ${0/*this._timeAdjustMs / 1000*/}s time-adjust, ${0 /* todo this.timeSyncs.length*/} time-sync events, ${nrEnabledFilters}/${nrAllFilters} enabled filters, sorted by ${this._sortOrderByTime ? 'time' : 'index'}`;
+    }
+
+
     processFileInfoUpdates(fileInfo: remote_types.BinFileInfo) {
         console.log(`adlt fileInfo: nr_msgs=${fileInfo.nr_msgs}`);
         this.fileInfoNrMsgs = fileInfo.nr_msgs;
@@ -1153,17 +1165,13 @@ export class AdltDocument implements vscode.Disposable {
 
 }
 
-export class ADltDocumentProvider implements vscode.TreeDataProvider<TreeViewNode>, vscode.FileSystemProvider,
+export class ADltDocumentProvider implements vscode.FileSystemProvider,
     /*vscode.DocumentSymbolProvider,*/ vscode.Disposable {
     public _documents = new Map<string, AdltDocument>();
     private _onDidChangeFile = new vscode.EventEmitter<vscode.FileChangeEvent[]>();
     private _subscriptions: Array<vscode.Disposable> = new Array<vscode.Disposable>();
 
-    // tree view support:
-    private _dltLifecycleTreeView: vscode.TreeView<TreeViewNode> | undefined = undefined;
-    readonly onDidChangeTreeData: vscode.Event<TreeViewNode | null> = this._onDidChangeTreeData.event;
-
-    constructor(context: vscode.ExtensionContext, private _treeRootNodes: TreeViewNode[], private _onDidChangeTreeData: vscode.EventEmitter<TreeViewNode | null>,
+    constructor(context: vscode.ExtensionContext, private _dltLifecycleTreeView: vscode.TreeView<TreeViewNode>, private _treeRootNodes: TreeViewNode[], private _onDidChangeTreeData: vscode.EventEmitter<TreeViewNode | null>,
         private checkActiveRestQueryDocChanged: () => boolean, private _columns: ColumnConfig[], private _reporter?: TelemetryReporter) {
         console.log(`dlt-logs.AdltDocumentProvider()...`);
 
@@ -1177,44 +1185,9 @@ export class ADltDocumentProvider implements vscode.TreeDataProvider<TreeViewNod
                 console.log(` Adlt.onDidOpenTextDocument: found document with uri=${uriStr} newlyOpened=${newlyOpened}`);
                 if (newlyOpened) {
                     doc.textDocument = event;
-                    if (!this._dltLifecycleTreeView) {
-                        // treeView support for log files
-                        this._dltLifecycleTreeView = vscode.window.createTreeView('dltLifecycleExplorer', {
-                            treeDataProvider: this
-                        });
-                    }
                     this._onDidChangeTreeData.fire(null);
                 }
             }
-        }));
-
-        // on change of active text editor update calculated decorations:
-        this._subscriptions.push(vscode.window.onDidChangeActiveTextEditor(async (event: vscode.TextEditor | undefined) => {
-            let activeTextEditor = event;
-            let hideStatusBar = true;
-            if (activeTextEditor) {
-                console.log(`AdltDocumentProvider.onDidChangeActiveTextEditor ${activeTextEditor.document.uri.toString()} column=${activeTextEditor.viewColumn}`);
-                if (this._documents.has(activeTextEditor.document.uri.toString())) {
-                    const data = this._documents.get(activeTextEditor.document.uri.toString())!;
-                    if (!data.textEditors.includes(activeTextEditor)) {
-                        data.textEditors.push(activeTextEditor);
-                    } // todo remove?
-                    // or fire as well if the active one is not supported?
-                    this._onDidChangeTreeData.fire(data.treeNode);
-                    this._dltLifecycleTreeView?.reveal(data.treeNode, { select: false, focus: true, expand: true });
-                    //this.checkActiveTextEditor(data);
-                    // todo this.updateDecorations(data);
-
-                    /* todo if (this._statusBarItem) {
-                        hideStatusBar = false;
-                        data.updateStatusBarItem(this._statusBarItem);
-                        this._statusBarItem.show();
-                    }*/
-                }
-            }
-            /*if (hideStatusBar) {
-                this._statusBarItem?.hide();
-            }*/
         }));
 
         /*context.subscriptions.push(vscode.commands.registerTextEditorCommand('dlt-logs.toggleSortOrder', async (textEditor: vscode.TextEditor) => {
@@ -1277,40 +1250,6 @@ export class ADltDocumentProvider implements vscode.TreeDataProvider<TreeViewNod
                 console.error(`adlt.onTreeNodeCommand unknown command '${command}'`); break;
         }
     }
-
-
-    // tree view support:
-    // lifecycle tree view support:
-    public getTreeItem(element: TreeViewNode): vscode.TreeItem {
-        // console.log(`adlt.getTreeItem(${element.label}, ${element.uri?.toString()}) called.`);
-        return {
-            id: element.id,
-            label: element.label,
-            tooltip: element.tooltip,
-            contextValue: element.contextValue,
-            command: element.command,
-            collapsibleState: element.children.length ? vscode.TreeItemCollapsibleState.Collapsed : void 0,
-            iconPath: element.iconPath,
-            description: element.description
-        };
-    }
-
-    public getChildren(element?: TreeViewNode): TreeViewNode[] | Thenable<TreeViewNode[]> {
-        // console.log(`adlt.getChildren(${element?.label}, ${element?.uri?.toString()}) this=${this} called (#treeRootNode=${this._treeRootNodes.length}).`);
-        if (!element) { // if no element we have to return the root element.
-            // console.log(`dlt-logs.getChildren(undefined), returning treeRootNodes`);
-            return this._treeRootNodes;
-        } else {
-            // console.log(`dlt-logs.getChildren(${element?.label}, returning children = ${element.children.length}`);
-            return element.children;
-        }
-    }
-
-    public getParent(element: TreeViewNode): vscode.ProviderResult<TreeViewNode> {
-        // console.log(`adlt.getParent(${element.label}, ${element.uri?.toString()}) = ${element.parent?.label} called.`);
-        return element.parent;
-    }
-
 
     // filesystem provider api:
     get onDidChangeFile() {
