@@ -152,6 +152,7 @@ export class AdltDocument implements vscode.Disposable {
     private realStat: fs.Stats;
     private webSocket: WebSocket;
     private webSocketIsConnected = false;
+    private adltVersion?: string; // the version from last wss upgrade handshake
 
     private streamId: number = 0; // 0 none, neg stop in progress. stream for the messages that reflect the main log/view
     private visibleMsgs?: AdltMsg[]; // the array with the msgs that should be shown. set on startStream and cleared on stopStream
@@ -364,6 +365,11 @@ export class AdltDocument implements vscode.Disposable {
             } catch (e) {
                 console.warn(`dlt-logs.AdltDocumentProvider.on(message) catch error:`, e);
             }
+        });
+        this.webSocket.on('upgrade', (response) => {
+            console.log(`dlt-logs.AdltDocumentProvider.on(upgrade) got response:`, response);
+            let ah = response.headers['adlt-version'];
+            this.adltVersion = ah && !Array.isArray(ah) ? ah : (ah && Array.isArray(ah) ? ah.join(',') : undefined);
         });
         this.webSocket.on('open', () => {
             this.webSocketIsConnected = true;
@@ -1109,7 +1115,7 @@ export class AdltDocument implements vscode.Disposable {
             });
             const nrAllFilters = this.allFilters.length;
             // todo show wss connection status
-            item.tooltip = `ADLT: ${this.fileNames.join(', ')}, showing max ${this._maxNrMsgs} msgs, ${0/*this._timeAdjustMs / 1000*/}s time-adjust, ${0 /* todo this.timeSyncs.length*/} time-sync events, ${nrEnabledFilters}/${nrAllFilters} enabled filters, sorted by ${this._sortOrderByTime ? 'time' : 'index'}`;
+            item.tooltip = `ADLT v${this.adltVersion || ":unknown!"}: ${this.fileNames.join(', ')}, showing max ${this._maxNrMsgs} msgs, ${0/*this._timeAdjustMs / 1000*/}s time-adjust, ${0 /* todo this.timeSyncs.length*/} time-sync events, ${nrEnabledFilters}/${nrAllFilters} enabled filters, sorted by ${this._sortOrderByTime ? 'time' : 'index'}`;
         } else {
             item.text = "adlt not con!";
             item.tooltip = `ADLT: ${this.fileNames.join(', ')}, not connected to adlt via websocket!`;
