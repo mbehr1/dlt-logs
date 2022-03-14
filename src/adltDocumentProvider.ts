@@ -6,9 +6,10 @@
 
 /// [ ] auto load adlt binary
 /// [ ] version comparison with adlt
+/// [ ] remove test limit to 1000 msgs (and perform huge file test)
 
 /// not mandatory for first release:
-/// [ ] opening of multiple dlt files 
+/// [ ] opening of a stream (and support within reports)
 /// [ ] apid/ctid tree view (and hover)
 /// [ ] sw version info/support
 /// [ ] cache strings for ecu/apid/ctid
@@ -22,11 +23,14 @@
 
 /// bugs:
 /// [ ] adding a 2nd report into an existing one doesn't seem to work (see todo requery in openReport)
+/// [ ] if the filter at start returns no data a text like DltProvider "...no messages match..." should be shown
 
 /// [x] sort order support
 /// by default logs are sorted by timestamp. If the sort order is toggled the file is closed and reopened.
 /// this can be weird/confusing with real streams.
 /// and one side effect is that any lifecycle filters are automatically disabled (as the lc.ids are not persisted across close/open)
+
+/// [x] opening of multiple dlt files (needs more testing. seems to work even with breadcrumb selection)
 
 import * as vscode from 'vscode';
 import TelemetryReporter from 'vscode-extension-telemetry';
@@ -105,8 +109,46 @@ interface StreamMsgData {
     sink: NewMessageSink
 };
 
+function decodeAdltUri(uri: vscode.Uri): string[] {
+    let fileNames;
+    if (uri.query.length > 0) {
+        // multiple ones encoded in query:
+        // first filename is the path, the others part of the query
+        fileNames = [uri.with({ query: "" }).fsPath];
+        const basePath = path.parse(fileNames[0]).dir;
+        let jsonObj = JSON.parse(decodeURIComponent(uri.query));
+        if (!('lf' in jsonObj)) {
+            throw Error(`AdltDocument wrongly encoded uri ${uri.toString()}. Expecting query = lf:[]`);
+        } else {
+            if (!Array.isArray(jsonObj.lf)) {
+                throw Error(`AdltDocument wrongly encoded uri ${uri.toString()}. Expecting query = lf as array`);
+            } else {
+                // console.warn(`adlt got encoded jsonObj=${JSON.stringify(jsonObj)}`);
+                // we use the multiple files only if the first entry is same as path
+                // this is to prevent vscode automatic changes of uris e.g. on breadcrumb selecction
+                let allFileNames = jsonObj.lf.filter((f: any) => typeof f === 'string').map((f: string) => path.resolve(basePath, f));
+                if (allFileNames.length > 1 && allFileNames[0] === fileNames[0]) {
+                    fileNames = allFileNames;
+                } else {
+                    // this is not a bug:
+                    console.log(`adlt got encoded allFiles not matching first file`, allFileNames, fileNames[0]);
+                }
+                console.log(`adlt got encoded fileNames=`, fileNames);
+                if (!fileNames.length) {
+                    throw Error(`AdltDocument wrongly encoded uri ${uri.toString()}. No filenames.`);
+                }
+                //this.realStat = fs.statSync(this.fileNames[0]); // todo summarize all stats
+            }
+        }
+    } else {
+        const fileUri = uri.with({ scheme: "file" });
+        fileNames = [fileUri.fsPath];
+    }
+    return fileNames;
+}
 
 export class AdltDocument implements vscode.Disposable {
+    private fileNames: string[]; // the real local file names
     private realStat: fs.Stats;
     private webSocket: WebSocket;
     private webSocketIsConnected = false;
@@ -202,13 +244,12 @@ export class AdltDocument implements vscode.Disposable {
 
         this._treeEventEmitter = treeEventEmitter;
 
-        // todo add support for multiple uris encoded...
-        const fileUri = uri.with({ scheme: "file" });
-
-        if (!fs.existsSync(fileUri.fsPath)) {
-            throw Error(`AdltDocument file ${fileUri.fsPath} doesn't exist!`);
+        // support for multiple uris encoded...
+        this.fileNames = decodeAdltUri(uri);
+        if (!this.fileNames.length || !fs.existsSync(this.fileNames[0])) {
+            throw Error(`AdltDocument file ${uri.toString()} doesn't exist!`);
         }
-        this.realStat = fs.statSync(fileUri.fsPath);
+        this.realStat = fs.statSync(this.fileNames[0]); // todo summarize all stats
 
         // configuration:
         const maxNrMsgsConf = vscode.workspace.getConfiguration().get<number>('dlt-logs.maxNumberLogs');
@@ -223,7 +264,7 @@ export class AdltDocument implements vscode.Disposable {
 
         this.treeNode = {
             id: util.createUniqueId(),
-            label: `${path.basename(fileUri.fsPath)}`, uri: this.uri, parent: null, children: [
+            label: `${path.basename(this.fileNames[0]) + (this.fileNames.length > 1 ? `+${this.fileNames.length - 1}` : '')}`, uri: this.uri, parent: null, children: [
                 this.lifecycleTreeNode,
                 this.filterTreeNode,
                 //      this.configTreeNode,
@@ -242,7 +283,7 @@ export class AdltDocument implements vscode.Disposable {
             this.parseDecorationsConfigs(decorationsObjs);
         }
 
-        this.text = `Loading adlt document from uri=${fileUri.toString()} with max ${this._maxNrMsgs} msgs per page...`;
+        this.text = `Loading logs via adlt from ${this.fileNames.join(', ')} with max ${this._maxNrMsgs} msgs per page...`;
 
         // connect to adlt via websocket:
         const url = "ws://localhost:6665";
@@ -637,8 +678,7 @@ export class AdltDocument implements vscode.Disposable {
     }
 
     openAdltFiles() {
-        const fileUri = this.uri.with({ scheme: "file" });
-        this.sendAndRecvAdltMsg(`open {"sort":${this._sortOrderByTime},"files":["${fileUri.fsPath}"]}`).then((response) => {
+        this.sendAndRecvAdltMsg(`open {"sort":${this._sortOrderByTime},"files":${JSON.stringify(this.fileNames)}}`).then((response) => {
             console.log(`adlt.on open got response:'${response}'`);
             if (!this.isLoaded) {
                 this.isLoaded = true;
@@ -1069,10 +1109,10 @@ export class AdltDocument implements vscode.Disposable {
             });
             const nrAllFilters = this.allFilters.length;
             // todo show wss connection status
-            item.tooltip = `ADLT: ${this.uri.fsPath}, showing max ${this._maxNrMsgs} msgs, ${0/*this._timeAdjustMs / 1000*/}s time-adjust, ${0 /* todo this.timeSyncs.length*/} time-sync events, ${nrEnabledFilters}/${nrAllFilters} enabled filters, sorted by ${this._sortOrderByTime ? 'time' : 'index'}`;
+            item.tooltip = `ADLT: ${this.fileNames.join(', ')}, showing max ${this._maxNrMsgs} msgs, ${0/*this._timeAdjustMs / 1000*/}s time-adjust, ${0 /* todo this.timeSyncs.length*/} time-sync events, ${nrEnabledFilters}/${nrAllFilters} enabled filters, sorted by ${this._sortOrderByTime ? 'time' : 'index'}`;
         } else {
             item.text = "adlt not con!";
-            item.tooltip = `ADLT: ${this.uri.fsPath}, not connected to adlt via websocket!`;
+            item.tooltip = `ADLT: ${this.fileNames.join(', ')}, not connected to adlt via websocket!`;
         }
     }
 
@@ -1592,33 +1632,41 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
     stat(uri: vscode.Uri): vscode.FileStat {
 
         let document = this._documents.get(uri.toString());
-        const fileUri = uri.with({ scheme: 'file' });
-        const realStat = fs.statSync(uri.fsPath);
-        console.log(`adlt-logs.stat(uri=${uri.toString()})... isDirectory=${realStat.isDirectory()}}`);
-        if (!document && realStat.isFile() && (true /* todo dlt extension */)) {
-            try {
-                document = new AdltDocument(uri, this._onDidChangeFile, this._onDidChangeTreeData, this._treeRootNodes, this._columns, this._reporter);
-                this._documents.set(uri.toString(), document);
-                if (this._documents.size === 1) {
-                    // this.checkActiveRestQueryDocChanged();
+        if (document) { return document.stat(); }
+        try {
+            let fileNames = decodeAdltUri(uri);
+            if (fileNames.length > 0) {
+                const realStat = fs.statSync(fileNames[0]);
+                console.log(`adlt-logs.stat(uri=${uri.toString()})... isDirectory=${realStat.isDirectory()}}`);
+                if (realStat.isFile() && (true /* todo dlt extension */)) {
+                    try {
+                        document = new AdltDocument(uri, this._onDidChangeFile, this._onDidChangeTreeData, this._treeRootNodes, this._columns, this._reporter);
+                        this._documents.set(uri.toString(), document);
+                        if (this._documents.size === 1) {
+                            // this.checkActiveRestQueryDocChanged();
+                        }
+                    } catch (error) {
+                        console.log(` dlt-logs.stat(uri=${uri.toString()}) returning realStat ${realStat.size} size.`);
+                        return {
+                            size: realStat.size, ctime: realStat.ctime.valueOf(), mtime: realStat.mtime.valueOf(),
+                            type: realStat.isDirectory() ? vscode.FileType.Directory : (realStat.isFile() ? vscode.FileType.File : vscode.FileType.Unknown) // todo symlinks as file?
+                        };
+                    }
                 }
-            } catch (error) {
-                console.log(` dlt-logs.stat(uri=${uri.toString()}) returning realStat ${realStat.size} size.`);
-                return {
-                    size: realStat.size, ctime: realStat.ctime.valueOf(), mtime: realStat.mtime.valueOf(),
-                    type: realStat.isDirectory() ? vscode.FileType.Directory : (realStat.isFile() ? vscode.FileType.File : vscode.FileType.Unknown) // todo symlinks as file?
-                };
+                if (document) {
+                    return document.stat();
+                } else {
+                    console.log(` dlt-logs.stat(uri=${uri.toString()}) returning realStat ${realStat.size} size.`);
+                    return {
+                        size: realStat.size, ctime: realStat.ctime.valueOf(), mtime: realStat.mtime.valueOf(),
+                        type: realStat.isDirectory() ? vscode.FileType.Directory : (realStat.isFile() ? vscode.FileType.File : vscode.FileType.Unknown) // todo symlinks as file?
+                    };
+                }
             }
+        } catch (err) {
+            console.warn(`dlt-logs.stat(uri=${uri.toString()}) got err '${err}'!`);
         }
-        if (document) {
-            return document.stat();
-        } else {
-            console.log(` dlt-logs.stat(uri=${uri.toString()}) returning realStat ${realStat.size} size.`);
-            return {
-                size: realStat.size, ctime: realStat.ctime.valueOf(), mtime: realStat.mtime.valueOf(),
-                type: realStat.isDirectory() ? vscode.FileType.Directory : (realStat.isFile() ? vscode.FileType.File : vscode.FileType.Unknown) // todo symlinks as file?
-            };
-        }
+        return { size: 0, ctime: 0, mtime: 0, type: vscode.FileType.Unknown };
     }
 
     readFile(uri: vscode.Uri): Uint8Array {
@@ -1653,7 +1701,8 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
         console.log(`dlt-logs.readDirectory(uri=${uri.toString()}...`);
         let entries: [string, vscode.FileType][] = [];
         // list all dirs and dlt files:
-        const dirEnts = fs.readdirSync(uri.fsPath, { withFileTypes: true });
+        let dirPath = uri.with({ query: "" }).fsPath; // for multiple files we take the first one as reference
+        const dirEnts = fs.readdirSync(dirPath, { withFileTypes: true });
         for (var i = 0; i < dirEnts.length; ++i) {
             console.log(` adlt-logs.readDirectory found ${dirEnts[i].name}`);
             if (dirEnts[i].isDirectory()) {

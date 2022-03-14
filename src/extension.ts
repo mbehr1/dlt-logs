@@ -18,6 +18,7 @@ import { ColumnConfig, DltDocument } from './dltDocument';
 import { DltFilter } from './dltFilter';
 import { addFilter, editFilter, deleteFilter } from './dltAddEditFilter';
 import * as util from './util';
+import * as path from 'path';
 
 // import { DltLogCustomReadonlyEditorProvider } from './dltCustomEditorProvider';
 
@@ -138,12 +139,24 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// register our command to open dlt files via adlt:
 	context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.dltOpenAdltFile', async () => {
-		return vscode.window.showOpenDialog({ canSelectFiles: true, canSelectFolders: false, canSelectMany: true, filters: { 'DLT Logs': <Array<string>>(vscode.workspace.getConfiguration().get("dlt-logs.fileExtensions")) }, openLabel: 'Select DLT file to open...' }).then(
+		return vscode.window.showOpenDialog({ canSelectFiles: true, canSelectFolders: false, canSelectMany: true, filters: { 'DLT Logs': <Array<string>>(vscode.workspace.getConfiguration().get("dlt-logs.fileExtensions")) }, openLabel: 'Select DLT file(s) to open...' }).then(
 			async (uris: vscode.Uri[] | undefined) => {
 				if (uris) {
 					console.log(`open dlt via adlt got URIs=${uris}`);
-					let dltUri = uris[0].with({ scheme: adltScheme }); // todo encode all files
-					vscode.workspace.openTextDocument(dltUri).then((value) => { vscode.window.showTextDocument(value, { preview: false }); });
+					/*const fileUri = uri.with({ scheme: "file" });
+					if (!fs.existsSync(fileUri.fsPath)*/
+					if (uris.length === 1) {
+						let dltUri = uris[0].with({ scheme: adltScheme });
+						vscode.workspace.openTextDocument(dltUri).then((value) => { vscode.window.showTextDocument(value, { preview: false }); });
+					} else {
+						// we decode the file names with the pattern: path: (the common path and first file), query: json lf:[names of files]
+						// we use the name of all file to detect later if vscode changed e.g. due to breadcrumb selection the file. then (path file not first in files) we do ignore the files
+						// use path for common path of all files (to shorten uris)
+						const basePath = path.parse(uris[0].fsPath).dir;
+						let uri = vscode.Uri.file(uris[0].fsPath).with({ scheme: adltScheme, query: encodeURIComponent(JSON.stringify({ lf: uris.map(u => path.relative(basePath, u.fsPath)) })) });
+						console.log(`open dlt via adlt encoded uris as=${uri.toString()}`);
+						vscode.workspace.openTextDocument(uri).then((value) => { vscode.window.showTextDocument(value, { preview: false }); });
+					}
 				}
 			}
 		);
