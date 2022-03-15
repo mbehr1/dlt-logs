@@ -5,8 +5,6 @@
 /// todo: major issues before release:
 
 /// [ ] auto load adlt binary
-/// [ ] version comparison with adlt
-/// [ ] remove test limit to 1000 msgs (and perform huge file test)
 
 /// not mandatory for first release:
 /// [ ] opening of a stream (and support within reports)
@@ -24,6 +22,7 @@
 /// bugs:
 /// [ ] adding a 2nd report into an existing one doesn't seem to work (see todo requery in openReport)
 /// [ ] if the filter at start returns no data a text like DltProvider "...no messages match..." should be shown
+/// [ ] on fileInfo the statusBar update should be triggered (use an event for that)
 
 /// [x] sort order support
 /// by default logs are sorted by timestamp. If the sort order is toggled the file is closed and reopened.
@@ -38,6 +37,7 @@ import * as fs from 'fs';
 import * as WebSocket from 'ws';
 import * as util from './util';
 import * as path from 'path';
+import * as semver from 'semver';
 import { DltFilter, DltFilterType } from './dltFilter';
 import { DltReport, NewMessageSink } from './dltReport';
 import { FilterableDltMsg, ViewableDltMsg, MSTP, MTIN_CTRL, MTIN_LOG } from './dltParser';
@@ -47,6 +47,11 @@ import { TreeViewNode, FilterNode, LifecycleRootNode, LifecycleNode, FilterRootN
 import * as remote_types from './remote_types';
 import { DltDocument, ColumnConfig } from './dltDocument';
 import { v4 as uuidv4 } from 'uuid';
+
+/// minimum adlt version required
+/// we do show a text if the version is not met.
+/// see https://www.npmjs.com/package/semver#prerelease-identifiers
+const MIN_ADLT_VERSION_SEMVER_RANGE = ">=0.9.0";
 
 function char4U32LeToString(char4le: number): string {
     let codes = [char4le & 0xff, 0xff & (char4le >> 8), 0xff & (char4le >> 16), 0xff & (char4le >> 24)];
@@ -255,7 +260,7 @@ export class AdltDocument implements vscode.Disposable {
         // configuration:
         const maxNrMsgsConf = vscode.workspace.getConfiguration().get<number>('dlt-logs.maxNumberLogs');
         this._maxNrMsgs = maxNrMsgsConf ? maxNrMsgsConf : 400000; // 400k default
-        this._maxNrMsgs = 1000; // todo for testing only
+        //this._maxNrMsgs = 1000; // todo for testing only
 
         // update tree view:
         this.lifecycleTreeNode = new LifecycleRootNode(this);
@@ -370,6 +375,11 @@ export class AdltDocument implements vscode.Disposable {
             console.log(`dlt-logs.AdltDocumentProvider.on(upgrade) got response:`, response);
             let ah = response.headers['adlt-version'];
             this.adltVersion = ah && !Array.isArray(ah) ? ah : (ah && Array.isArray(ah) ? ah.join(',') : undefined);
+            if (this.adltVersion) {
+                if (!semver.satisfies(this.adltVersion, MIN_ADLT_VERSION_SEMVER_RANGE)) {
+                    vscode.window.showErrorMessage(`Your adlt version is not matching the required version!\nPlease correct!\nDetected version is '${this.adltVersion}' vs required '${MIN_ADLT_VERSION_SEMVER_RANGE}.'`, { modal: true });
+                }
+            }
         });
         this.webSocket.on('open', () => {
             this.webSocketIsConnected = true;
@@ -1552,6 +1562,9 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
     constructor(context: vscode.ExtensionContext, private _dltLifecycleTreeView: vscode.TreeView<TreeViewNode>, private _treeRootNodes: TreeViewNode[], private _onDidChangeTreeData: vscode.EventEmitter<TreeViewNode | null>,
         private checkActiveRestQueryDocChanged: () => boolean, private _columns: ColumnConfig[], private _reporter?: TelemetryReporter) {
         console.log(`dlt-logs.AdltDocumentProvider()...`);
+        if (!semver.validRange(MIN_ADLT_VERSION_SEMVER_RANGE)) {
+            throw Error(`MIN_ADLT_VERSION_SEMVER_RANGE is not valied!`);
+        }
 
         this._subscriptions.push(vscode.workspace.onDidOpenTextDocument((event: vscode.TextDocument) => {
             const uriStr = event.uri.toString();
