@@ -522,6 +522,8 @@ export function activate(context: vscode.ExtensionContext) {
 				provider?._documents.delete(uriStr);
 				_onDidChangeTreeData.fire(null);
 
+				if (provider && ('onDidClose' in provider)) { provider.onDidClose(doc); };
+
 				if ((dltProvider._documents.size + adltProvider._documents.size) === 0) {
 					_statusBarItem.hide();
 				}

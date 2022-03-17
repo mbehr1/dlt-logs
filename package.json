@@ -47,6 +47,10 @@
 			{
 				"title": "DLT-Logs",
 				"properties": {
+					"dlt-logs.adltPath": {
+						"type": "string",
+						"description": "Full path incl filename to the adlt binary to use. See github.com/mbehr1/adlt. Path may not include any shell extensions like ~."
+					},
 					"dlt-logs.fileExtensions": {
 						"type": [
 							"string"

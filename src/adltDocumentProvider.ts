@@ -4,8 +4,6 @@
 
 /// todo: major issues before release:
 
-/// [ ] auto load adlt binary
-
 /// not mandatory for first release:
 /// [ ] opening of a stream (and support within reports)
 /// [ ] apid/ctid tree view (and hover)
@@ -38,10 +36,12 @@ import * as WebSocket from 'ws';
 import * as util from './util';
 import * as path from 'path';
 import * as semver from 'semver';
+import { spawn, ChildProcess } from 'child_process';
+
 import { DltFilter, DltFilterType } from './dltFilter';
-import { DltReport, NewMessageSink } from './dltReport';
+import { DltReport, NewMessageSink, ReportDocument } from './dltReport';
 import { FilterableDltMsg, ViewableDltMsg, MSTP, MTIN_CTRL, MTIN_LOG } from './dltParser';
-import { DltLifecycleInfoMinIF, DltLifecycleInfo } from './dltLifecycle';
+import { DltLifecycleInfoMinIF } from './dltLifecycle';
 import { TreeViewNode, FilterNode, LifecycleRootNode, LifecycleNode, FilterRootNode } from './dltTreeViewNodes';
 
 import * as remote_types from './remote_types';
@@ -51,7 +51,7 @@ import { v4 as uuidv4 } from 'uuid';
 /// minimum adlt version required
 /// we do show a text if the version is not met.
 /// see https://www.npmjs.com/package/semver#prerelease-identifiers
-const MIN_ADLT_VERSION_SEMVER_RANGE = ">=0.9.0";
+const MIN_ADLT_VERSION_SEMVER_RANGE = ">=0.9.1";
 
 function char4U32LeToString(char4le: number): string {
     let codes = [char4le & 0xff, 0xff & (char4le >> 8), 0xff & (char4le >> 16), 0xff & (char4le >> 24)];
@@ -155,7 +155,7 @@ function decodeAdltUri(uri: vscode.Uri): string[] {
 export class AdltDocument implements vscode.Disposable {
     private fileNames: string[]; // the real local file names
     private realStat: fs.Stats;
-    private webSocket: WebSocket;
+    private webSocket?: WebSocket;
     private webSocketIsConnected = false;
     private adltVersion?: string; // the version from last wss upgrade handshake
 
@@ -245,7 +245,7 @@ export class AdltDocument implements vscode.Disposable {
         }
     }
 
-    constructor(public uri: vscode.Uri, private emitDocChanges: vscode.EventEmitter<vscode.FileChangeEvent[]>, treeEventEmitter: vscode.EventEmitter<TreeViewNode | null>,
+    constructor(adltPort: Promise<number>, public uri: vscode.Uri, private emitDocChanges: vscode.EventEmitter<vscode.FileChangeEvent[]>, treeEventEmitter: vscode.EventEmitter<TreeViewNode | null>,
         parentTreeNode: TreeViewNode[], private _columns: ColumnConfig[], reporter?: TelemetryReporter) {
 
         this._treeEventEmitter = treeEventEmitter;
@@ -292,110 +292,115 @@ export class AdltDocument implements vscode.Disposable {
         this.text = `Loading logs via adlt from ${this.fileNames.join(', ')} with max ${this._maxNrMsgs} msgs per page...`;
 
         // connect to adlt via websocket:
-        const url = "ws://localhost:6665";
-        this.webSocket = new WebSocket(url, [], { perMessageDeflate: false, origin: "adlt-logs" }); // todo maxPayload (defaults to 100MiB)
-        //console.warn(`adlt.webSocket.binaryType=`, this.webSocket.binaryType);
-        //this.webSocket.binaryType = "nodebuffer"; // or Arraybuffer?
-        this.webSocket.binaryType = "arraybuffer"; // ArrayBuffer needed for sink?
-        // console.warn(`adlt.webSocket.binaryType=`, this.webSocket.binaryType);
-        this.webSocket.on("message", (data: ArrayBuffer, isBinary) => {
-            try {
-                if (isBinary) {
-                    //console.warn(`dlt-logs.AdltDocumentProvider.on(message)`, data.byteLength, isBinary);
-                    try {
-                        let bin_type = remote_types.readBinType(data);
-                        // console.warn(`adlt.on(binary):`, bin_type.tag);
-                        switch (bin_type.tag) {
-                            case 'DltMsgs': { // raw messages
-                                let [streamId, msgs] = bin_type.value;
-                                //console.warn(`adlt.on(binary): DltMsgs stream=${streamId}, nr_msgs=${msgs.length}`);
-                                let streamData = this.streamMsgs.get(streamId);
-                                if (streamData && !Array.isArray(streamData)) {
-                                    this.processBinDltMsgs(msgs, streamId, streamData);
-                                } else {
-                                    // we store the pure data for later processing:
-                                    // need to keep same chunk infos (e.g. msgs.length=0) -> array of array
-                                    if (!streamData) {
-                                        streamData = [msgs];
-                                        this.streamMsgs.set(streamId, streamData);
+        adltPort.then((port) => {
+            console.log(`adlt.Document.got port=${port}`);
+            const url = `ws://localhost:${port}`;
+            this.webSocket = new WebSocket(url, [], { perMessageDeflate: false, origin: "adlt-logs" }); // todo maxPayload (defaults to 100MiB)
+            //console.warn(`adlt.webSocket.binaryType=`, this.webSocket.binaryType);
+            //this.webSocket.binaryType = "nodebuffer"; // or Arraybuffer?
+            this.webSocket.binaryType = "arraybuffer"; // ArrayBuffer needed for sink?
+            // console.warn(`adlt.webSocket.binaryType=`, this.webSocket.binaryType);
+            this.webSocket.on("message", (data: ArrayBuffer, isBinary) => {
+                try {
+                    if (isBinary) {
+                        //console.warn(`dlt-logs.AdltDocumentProvider.on(message)`, data.byteLength, isBinary);
+                        try {
+                            let bin_type = remote_types.readBinType(data);
+                            // console.warn(`adlt.on(binary):`, bin_type.tag);
+                            switch (bin_type.tag) {
+                                case 'DltMsgs': { // raw messages
+                                    let [streamId, msgs] = bin_type.value;
+                                    //console.warn(`adlt.on(binary): DltMsgs stream=${streamId}, nr_msgs=${msgs.length}`);
+                                    let streamData = this.streamMsgs.get(streamId);
+                                    if (streamData && !Array.isArray(streamData)) {
+                                        this.processBinDltMsgs(msgs, streamId, streamData);
                                     } else {
-                                        streamData.push(msgs);
-                                        if (streamData.length > 2) { console.warn(`adlt.on(binary): appended DltMsgs for yet unknown stream=${streamId}, nr_msgs=${msgs.length}, streamData.length=${streamData.length}`); }
-                                        // todo this case should happen rarely. might indicate an error case where e.g.
-                                        // we get data for a really unknown stream. stop e.g. after an upper bound
+                                        // we store the pure data for later processing:
+                                        // need to keep same chunk infos (e.g. msgs.length=0) -> array of array
+                                        if (!streamData) {
+                                            streamData = [msgs];
+                                            this.streamMsgs.set(streamId, streamData);
+                                        } else {
+                                            streamData.push(msgs);
+                                            if (streamData.length > 2) { console.warn(`adlt.on(binary): appended DltMsgs for yet unknown stream=${streamId}, nr_msgs=${msgs.length}, streamData.length=${streamData.length}`); }
+                                            // todo this case should happen rarely. might indicate an error case where e.g.
+                                            // we get data for a really unknown stream. stop e.g. after an upper bound
+                                        }
                                     }
                                 }
+                                    break;
+                                case 'Lifecycles': {
+                                    let lifecycles: Array<remote_types.BinLifecycle> = bin_type.value;
+                                    this.processLifecycleUpdates(lifecycles);
+                                }
+                                    break;
+                                case 'FileInfo': {
+                                    let fileInfo: remote_types.BinFileInfo = bin_type.value;
+                                    this.processFileInfoUpdates(fileInfo);
+                                }
+                                    break;
+                                default:
+                                    console.warn(`adlt.on(binary): unhandled tag:'${JSON.stringify(bin_type)}'`);
+                                    break;
                             }
-                                break;
-                            case 'Lifecycles': {
-                                let lifecycles: Array<remote_types.BinLifecycle> = bin_type.value;
-                                this.processLifecycleUpdates(lifecycles);
-                            }
-                                break;
-                            case 'FileInfo': {
-                                let fileInfo: remote_types.BinFileInfo = bin_type.value;
-                                this.processFileInfoUpdates(fileInfo);
-                            }
-                                break;
-                            default:
-                                console.warn(`adlt.on(binary): unhandled tag:'${JSON.stringify(bin_type)}'`);
-                                break;
+                            //                        console.warn(`adlt.on(binary): value=${JSON.stringify(bin_type.value)}`);
+                        } catch (e) {
+                            console.warn(`adlt got err=${e}`);
                         }
-                        //                        console.warn(`adlt.on(binary): value=${JSON.stringify(bin_type.value)}`);
-                    } catch (e) {
-                        console.warn(`adlt got err=${e}`);
-                    }
-                } else { // !isBinary
-                    const text = data.toString();
-                    if (text.startsWith("stream:")) { // todo change to binary
-                        let firstSpace = text.indexOf(" ");
-                        const id = Number.parseInt(text.substring(7, firstSpace));
-                        if (id === 0 /*this.streamId*/) {
-                            this.addText(text.substring(firstSpace + 1) + '\n');
+                    } else { // !isBinary
+                        const text = data.toString();
+                        if (text.startsWith("stream:")) { // todo change to binary
+                            let firstSpace = text.indexOf(" ");
+                            const id = Number.parseInt(text.substring(7, firstSpace));
+                            if (id === 0 /*this.streamId*/) {
+                                this.addText(text.substring(firstSpace + 1) + '\n');
+
+                            } else {
+                                console.warn(`dlt-logs.AdltDocumentProvider.on(message) stream for unexpected id ${id} exp ${0 /*this.streamId*/}`);
+                            }
+                        } else if (text.startsWith("info:")) { // todo change to binary and add status bar
+                            console.info(`dlt-logs.AdltDocumentProvider.on(message) info:`, text);
+                        } else if (this._reqCallbacks.length > 0) { // response to a request:
+                            console.info(`dlt-logs.AdltDocumentProvider.on(message) response for request:`, text);
+                            let cb = this._reqCallbacks.shift();
+                            if (cb) { cb(text); }
 
                         } else {
-                            console.warn(`dlt-logs.AdltDocumentProvider.on(message) stream for unexpected id ${id} exp ${0 /*this.streamId*/}`);
+                            console.warn(`dlt-logs.AdltDocumentProvider.on(message) unknown text=`, text);
                         }
-                    } else if (text.startsWith("info:")) { // todo change to binary and add status bar
-                        console.info(`dlt-logs.AdltDocumentProvider.on(message) info:`, text);
-                    } else if (this._reqCallbacks.length > 0) { // response to a request:
-                        console.info(`dlt-logs.AdltDocumentProvider.on(message) response for request:`, text);
-                        let cb = this._reqCallbacks.shift();
-                        if (cb) { cb(text); }
-
-                    } else {
-                        console.warn(`dlt-logs.AdltDocumentProvider.on(message) unknown text=`, text);
+                    }
+                } catch (e) {
+                    console.warn(`dlt-logs.AdltDocumentProvider.on(message) catch error:`, e);
+                }
+            });
+            this.webSocket.on('upgrade', (response) => {
+                console.log(`dlt-logs.AdltDocumentProvider.on(upgrade) got response:`, response);
+                let ah = response.headers['adlt-version'];
+                this.adltVersion = ah && !Array.isArray(ah) ? ah : (ah && Array.isArray(ah) ? ah.join(',') : undefined);
+                if (this.adltVersion) {
+                    if (!semver.satisfies(this.adltVersion, MIN_ADLT_VERSION_SEMVER_RANGE)) {
+                        vscode.window.showErrorMessage(`Your adlt version is not matching the required version!\nPlease correct!\nDetected version is '${this.adltVersion}' vs required '${MIN_ADLT_VERSION_SEMVER_RANGE}.'`, { modal: true });
                     }
                 }
-            } catch (e) {
-                console.warn(`dlt-logs.AdltDocumentProvider.on(message) catch error:`, e);
-            }
-        });
-        this.webSocket.on('upgrade', (response) => {
-            console.log(`dlt-logs.AdltDocumentProvider.on(upgrade) got response:`, response);
-            let ah = response.headers['adlt-version'];
-            this.adltVersion = ah && !Array.isArray(ah) ? ah : (ah && Array.isArray(ah) ? ah.join(',') : undefined);
-            if (this.adltVersion) {
-                if (!semver.satisfies(this.adltVersion, MIN_ADLT_VERSION_SEMVER_RANGE)) {
-                    vscode.window.showErrorMessage(`Your adlt version is not matching the required version!\nPlease correct!\nDetected version is '${this.adltVersion}' vs required '${MIN_ADLT_VERSION_SEMVER_RANGE}.'`, { modal: true });
-                }
-            }
-        });
-        this.webSocket.on('open', () => {
-            this.webSocketIsConnected = true;
-            this.openAdltFiles();
-        });
+            });
+            this.webSocket.on('open', () => {
+                this.webSocketIsConnected = true;
+                this.openAdltFiles();
+            });
 
-        this.webSocket.on('close', () => {
-            this.webSocketIsConnected = false;
+            this.webSocket.on('close', () => {
+                this.webSocketIsConnected = false;
+                this.emitDocChanges.fire([{ type: vscode.FileChangeType.Changed, uri: this.uri }]);
+            });
+            this.webSocket.on('error', (err) => {
+                console.warn(`dlt-logs.AdltDocumentProvider.on(error) wss got error:`, err);
+                this.webSocketIsConnected = false;
+                this.emitDocChanges.fire([{ type: vscode.FileChangeType.Changed, uri: this.uri }]);
+            });
+        }).catch((reason) => {
+            this.text = `Couldn't start adlt due to reason: '${reason}'!\n\n` + this.text;
             this.emitDocChanges.fire([{ type: vscode.FileChangeType.Changed, uri: this.uri }]);
         });
-        this.webSocket.on('error', (err) => {
-            console.warn(`dlt-logs.AdltDocumentProvider.on(error) wss got error:`, err);
-            this.webSocketIsConnected = false;
-            this.emitDocChanges.fire([{ type: vscode.FileChangeType.Changed, uri: this.uri }]);
-        });
-
         this.timerId = setInterval(() => {
             this.checkTextUpdates(); // todo this might not be needed at all!
         }, 1000);
@@ -609,6 +614,7 @@ export class AdltDocument implements vscode.Disposable {
                     }
                 });
         });
+        if (this.webSocket) {
         this.webSocket.send(req, (err) => {
             if (err) {
                 console.warn(`dlt-logs.AdltDocumentProvider.sendAndRecvAdltMsg wss got error:`, err);
@@ -616,6 +622,9 @@ export class AdltDocument implements vscode.Disposable {
                 this.emitDocChanges.fire([{ type: vscode.FileChangeType.Changed, uri: this.uri }]);
             }
         });
+        } else {
+            console.error(`dlt-logs.AdltDocumentProvider.sendAndRecvAdltMsg got no webSocket yet!`);
+        }
         return prom;
     }
 
@@ -1558,6 +1567,9 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
     public _documents = new Map<string, AdltDocument>();
     private _onDidChangeFile = new vscode.EventEmitter<vscode.FileChangeEvent[]>();
     private _subscriptions: Array<vscode.Disposable> = new Array<vscode.Disposable>();
+    private _adltPort: number = 0;
+    private _adltProcess?: ChildProcess;
+    private _adltCommand: string;
 
     constructor(context: vscode.ExtensionContext, private _dltLifecycleTreeView: vscode.TreeView<TreeViewNode>, private _treeRootNodes: TreeViewNode[], private _onDidChangeTreeData: vscode.EventEmitter<TreeViewNode | null>,
         private checkActiveRestQueryDocChanged: () => boolean, private _columns: ColumnConfig[], private _reporter?: TelemetryReporter) {
@@ -1565,6 +1577,8 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
         if (!semver.validRange(MIN_ADLT_VERSION_SEMVER_RANGE)) {
             throw Error(`MIN_ADLT_VERSION_SEMVER_RANGE is not valied!`);
         }
+
+        this._adltCommand = vscode.workspace.getConfiguration().get<string>("dlt-logs.adltPath") || "adlt";
 
         this._subscriptions.push(vscode.workspace.onDidOpenTextDocument((event: vscode.TextDocument) => {
             const uriStr = event.uri.toString();
@@ -1597,6 +1611,8 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
         console.log("AdltDocumentProvider dispose() called");
         this._documents.forEach((doc) => doc.dispose());
         this._documents.clear();
+
+        this.closeAdltProcess();
 
         this._subscriptions.forEach((value) => {
             if (value !== undefined) {
@@ -1644,6 +1660,114 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
         }
     }
 
+    public onDidClose(doc: ReportDocument) { // doc has been removed already from this._documents!
+        if (this._documents.size === 0) {
+            this.closeAdltProcess();
+        }
+    }
+
+    closeAdltProcess() {
+        console.log(`adlt.closeAdltProcess()...`);
+        if (this._adltProcess) {
+            try {
+                this._adltProcess.kill();
+                this._adltProcess = undefined;
+            } catch (err) {
+                console.error(`adlt.closeAdltProcess(port=${this._adltPort}) got err=${err}`);
+            }
+        }
+    }
+
+    /**
+     * spawn an adlt process at specified port.
+     * 
+     * Checks whether the process could be started sucessfully and
+     * whether its listening on the port.
+     * 
+     * Uses this._adltCommand to start the process and the params 'remote -p<port>'.
+     * 
+     * It listens on stdout and stderr (and on 'close' and 'error' events).
+     * This could be improved/changed to listen only until a successful start is detected.
+     * 
+     * Rejects with 'ENOENT' or 'AddrInUse' or 'did close unexpectedly' in case of errors.
+     * 
+     * @param port number of port to use for remote websocket
+     * @returns pair of ChildProcess started and the port number
+     */
+    spawnAdltProcess(port: number): Promise<[ChildProcess, number]> {
+        console.log(`adlt.spawnAdltProcess(port=${port})...`);
+        let p = new Promise<[ChildProcess, number]>((resolve, reject) => {
+            let obj = [false];
+            let childProc = spawn(this._adltCommand, ['remote', `-p=${port}`], { detached: false, windowsHide: true });
+            console.log(`adlt.spawnAdltProcess(port=${port}) spawned adlt with pid=${childProc.pid}`);
+            childProc.on('error', (err) => {
+                console.error(`adlt.spawnAdltProcess process got err='${err}'`);
+                if (!obj[0] && err.message.includes("ENOENT")) {
+                    obj[0] = true;
+                    reject("ENOENT please check configuration setting dlt-logs.adltPath");
+                }
+            });
+            childProc.on('close', (code, signal) => {
+                console.error(`adlt.spawnAdltProcess(port=${port}) process got close code='${code}' signal='${signal}'`);
+                if (!obj[0]) {
+                    obj[0] = true;
+                    reject("did close unexpectedly");
+                }
+            });
+            childProc?.stdout?.on('data', (data) => { // todo or use 'spawn' event?
+                console.info(`adlt.spawnAdltProcess(port=${port}) process got stdout='${data}' typeof data=${typeof data}`);
+                try {
+                    if (!obj[0] && `${data}`.includes('remote server listening on')) {
+                        obj[0] = true; // todo stop searching for ... (might as well stop listening completely for stdout)
+                        console.info(`adlt.spawnAdltProcess(port=${port}) process got stdout resolving promise for port ${port}`);
+                        resolve([childProc, port]);
+                    }
+                } catch (err) {
+                    console.error(`adlt.spawnAdltProcess(port=${port}) process stdout got err='${err}, typeof data=${typeof data}'`);
+                }
+            });
+            childProc?.stderr?.on('data', (data) => {
+                console.warn(`adlt.spawnAdltProcess(port=${port}) process got stderr='${data}'`);
+                if (!obj[0] && `${data}`.includes("AddrInUse")) {
+                    obj[0] = true;
+                    reject("AddrInUse");
+                }
+            });
+        });
+        return p;
+    }
+
+    /**
+     * get the port of adlt process.
+     * Starts adlt if needed and tries to find an open port in range
+     * 6779-6789.
+     * 
+     * Sets internal variables _adltProcess and _adltPort as well.
+     * @returns a promise for the port
+     */
+    getAdltProcessAndPort(): Promise<number> {
+        let p = new Promise<number>((resolve, reject) => {
+            if (!this._adltPort || !this._adltProcess) {
+                // start it
+                // currently it retries 10 times even if spawnAdltProcess rejects with ENOENT! todo
+                util.retryOperation((retries_left: number) => this.spawnAdltProcess(6789 - retries_left), 10, 10).then(([childProc, port]) => {
+                    this._adltProcess = childProc;
+                    this._adltPort = port;
+                    resolve(port);
+                }).catch((reason) => {
+                    this._adltPort = 0;
+                    this._adltProcess = undefined;
+                    reject(reason);
+                });
+
+            } else {
+                resolve(this._adltPort);
+            }
+        });
+
+        return p;
+    }
+
     // filesystem provider api:
     get onDidChangeFile() {
         return this._onDidChangeFile.event;
@@ -1659,7 +1783,8 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
                 console.log(`adlt-logs.stat(uri=${uri.toString()})... isDirectory=${realStat.isDirectory()}}`);
                 if (realStat.isFile() && (true /* todo dlt extension */)) {
                     try {
-                        document = new AdltDocument(uri, this._onDidChangeFile, this._onDidChangeTreeData, this._treeRootNodes, this._columns, this._reporter);
+                        let port = this.getAdltProcessAndPort();
+                        document = new AdltDocument(port, uri, this._onDidChangeFile, this._onDidChangeTreeData, this._treeRootNodes, this._columns, this._reporter);
                         this._documents.set(uri.toString(), document);
                         if (this._documents.size === 1) {
                             // this.checkActiveRestQueryDocChanged();
@@ -1692,7 +1817,8 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
         let doc = this._documents.get(uri.toString());
         console.log(`adlt-logs.readFile(uri=${uri.toString()})...`);
         if (!doc) {
-            doc = new AdltDocument(uri, this._onDidChangeFile, this._onDidChangeTreeData, this._treeRootNodes, this._columns, this._reporter);
+            const port = this.getAdltProcessAndPort();
+            doc = new AdltDocument(port, uri, this._onDidChangeFile, this._onDidChangeTreeData, this._treeRootNodes, this._columns, this._reporter);
             this._documents.set(uri.toString(), doc);
             if (this._documents.size === 1) {
                 // todo this.checkActiveRestQueryDocChanged();
