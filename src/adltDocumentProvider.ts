@@ -20,7 +20,6 @@
 /// bugs:
 /// [ ] adding a 2nd report into an existing one doesn't seem to work (see todo requery in openReport)
 /// [ ] if the filter at start returns no data a text like DltProvider "...no messages match..." should be shown
-/// [ ] on fileInfo the statusBar update should be triggered (use an event for that)
 
 /// [x] sort order support
 /// by default logs are sorted by timestamp. If the sort order is toggled the file is closed and reopened.
@@ -1152,7 +1151,7 @@ export class AdltDocument implements vscode.Disposable {
     processFileInfoUpdates(fileInfo: remote_types.BinFileInfo) {
         console.log(`adlt fileInfo: nr_msgs=${fileInfo.nr_msgs}`);
         this.fileInfoNrMsgs = fileInfo.nr_msgs;
-        // todo handle info e.g. with status bar
+        this.emitStatusChanges.fire(this.uri);
     }
 
     // process lifecycle updates from adlt:
@@ -1587,6 +1586,24 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
 
         this._adltCommand = vscode.workspace.getConfiguration().get<string>("dlt-logs.adltPath") || "adlt";
 
+        // config changes
+        context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(e => {
+            if (e.affectsConfiguration('dlt-logs')) {
+
+                // handle it for the next doc to be opened. Active connection will be interrupted (if non debug port)
+                if (e.affectsConfiguration("dlt-logs.adltPath")) {
+                    const newCmd = vscode.workspace.getConfiguration().get<string>("dlt-logs.adltPath") || "adlt";
+                    if (newCmd !== this._adltCommand) {
+                        this._adltCommand = newCmd;
+                        this.closeAdltProcess();
+                    }
+                }
+
+                // todo move to ext? this._documents.forEach(doc => doc.onDidChangeConfiguration(e));
+            }
+        }));
+
+
         this._subscriptions.push(vscode.workspace.onDidOpenTextDocument((event: vscode.TextDocument) => {
             const uriStr = event.uri.toString();
             console.log(`AdltDocumentProvider onDidOpenTextDocument uri=${uriStr}`);
@@ -1683,6 +1700,7 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
                 console.error(`adlt.closeAdltProcess(port=${this._adltPort}) got err=${err}`);
             }
         }
+        this._adltPort = 0;
     }
 
     /**
