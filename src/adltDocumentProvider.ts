@@ -51,7 +51,7 @@ import { v4 as uuidv4 } from 'uuid';
 /// minimum adlt version required
 /// we do show a text if the version is not met.
 /// see https://www.npmjs.com/package/semver#prerelease-identifiers
-const MIN_ADLT_VERSION_SEMVER_RANGE = ">=0.9.1";
+const MIN_ADLT_VERSION_SEMVER_RANGE = ">=0.9.4";
 
 function char4U32LeToString(char4le: number): string {
     let codes = [char4le & 0xff, 0xff & (char4le >> 8), 0xff & (char4le >> 16), 0xff & (char4le >> 24)];
@@ -157,6 +157,7 @@ export class AdltDocument implements vscode.Disposable {
     private realStat: fs.Stats;
     private webSocket?: WebSocket;
     private webSocketIsConnected = false;
+    private webSocketErrors: string[] = [];
     private adltVersion?: string; // the version from last wss upgrade handshake
 
     private streamId: number = 0; // 0 none, neg stop in progress. stream for the messages that reflect the main log/view
@@ -246,7 +247,7 @@ export class AdltDocument implements vscode.Disposable {
     }
 
     constructor(adltPort: Promise<number>, public uri: vscode.Uri, private emitDocChanges: vscode.EventEmitter<vscode.FileChangeEvent[]>, treeEventEmitter: vscode.EventEmitter<TreeViewNode | null>,
-        parentTreeNode: TreeViewNode[], private _columns: ColumnConfig[], reporter?: TelemetryReporter) {
+        parentTreeNode: TreeViewNode[], private emitStatusChanges: vscode.EventEmitter<vscode.Uri | undefined>, private _columns: ColumnConfig[], reporter?: TelemetryReporter) {
 
         this._treeEventEmitter = treeEventEmitter;
 
@@ -295,7 +296,7 @@ export class AdltDocument implements vscode.Disposable {
         adltPort.then((port) => {
             console.log(`adlt.Document.got port=${port}`);
             const url = `ws://localhost:${port}`;
-            this.webSocket = new WebSocket(url, [], { perMessageDeflate: false, origin: "adlt-logs" }); // todo maxPayload (defaults to 100MiB)
+            this.webSocket = new WebSocket(url, [], { perMessageDeflate: false, origin: "adlt-logs", maxPayload: 1_000_000_000 });
             //console.warn(`adlt.webSocket.binaryType=`, this.webSocket.binaryType);
             //this.webSocket.binaryType = "nodebuffer"; // or Arraybuffer?
             this.webSocket.binaryType = "arraybuffer"; // ArrayBuffer needed for sink?
@@ -385,17 +386,20 @@ export class AdltDocument implements vscode.Disposable {
             });
             this.webSocket.on('open', () => {
                 this.webSocketIsConnected = true;
+                this.webSocketErrors = [];
                 this.openAdltFiles();
             });
 
             this.webSocket.on('close', () => {
                 this.webSocketIsConnected = false;
-                this.emitDocChanges.fire([{ type: vscode.FileChangeType.Changed, uri: this.uri }]);
+                this.webSocketErrors.push('wss closed');
+                console.warn(`dlt-logs.AdltDocumentProvider.on(close) wss got close`);
+                this.emitStatusChanges.fire(this.uri);
             });
             this.webSocket.on('error', (err) => {
                 console.warn(`dlt-logs.AdltDocumentProvider.on(error) wss got error:`, err);
-                this.webSocketIsConnected = false;
-                this.emitDocChanges.fire([{ type: vscode.FileChangeType.Changed, uri: this.uri }]);
+                this.webSocketErrors.push(`error: ${err}`);
+                this.emitStatusChanges.fire(this.uri);
             });
         }).catch((reason) => {
             this.text = `Couldn't start adlt due to reason: '${reason}'!\n\n` + this.text;
@@ -618,8 +622,8 @@ export class AdltDocument implements vscode.Disposable {
         this.webSocket.send(req, (err) => {
             if (err) {
                 console.warn(`dlt-logs.AdltDocumentProvider.sendAndRecvAdltMsg wss got error:`, err);
-                this.webSocketIsConnected = false;
-                this.emitDocChanges.fire([{ type: vscode.FileChangeType.Changed, uri: this.uri }]);
+                this.webSocketErrors.push(`wss send failed with:${err}`);
+                this.emitStatusChanges.fire(this.uri);
             }
         });
         } else {
@@ -1126,7 +1130,6 @@ export class AdltDocument implements vscode.Disposable {
 
     updateStatusBarItem(item: vscode.StatusBarItem) {
         if (this.webSocketIsConnected) {
-
             item.text = this.visibleMsgs !== undefined && this.visibleMsgs.length !== this.fileInfoNrMsgs ? `${this.visibleMsgs.length}/${this.fileInfoNrMsgs} msgs` : `${this.fileInfoNrMsgs} msgs`;
             let nrEnabledFilters: number = 0;
             this.allFilters.forEach(filter => {
@@ -1136,8 +1139,12 @@ export class AdltDocument implements vscode.Disposable {
             // todo show wss connection status
             item.tooltip = `ADLT v${this.adltVersion || ":unknown!"}: ${this.fileNames.join(', ')}, showing max ${this._maxNrMsgs} msgs, ${0/*this._timeAdjustMs / 1000*/}s time-adjust, ${0 /* todo this.timeSyncs.length*/} time-sync events, ${nrEnabledFilters}/${nrAllFilters} enabled filters, sorted by ${this._sortOrderByTime ? 'time' : 'index'}`;
         } else {
-            item.text = "adlt not con!";
+            item.text = "$(alert) adlt not con!";
             item.tooltip = `ADLT: ${this.fileNames.join(', ')}, not connected to adlt via websocket!`;
+        }
+        if (this.webSocketErrors.length > 0) {
+            item.text += ` $(alert) ${this.webSocketErrors.length} errors!`;
+            item.tooltip += ` Errors:\n${this.webSocketErrors.join('\n')}`;
         }
     }
 
@@ -1572,7 +1579,7 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
     private _adltCommand: string;
 
     constructor(context: vscode.ExtensionContext, private _dltLifecycleTreeView: vscode.TreeView<TreeViewNode>, private _treeRootNodes: TreeViewNode[], private _onDidChangeTreeData: vscode.EventEmitter<TreeViewNode | null>,
-        private checkActiveRestQueryDocChanged: () => boolean, private _columns: ColumnConfig[], private _reporter?: TelemetryReporter) {
+        private checkActiveRestQueryDocChanged: () => boolean, private _onDidChangeStatus: vscode.EventEmitter<vscode.Uri | undefined>, private _columns: ColumnConfig[], private _reporter?: TelemetryReporter) {
         console.log(`dlt-logs.AdltDocumentProvider()...`);
         if (!semver.validRange(MIN_ADLT_VERSION_SEMVER_RANGE)) {
             throw Error(`MIN_ADLT_VERSION_SEMVER_RANGE is not valied!`);
@@ -1696,6 +1703,11 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
      */
     spawnAdltProcess(port: number): Promise<[ChildProcess, number]> {
         console.log(`adlt.spawnAdltProcess(port=${port})...`);
+        // debug feature: if adltCommand contains only a number we do return just the port:
+        if (+this._adltCommand > 0) {
+            return new Promise<[ChildProcess, number]>((resolve, reject) => resolve([spawn("/bin/false", [], { detached: false, windowsHide: true }), +this._adltCommand]));
+        }
+
         let p = new Promise<[ChildProcess, number]>((resolve, reject) => {
             let obj = [false];
             let childProc = spawn(this._adltCommand, ['remote', `-p=${port}`], { detached: false, windowsHide: true });
@@ -1784,7 +1796,7 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
                 if (realStat.isFile() && (true /* todo dlt extension */)) {
                     try {
                         let port = this.getAdltProcessAndPort();
-                        document = new AdltDocument(port, uri, this._onDidChangeFile, this._onDidChangeTreeData, this._treeRootNodes, this._columns, this._reporter);
+                        document = new AdltDocument(port, uri, this._onDidChangeFile, this._onDidChangeTreeData, this._treeRootNodes, this._onDidChangeStatus, this._columns, this._reporter);
                         this._documents.set(uri.toString(), document);
                         if (this._documents.size === 1) {
                             // this.checkActiveRestQueryDocChanged();
@@ -1818,7 +1830,7 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
         console.log(`adlt-logs.readFile(uri=${uri.toString()})...`);
         if (!doc) {
             const port = this.getAdltProcessAndPort();
-            doc = new AdltDocument(port, uri, this._onDidChangeFile, this._onDidChangeTreeData, this._treeRootNodes, this._columns, this._reporter);
+            doc = new AdltDocument(port, uri, this._onDidChangeFile, this._onDidChangeTreeData, this._treeRootNodes, this._onDidChangeStatus, this._columns, this._reporter);
             this._documents.set(uri.toString(), doc);
             if (this._documents.size === 1) {
                 // todo this.checkActiveRestQueryDocChanged();

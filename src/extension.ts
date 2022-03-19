@@ -81,6 +81,7 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 
 	let _statusBarItem: vscode.StatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right);
+	let _onDidChangeStatus = new vscode.EventEmitter<vscode.Uri | undefined>();
 
 	let _onDidChangeActiveRestQueryDoc: vscode.EventEmitter<vscode.Uri | undefined> = new vscode.EventEmitter<vscode.Uri | undefined>();
 	/**
@@ -134,7 +135,7 @@ export function activate(context: vscode.ExtensionContext) {
 	}));
 
 	// register our document provider that knows how to handle "dlt-logs"
-	let adltProvider = new ADltDocumentProvider(context, _dltLifecycleTreeView, _treeRootNodes, _onDidChangeTreeData, checkActiveRestQueryDocChanged, columns, reporter);
+	let adltProvider = new ADltDocumentProvider(context, _dltLifecycleTreeView, _treeRootNodes, _onDidChangeTreeData, checkActiveRestQueryDocChanged, _onDidChangeStatus, columns, reporter);
 	context.subscriptions.push(vscode.workspace.registerFileSystemProvider(adltScheme, adltProvider, { isReadonly: false, isCaseSensitive: true }));
 
 	// register our command to open dlt files via adlt:
@@ -207,6 +208,26 @@ export function activate(context: vscode.ExtensionContext) {
 				console.log(`dlt-logs.onDidChangeTextDocument for active document`);
 				doc.updateStatusBarItem(_statusBarItem);
 			}
+		}
+	}));
+
+
+	/**
+	 * docProviders can emit this if they updated status bar relevant info
+	 */
+	context.subscriptions.push(_onDidChangeStatus.event((uri) => {
+		let activeDoc = getRestQueryDocById("0");
+		if (!activeDoc) { return; }
+		if (uri) {
+			let { doc, provider } = getDocAndProviderFor(uri.toString());
+			if (doc === activeDoc) {
+				// update status bar only for the last used/active doc:
+				console.log(`dlt-logs.onDidChangeStatus and doc is active document`);
+				doc.updateStatusBarItem(_statusBarItem);
+			}
+		} else {
+			console.log(`dlt-logs.onDidChangeStatus for active document`);
+			activeDoc.updateStatusBarItem(_statusBarItem);
 		}
 	}));
 
