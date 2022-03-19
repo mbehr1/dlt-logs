@@ -1606,7 +1606,7 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
 
         this._subscriptions.push(vscode.workspace.onDidOpenTextDocument((event: vscode.TextDocument) => {
             const uriStr = event.uri.toString();
-            console.log(`AdltDocumentProvider onDidOpenTextDocument uri=${uriStr}`);
+            //console.log(`AdltDocumentProvider onDidOpenTextDocument uri=${uriStr}`);
             // is it one of our documents?
             const doc = this._documents.get(uriStr);
             if (doc) {
@@ -1618,15 +1618,6 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
                 }
             }
         }));
-
-        /*context.subscriptions.push(vscode.commands.registerTextEditorCommand('dlt-logs.toggleSortOrder', async (textEditor: vscode.TextEditor) => {
-            console.log(`dlt-logs.adlDocumentProvider.toggleSortOrder(textEditor.uri = ${textEditor.document.uri.toString()}) called...`);
-            const doc = this._documents.get(textEditor.document.uri.toString());
-            if (doc) {
-                console.log(`dlt-logs.adlDocumentProvider.toggleSortOrder for doc:`);
-                //todo return doc.toggleSortOrder();
-            }
-        }));*/
 
         context.subscriptions.push(vscode.languages.registerHoverProvider({ scheme: "adlt-log" }, this));
     }
@@ -1820,7 +1811,7 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
                             // this.checkActiveRestQueryDocChanged();
                         }
                     } catch (error) {
-                        console.log(` dlt-logs.stat(uri=${uri.toString()}) returning realStat ${realStat.size} size.`);
+                        console.log(` adlt-logs.stat(uri=${uri.toString()}) returning realStat ${realStat.size} size.`);
                         return {
                             size: realStat.size, ctime: realStat.ctime.valueOf(), mtime: realStat.mtime.valueOf(),
                             type: realStat.isDirectory() ? vscode.FileType.Directory : (realStat.isFile() ? vscode.FileType.File : vscode.FileType.Unknown) // todo symlinks as file?
@@ -1830,7 +1821,7 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
                 if (document) {
                     return document.stat();
                 } else {
-                    console.log(` dlt-logs.stat(uri=${uri.toString()}) returning realStat ${realStat.size} size.`);
+                    console.log(` adlt-logs.stat(uri=${uri.toString()}) returning realStat ${realStat.size} size.`);
                     return {
                         size: realStat.size, ctime: realStat.ctime.valueOf(), mtime: realStat.mtime.valueOf(),
                         type: realStat.isDirectory() ? vscode.FileType.Directory : (realStat.isFile() ? vscode.FileType.File : vscode.FileType.Unknown) // todo symlinks as file?
@@ -1838,7 +1829,7 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
                 }
             }
         } catch (err) {
-            console.warn(`dlt-logs.stat(uri=${uri.toString()}) got err '${err}'!`);
+            console.warn(`adlt-logs.stat(uri=${uri.toString()}) got err '${err}'!`);
         }
         return { size: 0, ctime: 0, mtime: 0, type: vscode.FileType.Unknown };
     }
@@ -1873,7 +1864,7 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
     }
 
     readDirectory(uri: vscode.Uri): [string, vscode.FileType][] {
-        console.log(`dlt-logs.readDirectory(uri=${uri.toString()}...`);
+        console.log(`adlt-logs.readDirectory(uri=${uri.toString()}...`);
         let entries: [string, vscode.FileType][] = [];
         // list all dirs and dlt files:
         let dirPath = uri.with({ query: "" }).fsPath; // for multiple files we take the first one as reference

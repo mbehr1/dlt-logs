@@ -57,7 +57,7 @@ export class DltDocumentProvider implements vscode.FileSystemProvider,
         this._reporter = reporter;
         this._subscriptions.push(vscode.workspace.onDidOpenTextDocument((event: vscode.TextDocument) => {
             const uriStr = event.uri.toString();
-            console.log(`DltDocumentProvider onDidOpenTextDocument uri=${uriStr}`);
+            //console.log(`DltDocumentProvider onDidOpenTextDocument uri=${uriStr}`);
             // is it one of our documents?
             const doc = this._documents.get(uriStr);
             if (doc) {
