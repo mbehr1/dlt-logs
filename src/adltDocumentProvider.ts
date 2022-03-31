@@ -46,6 +46,7 @@ import { TreeViewNode, FilterNode, LifecycleRootNode, LifecycleNode, FilterRootN
 import * as remote_types from './remote_types';
 import { DltDocument, ColumnConfig } from './dltDocument';
 import { v4 as uuidv4 } from 'uuid';
+import { AdltPlugin } from './adltPlugin';
 
 /// minimum adlt version required
 /// we do show a text if the version is not met.
@@ -196,8 +197,7 @@ export class AdltDocument implements vscode.Disposable {
     lifecycleTreeNode: LifecycleRootNode;
     filterTreeNode: FilterRootNode;
     //configTreeNode: TreeViewNode;
-    pluginTreeNode: TreeViewNode; // this is from the parent = DltDocumentProvider
-    pluginNodes: TreeViewNode[] = [];
+    pluginTreeNode: TreeViewNode;
 
     private _treeEventEmitter: vscode.EventEmitter<TreeViewNode | null>;
 
@@ -287,6 +287,11 @@ export class AdltDocument implements vscode.Disposable {
         { // load decorations: 
             const decorationsObjs = vscode.workspace.getConfiguration().get<Array<object>>("dlt-logs.decorations");
             this.parseDecorationsConfigs(decorationsObjs);
+        }
+
+        { // load plugins:
+            const pluginObjs = vscode.workspace.getConfiguration().get<Array<object>>("dlt-logs.plugins");
+            this.parsePluginConfigs(pluginObjs);
         }
 
         this.text = `Loading logs via adlt from ${this.fileNames.join(', ')} with max ${this._maxNrMsgs} msgs per page...`;
@@ -545,6 +550,50 @@ export class AdltDocument implements vscode.Disposable {
         }
     }
 
+    parsePluginConfigs(pluginObjs: Object[] | undefined) {
+        console.log(`adlt.parsePluginConfigs: have ${pluginObjs?.length} plugins to parse...`);
+        if (pluginObjs) {
+            for (let i = 0; i < pluginObjs?.length; ++i) {
+                try {
+                    const pluginObj: any = pluginObjs[i];
+                    const pluginName = pluginObj.name;
+                    switch (pluginName) {
+                        case 'FileTransfer':
+                            {
+                                const plugin = new AdltPlugin(`File transfers`, new vscode.ThemeIcon('files'), this.uri, this.pluginTreeNode, this._treeEventEmitter, pluginObj);
+                                this.pluginTreeNode.children.push(plugin);
+                                //this.allFilters.push(plugin);
+                                //this.filterTreeNode.children.push(new FilterNode(null, this.filterTreeNode, plugin)); // add to filter as well
+                            }
+                            break;
+                        case 'SomeIp':
+                            {
+                                const plugin = new AdltPlugin(`SOME/IP Decoder`, new vscode.ThemeIcon('group-by-ref-type'), this.uri, this.pluginTreeNode, this._treeEventEmitter, pluginObj);
+                                this.pluginTreeNode.children.push(plugin);
+                            }
+                            break;
+                        case 'NonVerbose':
+                            {
+                                const plugin = new AdltPlugin(`Non-Verbose`, new vscode.ThemeIcon('symbol-numeric'), this.uri, this.pluginTreeNode, this._treeEventEmitter, pluginObj);
+                                this.pluginTreeNode.children.push(plugin);
+                            }
+                            break;
+                        case 'Rewrite':
+                            {
+                                const plugin = new AdltPlugin(`'Rewrite' plugin`, new vscode.ThemeIcon('replace-all'), this.uri, this.pluginTreeNode, this._treeEventEmitter, pluginObj);
+                                this.pluginTreeNode.children.push(plugin);
+                            }
+                            break;
+                    }
+
+                } catch (error) {
+                    console.log(`dlt-logs.parsePluginConfigs error:${error}`);
+                }
+            }
+        }
+
+    }
+
     parseDecorationsConfigs(decorationConfigs: Object[] | undefined) {
         console.log(`parseDecorationsConfigs: have ${decorationConfigs?.length} decorations to parse...`);
         if (this._decorationTypes.size) {
@@ -706,8 +755,24 @@ export class AdltDocument implements vscode.Disposable {
     }
 
     openAdltFiles() {
-        this.sendAndRecvAdltMsg(`open {"sort":${this._sortOrderByTime},"files":${JSON.stringify(this.fileNames)}}`).then((response) => {
+        // plugin configs:
+        const pluginCfgs = JSON.stringify(this.pluginTreeNode.children.map(tr => (tr as AdltPlugin).options));
+        this.sendAndRecvAdltMsg(`open {"sort":${this._sortOrderByTime},"files":${JSON.stringify(this.fileNames)},"plugins":${pluginCfgs}}`).then((response) => {
             console.log(`adlt.on open got response:'${response}'`);
+            // parse plugins_active from response:
+            try {
+                let json_resp = JSON.parse(response.slice(response.indexOf('{')));
+                if ('plugins_active' in json_resp) {
+                    console.log(`adlt.on open plugins_active:'${json_resp.plugins_active}'`);
+                    // go through all plugin nodes and update the status:
+                    this.pluginTreeNode.children.forEach((pluginNode) => {
+                        let plugin = pluginNode as AdltPlugin;
+                        plugin.setActive(json_resp.plugins_active.includes(plugin.options.name));
+                    });
+                }
+            } catch (err) {
+                console.error(`adlt.on open response could not be parsed as json due to:'${err}'`);
+            }
             if (!this.isLoaded) {
                 this.isLoaded = true;
                 this._onDidLoad.fire(this.isLoaded);
@@ -1075,9 +1140,12 @@ export class AdltDocument implements vscode.Disposable {
         }
         return new Date(/* todo this._timeAdjustMs + */ /* todo msg.receptionTimeInMs +*/(msg.timeStamp / 10));
     }
-    lineCloseToDate(date: Date): number {
+    async lineCloseToDate(date: Date): Promise<number> {
         // ideas:
-        // a) we recv already msgs incl the info for time, lifecycle from adlt
+        // we query adlt here for the line
+        // then if not in range (or too close to edge) -> requery
+        // then return the new line
+
         return -1; // todo
     }
 
