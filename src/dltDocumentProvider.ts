@@ -405,18 +405,19 @@ export class DltDocumentProvider implements vscode.FileSystemProvider,
                     // store the last received time to be able to us this for the adjustTime command as reference:
                     doc.lastSelectedTimeEv = ev.time;
 
-                    let line = doc.lineCloseToDate(ev.time);
-                    if (line >= 0 && doc.textEditors.length > 0) {
-                        const posRange = new vscode.Range(line, 0, line, 0);
-                        doc.textEditors.forEach((value) => {
-                            value.revealRange(posRange, vscode.TextEditorRevealType.AtTop);
-                            // todo add/update decoration as well
-                        });
-                    } else {
-                        if (line >= 0) {
-                            console.log(`dlt-log.handleDidChangeSelectedTime got no textEditors (${doc.textEditors.length}) for reveal of line ${line}. hidden?`);
-                        }
-                    }
+                    doc.lineCloseToDate(ev.time).then((line) => {
+                        if (line >= 0 && doc.textEditors.length > 0) {
+                            const posRange = new vscode.Range(line, 0, line, 0);
+                            doc.textEditors.forEach((value) => {
+                                value.revealRange(posRange, vscode.TextEditorRevealType.AtTop);
+                                // todo add/update decoration as well
+                            });
+                        } else {
+                            if (line >= 0) {
+                                console.log(`dlt-log.handleDidChangeSelectedTime got no textEditors (${doc.textEditors.length}) for reveal of line ${line}. hidden?`);
+                            }
+                        }    
+                    });
                 }
                 if (ev.timeSyncs?.length && doc.timeSyncs.length) {
                     console.log(` got ${ev.timeSyncs.length} timeSyncs from ${ev.uri.toString()}`);

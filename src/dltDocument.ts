@@ -1152,7 +1152,7 @@ export class DltDocument {
         }
     }
 
-    lineCloseToDate(date: Date): number {
+    async lineCloseToDate(date: Date): Promise<number> {
         console.log(`DltDocument.lineCloseToDate(${date.toLocaleTimeString()})...`);
         const dateValueLC = date.valueOf();
         const dateValueNoLC = dateValueLC - this._timeAdjustMs;
