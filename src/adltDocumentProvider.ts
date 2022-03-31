@@ -1074,6 +1074,11 @@ export class AdltDocument implements vscode.Disposable {
     }
 
     private _reports: DltReport[] = [];
+
+    onDidChangeSelectedTime(time: Date[] | Date | null) {
+        this._reports.forEach(r => r.onDidChangeSelectedTime(time));
+    }
+
     onOpenReport(context: vscode.ExtensionContext, filter: DltFilter | DltFilter[], newReport: boolean = false, reportToAdd: DltReport | undefined = undefined) {
         console.log(`onOpenReport called...`);
 
@@ -1155,6 +1160,14 @@ export class AdltDocument implements vscode.Disposable {
             return msgs[line];
         }
         return undefined;
+    }
+
+    provideTimeByLine(line: number): Date | undefined {
+        const msg = this.msgByLine(line);
+        if (msg) {
+            return this.provideTimeByMsg(msg);
+        }
+        return;
     }
 
     public provideHover(position: vscode.Position): vscode.ProviderResult<vscode.Hover> {
@@ -1686,6 +1699,47 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
                 }
             }
         }));
+
+        // announce time updates on selection of lines:
+        // counterpart to handleDidChangeSelectedTime... 
+        this._subscriptions.push(vscode.window.onDidChangeTextEditorSelection(util.throttle((ev) => {
+            let data = this._documents.get(ev.textEditor.document.uri.toString());
+            if (data) {
+                // ev.kind: 1: Keyboard, 2: Mouse, 3: Command
+                // we do only take single selections.
+                if (ev.selections.length === 1) {
+                    if (ev.selections[0].isSingleLine) {
+                        const line = ev.selections[0].active.line; // 0-based
+                        // determine time:
+                        const time = data.provideTimeByLine(line);
+                        if (time) {
+                            /*if (this._autoTimeSync) {
+                                // post time update...
+                                console.log(` dlt-log posting time update ${time.toLocaleTimeString()}.${String(time.valueOf() % 1000).padStart(3, "0")}`);
+                                this._onDidChangeSelectedTime.fire({ time: time, uri: data.uri });
+                            } todo */
+                            // notify document itself (to e.g. forward to open reports)
+                            data.onDidChangeSelectedTime(time);
+                        }
+                    }
+                } else if (ev.selections.length > 1) {
+                    // console.warn(`DltDocumentProvider.onDidChangeTextEditorSelection have ${ev.selections.length} selections`);
+                    // we add all selections:
+                    const times = [];
+                    for (let i = 0; i < ev.selections.length; ++i) {
+                        const selection = ev.selections[i];
+                        if (selection.isSingleLine) {
+                            const line = selection.active.line;
+                            const time = data.provideTimeByLine(line);
+                            if (time) { times.push(time); }
+                        }
+                    }
+                    if (times.length > 0) { // notify document itself (to e.g. forward to open reports)
+                        data.onDidChangeSelectedTime(times);
+                    }
+                }
+            }
+        }, 500)));
 
         context.subscriptions.push(vscode.languages.registerHoverProvider({ scheme: "adlt-log" }, this));
     }
