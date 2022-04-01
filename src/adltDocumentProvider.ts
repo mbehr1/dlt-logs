@@ -51,7 +51,7 @@ import { AdltPlugin } from './adltPlugin';
 /// minimum adlt version required
 /// we do show a text if the version is not met.
 /// see https://www.npmjs.com/package/semver#prerelease-identifiers
-const MIN_ADLT_VERSION_SEMVER_RANGE = ">=0.9.4";
+const MIN_ADLT_VERSION_SEMVER_RANGE = ">=0.12.0";
 
 function char4U32LeToString(char4le: number): string {
     let codes = [char4le & 0xff, 0xff & (char4le >> 8), 0xff & (char4le >> 16), 0xff & (char4le >> 24)];
@@ -1147,11 +1147,41 @@ export class AdltDocument implements vscode.Disposable {
     }
     async lineCloseToDate(date: Date): Promise<number> {
         // ideas:
-        // we query adlt here for the line
+        // we query adlt here for the line (could as well scan/binsearch the visibleMsgs and query adlt only if before first or last)
         // then if not in range (or too close to edge) -> requery
-        // then return the new line
+        // and return the new line
+        if (this.streamId > 0) {
+            return this.sendAndRecvAdltMsg(`search_stream ${this.streamId} time_ms=${date.valueOf()}`).then((response) => {
+                console.log(`adlt on seach_stream resp: ${response}`);
+                const responseObj = JSON.parse(response.substring(response.indexOf('=') + 1));
+                //console.warn(`adlt on seach_stream resp: ${JSON.stringify(responseObj)}`);
+                let index = responseObj.filtered_msg_index;
+                if (index !== undefined) {
 
-        return -1; // todo
+                    if (index < this._skipMsgs || index >= this._skipMsgs + (this.visibleMsgs?.length || 0)) {
+                        console.log(`adlt on seach_stream ${index} not in range: ${this._skipMsgs}..${this._skipMsgs + (this.visibleMsgs?.length || 0)}`);
+                        // we want it so that the new line is skipMsgs..25%..line..75%.
+                        let offset = Math.min(Math.round(this._maxNrMsgs * 0.25), index);
+                        this._skipMsgs = index - offset;
+
+                        this.stopStream();
+                        this.startStream();
+                        //console.log(`adlt on seach_stream ${index} -> ${offset}`);
+                        return offset; // this is the new one
+                    } else {
+                        // visible (might still be in the upper or lower bound where a scroll will happen.... )
+                        console.log(`adlt on seach_stream ${index} in range: ${this._skipMsgs}..${this._skipMsgs + (this.visibleMsgs?.length || 0)} -> ${index - this._skipMsgs}`);
+                        return index - this._skipMsgs;
+                    }
+                } else {
+                    return -1;
+                }
+            }).catch((reason) => {
+                console.warn(`adlt on seach_stream resp err: ${reason}`);
+                return -1;
+            });
+        }
+        return -1;
     }
 
     msgByLine(line: number): AdltMsg | undefined {
