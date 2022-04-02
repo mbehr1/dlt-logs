@@ -8,7 +8,6 @@
 /// [ ] opening of a stream (and support within reports)
 /// [ ] apid/ctid tree view (and hover)
 /// [ ] sw version info/support
-/// [ ] cache strings for ecu/apid/ctid
 /// [ ] filetransfer support (in adlt)
 /// [ ] onDidChangeConfiguration
 /// [ ] timeSync support
@@ -37,7 +36,7 @@ import { spawn, ChildProcess } from 'child_process';
 
 import { DltFilter, DltFilterType } from './dltFilter';
 import { DltReport, NewMessageSink, ReportDocument } from './dltReport';
-import { FilterableDltMsg, ViewableDltMsg, MSTP, MTIN_CTRL, MTIN_LOG } from './dltParser';
+import { FilterableDltMsg, ViewableDltMsg, MSTP, MTIN_CTRL, MTIN_LOG, EAC, getEACFromIdx, getIdxFromEAC } from './dltParser';
 import { DltLifecycleInfoMinIF } from './dltLifecycle';
 import { TreeViewNode, FilterNode, LifecycleRootNode, LifecycleNode, FilterRootNode } from './dltTreeViewNodes';
 
@@ -217,13 +216,18 @@ export class AdltDocument implements vscode.Disposable {
     processBinDltMsgs(msgs: remote_types.BinDltMsg[], streamId: number, streamData: StreamMsgData) {
         for (let i = 0; i < msgs.length; ++i) {
             let binMsg = msgs[i];
+
+            // cached ECU, APID, CTID:
+            const eac = getEACFromIdx(getIdxFromEAC({ e: char4U32LeToString(binMsg.ecu), a: char4U32LeToString(binMsg.apid), c: char4U32LeToString(binMsg.ctid) }))!;
+
             let msg = {
+                _eac: eac,
                 index: binMsg.index,
                 receptionTimeInMs: Number(binMsg.reception_time / 1000n),
                 timeStamp: binMsg.timestamp_dms,
-                ecu: char4U32LeToString(binMsg.ecu), // todo from map...
-                apid: char4U32LeToString(binMsg.apid),
-                ctid: char4U32LeToString(binMsg.ctid),
+                get ecu(): string { return this._eac.e; },
+                get apid(): string { return this._eac.a; },
+                get ctid(): string { return this._eac.c; },
                 lifecycle: this.lifecycleInfoForPersistentId(binMsg.lifecycle_id),
                 htyp: binMsg.htyp,
                 mcnt: binMsg.mcnt,

@@ -46,7 +46,7 @@ export const serviceIds: string[] = ["", "set_log_level", "set_trace_status", "g
 */
 
 // map ecu/apid/ctids
-interface EAC {
+export interface EAC {
     e: string,
     a: string,
     c: string
@@ -63,7 +63,7 @@ const mapEAC: Map<number, EAC> = new Map();
 const maprEAC: Map<string, Map<string, Map<string, number>>> = new Map();
 let maxEAC: number = 0;
 
-function getIdxFromEAC(eac: EAC): number {
+export function getIdxFromEAC(eac: EAC): number {
     let eMap = maprEAC.get(eac.e);
     if (eMap === undefined) {
         eMap = new Map<string, Map<string, number>>();
@@ -84,7 +84,7 @@ function getIdxFromEAC(eac: EAC): number {
         return idx;
     }
 }
-function getEACFromIdx(idx: number): EAC | undefined {
+export function getEACFromIdx(idx: number): EAC | undefined {
     const eac = mapEAC.get(idx);
     return eac;
 }
