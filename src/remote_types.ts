@@ -43,7 +43,7 @@ export function readBinType(sinkOrBuf: SinkOrBuf): BinType {
   switch (value) {
     case 0:
       return BinType.FileInfo(
-        readBinFileInfo(sink),
+        readBinFileInfo(sink), 
       );
     case 1:
       return BinType.Lifecycles(
@@ -51,7 +51,7 @@ export function readBinType(sinkOrBuf: SinkOrBuf): BinType {
       );
     case 2:
       return BinType.DltMsgs(
-        readTuple<[number, Array<BinDltMsg>]>(readU32, readSeq(readBinDltMsg))(sink),
+        readTuple<[number, Array<BinDltMsg>]>(readU32, readSeq(readBinDltMsg))(sink), 
       );
     default:
       throw new Error(`'${value}' is invalid value for enum 'BinType'`);
@@ -67,6 +67,7 @@ export interface BinLifecycle {
   nr_msgs: number;
   start_time: bigint;
   end_time: bigint;
+  sw_version: string | undefined;
 }
 
 export function writeBinLifecycle(value: BinLifecycle, sinkOrBuf?: SinkOrBuf): Sink {
@@ -75,7 +76,8 @@ export function writeBinLifecycle(value: BinLifecycle, sinkOrBuf?: SinkOrBuf): S
   writeU32(value.ecu, sink);
   writeU32(value.nr_msgs, sink);
   writeU64(value.start_time, sink);
-  writeU64(value.end_time, sink); 
+  writeU64(value.end_time, sink);
+  writeOption(writeString)(value.sw_version, sink); 
   return sink;
 }
 
@@ -86,7 +88,8 @@ export function readBinLifecycle(sinkOrBuf: SinkOrBuf): BinLifecycle {
     ecu: readU32(sink),
     nr_msgs: readU32(sink),
     start_time: readU64(sink),
-    end_time: readU64(sink), 
+    end_time: readU64(sink),
+    sw_version: readOption(readString)(sink), 
   };
 }
 
@@ -118,7 +121,7 @@ export function writeBinDltMsg(value: BinDltMsg, sinkOrBuf?: SinkOrBuf): Sink {
   writeU8(value.mcnt, sink);
   writeU8(value.verb_mstp_mtin, sink);
   writeU8(value.noar, sink);
-  writeString(value.payload_as_text, sink);
+  writeString(value.payload_as_text, sink); 
   return sink;
 }
 
@@ -136,7 +139,7 @@ export function readBinDltMsg(sinkOrBuf: SinkOrBuf): BinDltMsg {
     mcnt: readU8(sink),
     verb_mstp_mtin: readU8(sink),
     noar: readU8(sink),
-    payload_as_text: readString(sink),
+    payload_as_text: readString(sink), 
   };
 }
 
@@ -146,14 +149,14 @@ export interface BinFileInfo {
 
 export function writeBinFileInfo(value: BinFileInfo, sinkOrBuf?: SinkOrBuf): Sink {
   const sink = Sink.create(sinkOrBuf);
-  writeU32(value.nr_msgs, sink);
+  writeU32(value.nr_msgs, sink); 
   return sink;
 }
 
 export function readBinFileInfo(sinkOrBuf: SinkOrBuf): BinFileInfo {
   const sink = Sink.create(sinkOrBuf);
   return {
-    nr_msgs: readU32(sink),
+    nr_msgs: readU32(sink), 
   };
 }
 

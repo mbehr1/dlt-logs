@@ -66,6 +66,7 @@ class AdltLifecycleInfo implements DltLifecycleInfoMinIF {
     adjustTimeMs: number = 0;
     startTime: number; // in ms
     endTime: number; // in ms
+    swVersion?: string;
     apidInfos: Map<string, { apid: string, desc: string, ctids: Map<string, string> }> = new Map(); // todo
 
     constructor(binLc: remote_types.BinLifecycle) {
@@ -74,6 +75,7 @@ class AdltLifecycleInfo implements DltLifecycleInfoMinIF {
         this.nrMsgs = binLc.nr_msgs;
         this.startTime = Number(binLc.start_time / 1000n); // start time in ms
         this.endTime = Number(binLc.end_time / 1000n); // end time in ms
+        this.swVersion = binLc.sw_version;
         //this.binLc = binLc;
     }
 
@@ -94,11 +96,11 @@ class AdltLifecycleInfo implements DltLifecycleInfoMinIF {
     }
 
     get tooltip(): string {
-        return `SW:${/*this._swVersions.join(',')*/"nyi for adlt"}`;
+        return `SW:${this.swVersion ? this.swVersion : "unknown"}`;
     }
 
     get swVersions(): string[] {
-        return []; // todo
+        return this.swVersion ? [this.swVersion] : [];
     }
 
 }
@@ -1314,10 +1316,10 @@ export class AdltDocument implements vscode.Disposable {
         let usedLcIds: number[] = [];
 
         ecus.forEach(ecu => {
-            let sw: string[] = [];
-            let ecuNode: TreeViewNode = { id: util.createUniqueId(), label: `ECU: ${ecu}, SW${sw.length > 1 ? `(${sw.length}):` : `:`} ${sw.join(' and ')}`, parent: this.lifecycleTreeNode, children: [], uri: this.uri, tooltip: undefined };
+            let ecuNode: TreeViewNode = { id: util.createUniqueId(), label: `ECU: ${ecu}`, parent: this.lifecycleTreeNode, children: [], uri: this.uri, tooltip: undefined };
             this.lifecycleTreeNode.children.push(ecuNode);
 
+            let sw: string[] = [];
             // add lifecycles for this ECU:
             lifecycles.filter(l => char4U32LeToString(l.ecu) === ecu).forEach((lc, i) => {
                 let persistentId = lc.id;
@@ -1332,7 +1334,9 @@ export class AdltDocument implements vscode.Disposable {
 
                 let lcNode: TreeViewNode = { id: util.createUniqueId(), label: `LC:#${lc.id} #${lc.nr_msgs} `, parent: ecuNode, children: [], uri: this.uri, tooltip: undefined };
                 ecuNode.children.push(new LifecycleNode(this.uri.with({ fragment: Number(lc.start_time / 1000n).toString() }), ecuNode, this.lifecycleTreeNode, lcInfo, i + 1));
+                if (lc.sw_version && !sw.includes(lc.sw_version)) { sw.push(lc.sw_version); }
             });
+            ecuNode.label = `ECU: ${ecu}, SW${sw.length > 1 ? `(${sw.length}): ` : `: `} ${sw.join(' and ')}`;
         });
         this._treeEventEmitter.fire(this.lifecycleTreeNode);
 
@@ -1512,7 +1516,7 @@ export class AdltDocument implements vscode.Disposable {
                                                         startTimeUtc: lc.lifecycleStart.toUTCString(),
                                                         endTimeUtc: lc.lifecycleEnd.toUTCString(),
                                                         sws: lc.swVersions,
-                                                        msgs: 1 /* todo lc.logMessages.length*/,
+                                                        msgs: lc.nrMsgs,
                                                     }
                                                 };
                                             })];
