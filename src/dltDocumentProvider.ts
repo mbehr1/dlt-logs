@@ -44,8 +44,6 @@ export class DltDocumentProvider implements vscode.FileSystemProvider,
         return this._onDidChangeFile.event;
     }
 
-    private _didSubscribeLifecycleTreeView = false;
-
     private _didChangeSelectedTimeSubscriptions: Array<vscode.Disposable> = new Array<vscode.Disposable>();
     private _onDidChangeSelectedTime: vscode.EventEmitter<SelectedTimeData> = new vscode.EventEmitter<SelectedTimeData>();
     readonly onDidChangeSelectedTime: vscode.Event<SelectedTimeData> = this._onDidChangeSelectedTime.event;
@@ -65,34 +63,6 @@ export class DltDocumentProvider implements vscode.FileSystemProvider,
                 console.log(` dlt.logs.onDidOpenTextDocument: found document with uri=${uriStr} newlyOpened=${newlyOpened}`);
                 if (newlyOpened) {
                     doc.textDocument = event;
-                    if (!this._didSubscribeLifecycleTreeView) {
-                        this._didSubscribeLifecycleTreeView = true;
-                        this._subscriptions.push(this._dltLifecycleTreeView.onDidChangeSelection(event => {
-                            if (event.selection.length && event.selection[0].uri && event.selection[0].uri.fragment.length) {
-                                console.log(`dltLifecycleTreeView.onDidChangeSelection(${event.selection.length} ${event.selection[0].uri} fragment='${event.selection[0].uri ? event.selection[0].uri.fragment : ''}')`);
-                                // find the editor for this uri in active docs:
-                                let uriWoFrag = event.selection[0].uri.with({ fragment: "" }).toString();
-                                const activeTextEditors = vscode.window.visibleTextEditors;
-                                for (let ind = 0; ind < activeTextEditors.length; ++ind) {
-                                    const editor = activeTextEditors[ind];
-                                    const editorUri = editor.document.uri.toString();
-                                    if (editor && uriWoFrag === editorUri) {
-                                        let doc = this._documents.get(editorUri);
-                                        if (doc) {
-                                            const index = +(event.selection[0].uri.fragment);
-                                            console.log(`  revealing ${event.selection[0].uri} index ${index}`);
-                                            let willBeLine = doc.revealIndex(index);
-                                            console.log(`   revealIndex returned willBeLine=${willBeLine}`);
-                                            if (willBeLine >= 0) {
-                                                editor.revealRange(new vscode.Range(willBeLine, 0, willBeLine + 1, 0), vscode.TextEditorRevealType.AtTop);
-                                            }
-                                        }
-                                    }
-                                }
-
-                            }
-                        }));
-                    }
                     this._onDidChangeTreeData.fire(null);
                 }
             }

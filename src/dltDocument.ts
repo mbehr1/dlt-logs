@@ -1809,6 +1809,33 @@ export class DltDocument {
         this._reports.forEach(r => r.onDidChangeSelectedTime(time));
     }
 
+    /**
+     * handler called if the (lifecycle) treeview selection did change towards one of our items
+     * Wont be called if the item is deselected or another docs item is selected!
+     * @param event 
+     */
+    onTreeViewDidChangeSelection(event: vscode.TreeViewSelectionChangeEvent<TreeViewNode>) {
+        if (event.selection.length && event.selection[0].uri && event.selection[0].uri.fragment.length) {
+            console.log(`dlt.onTreeViewDidChangeSelection(${event.selection.length} ${event.selection[0].uri} fragment='${event.selection[0].uri ? event.selection[0].uri.fragment : ''}')`);
+            // find the editor for this uri in active docs:
+            let uriWoFrag = event.selection[0].uri.with({ fragment: "" }).toString();
+            const activeTextEditors = vscode.window.visibleTextEditors;
+            for (let ind = 0; ind < activeTextEditors.length; ++ind) {
+                const editor = activeTextEditors[ind];
+                const editorUri = editor.document.uri.toString();
+                if (editor && uriWoFrag === editorUri) {
+                    const index = +(event.selection[0].uri.fragment);
+                    let willBeLine = this.revealIndex(index);
+                    console.log(`   revealIndex(${index}) returned willBeLine=${willBeLine}`);
+                    if (willBeLine >= 0) {
+                        editor.revealRange(new vscode.Range(willBeLine, 0, willBeLine + 1, 0), vscode.TextEditorRevealType.AtTop);
+                    }
+                }
+            }
+        }
+
+    }
+
     private _reports: DltReport[] = [];
     onOpenReport(context: vscode.ExtensionContext, filter: DltFilter | DltFilter[], newReport: boolean = false, reportToAdd: DltReport | undefined = undefined) {
         console.log(`onOpenReport called...`);

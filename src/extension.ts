@@ -80,6 +80,19 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	});
 
+	context.subscriptions.push(_dltLifecycleTreeView.onDidChangeSelection((event) => {
+		if (event.selection.length > 0 && event.selection[0].uri) {
+			// console.log(`dltLifecycleTreeView.onDidChangeSelection(${event.selection.length} ${event.selection[0].uri} fragment='${event.selection[0].uri.fragment || ''}')`);
+			let uriWoFrag = event.selection[0].uri.with({ fragment: "" }).toString();
+
+			let { doc } = getDocAndProviderFor(uriWoFrag);
+			if (doc) {
+				doc.onTreeViewDidChangeSelection(event);
+			}
+		}
+
+	}));
+
 	let _statusBarItem: vscode.StatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right);
 	let _onDidChangeStatus = new vscode.EventEmitter<vscode.Uri | undefined>();
 

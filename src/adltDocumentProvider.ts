@@ -9,9 +9,7 @@
 /// [ ] apid/ctid tree view (and hover)
 /// [ ] sw version info/support
 /// [ ] cache strings for ecu/apid/ctid
-/// [ ] someip support (in adlt)
 /// [ ] filetransfer support (in adlt)
-/// [ ] jump to time/log
 /// [ ] onDidChangeConfiguration
 /// [ ] timeSync support
 /// [ ] move decorations parsing/mgmt to extension
@@ -1079,6 +1077,30 @@ export class AdltDocument implements vscode.Disposable {
         this._reports.forEach(r => r.onDidChangeSelectedTime(time));
     }
 
+    /**
+     * handler called if the (lifecycle) treeview selection did change towards one of our items
+     * Wont be called if the item is deselected or another docs item is selected!
+     * @param event 
+     */
+    onTreeViewDidChangeSelection(event: vscode.TreeViewSelectionChangeEvent<TreeViewNode>) {
+        if (event.selection.length && event.selection[0].uri && event.selection[0].uri.fragment.length) {
+            console.log(`adlt.onTreeViewDidChangeSelection(${event.selection.length} ${event.selection[0].uri} fragment='${event.selection[0].uri ? event.selection[0].uri.fragment : ''}')`);
+            const index = +(event.selection[0].uri.fragment);
+            let willBeLine = this.lineCloseToDate(new Date(index)).then((line) => {
+                try {
+                    if (line >= 0 && this.textEditors) {
+                        const posRange = new vscode.Range(line, 0, line, 0);
+                        this.textEditors.forEach((value) => {
+                            value.revealRange(posRange, vscode.TextEditorRevealType.AtTop);
+                        });
+                    }
+                } catch (err) {
+                    console.warn(`adlt.onTreeViewDidChangeSelection.then got err=${err}`);
+                }
+            });
+        }
+    }
+
     onOpenReport(context: vscode.ExtensionContext, filter: DltFilter | DltFilter[], newReport: boolean = false, reportToAdd: DltReport | undefined = undefined) {
         console.log(`onOpenReport called...`);
 
@@ -1305,7 +1327,7 @@ export class AdltDocument implements vscode.Disposable {
                 }// todo else update?
 
                 let lcNode: TreeViewNode = { id: util.createUniqueId(), label: `LC:#${lc.id} #${lc.nr_msgs} `, parent: ecuNode, children: [], uri: this.uri, tooltip: undefined };
-                ecuNode.children.push(new LifecycleNode(this.uri.with({ fragment: "0" /*todo lc.startIndex.toString()*/ }), ecuNode, this.lifecycleTreeNode, lcInfo, i + 1));
+                ecuNode.children.push(new LifecycleNode(this.uri.with({ fragment: Number(lc.start_time / 1000n).toString() }), ecuNode, this.lifecycleTreeNode, lcInfo, i + 1));
             });
         });
         this._treeEventEmitter.fire(this.lifecycleTreeNode);
