@@ -17,6 +17,8 @@
 /// bugs:
 /// [ ] adding a 2nd report into an existing one doesn't seem to work (see todo requery in openReport)
 /// [ ] if the filter at start returns no data a text like DltProvider "...no messages match..." should be shown
+/// [ ] apidInfos for Add/Edit filter still empty.
+/// [ ] apidInfos based on msg collection missing (currently only on control LOG_INFO... msgs)
 
 /// [x] sort order support
 /// by default logs are sorted by timestamp. If the sort order is toggled the file is closed and reopened.
@@ -38,7 +40,7 @@ import { DltFilter, DltFilterType } from './dltFilter';
 import { DltReport, NewMessageSink, ReportDocument } from './dltReport';
 import { FilterableDltMsg, ViewableDltMsg, MSTP, MTIN_CTRL, MTIN_LOG, EAC, getEACFromIdx, getIdxFromEAC } from './dltParser';
 import { DltLifecycleInfoMinIF } from './dltLifecycle';
-import { TreeViewNode, FilterNode, LifecycleRootNode, LifecycleNode, FilterRootNode } from './dltTreeViewNodes';
+import { TreeViewNode, FilterNode, LifecycleRootNode, LifecycleNode, FilterRootNode, DynFilterNode } from './dltTreeViewNodes';
 
 import * as remote_types from './remote_types';
 import { DltDocument, ColumnConfig } from './dltDocument';
@@ -203,6 +205,11 @@ export class AdltDocument implements vscode.Disposable {
     // lifecycles:
     lifecycles = new Map<string, DltLifecycleInfoMinIF[]>();
     lifecyclesByPersistentId = new Map<number, DltLifecycleInfoMinIF>();
+
+    // apid/ctid infos:
+    // map for ecu -> map apid -> {apid, desc, ctids...}
+    apidInfos: Map<string, Map<string, { apid: string, desc: string, ctids: Map<string, string> }>> = new Map();
+    apidsNodes: Map<string, DynFilterNode> = new Map();
 
     // messages of current files:
     fileInfoNrMsgs = 0;
@@ -758,6 +765,7 @@ export class AdltDocument implements vscode.Disposable {
         }
     }
 
+    requestLogInfosTimer?: NodeJS.Timer;
     openAdltFiles() {
         // plugin configs:
         const pluginCfgs = JSON.stringify(this.pluginTreeNode.children.map(tr => (tr as AdltPlugin).options));
@@ -782,6 +790,8 @@ export class AdltDocument implements vscode.Disposable {
                 this._onDidLoad.fire(this.isLoaded);
             }
             this.startStream();
+            if (this.requestLogInfosTimer) { clearTimeout(this.requestLogInfosTimer); }
+            this.requestLogInfosTimer = setTimeout(() => this.requestLogInfos(), 1000);
         });
     }
 
@@ -795,6 +805,124 @@ export class AdltDocument implements vscode.Disposable {
         });
         return p;
     }
+
+    /**
+     * request all CTRL_MSGS respnse LOG_INFO to gather apid/ctids
+     */
+    requestLogInfos() {
+        let filters: DltFilter[] = [new DltFilter({ type: DltFilterType.POSITIVE, mstp: MSTP.TYPE_CONTROL, mtin: MTIN_CTRL.CONTROL_RESPONSE, verb_mstp_mtin: (MSTP.TYPE_CONTROL << 1) | (MTIN_CTRL.CONTROL_RESPONSE << 4) })];
+        // todo mtin, verb_mstp_mtin not supported yet... but adlt supports mstp and verb_mstp_mtin already and prefers this over mstp
+        let filterStr = filters.filter(f => f.enabled).map(f => JSON.stringify(f.asConfiguration())).join(',');
+
+        this.sendAndRecvAdltMsg(`stream {"window":[0,1000000], "binary":true, "filters":[${filterStr}]}`).then((response) => {
+            console.log(`adlt.on requestLogInfos(filterStr=${filterStr}) got response:'${response}'`);
+            const streamObj = JSON.parse(response.substring(11));
+            //console.log(`adtl ok:stream`, JSON.stringify(streamObj));
+            let streamMsgs: AdltMsg[] = [];
+
+            // here some data might be already there for that stream.
+            // this can happen even though the wss data arrives sequentially but the processing
+            // here for wss data is a direct call vs. an asyn .then()...
+
+            let curStreamMsgData = this.streamMsgs.get(streamObj.id);
+            const msg_regex = /\[get_log_info .*?\] (.*)/;
+            let streamData: StreamMsgData = {
+                msgs: streamMsgs, sink: {
+                    onNewMessages: (nrNewMsgs) => {
+                        // process nrNewMsgs in streamMsgs
+                        // and delete them then
+                        console.log(`adlt.requestLogInfos onNewMessages(${nrNewMsgs}) streamMsgs.length=${streamMsgs.length}`);
+                        let did_modify_apidInfos = false;
+                        for (let msg of streamMsgs) {
+                            let ecu = msg.ecu;
+                            let apidInfos = this.apidInfos.get(ecu);
+                            if (apidInfos === undefined) {
+                                apidInfos = new Map();
+                                this.apidInfos.set(ecu, apidInfos);
+                            }
+                            let matches = msg_regex.exec(msg.payloadString);
+                            if (matches && matches.length === 2) {
+
+                                let jsonApids = JSON.parse(matches[1]);
+                                if (jsonApids && Array.isArray(jsonApids) && jsonApids.length > 0) {
+                                    //console.warn(`adlt.requestLogInfos jsonApids=${JSON.stringify(jsonApids)}`);
+                                    // check apids/ctids for that ecu
+                                    for (let newApidInfo of jsonApids) {
+                                        let apid = newApidInfo.apid as string;
+                                        let existingInfo = apidInfos.get(apid);
+                                        if (existingInfo === undefined) {
+                                            let existingInfo = {
+                                                apid: apid,
+                                                desc: newApidInfo.desc || '',
+                                                ctids: new Map<string, string>(newApidInfo.ctids.map((c: { ctid: string, desc: string }) => [c.ctid, c.desc])),
+                                            };
+                                            apidInfos.set(apid, existingInfo);
+                                            did_modify_apidInfos = true;
+                                        } else {
+                                            // update
+                                            if (existingInfo.desc.length === 0 && newApidInfo.desc?.length > 0) {
+                                                existingInfo.desc = newApidInfo.desc;
+                                                did_modify_apidInfos = true;
+                                            }
+                                            // now iterate ctids:
+                                            for (let ctid of (newApidInfo.ctids as { ctid: string, desc: string }[])) {
+                                                let existingCtid = existingInfo.ctids.get(ctid.ctid);
+                                                if (existingCtid === undefined) {
+                                                    existingInfo.ctids.set(ctid.ctid, ctid.desc);
+                                                    did_modify_apidInfos = true;
+                                                } else {
+                                                    if (existingCtid.length === 0 && ctid.desc.length > 0) {
+                                                        existingInfo.ctids.set(ctid.ctid, ctid.desc);
+                                                        did_modify_apidInfos = true;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                        }
+                        if (did_modify_apidInfos) {
+
+                            // update apidsNodes...
+                            for (let [ecu, ecuApidsNode] of this.apidsNodes) {
+                                let apidInfo = this.apidInfos.get(ecu);
+                                if (apidInfo !== undefined) {
+                                    ecuApidsNode.label = `APIDs (${apidInfo.size}) / CTIDs`;
+                                    // update children:
+                                    // for now simply delete the existing ones:
+                                    ecuApidsNode.children.length = 0;
+                                    // add new ones:
+                                    for (let [apid, apidI] of apidInfo) {
+                                        const apidNode = new DynFilterNode(`'${apid}'(${apidI.ctids.size})${apidI.desc ? `: ${apidI.desc}` : ''}`, `desc='${apidI.desc || ''}', apid = 0x${Buffer.from(apid).toString("hex")}`, ecuApidsNode, undefined, { ecu: ecu, apid: apid, ctid: null, payload: null, payloadRegex: null, not: null, mstp: null, logLevelMin: null, logLevelMax: null, lifecycles: null }, this);
+                                        ecuApidsNode.children.push(apidNode);
+                                        // add ctids:
+                                        for (let [ctid, desc] of apidI.ctids) {
+                                            const ctidNode = new DynFilterNode(`'${ctid}'${desc ? `: ${desc} ` : ''}`, `desc='${desc}', ctid = 0x${Buffer.from(ctid).toString("hex")}`, apidNode, undefined, { ecu: ecu, apid: apid, ctid: ctid, payload: null, payloadRegex: null, not: null, mstp: null, logLevelMin: null, logLevelMax: null, lifecycles: null }, this);
+                                            apidNode.children.push(ctidNode);
+                                        }
+                                        apidNode.children.sort((a, b) => { return a.label.localeCompare(b.label); });
+                                    }
+                                    // sort children alpha
+                                    ecuApidsNode.children.sort((a, b) => { return a.label.localeCompare(b.label); });
+                                }
+                            }
+
+                            this._treeEventEmitter.fire(null);
+                        }
+                        streamMsgs.length = 0; // clear
+                    }
+                }
+            };
+            this.streamMsgs.set(streamObj.id, streamData);
+            if (curStreamMsgData && Array.isArray(curStreamMsgData)) {
+                // process the data now:
+                curStreamMsgData.forEach((msgs) => this.processBinDltMsgs(msgs, streamObj.id, streamData));
+            }
+        });
+    }
+
 
     stopStream() {
         if (this.streamId > 0) {
@@ -1318,6 +1446,14 @@ export class AdltDocument implements vscode.Disposable {
         ecus.forEach(ecu => {
             let ecuNode: TreeViewNode = { id: util.createUniqueId(), label: `ECU: ${ecu}`, parent: this.lifecycleTreeNode, children: [], uri: this.uri, tooltip: undefined };
             this.lifecycleTreeNode.children.push(ecuNode);
+
+            // get and or insert apidNode:
+            let apidNode = this.apidsNodes.get(ecu);
+            if (apidNode === undefined) {
+                apidNode = new DynFilterNode(`APIDs (unknown) / CTIDs`, undefined, ecuNode, `symbol-misc`, { ecu: ecu, apid: null, ctid: null, payload: null, payloadRegex: null, not: null, mstp: null, logLevelMin: null, logLevelMax: null, lifecycles: null }, this);
+                this.apidsNodes.set(ecu, apidNode);
+            }
+            ecuNode.children.push(apidNode);
 
             let sw: string[] = [];
             // add lifecycles for this ECU:

@@ -5,8 +5,6 @@
 import * as vscode from 'vscode';
 import { createUniqueId } from './util';
 import { DltFilter, DltFilterType } from './dltFilter';
-import { DltLifecycleInfo } from './dltLifecycle';
-import { DltDocument } from './dltDocument';
 
 export interface TreeViewNode {
     id: string; // unique id
@@ -247,6 +245,7 @@ export class ConfigNode implements TreeViewNode {
 
 export interface FilterableDocument {
     uri: vscode.Uri;
+    allFilters: DltFilter[];
     onFilterEdit(filter: DltFilter): boolean;
     onFilterDelete(filter: DltFilter, callTriggerApplyFilter?: boolean): boolean;
     onFilterAdd(filter: DltFilter, callTriggerApplyFilter?: boolean): boolean;
@@ -388,7 +387,7 @@ export class DynFilterNode implements TreeViewNode {
     iconPath?: vscode.ThemeIcon;
     get uri(): vscode.Uri | null { return this.doc.uri; }
 
-    constructor(public label: string, private _tooltip: string | undefined, public parent: TreeViewNode, icon: string | undefined, private filterFragment: any, private doc: DltDocument) {
+    constructor(public label: string, private _tooltip: string | undefined, public parent: TreeViewNode, icon: string | undefined, private filterFragment: any, private doc: FilterableDocument) {
         this.id = createUniqueId();
         if (icon) { this.iconPath = new vscode.ThemeIcon(icon); }
         //console.log(`DynFilterNode constr. with filterFragment=${JSON.stringify(filterFragment)}`);
