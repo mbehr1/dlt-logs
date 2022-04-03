@@ -1179,7 +1179,7 @@ export class AdltDocument implements vscode.Disposable {
         // then if not in range (or too close to edge) -> requery
         // and return the new line
         if (this.streamId > 0) {
-            return this.sendAndRecvAdltMsg(`search_stream ${this.streamId} time_ms=${date.valueOf()}`).then((response) => {
+            return this.sendAndRecvAdltMsg(`stream_binary_search ${this.streamId} time_ms=${date.valueOf()}`).then((response) => {
                 console.log(`adlt on seach_stream resp: ${response}`);
                 const responseObj = JSON.parse(response.substring(response.indexOf('=') + 1));
                 //console.warn(`adlt on seach_stream resp: ${JSON.stringify(responseObj)}`);
