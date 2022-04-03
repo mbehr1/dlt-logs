@@ -941,7 +941,7 @@ export class AdltDocument implements vscode.Disposable {
 
     startStream() {
         // start stream:
-        let filterStr = this.allFilters.filter(f => (f.type === DltFilterType.POSITIVE || f.type === DltFilterType.NEGATIVE) && f.enabled).map(f => JSON.stringify(f.asConfiguration())).join(',');
+        let filterStr = this.allFilters.filter(f => (f.type === DltFilterType.POSITIVE || f.type === DltFilterType.NEGATIVE) && f.enabled).map(f => JSON.stringify({ ...f.asConfiguration(), enabled: true })).join(','); // enabled is not updated/stored in config. so have to overwrite here
         let decFilters = this.allFilters.filter(f => f.type === DltFilterType.MARKER && f.enabled);
         this.sendAndRecvAdltMsg(`stream {"window":[${this._skipMsgs},${this._skipMsgs + this._maxNrMsgs}], "binary":true, "filters":[${filterStr}]}`).then((response) => {
             console.log(`adlt.on startStream got response:'${response}'`);
