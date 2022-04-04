@@ -6,7 +6,6 @@
 
 /// not mandatory for first release:
 /// [ ] opening of a stream (and support within reports)
-/// [ ] sw version info/support
 /// [ ] filetransfer support (in adlt)
 /// [ ] onDidChangeConfiguration
 /// [ ] timeSync support
@@ -15,7 +14,6 @@
 
 /// bugs:
 /// [ ] adding a 2nd report into an existing one doesn't seem to work (see todo requery in openReport)
-/// [ ] if the filter at start returns no data a text like DltProvider "...no messages match..." should be shown
 /// [ ] apidInfos based on msg collection missing (currently only on control LOG_INFO... msgs)
 
 /// [x] sort order support
@@ -954,6 +952,14 @@ export class AdltDocument implements vscode.Disposable {
             // empty all decorations
             this.clearDecorations();
 
+            // a timer that updates the text if no messages arrive (e.g. empty filter result)
+            let noMessagesTimer: NodeJS.Timeout | undefined = setTimeout(() => {
+                if (this.text.length === 0) {
+                    this.text = `<current filter (${this.allFilters.filter(f => (f.type === DltFilterType.POSITIVE || f.type === DltFilterType.NEGATIVE) && f.enabled).length}) lead to empty file>`;
+                    this.emitDocChanges.fire([{ type: vscode.FileChangeType.Changed, uri: doc.uri }]);
+                }
+            }, 1000);
+
             let viewMsgs = this.visibleMsgs;
             let doc = this;
             let sink: NewMessageSink = {
@@ -965,11 +971,14 @@ export class AdltDocument implements vscode.Disposable {
                     // process the nrNewMsgs
                     // calc the new text
                     // append text and trigger file changes
+                    if (noMessagesTimer) { clearTimeout(noMessagesTimer); noMessagesTimer = undefined; }
+
                     if (nrNewMsgs) { // todo depending on the amount of msgs add a progress!
+                        let isFirst = nrNewMsgs === viewMsgs.length;
                         DltDocument.textLinesForMsgs(doc._columns, viewMsgs, viewMsgs.length - nrNewMsgs, viewMsgs.length - 1, 8 /*todo*/, undefined).then((newTxt: string) => {
-                            doc.text += newTxt;
+                            if (isFirst) { doc.text = newTxt; } else { doc.text += newTxt; }
                             doc.emitDocChanges.fire([{ type: vscode.FileChangeType.Changed, uri: doc.uri }]);
-                            console.log(`adlt.onNewMessages(${nrNewMsgs}) triggered doc changes.`);
+                            console.log(`adlt.onNewMessages(${nrNewMsgs}, isFirst=${isFirst}) triggered doc changes.`);
                             // determine the new decorations:
                             for (let i = viewMsgs.length - nrNewMsgs; i < viewMsgs.length - 1; ++i) {
                                 let msg = viewMsgs[i];
