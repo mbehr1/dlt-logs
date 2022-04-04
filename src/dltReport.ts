@@ -28,6 +28,7 @@ export interface ReportDocument {
     provideTimeByMsg(msg: FilterableDltMsg): Date | undefined;
     lineCloseToDate(date: Date): Promise<number>;
     textEditors: Array<vscode.TextEditor>;
+    ecuApidInfosMap?: Map<string, Map<string, { apid: string, desc: string, ctids: Map<string, string> }>>;
     lifecycles: Map<string, DltLifecycleInfoMinIF[]>;
     fileInfoNrMsgs: number;
 }

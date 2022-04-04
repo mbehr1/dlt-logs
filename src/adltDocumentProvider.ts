@@ -6,7 +6,6 @@
 
 /// not mandatory for first release:
 /// [ ] opening of a stream (and support within reports)
-/// [ ] apid/ctid tree view (and hover)
 /// [ ] sw version info/support
 /// [ ] filetransfer support (in adlt)
 /// [ ] onDidChangeConfiguration
@@ -17,7 +16,6 @@
 /// bugs:
 /// [ ] adding a 2nd report into an existing one doesn't seem to work (see todo requery in openReport)
 /// [ ] if the filter at start returns no data a text like DltProvider "...no messages match..." should be shown
-/// [ ] apidInfos for Add/Edit filter still empty.
 /// [ ] apidInfos based on msg collection missing (currently only on control LOG_INFO... msgs)
 
 /// [x] sort order support
@@ -69,7 +67,6 @@ class AdltLifecycleInfo implements DltLifecycleInfoMinIF {
     startTime: number; // in ms
     endTime: number; // in ms
     swVersion?: string;
-    apidInfos: Map<string, { apid: string, desc: string, ctids: Map<string, string> }> = new Map(); // todo
 
     constructor(binLc: remote_types.BinLifecycle) {
         this.ecu = char4U32LeToString(binLc.ecu);
@@ -208,7 +205,11 @@ export class AdltDocument implements vscode.Disposable {
 
     // apid/ctid infos:
     // map for ecu -> map apid -> {apid, desc, ctids...}
-    apidInfos: Map<string, Map<string, { apid: string, desc: string, ctids: Map<string, string> }>> = new Map();
+    /**
+     * map with apidInfos (apid, desc, ctids <ctid, desc>) by ecu name
+     * ecu -> map apid -> {apid, desc, ctids -> desc}
+     */
+    ecuApidInfosMap: Map<string, Map<string, { apid: string, desc: string, ctids: Map<string, string> }>> = new Map();
     apidsNodes: Map<string, DynFilterNode> = new Map();
 
     // messages of current files:
@@ -835,10 +836,10 @@ export class AdltDocument implements vscode.Disposable {
                         let did_modify_apidInfos = false;
                         for (let msg of streamMsgs) {
                             let ecu = msg.ecu;
-                            let apidInfos = this.apidInfos.get(ecu);
+                            let apidInfos = this.ecuApidInfosMap.get(ecu);
                             if (apidInfos === undefined) {
                                 apidInfos = new Map();
-                                this.apidInfos.set(ecu, apidInfos);
+                                this.ecuApidInfosMap.set(ecu, apidInfos);
                             }
                             let matches = msg_regex.exec(msg.payloadString);
                             if (matches && matches.length === 2) {
@@ -887,7 +888,7 @@ export class AdltDocument implements vscode.Disposable {
 
                             // update apidsNodes...
                             for (let [ecu, ecuApidsNode] of this.apidsNodes) {
-                                let apidInfo = this.apidInfos.get(ecu);
+                                let apidInfo = this.ecuApidInfosMap.get(ecu);
                                 if (apidInfo !== undefined) {
                                     ecuApidsNode.label = `APIDs (${apidInfo.size}) / CTIDs`;
                                     // update children:
@@ -1368,13 +1369,11 @@ export class AdltDocument implements vscode.Disposable {
 
         let apidDesc = '';
         let ctidDesc = '';
-        if (msg.lifecycle !== undefined) {
-            const apidInfos = msg.lifecycle.apidInfos.get(msg.apid); // todo might get this from all lifecycles...
-            if (apidInfos !== undefined) {
-                apidDesc = `: ${util.escapeMarkdown(apidInfos.desc)}`;
-                const ctidInfo = apidInfos.ctids.get(msg.ctid);
-                if (ctidInfo !== undefined) { ctidDesc = `: ${util.escapeMarkdown(ctidInfo)}`; }
-            }
+        const apidInfos = this.ecuApidInfosMap.get(msg.ecu)?.get(msg.apid);
+        if (apidInfos !== undefined) {
+            apidDesc = `: ${util.escapeMarkdown(apidInfos.desc)}`;
+            const ctidInfo = apidInfos.ctids.get(msg.ctid);
+            if (ctidInfo !== undefined) { ctidDesc = `: ${util.escapeMarkdown(ctidInfo)}`; }
         }
         mdString.appendMarkdown(`| calculated time | ${util.escapeMarkdown(posTime.toLocaleTimeString())}.${String(posTime.valueOf() % 1000).padStart(3, "0")}|\n| :--- | :--- |\n` +
             `| lifecycle | ${util.escapeMarkdown(msg.lifecycle?.getTreeNodeLabel())}|\n` +

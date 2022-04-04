@@ -16,7 +16,7 @@ export interface DltLifecycleInfoMinIF {
     getTreeNodeLabel(): string,
     tooltip: string,
     swVersions: string[],
-    apidInfos: Map<string, { apid: string, desc: string, ctids: Map<string, string> }>;
+    apidInfos?: Map<string, { apid: string, desc: string, ctids: Map<string, string> }>;
     nrMsgs: number,
     logMessages?: DltMsg[],
 }

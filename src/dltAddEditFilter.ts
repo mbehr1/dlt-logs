@@ -107,19 +107,39 @@ export function editFilter(doc: FilterableDocument & ReportDocument, newFilter: 
         // step 2: APIDs:
         let apidSet = new Map<string, string>();
         let ctidSet = new Map<string, { desc: string, apids: string[] }>();
-        doc.lifecycles.forEach(lI => lI.forEach(l => {
-            l.apidInfos.forEach((v, k) => {
-                if (!apidSet.has(k)) { apidSet.set(k, v.desc); }
-                // ctids we store as ctid, desc, apids[]
-                v.ctids.forEach((desc, ctid) => {
-                    if (!ctidSet.has(ctid)) { ctidSet.set(ctid, { desc: desc, apids: [k] }); } else {
-                        // do we have this apid yet?
-                        const ctInfo = ctidSet.get(ctid);
-                        if (ctInfo && !ctInfo.apids.includes(k)) { ctInfo.apids.push(k); }
-                    }
+
+        // prefill from document if available:
+        if (doc.ecuApidInfosMap !== undefined) {
+            for (let [ecu, apidInfos] of doc.ecuApidInfosMap) {
+                apidInfos.forEach((v, apid) => {
+                    if (!apidSet.has(apid)) { apidSet.set(apid, v.desc); }
+                    // ctids we store as ctid, desc, apids[]
+                    v.ctids.forEach((desc, ctid) => {
+                        if (!ctidSet.has(ctid)) { ctidSet.set(ctid, { desc: desc, apids: [apid] }); } else {
+                            // do we have this apid yet?
+                            const ctInfo = ctidSet.get(ctid);
+                            if (ctInfo && !ctInfo.apids.includes(apid)) { ctInfo.apids.push(apid); }
+                        }
+                    });
                 });
-            });
-        }));
+            }
+        } else { // prefill from the lifecycles
+            doc.lifecycles.forEach(lI => lI.forEach(l => {
+                if (l.apidInfos !== undefined) {
+                    l.apidInfos.forEach((v, k) => {
+                        if (!apidSet.has(k)) { apidSet.set(k, v.desc); }
+                        // ctids we store as ctid, desc, apids[]
+                        v.ctids.forEach((desc, ctid) => {
+                            if (!ctidSet.has(ctid)) { ctidSet.set(ctid, { desc: desc, apids: [k] }); } else {
+                                // do we have this apid yet?
+                                const ctInfo = ctidSet.get(ctid);
+                                if (ctInfo && !ctInfo.apids.includes(k)) { ctInfo.apids.push(k); }
+                            }
+                        });
+                    });
+                }
+            }));
+        }
 
         let apids: PickItem[] = [];
         apidSet.forEach((desc, apid) => {

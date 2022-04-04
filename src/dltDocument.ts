@@ -1218,7 +1218,7 @@ export class DltDocument {
             let apidDesc = '';
             let ctidDesc = '';
             if (msg.lifecycle !== undefined) {
-                const apidInfos = msg.lifecycle.apidInfos.get(msg.apid); // todo might get this from all lifecycles...
+                const apidInfos = msg.lifecycle.apidInfos?.get(msg.apid); // todo might get this from all lifecycles...
                 if (apidInfos !== undefined) {
                     apidDesc = `: ${util.escapeMarkdown(apidInfos.desc)}`;
                     const ctidInfo = apidInfos.ctids.get(msg.ctid);
