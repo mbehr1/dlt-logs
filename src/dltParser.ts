@@ -100,6 +100,8 @@ export interface FilterableDltMsg {
     verbose: boolean;
     payloadString: string;
     lifecycle?: DltLifecycleInfoMinIF;
+
+    asRestObject(idHint: number): RestObject;
 }
 
 export interface ViewableDltMsg extends FilterableDltMsg {
