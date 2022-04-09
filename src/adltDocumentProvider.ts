@@ -66,7 +66,7 @@ class AdltLifecycleInfo implements DltLifecycleInfoMinIF {
     endTime: number; // in ms
     swVersion?: string;
 
-    constructor(binLc: remote_types.BinLifecycle) {
+    constructor(binLc: remote_types.BinLifecycle, public decorationType?: vscode.TextEditorDecorationType) {
         this.ecu = char4U32LeToString(binLc.ecu);
         this.id = binLc.id;
         this.nrMsgs = binLc.nr_msgs;
@@ -205,6 +205,7 @@ export class AdltDocument implements vscode.Disposable {
 
     private streamId: number = 0; // 0 none, neg stop in progress. stream for the messages that reflect the main log/view
     private visibleMsgs?: AdltMsg[]; // the array with the msgs that should be shown. set on startStream and cleared on stopStream
+    private visibleLcs?: DltLifecycleInfoMinIF[]; // array with the visible lc persistent ids
     private _maxNrMsgs: number; //  setting 'dlt-logs.maxNumberLogs'. That many messages are displayed at once
     private _skipMsgs: number = 0; // that many messages are skipped from the top (here not loaded for cur streamId)
 
@@ -269,17 +270,17 @@ export class AdltDocument implements vscode.Disposable {
     get onDidLoad() { return this._onDidLoad.event; }
 
     processBinDltMsgs(msgs: remote_types.BinDltMsg[], streamId: number, streamData: StreamMsgData) {
-        for (let i = 0; i < msgs.length; ++i) {
-            let binMsg = msgs[i];
-
-            let msg = new AdltMsg(binMsg, this.lifecycleInfoForPersistentId(binMsg.lifecycle_id));
-            streamData.msgs.push(msg);
-        }
         if (msgs.length === 0) { // indicates end of query:
             if (streamData.sink.onDone) { streamData.sink.onDone(); }
             this.streamMsgs.delete(streamId);
             // console.log(`adlt.processBinDltMsgs deleted stream #${streamId}`);
         } else {
+            for (let i = 0; i < msgs.length; ++i) {
+                let binMsg = msgs[i];
+
+                let msg = new AdltMsg(binMsg, this.lifecycleInfoForPersistentId(binMsg.lifecycle_id));
+                streamData.msgs.push(msg);
+            }
             if (streamData.sink.onNewMessages) { streamData.sink.onNewMessages(msgs.length); }
         }
     }
@@ -682,6 +683,7 @@ export class AdltDocument implements vscode.Disposable {
 
         if (filter.decorationId) { let dec = this._decorationTypes.get(filter.decorationId); if (!dec) { return undefined; } else { [dec, mdHoverText]; } };
         // now we assume at least a filterColour:
+        if (!filter.filterColour) { return undefined; }
         const decFilterName = `filterColour_${filter.filterColour}`;
         let dec = this._decorationTypes.get(decFilterName);
         if (dec) { return [dec, mdHoverText]; }
@@ -961,6 +963,7 @@ export class AdltDocument implements vscode.Disposable {
             let oldStreamId = this.streamId;
             this.streamId = -this.streamId;
             this.visibleMsgs = undefined;
+            this.visibleLcs = undefined;;
             return this.sendAndRecvAdltMsg(`stop ${oldStreamId}`).then((text) => {
                 console.log(`adlt on stop resp: ${text}`);
                 // todo verify streamId?
@@ -981,6 +984,7 @@ export class AdltDocument implements vscode.Disposable {
             this.streamId = streamObj.id;
             this.text = "";
             this.visibleMsgs = [];
+            this.visibleLcs = [];
             // empty all decorations
             this.clearDecorations();
 
@@ -993,6 +997,7 @@ export class AdltDocument implements vscode.Disposable {
             }, 1000);
 
             let viewMsgs = this.visibleMsgs;
+            let visibleLcs = this.visibleLcs;
             let doc = this;
             let sink: NewMessageSink = {
                 onDone() {
@@ -1007,13 +1012,33 @@ export class AdltDocument implements vscode.Disposable {
 
                     if (nrNewMsgs) { // todo depending on the amount of msgs add a progress!
                         let isFirst = nrNewMsgs === viewMsgs.length;
-                        DltDocument.textLinesForMsgs(doc._columns, viewMsgs, viewMsgs.length - nrNewMsgs, viewMsgs.length - 1, 8 /*todo*/, undefined).then((newTxt: string) => {
+                        let viewMsgsLength = viewMsgs.length;
+                        DltDocument.textLinesForMsgs(doc._columns, viewMsgs, viewMsgsLength - nrNewMsgs, viewMsgsLength - 1, 8 /*todo*/, undefined).then((newTxt: string) => {
                             if (isFirst) { doc.text = newTxt; } else { doc.text += newTxt; }
                             doc.emitDocChanges.fire([{ type: vscode.FileChangeType.Changed, uri: doc.uri }]);
                             console.log(`adlt.onNewMessages(${nrNewMsgs}, isFirst=${isFirst}) triggered doc changes.`);
                             // determine the new decorations:
-                            for (let i = viewMsgs.length - nrNewMsgs; i < viewMsgs.length - 1; ++i) {
+                            let lastLc: DltLifecycleInfoMinIF | undefined = undefined;
+                            let newLcs: [DltLifecycleInfoMinIF, number][] = [];
+                            let endOfLcs: Map<DltLifecycleInfoMinIF, number> = new Map();
+                            let updatedLcs: Map<string, DltLifecycleInfoMinIF> = new Map(); // per ecu only one can be updated
+                            for (let i = viewMsgsLength - nrNewMsgs; i < viewMsgsLength - 1; ++i) {
                                 let msg = viewMsgs[i];
+                                if (msg.lifecycle !== lastLc) {
+                                    let lc: DltLifecycleInfoMinIF | undefined = msg.lifecycle;
+                                    if (lc) {
+                                        // its either a new lc or an updated one:
+                                        if (visibleLcs.includes(lc)) {
+                                            // was already included
+                                            if (!updatedLcs.has(msg.ecu)) { updatedLcs.set(msg.ecu, lc); }
+                                        } else {
+                                            // new one, will be included to visibleLcs later
+                                            if (newLcs.findIndex(([a,]) => a === lc) < 0) { newLcs.push([lc, i]); }
+                                        }
+                                    }
+                                    if (lastLc) { endOfLcs.set(lastLc, i - 1); }
+                                    lastLc = lc;
+                                }
                                 let decs: [vscode.TextEditorDecorationType, vscode.MarkdownString][] = [];
 
                                 if (msg.mstp === MSTP.TYPE_LOG) {
@@ -1021,7 +1046,7 @@ export class AdltDocument implements vscode.Disposable {
                                         decs.push([doc.decWarning, doc.mdWarning]);
                                     } else if (doc.decError && msg.mtin === MTIN_LOG.LOG_ERROR) {
                                         decs.push([doc.decError, doc.mdError]);
-                                    } else if (doc.decFatal && msg.mtin === MTIN_LOG.LOG_ERROR) {
+                                    } else if (doc.decFatal && msg.mtin === MTIN_LOG.LOG_FATAL) {
                                         decs.push([doc.decFatal, doc.mdFatal]);
                                     }
                                 }
@@ -1047,6 +1072,43 @@ export class AdltDocument implements vscode.Disposable {
                                         }
                                         options.push({ range: new vscode.Range(i, 0, i, 21), hoverMessage: dec[1] });
                                     }
+                                }
+                            }
+                            if (lastLc) { endOfLcs.set(lastLc, viewMsgsLength - 1); }
+                            if (updatedLcs.size > 0) {
+                                // update decoration end time
+                                for (let lc of updatedLcs.values()) {
+                                    //console.warn(`adlt.decorating updating lc ${lc.persistentId}`);
+                                    // find dec
+                                    if (lc.decorationType !== undefined) {
+                                        let decs = doc.decorations.get(lc.decorationType) || [];
+                                        for (let idx = decs.length - 1; idx >= 0; idx--) {
+                                            let dec = decs[idx] as any; // todo vscode.DecorationOptions + DltLifecycleInfoMinIF;
+                                            if (dec._lc === lc) {
+                                                let endLine = endOfLcs.get(lc) || dec.range.start.line;
+                                                let oldRange = dec.range;
+                                                dec.range = new vscode.Range(dec.range.start.line, dec.range.start.character, endLine, dec.range.end.character);
+                                                //console.warn(`adlt.decorating updating lc ${lc.persistentId} old=${oldRange.start.line}-${oldRange.end.line} new=${dec.range.start.line}-${dec.range.end.line}`);
+                                                dec.hoverMessage = `LC ${lc.getTreeNodeLabel()}`;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            if (newLcs.length > 0) {
+                                // add new decoration for those lcs
+                                for (let [newLc, startLine] of newLcs) {
+                                    if (newLc.decorationType !== undefined) {
+                                        let decs = doc.decorations.get(newLc.decorationType);
+                                        if (decs === undefined) { decs = []; doc.decorations.set(newLc.decorationType, decs); }
+                                        let endLine = endOfLcs.get(newLc) || startLine;
+                                        if (endLine < startLine) { endLine = startLine; }
+                                        //console.info(`adlt.decorating lc ${newLc.persistentId} ${startLine}-${endLine}`);
+                                        const dec = { _lc: newLc, range: new vscode.Range(startLine, 0, endLine, 21), hoverMessage: `LC ${newLc.getTreeNodeLabel()}` };
+                                        decs.push(dec);
+                                    }
+                                    visibleLcs.push(newLc);
                                 }
                             }
                         });
@@ -1469,21 +1531,36 @@ export class AdltDocument implements vscode.Disposable {
         this.lifecycleTreeNode.children = [];// .reset();
 
         // determine ECUs:
-        let ecus: string[] = [];
+        let msgsByEcu: Map<string, number> = new Map();
         lifecycles.forEach(lc => {
             let ecuStr = char4U32LeToString(lc.ecu);
-            if (!ecus.includes(ecuStr)) { ecus.push(ecuStr); }
+            let msgs = msgsByEcu.get(ecuStr);
+            msgsByEcu.set(ecuStr, (msgs || 0) + lc.nr_msgs);
             if (!this.lifecycles.has(ecuStr)) { this.lifecycles.set(ecuStr, []); }
         });
         // remove the ones that dont exist any more
         let ecusRemoved: string[] = [];
         this.lifecycles.forEach((lcInfo, ecu) => {
-            if (!ecus.includes(ecu)) { ecusRemoved.push(ecu); }
+            if (!msgsByEcu.has(ecu)) { ecusRemoved.push(ecu); }
         });
 
         let usedLcIds: number[] = [];
 
-        ecus.forEach(ecu => {
+        let lcDecos = [this._decorationTypes.get("lifecycleEven"), this._decorationTypes.get("lifecycleOdd")];
+
+        // determine ecu with max nr msgs:
+        let maxEcu: string | undefined;
+        let maxNrMsgs = -1;
+        for (let [ecu, nrMsgs] of msgsByEcu) {
+            if (nrMsgs > maxNrMsgs) {
+                maxEcu = ecu;
+                maxNrMsgs = nrMsgs;
+            }
+        }
+        console.log(`adlt.processLifecycleUpdates using ecu ${maxEcu} with ${maxNrMsgs} for lifecycle decoration`);
+
+        for (let [ecu,] of msgsByEcu) {
+            let isMaxNrMsgsEcu = ecu === maxEcu;
             let ecuNode: TreeViewNode = { id: util.createUniqueId(), label: `ECU: ${ecu}`, parent: this.lifecycleTreeNode, children: [], uri: this.uri, tooltip: undefined };
             this.lifecycleTreeNode.children.push(ecuNode);
 
@@ -1503,17 +1580,18 @@ export class AdltDocument implements vscode.Disposable {
                 let lcInfo = this.lifecyclesByPersistentId.get(persistentId);
                 let lcInfos = this.lifecycles.get(ecu);
                 if (lcInfo === undefined) {
-                    lcInfo = new AdltLifecycleInfo(lc);
+                    // we decorate only the lifecycles for the ECU with the max. nr of msgs
+                    lcInfo = new AdltLifecycleInfo(lc, isMaxNrMsgsEcu ? lcDecos[(i + 1) % 2] : undefined);
                     this.lifecyclesByPersistentId.set(persistentId, lcInfo);
                     lcInfos?.push(lcInfo);
                 }// todo else update?
 
-                let lcNode: TreeViewNode = { id: util.createUniqueId(), label: `LC:#${lc.id} #${lc.nr_msgs} `, parent: ecuNode, children: [], uri: this.uri, tooltip: undefined };
+                // let lcNode: TreeViewNode = { id: util.createUniqueId(), label: `LC:#${lc.id} #${lc.nr_msgs} `, parent: ecuNode, children: [], uri: this.uri, tooltip: undefined };
                 ecuNode.children.push(new LifecycleNode(this.uri.with({ fragment: Number(lc.start_time / 1000n).toString() }), ecuNode, this.lifecycleTreeNode, lcInfo, i + 1));
                 if (lc.sw_version && !sw.includes(lc.sw_version)) { sw.push(lc.sw_version); }
             });
             ecuNode.label = `ECU: ${ecu}, SW${sw.length > 1 ? `(${sw.length}): ` : `: `} ${sw.join(' and ')}`;
-        });
+        }
         this._treeEventEmitter.fire(this.lifecycleTreeNode);
 
         // remove the lifecycles that are not needed anymore:

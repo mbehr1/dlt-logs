@@ -2,7 +2,7 @@
  * Copyright(C) Matthias Behr.
  */
 
-// import * as vscode from 'vscode';
+import * as vscode from 'vscode';
 import * as assert from 'assert';
 import { DltParser, DltMsg, MSTP, MTIN_CTRL, CTRL_SERVICE_ID } from './dltParser';
 
@@ -19,6 +19,7 @@ export interface DltLifecycleInfoMinIF {
     apidInfos?: Map<string, { apid: string, desc: string, ctids: Map<string, string> }>;
     nrMsgs: number,
     logMessages?: DltMsg[],
+    decorationType?: vscode.TextEditorDecorationType
 }
 
 export class DltLifecycleInfo implements DltLifecycleInfoMinIF {
