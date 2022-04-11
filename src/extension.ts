@@ -587,10 +587,10 @@ export function activate(context: vscode.ExtensionContext) {
 					});
 				}
 			}
-			if (!doc) { // fallback to prev. method. which is ok for one doc, but not for mult....
-				// if (this._documents.size > 1) { console.warn(`DltDocumentProvider.restQuery: you're using a deprecated method to access documents! Please only refer to visible documents!`); }
+			if (!doc) { // use the ones sorted by last used time
 				let documents = [...dltProvider._documents.values(), ...adltProvider._documents.values()];
 				if (docIdx >= 0 && docIdx < documents.length) {
+					documents.sort((a, b) => b.lastUpdatedStatusBar - a.lastUpdatedStatusBar);
 					doc = documents[docIdx];
 				}
 			}

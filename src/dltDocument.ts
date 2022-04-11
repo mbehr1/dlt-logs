@@ -1106,7 +1106,12 @@ export class DltDocument {
         return this.renderLines(this._skipMsgs, progress);
     }
 
+    /// the last time updateStatusBar has been called.
+    /// this is used as well to determine which document to use for restQuery if none is visible
+    lastUpdatedStatusBar: number = 0;
+
     updateStatusBarItem(item: vscode.StatusBarItem) {
+        this.lastUpdatedStatusBar = Date.now();
         item.text = this.filteredMsgs !== undefined ? `${this.filteredMsgs.length}/${this.msgs.length} msgs` : `${this.msgs.length} msgs`;
         let nrEnabledFilters: number = 0;
         this.allFilters.forEach(filter => {

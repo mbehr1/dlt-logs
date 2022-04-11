@@ -1559,7 +1559,12 @@ export class AdltDocument implements vscode.Disposable {
         return new vscode.Hover(mdString);
     }
 
+    /// the last time updateStatusBar has been called.
+    /// this is used as well to determine which document to use for restQuery if none is visible
+    lastUpdatedStatusBar: number = 0;
+
     updateStatusBarItem(item: vscode.StatusBarItem) {
+        this.lastUpdatedStatusBar = Date.now();
         if (this.webSocketIsConnected) {
             item.text = this.visibleMsgs !== undefined && this.visibleMsgs.length !== this.fileInfoNrMsgs ? `${this.visibleMsgs.length}/${this.fileInfoNrMsgs} msgs` : `${this.fileInfoNrMsgs} msgs`;
             let nrEnabledFilters: number = 0;
