@@ -341,12 +341,18 @@ export class LifecycleRootNode implements TreeViewNode {
     }
 }
 
+export interface EcuNode extends TreeViewNode {
+    swVersions: string[];
+    /// decorations for even/odd lifecycles (if any)
+    lcDecorationTypes?: [vscode.TextEditorDecorationType | undefined, vscode.TextEditorDecorationType | undefined]
+}
+
 export class LifecycleNode implements TreeViewNode {
     id: string;
     label: string;
     tooltip: string | undefined;
     get children(): TreeViewNode[] { return []; } // no children 
-    constructor(public uri: vscode.Uri | null, public parent: TreeViewNode,
+    constructor(public uri: vscode.Uri | null, public parent: EcuNode,
         private lcRootNode: LifecycleRootNode, private lc: FilterableLifecycleInfo, private lcNr: number) {
         this.id = createUniqueId();
         this.label = `LC#${lcNr}: ${lc.getTreeNodeLabel()}`;

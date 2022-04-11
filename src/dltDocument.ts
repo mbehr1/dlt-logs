@@ -10,7 +10,7 @@ import * as util from './util';
 import { DltParser, DltMsg, MSTP, MTIN_LOG, MTIN_CTRL, MTIN_CTRL_strs, MTIN_LOG_strs, MTIN_TRACE_strs, MTIN_NW_strs, ViewableDltMsg } from './dltParser';
 import { DltLifecycleInfo } from './dltLifecycle';
 import { TimeSyncData } from './dltDocumentProvider';
-import { TreeViewNode, ConfigNode, FilterRootNode, FilterNode, LifecycleNode, LifecycleRootNode, DynFilterNode } from './dltTreeViewNodes';
+import { TreeViewNode, ConfigNode, FilterRootNode, FilterNode, LifecycleNode, LifecycleRootNode, DynFilterNode, EcuNode } from './dltTreeViewNodes';
 import { DltFilter, DltFilterType } from './dltFilter';
 import TelemetryReporter from 'vscode-extension-telemetry';
 import { DltFileTransferPlugin } from './dltFileTransfer';
@@ -1748,7 +1748,7 @@ export class DltDocument {
             // determine SW names:
             let sw: string[] = [];
             lcInfo.forEach(lc => lc.swVersions.forEach(lsw => { if (!sw.includes(lsw)) { sw.push(lsw); } }));
-            let ecuNode: TreeViewNode = { id: util.createUniqueId(), label: `ECU: ${ecu}, SW${sw.length > 1 ? `(${sw.length}):` : `:`} ${sw.join(' and ')}`, parent: this.lifecycleTreeNode, children: [], uri: this.uri, tooltip: undefined };
+            let ecuNode: EcuNode = { id: util.createUniqueId(), swVersions: sw, label: `ECU: ${ecu}, SW${sw.length > 1 ? `(${sw.length}):` : `:`} ${sw.join(' and ')}`, parent: this.lifecycleTreeNode, children: [], uri: this.uri, tooltip: undefined };
             this.lifecycleTreeNode.children.push(ecuNode);
             //console.log(`${ecuNode.label}`);
             // we do add one node with the APIDs/CTIDs:

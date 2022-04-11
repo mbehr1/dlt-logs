@@ -5,6 +5,8 @@
 import * as vscode from 'vscode';
 import * as assert from 'assert';
 import { DltParser, DltMsg, MSTP, MTIN_CTRL, CTRL_SERVICE_ID } from './dltParser';
+import { LifecycleNode } from './dltTreeViewNodes';
+
 
 let _nextLcUniqueId = 1;
 
@@ -19,7 +21,8 @@ export interface DltLifecycleInfoMinIF {
     apidInfos?: Map<string, { apid: string, desc: string, ctids: Map<string, string> }>;
     nrMsgs: number,
     logMessages?: DltMsg[],
-    decorationType?: vscode.TextEditorDecorationType
+    decorationType?: vscode.TextEditorDecorationType,
+    node?: LifecycleNode,
 }
 
 export class DltLifecycleInfo implements DltLifecycleInfoMinIF {
