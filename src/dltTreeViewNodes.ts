@@ -353,9 +353,9 @@ export class LifecycleNode implements TreeViewNode {
     tooltip: string | undefined;
     get children(): TreeViewNode[] { return []; } // no children 
     constructor(public uri: vscode.Uri | null, public parent: EcuNode,
-        private lcRootNode: LifecycleRootNode, private lc: FilterableLifecycleInfo, private lcNr: number) {
+        private lcRootNode: LifecycleRootNode, private lc: FilterableLifecycleInfo, private lcNr: number | undefined) {
         this.id = createUniqueId();
-        this.label = `LC#${lcNr}: ${lc.getTreeNodeLabel()}`;
+        this.label = lcNr !== undefined ? `LC#${lcNr}: ${lc.getTreeNodeLabel()}` : `LC${lc.getTreeNodeLabel()}`;
         this.tooltip = lc.tooltip;
     }
 

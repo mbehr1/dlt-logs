@@ -79,7 +79,7 @@ class AdltLifecycleInfo implements DltLifecycleInfoMinIF {
         this.swVersion = binLc.sw_version;
         //this.binLc = binLc;
         this.ecuLcNr = ecuNode.children.length;
-        this.node = new LifecycleNode(uri.with({ fragment: this.startTime.toString() }), ecuNode, lcRootNode, this, this.ecuLcNr);
+        this.node = new LifecycleNode(uri.with({ fragment: this.startTime.toString() }), ecuNode, lcRootNode, this, undefined);
         ecuNode.children.push(this.node);
         if (this.swVersion !== undefined) {
             if (!ecuNode.swVersions.includes(this.swVersion)) {
@@ -88,7 +88,7 @@ class AdltLifecycleInfo implements DltLifecycleInfoMinIF {
             }
         }
         if (ecuNode.lcDecorationTypes !== undefined) {
-            this.decorationType = ecuNode.lcDecorationTypes[this.ecuLcNr % 2];
+            this.decorationType = ecuNode.lcDecorationTypes[(this.ecuLcNr + 1) % 2];
         }
     }
 
@@ -98,7 +98,7 @@ class AdltLifecycleInfo implements DltLifecycleInfoMinIF {
         this.endTime = Number(binLc.end_time / 1000n); // end time in ms
         this.swVersion = binLc.sw_version; // todo update parent ecuNode if changed
         // update node (todo refactor)
-        this.node.label = `LC#${this.ecuLcNr}: ${this.getTreeNodeLabel()}`;
+        this.node.label = `LC${this.getTreeNodeLabel()}`;
         // fire if we did update
         eventEmitter.fire(this.node);
     }
@@ -116,7 +116,7 @@ class AdltLifecycleInfo implements DltLifecycleInfoMinIF {
     }
 
     getTreeNodeLabel(): string {
-        return `${this.lifecycleStart.toLocaleString()}-${this.lifecycleEnd.toLocaleTimeString()} #${this.nrMsgs}`;
+        return `#${this.ecuLcNr}: ${this.lifecycleStart.toLocaleString()}-${this.lifecycleEnd.toLocaleTimeString()} #${this.nrMsgs}`;
     }
 
     get tooltip(): string {
@@ -1149,7 +1149,7 @@ export class AdltDocument implements vscode.Disposable {
                                                 let oldRange = dec.range;
                                                 dec.range = new vscode.Range(dec.range.start.line, dec.range.start.character, endLine, dec.range.end.character);
                                                 //console.warn(`adlt.decorating updating lc ${lc.persistentId} old=${oldRange.start.line}-${oldRange.end.line} new=${dec.range.start.line}-${dec.range.end.line}`);
-                                                dec.hoverMessage = `LC ${lc.getTreeNodeLabel()}`;
+                                                dec.hoverMessage = `LC${lc.getTreeNodeLabel()}`;
                                                 break;
                                             }
                                         }
