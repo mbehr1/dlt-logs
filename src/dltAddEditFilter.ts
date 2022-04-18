@@ -114,7 +114,7 @@ export function editFilter(doc: FilterableDocument & ReportDocument, newFilter: 
                 apidInfos.forEach((v, apid) => {
                     if (!apidSet.has(apid)) { apidSet.set(apid, v.desc); }
                     // ctids we store as ctid, desc, apids[]
-                    v.ctids.forEach((desc, ctid) => {
+                    v.ctids.forEach(([desc, nrMsgs], ctid) => {
                         if (!ctidSet.has(ctid)) { ctidSet.set(ctid, { desc: desc, apids: [apid] }); } else {
                             // do we have this apid yet?
                             const ctInfo = ctidSet.get(ctid);

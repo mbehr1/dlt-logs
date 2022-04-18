@@ -19,6 +19,7 @@ import { DltFilter } from './dltFilter';
 import { addFilter, editFilter, deleteFilter } from './dltAddEditFilter';
 import * as util from './util';
 import * as path from 'path';
+import { DltLifecycleInfo, DltLifecycleInfoMinIF } from './dltLifecycle';
 
 // import { DltLogCustomReadonlyEditorProvider } from './dltCustomEditorProvider';
 
@@ -772,18 +773,18 @@ export function activate(context: vscode.ExtensionContext) {
 		});
 		if (paths.length === 3) { // .../ecus
 			const arrRes: Object[] = [];
-			doc.lifecycles.forEach((lcInfo, ecu) => {
+			doc.lifecycles.forEach((lcInfo: DltLifecycleInfo[] | DltLifecycleInfoMinIF[], ecu: string) => {
 				if (!ecuNameFilter || ecuNameFilter === ecu) {
 					const resObj: { type: string, id: string, attributes?: Object } =
 						{ type: "ecus", id: encodeURIComponent(ecu) };
 
 					// determine SW names:
 					let sw: string[] = [];
-					lcInfo.forEach(lc => lc.swVersions.forEach(lsw => { if (!sw.includes(lsw)) { sw.push(lsw); } }));
+					lcInfo.forEach((lc: DltLifecycleInfo | DltLifecycleInfoMinIF) => lc.swVersions.forEach(lsw => { if (!sw.includes(lsw)) { sw.push(lsw); } }));
 
 					resObj.attributes = {
 						name: ecu,
-						lifecycles: [...lcInfo.map((lc, idx) => {
+						lifecycles: [...lcInfo.map((lc: DltLifecycleInfo | DltLifecycleInfoMinIF, idx: number) => {
 							return {
 								type: "lifecycles", id: lc.persistentId,
 								attributes: {

@@ -47,7 +47,7 @@ import { assert } from 'console';
 /// minimum adlt version required
 /// we do show a text if the version is not met.
 /// see https://www.npmjs.com/package/semver#prerelease-identifiers
-const MIN_ADLT_VERSION_SEMVER_RANGE = ">=0.13.0";
+const MIN_ADLT_VERSION_SEMVER_RANGE = ">=0.16.0";
 
 function char4U32LeToString(char4le: number): string {
     let codes = [char4le & 0xff, 0xff & (char4le >> 8), 0xff & (char4le >> 16), 0xff & (char4le >> 24)];
@@ -282,7 +282,7 @@ export class AdltDocument implements vscode.Disposable {
      * map with apidInfos (apid, desc, ctids <ctid, desc>) by ecu name
      * ecu -> map apid -> {apid, desc, ctids -> desc}
      */
-    ecuApidInfosMap: Map<string, Map<string, { apid: string, desc: string, ctids: Map<string, string> }>> = new Map();
+    ecuApidInfosMap: Map<string, Map<string, { apid: string, desc: string, nrMsgs: number, ctids: Map<string, [string, number]> }>> = new Map();
     apidsNodes: Map<string, DynFilterNode> = new Map();
 
     // messages of current files:
@@ -409,6 +409,11 @@ export class AdltDocument implements vscode.Disposable {
                                 case 'FileInfo': {
                                     let fileInfo: remote_types.BinFileInfo = bin_type.value;
                                     this.processFileInfoUpdates(fileInfo);
+                                }
+                                    break;
+                                case 'EacInfo': {
+                                    let eacInfo: Array<remote_types.BinEcuStats> = bin_type.value;
+                                    this.processEacInfo(eacInfo);
                                 }
                                     break;
                                 default:
@@ -822,7 +827,6 @@ export class AdltDocument implements vscode.Disposable {
         }
     }
 
-    requestLogInfosTimer?: NodeJS.Timer;
     openAdltFiles() {
         // plugin configs:
         const pluginCfgs = JSON.stringify(this.pluginTreeNode.children.map(tr => (tr as AdltPlugin).options));
@@ -847,8 +851,6 @@ export class AdltDocument implements vscode.Disposable {
                 this._onDidLoad.fire(this.isLoaded);
             }
             this.startStream();
-            if (this.requestLogInfosTimer) { clearTimeout(this.requestLogInfosTimer); }
-            this.requestLogInfosTimer = setTimeout(() => this.requestLogInfos(), 1000);
         });
     }
 
@@ -863,126 +865,82 @@ export class AdltDocument implements vscode.Disposable {
         return p;
     }
 
-    /**
-     * request all CTRL_MSGS respnse LOG_INFO to gather apid/ctids
-     */
-    requestLogInfos() {
-        let filters: DltFilter[] = [new DltFilter({ type: DltFilterType.POSITIVE, mstp: MSTP.TYPE_CONTROL, mtin: MTIN_CTRL.CONTROL_RESPONSE, verb_mstp_mtin: (MSTP.TYPE_CONTROL << 1) | (MTIN_CTRL.CONTROL_RESPONSE << 4) })];
-        // todo mtin, verb_mstp_mtin not supported yet... but adlt supports mstp and verb_mstp_mtin already and prefers this over mstp
-        let filterStr = filters.filter(f => f.enabled).map(f => JSON.stringify(f.asConfiguration())).join(',');
-
-        this.sendAndRecvAdltMsg(`stream {"window":[0,1000000], "binary":true, "filters":[${filterStr}]}`).then((response) => {
-            console.log(`adlt.on requestLogInfos(filterStr=${filterStr}) got response:'${response}'`);
-            const streamObj = JSON.parse(response.substring(11));
-            //console.log(`adtl ok:stream`, JSON.stringify(streamObj));
-            let streamMsgs: AdltMsg[] = [];
-
-            // here some data might be already there for that stream.
-            // this can happen even though the wss data arrives sequentially but the processing
-            // here for wss data is a direct call vs. an asyn .then()...
-
-            let curStreamMsgData = this.streamMsgs.get(streamObj.id);
-            const msg_regex = /\[get_log_info .*?\] (.*)/;
-            let streamData: StreamMsgData = {
-                msgs: streamMsgs, sink: {
-                    onNewMessages: (nrNewMsgs) => {
-                        // process nrNewMsgs in streamMsgs
-                        // and delete them then
-                        //console.log(`adlt.requestLogInfos onNewMessages(${nrNewMsgs}) streamMsgs.length=${streamMsgs.length}`);
-                        let did_modify_apidInfos = false;
-                        for (let msg of streamMsgs) {
-                            let ecu = msg.ecu;
-                            let apidInfos = this.ecuApidInfosMap.get(ecu);
-                            if (apidInfos === undefined) {
-                                apidInfos = new Map();
-                                this.ecuApidInfosMap.set(ecu, apidInfos);
+    processEacInfo(eacInfo: Array<remote_types.BinEcuStats>) {
+        for (let ecuStat of eacInfo) {
+            let ecu = char4U32LeToString(ecuStat.ecu);
+            let apidInfos = this.ecuApidInfosMap.get(ecu);
+            if (apidInfos === undefined) {
+                apidInfos = new Map();
+                this.ecuApidInfosMap.set(ecu, apidInfos);
+            }
+            let did_modify_apidInfos = false;
+            for (let newApidInfo of ecuStat.apids) {
+                let apid = char4U32LeToString(newApidInfo.apid);
+                let apidNrMsgs = newApidInfo.ctids.reduce((pv, cv) => pv + cv.nr_msgs, 0);
+                let existingInfo = apidInfos.get(apid);
+                if (existingInfo === undefined) {
+                    let existingInfo = {
+                        apid: apid,
+                        nrMsgs: apidNrMsgs,
+                        desc: newApidInfo.desc !== undefined ? newApidInfo.desc : '',
+                        ctids: new Map<string, [string, number]>(newApidInfo.ctids.map((c: remote_types.BinCtidInfo) => [char4U32LeToString(c.ctid), [c.desc || '', c.nr_msgs]])),
+                    };
+                    apidInfos.set(apid, existingInfo);
+                    did_modify_apidInfos = true;
+                } else {
+                    // update
+                    if (existingInfo.desc.length === 0 && newApidInfo.desc !== undefined || existingInfo.nrMsgs !== apidNrMsgs) {
+                        existingInfo.desc = newApidInfo.desc || '';
+                        existingInfo.nrMsgs = apidNrMsgs;
+                        did_modify_apidInfos = true;
+                    }
+                    // now iterate ctids:
+                    for (let ctidInfo of newApidInfo.ctids) {
+                        let ctid = char4U32LeToString(ctidInfo.ctid);
+                        let existingCtid = existingInfo.ctids.get(ctid);
+                        if (existingCtid === undefined) {
+                            existingInfo.ctids.set(ctid, [ctidInfo.desc !== undefined ? ctidInfo.desc : '', ctidInfo.nr_msgs]);
+                            did_modify_apidInfos = true;
+                        } else {
+                            if (existingCtid[0].length === 0 && ctidInfo.desc !== undefined || existingCtid[1] !== ctidInfo.nr_msgs) {
+                                existingInfo.ctids.set(ctid, [ctidInfo.desc || '', ctidInfo.nr_msgs]);
+                                did_modify_apidInfos = true;
                             }
-                            let matches = msg_regex.exec(msg.payloadString);
-                            if (matches !== null && matches.length === 2) {
-                                try {
-                                    let jsonApids = JSON.parse(matches[1]);
-                                    if (jsonApids && Array.isArray(jsonApids) && jsonApids.length > 0) {
-                                        //console.warn(`adlt.requestLogInfos jsonApids=${JSON.stringify(jsonApids)}`);
-                                        // check apids/ctids for that ecu
-                                        for (let newApidInfo of jsonApids) {
-                                            let apid = newApidInfo.apid as string;
-                                            let existingInfo = apidInfos.get(apid);
-                                            if (existingInfo === undefined) {
-                                                let existingInfo = {
-                                                    apid: apid,
-                                                    desc: newApidInfo.desc && newApidInfo.desc !== null ? newApidInfo.desc : '',
-                                                    ctids: new Map<string, string>(newApidInfo.ctids.map((c: { ctid: string, desc: string }) => [c.ctid, c.desc])),
-                                                };
-                                                apidInfos.set(apid, existingInfo);
-                                                did_modify_apidInfos = true;
-                                            } else {
-                                                // update
-                                                if (existingInfo.desc.length === 0 && newApidInfo.desc?.length > 0) {
-                                                    existingInfo.desc = newApidInfo.desc;
-                                                    did_modify_apidInfos = true;
-                                                }
-                                                // now iterate ctids:
-                                                for (let ctid of (newApidInfo.ctids as { ctid: string, desc: string }[])) {
-                                                    let existingCtid = existingInfo.ctids.get(ctid.ctid);
-                                                    if (existingCtid === undefined) {
-                                                        existingInfo.ctids.set(ctid.ctid, ctid.desc !== null ? ctid.desc : '');
-                                                        did_modify_apidInfos = true;
-                                                    } else {
-                                                        if (existingCtid.length === 0 && ctid.desc?.length > 0) {
-                                                            existingInfo.ctids.set(ctid.ctid, ctid.desc);
-                                                            did_modify_apidInfos = true;
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                } catch (e) {
-                                    console.error(`adlt.requestLogInfos got err=${e} payloadStrig=${msg.payloadString}`);
-                                }
-                            }
-
                         }
-                        if (did_modify_apidInfos) {
-                            console.log(`adlt.requestLogInfos onNewMessages(${nrNewMsgs}) streamMsgs.length=${streamMsgs.length} did_modify_apidInfos`);
-                            // update apidsNodes...
-                            for (let [ecu, ecuApidsNode] of this.apidsNodes) {
-                                let apidInfo = this.ecuApidInfosMap.get(ecu);
-                                if (apidInfo !== undefined) {
-                                    ecuApidsNode.label = `APIDs (${apidInfo.size}) / CTIDs`;
-                                    // update children:
-                                    // for now simply delete the existing ones:
-                                    ecuApidsNode.children.length = 0;
-                                    // add new ones:
-                                    for (let [apid, apidI] of apidInfo) {
-                                        const apidNode = new DynFilterNode(`'${apid}'(${apidI.ctids.size})${apidI.desc ? `: ${apidI.desc}` : ''}`, `desc='${apidI.desc || ''}', apid = 0x${Buffer.from(apid).toString("hex")}`, ecuApidsNode, undefined, { ecu: ecu, apid: apid, ctid: null, payload: null, payloadRegex: null, not: null, mstp: null, logLevelMin: null, logLevelMax: null, lifecycles: null }, this);
-                                        ecuApidsNode.children.push(apidNode);
-                                        // add ctids:
-                                        for (let [ctid, desc] of apidI.ctids) {
-                                            const ctidNode = new DynFilterNode(`'${ctid}'${desc ? `: ${desc} ` : ''}`, `desc='${desc}', ctid = 0x${Buffer.from(ctid).toString("hex")}`, apidNode, undefined, { ecu: ecu, apid: apid, ctid: ctid, payload: null, payloadRegex: null, not: null, mstp: null, logLevelMin: null, logLevelMax: null, lifecycles: null }, this);
-                                            apidNode.children.push(ctidNode);
-                                        }
-                                        apidNode.children.sort((a, b) => { return a.label.localeCompare(b.label); });
-                                    }
-                                    // sort children alpha
-                                    ecuApidsNode.children.sort((a, b) => { return a.label.localeCompare(b.label); });
-                                }
-                            }
-
-                            this._treeEventEmitter.fire(null);
-                        }
-                        streamMsgs.length = 0; // clear
                     }
                 }
-            };
-            this.streamMsgs.set(streamObj.id, streamData);
-            if (curStreamMsgData && Array.isArray(curStreamMsgData)) {
-                // process the data now:
-                curStreamMsgData.forEach((msgs) => this.processBinDltMsgs(msgs, streamObj.id, streamData));
             }
-        });
-    }
+            if (did_modify_apidInfos) {
+                console.log(`adlt.processEacInfo${eacInfo.length}) did_modify_apidInfos`);
+                // update apidsNodes...
+                for (let [ecu, ecuApidsNode] of this.apidsNodes) {
+                    let apidInfo = this.ecuApidInfosMap.get(ecu);
+                    if (apidInfo !== undefined) {
+                        ecuApidsNode.label = `APIDs (${apidInfo.size}) / CTIDs`;
+                        // update children:
+                        // for now simply delete the existing ones:
+                        ecuApidsNode.children.length = 0;
+                        // add new ones:
+                        for (let [apid, apidI] of apidInfo) {
+                            const apidNode = new DynFilterNode(`'${apid}'(${apidI.ctids.size} #${apidI.nrMsgs})${apidI.desc ? `: ${apidI.desc}` : ''}`, `desc='${apidI.desc || ''}', apid = 0x${Buffer.from(apid).toString("hex")}, #msgs=${apidI.nrMsgs}`, ecuApidsNode, undefined, { ecu: ecu, apid: apid, ctid: null, payload: null, payloadRegex: null, not: null, mstp: null, logLevelMin: null, logLevelMax: null, lifecycles: null }, this);
+                            ecuApidsNode.children.push(apidNode);
+                            // add ctids:
+                            for (let [ctid, [desc, nrMsgs]] of apidI.ctids) {
+                                const ctidNode = new DynFilterNode(`'${ctid}'(#${nrMsgs})${desc ? `: ${desc} ` : ''}`, `desc='${desc}', ctid = 0x${Buffer.from(ctid).toString("hex")}, #msgs=${nrMsgs}`, apidNode, undefined, { ecu: ecu, apid: apid, ctid: ctid, payload: null, payloadRegex: null, not: null, mstp: null, logLevelMin: null, logLevelMax: null, lifecycles: null }, this);
+                                apidNode.children.push(ctidNode);
+                            }
+                            apidNode.children.sort((a, b) => { return a.label.localeCompare(b.label); });
+                        }
+                        // sort children alpha
+                        ecuApidsNode.children.sort((a, b) => { return a.label.localeCompare(b.label); });
+                    }
+                }
 
+                this._treeEventEmitter.fire(null);
+            }
+
+        }
+    }
 
     stopStream() {
         if (this.streamId > 0) {
@@ -1539,7 +1497,7 @@ export class AdltDocument implements vscode.Disposable {
         if (apidInfos !== undefined) {
             apidDesc = `: ${util.escapeMarkdown(apidInfos.desc)}`;
             const ctidInfo = apidInfos.ctids.get(msg.ctid);
-            if (ctidInfo !== undefined) { ctidDesc = `: ${util.escapeMarkdown(ctidInfo)}`; }
+            if (ctidInfo !== undefined) { ctidDesc = `: ${util.escapeMarkdown(ctidInfo[0])}`; }
         }
         mdString.appendMarkdown(`| calculated time | ${util.escapeMarkdown(posTime.toLocaleTimeString())}.${String(posTime.valueOf() % 1000).padStart(3, "0")}|\n| :--- | :--- |\n` +
             `| lifecycle | ${util.escapeMarkdown(msg.lifecycle?.getTreeNodeLabel())}|\n` +
