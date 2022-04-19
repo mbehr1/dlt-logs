@@ -5,13 +5,15 @@ export type BinType =
   | { tag: 'FileInfo'; value: BinFileInfo }
   | { tag: 'Lifecycles'; value: Array<BinLifecycle> }
   | { tag: 'DltMsgs'; value: [number, Array<BinDltMsg>] }
-  | { tag: 'EacInfo'; value: Array<BinEcuStats> }; 
+  | { tag: 'EacInfo'; value: Array<BinEcuStats> }
+  | { tag: 'PluginState'; value: Array<string> }; 
 
 export module BinType {
   export const FileInfo = (value: BinFileInfo): BinType => ({ tag: 'FileInfo', value });
   export const Lifecycles = (value: Array<BinLifecycle>): BinType => ({ tag: 'Lifecycles', value });
   export const DltMsgs = (value: [number, Array<BinDltMsg>]): BinType => ({ tag: 'DltMsgs', value });
   export const EacInfo = (value: Array<BinEcuStats>): BinType => ({ tag: 'EacInfo', value });
+  export const PluginState = (value: Array<string>): BinType => ({ tag: 'PluginState', value });
 }
 
 export function writeBinType(value: BinType, sinkOrBuf?: SinkOrBuf): Sink {
@@ -36,6 +38,11 @@ export function writeBinType(value: BinType, sinkOrBuf?: SinkOrBuf): Sink {
       writeU32(3, sink);
       const val4 = value as { value: Array<BinEcuStats> };
       writeSeq(writeBinEcuStats)(val4.value, sink);
+      break;
+    case 'PluginState':
+      writeU32(4, sink);
+      const val5 = value as { value: Array<string> };
+      writeSeq(writeString)(val5.value, sink);
       break; 
     default:
       throw new Error(`'${(value as any).tag}' is invalid tag for enum 'BinType'`);
@@ -62,7 +69,11 @@ export function readBinType(sinkOrBuf: SinkOrBuf): BinType {
       );
     case 3:
       return BinType.EacInfo(
-        readSeq(readBinEcuStats)(sink),
+        readSeq(readBinEcuStats)(sink), 
+      );
+    case 4:
+      return BinType.PluginState(
+        readSeq(readString)(sink),
       );
     default:
       throw new Error(`'${value}' is invalid value for enum 'BinType'`);
@@ -181,7 +192,7 @@ export function writeBinEcuStats(value: BinEcuStats, sinkOrBuf?: SinkOrBuf): Sin
   const sink = Sink.create(sinkOrBuf);
   writeU32(value.ecu, sink);
   writeU32(value.nr_msgs, sink);
-  writeSeq(writeBinApidInfo)(value.apids, sink);
+  writeSeq(writeBinApidInfo)(value.apids, sink); 
   return sink;
 }
 
@@ -190,7 +201,7 @@ export function readBinEcuStats(sinkOrBuf: SinkOrBuf): BinEcuStats {
   return {
     ecu: readU32(sink),
     nr_msgs: readU32(sink),
-    apids: readSeq(readBinApidInfo)(sink),
+    apids: readSeq(readBinApidInfo)(sink), 
   };
 }
 
@@ -204,7 +215,7 @@ export function writeBinApidInfo(value: BinApidInfo, sinkOrBuf?: SinkOrBuf): Sin
   const sink = Sink.create(sinkOrBuf);
   writeU32(value.apid, sink);
   writeOption(writeString)(value.desc, sink);
-  writeSeq(writeBinCtidInfo)(value.ctids, sink);
+  writeSeq(writeBinCtidInfo)(value.ctids, sink); 
   return sink;
 }
 
@@ -213,7 +224,7 @@ export function readBinApidInfo(sinkOrBuf: SinkOrBuf): BinApidInfo {
   return {
     apid: readU32(sink),
     desc: readOption(readString)(sink),
-    ctids: readSeq(readBinCtidInfo)(sink),
+    ctids: readSeq(readBinCtidInfo)(sink), 
   };
 }
 
@@ -227,7 +238,7 @@ export function writeBinCtidInfo(value: BinCtidInfo, sinkOrBuf?: SinkOrBuf): Sin
   const sink = Sink.create(sinkOrBuf);
   writeU32(value.ctid, sink);
   writeU32(value.nr_msgs, sink);
-  writeOption(writeString)(value.desc, sink);
+  writeOption(writeString)(value.desc, sink); 
   return sink;
 }
 
@@ -236,7 +247,7 @@ export function readBinCtidInfo(sinkOrBuf: SinkOrBuf): BinCtidInfo {
   return {
     ctid: readU32(sink),
     nr_msgs: readU32(sink),
-    desc: readOption(readString)(sink),
+    desc: readOption(readString)(sink), 
   };
 }
 

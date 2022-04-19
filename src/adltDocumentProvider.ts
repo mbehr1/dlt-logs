@@ -416,6 +416,11 @@ export class AdltDocument implements vscode.Disposable {
                                     this.processEacInfo(eacInfo);
                                 }
                                     break;
+                                case 'PluginState': {
+                                    let states: Array<string> = bin_type.value;
+                                    this.processPluginStateUpdates(states);
+                                }
+                                    break;    
                                 default:
                                     console.warn(`adlt.on(binary): unhandled tag:'${JSON.stringify(bin_type)}'`);
                                     break;
@@ -939,6 +944,20 @@ export class AdltDocument implements vscode.Disposable {
                 this._treeEventEmitter.fire(null);
             }
 
+        }
+    }
+
+    processPluginStateUpdates(states: string[]) {
+        for (let stateStr of states) {
+            let state = JSON.parse(stateStr);
+            let pluginName = state.name;
+            // find proper plugin:
+            for (let plugin of this.pluginTreeNode.children as AdltPlugin[]) {
+                if (plugin.name === pluginName) {
+                    plugin.processStateUpdate(state);
+                    break;
+                }
+            }
         }
     }
 
