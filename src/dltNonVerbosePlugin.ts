@@ -43,7 +43,7 @@ export class DltNonVerbosePlugin extends DltTransformationPlugin {
                 FibexLoader.loadAllFibex(options['fibexDir']); // ignores any that are already loaded
                 this.treeViewNode.tooltip = `loaded ${FibexLoader.loadedFibex.length} FIBEX files:\n${FibexLoader.loadedFibex.join('\n')}`;
             } else {
-                if (FibexLoader.loadedFibex.length > 1) {
+                if (FibexLoader.loadedFibex.length >= 1) {
                     this.treeViewNode.tooltip = `reusing loaded ${FibexLoader.loadedFibex.length} FIBEX files:\n${FibexLoader.loadedFibex.join('\n')}`;
                 } else {
                     this.treeViewNode.tooltip = `no fibexDir set nether from here nor from SomeIP plugin!`;

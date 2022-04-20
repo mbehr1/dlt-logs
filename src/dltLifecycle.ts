@@ -2,13 +2,30 @@
  * Copyright(C) Matthias Behr.
  */
 
-// import * as vscode from 'vscode';
+import * as vscode from 'vscode';
 import * as assert from 'assert';
 import { DltParser, DltMsg, MSTP, MTIN_CTRL, CTRL_SERVICE_ID } from './dltParser';
+import { LifecycleNode } from './dltTreeViewNodes';
+
 
 let _nextLcUniqueId = 1;
 
-export class DltLifecycleInfo {
+export interface DltLifecycleInfoMinIF {
+    ecu: string,
+    persistentId: number,
+    lifecycleStart: Date,
+    lifecycleEnd: Date,
+    getTreeNodeLabel(): string,
+    tooltip: string,
+    swVersions: string[],
+    apidInfos?: Map<string, { apid: string, desc: string, ctids: Map<string, string> }>;
+    nrMsgs: number,
+    logMessages?: DltMsg[],
+    decorationType?: vscode.TextEditorDecorationType,
+    node?: LifecycleNode,
+}
+
+export class DltLifecycleInfo implements DltLifecycleInfoMinIF {
     uniqueId: number;
     private _startTime: number; // in ms / within log
     readonly startIndex: number;
@@ -36,7 +53,7 @@ export class DltLifecycleInfo {
             this.allCtrlRequests = false;
         }
         this.ecu = logMsg.ecu;
-        this._startTime = logMsg.timeAsNumber;
+        this._startTime = logMsg.receptionTimeInMs;
         this.adjustTimeMs = 0;
         this.startIndex = logMsg.index;
         this._lifecycleStart = this._startTime - (timeStamp / 10);
@@ -46,6 +63,10 @@ export class DltLifecycleInfo {
         this.parseMessage(logMsg);
         // will be set later by _updateLines based on current filter
         console.log(`DltLifecycleInfo() startTime=${this._startTime} lifecycleStart=${this._lifecycleStart}`);
+    }
+
+    get nrMsgs(): number {
+        return this.logMessages.length;
     }
 
     get lifecycleStart(): Date {
@@ -216,15 +237,15 @@ export class DltLifecycleInfo {
         const lifecycleEndTime = lifecycleStartTime + (this._maxTimeStamp / 10);
 
         // calc _lifecycleStart for the new msg:
-        let newLifecycleStart: number = logMsg.timeAsNumber - (logMsg.timeStamp / 10); // - unknown bufferingDelay_msg
+        let newLifecycleStart: number = logMsg.receptionTimeInMs - (logMsg.timeStamp / 10); // - unknown bufferingDelay_msg
 
         const bufferingDelay_b = newLifecycleStart - lifecycleStartTime;
 
         const realTime_b = lifecycleStartTime + (logMsg.timeStamp / 10);
-        const realTime_c = newLifecycleStart + (logMsg.timeStamp / 10); // same as logMsg.timeAsNumber
+        const realTime_c = newLifecycleStart + (logMsg.timeStamp / 10); // same as logMsg.receptionTimeInMs
 
-        const timeToTimeStr = (timeAsNumber: number) => {
-            return `${new Date(timeAsNumber).toLocaleTimeString()}.${Number(timeAsNumber % 1000).toFixed(1).padStart(3, '0')}`;
+        const timeToTimeStr = (receptionTimeInMs: number) => {
+            return `${new Date(receptionTimeInMs).toLocaleTimeString()}.${Number(receptionTimeInMs % 1000).toFixed(1).padStart(3, '0')}`;
         };
 
 
@@ -244,10 +265,10 @@ export class DltLifecycleInfo {
             console.log(`DltLifecycleInfo:update (logMsg(index=${logMsg.index} at ${logMsg.timeAsDate}:${logMsg.timeStamp}) not part of this lifecycle(startIndex=${this.startIndex} end=${this.lifecycleEnd} ) `);
             return false; // treat as new lifecycle
         }
-        if (logMsg.timeAsNumber + 1000 < this._startTime) {
+        if (logMsg.receptionTimeInMs + 1000 < this._startTime) {
             this._logCntNewStarttimeEarlier++;
             if (this._logCntNewStarttimeEarlier < 10 || this._logCntNewStarttimeEarlier % 1000 === 0) {
-                console.log(`DltLifecycleInfo:update new starttime earlier? ${this._logCntNewStarttimeEarlier}x`, this._startTime, logMsg.timeAsNumber);
+                console.log(`DltLifecycleInfo:update new starttime earlier? ${this._logCntNewStarttimeEarlier}x`, this._startTime, logMsg.receptionTimeInMs);
             }
         }
 

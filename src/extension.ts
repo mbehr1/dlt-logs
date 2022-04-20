@@ -1,12 +1,26 @@
 /* --------------------
-* Copyright (C) Matthias Behr, 2020
+* Copyright (C) Matthias Behr, 2020 - 2022
 */
+
+// todo: fix major regressions:
+// [ ] status line support
 
 import * as vscode from 'vscode';
 import TelemetryReporter from 'vscode-extension-telemetry';
-import { extensionId, dltScheme, GlobalState } from './constants';
+import { extensionId, dltScheme, adltScheme, GlobalState } from './constants';
 import * as dltDocument from './dltDocumentProvider';
 import { exportDlt } from './dltExport';
+import { ADltDocumentProvider, AdltDocument } from './adltDocumentProvider';
+import { FilterNode } from './dltTreeViewNodes';
+import { TreeviewAbleDocument } from './dltReport';
+import { TreeViewNode } from './dltTreeViewNodes';
+import { ColumnConfig, DltDocument } from './dltDocument';
+import { DltFilter } from './dltFilter';
+import { addFilter, editFilter, deleteFilter } from './dltAddEditFilter';
+import * as util from './util';
+import * as path from 'path';
+import { DltLifecycleInfo, DltLifecycleInfoMinIF } from './dltLifecycle';
+
 // import { DltLogCustomReadonlyEditorProvider } from './dltCustomEditorProvider';
 
 let reporter: TelemetryReporter;
@@ -34,8 +48,89 @@ export function activate(context: vscode.ExtensionContext) {
 		console.log(`${extensionId}: not found as extension!`);
 	}
 
+	const _treeRootNodes: TreeViewNode[] = []; // one root node per document.
+	let _onDidChangeTreeData: vscode.EventEmitter<TreeViewNode | null> = new vscode.EventEmitter<TreeViewNode | null>();
+	const _dltLifecycleTreeView = vscode.window.createTreeView('dltLifecycleExplorer', {
+		treeDataProvider: {
+			onDidChangeTreeData: _onDidChangeTreeData.event,
+			getChildren(element?: TreeViewNode): TreeViewNode[] | Thenable<TreeViewNode[]> {
+				//console.warn(`dlt-logs.getChildren(${element?.label}, ${element?.uri?.toString()}) called. parent=${element?.parent}`);
+				if (!element) { // if no element we have to return the root element.
+					return _treeRootNodes;
+				} else {
+					return element.children;
+				}
+			},
+			getParent(element: TreeViewNode): vscode.ProviderResult<TreeViewNode> {
+				//console.warn(`dlt-logs.getParent(${element.label}, ${element.uri?.toString()}) called. parent=${element.parent}`);
+				return element.parent;
+			},
+			getTreeItem(element: TreeViewNode): vscode.TreeItem {
+				//console.warn(`dlt-logs.getTreeItem(${element.id}:${element.label}, ${element.uri?.toString()}) called.`);
+				return {
+					id: element.id,
+					label: element.label,
+					tooltip: element.tooltip,
+					contextValue: element.contextValue,
+					command: element.command,
+					collapsibleState: element.children.length ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None,
+					iconPath: element.iconPath,
+					description: element.description
+				};
+			}
+		}
+	});
+
+	context.subscriptions.push(_dltLifecycleTreeView.onDidChangeSelection((event) => {
+		if (event.selection.length > 0 && event.selection[0].uri) {
+			// console.log(`dltLifecycleTreeView.onDidChangeSelection(${event.selection.length} ${event.selection[0].uri} fragment='${event.selection[0].uri.fragment || ''}')`);
+			let uriWoFrag = event.selection[0].uri.with({ fragment: "" }).toString();
+
+			let { doc } = getDocAndProviderFor(uriWoFrag);
+			if (doc) {
+				doc.onTreeViewDidChangeSelection(event);
+			}
+		}
+
+	}));
+
+	let _statusBarItem: vscode.StatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right);
+	let _onDidChangeStatus = new vscode.EventEmitter<vscode.Uri | undefined>();
+
+	let _onDidChangeActiveRestQueryDoc: vscode.EventEmitter<vscode.Uri | undefined> = new vscode.EventEmitter<vscode.Uri | undefined>();
+	/**
+	 * event that we'll trigger once the active rest query doc
+	 * (aka the one on top of the tree or with the fallback within restquery) changes
+	 */
+	const onDidChangeActiveRestQueryDoc: vscode.Event<vscode.Uri | undefined> = _onDidChangeActiveRestQueryDoc.event;
+
+	let _lastActiveQueryDocUri: vscode.Uri | undefined = undefined;
+	const checkActiveRestQueryDocChanged = (): boolean => {
+		const newDoc0Uri = getRestQueryDocById('0')?.uri;
+		if (newDoc0Uri !== _lastActiveQueryDocUri) {
+			_lastActiveQueryDocUri = newDoc0Uri;
+			_onDidChangeActiveRestQueryDoc.fire(newDoc0Uri);
+			return true;
+		}
+		return false;
+	};
+
+	// we manage the columns to show here for all documents only once:
+	let columns: ColumnConfig[] = [];
+	// load column config:
+	{
+		const columnObjs = vscode.workspace.getConfiguration().get<Array<object>>("dlt-logs.columns");
+		columnObjs?.forEach((obj) => {
+			try {
+				columns.push(new ColumnConfig(obj));
+			} catch (err) {
+				console.error(`error '${err} parsing '`, obj);
+			}
+		});
+	}
+
 	// register our document provider that knows how to handle "dlt-logs"
-	let dltProvider = new dltDocument.DltDocumentProvider(context, reporter);
+	let dltProvider = new dltDocument.DltDocumentProvider(context, _dltLifecycleTreeView, _treeRootNodes, _onDidChangeTreeData, checkActiveRestQueryDocChanged, columns, reporter);
 	context.subscriptions.push(vscode.workspace.registerFileSystemProvider(dltScheme, dltProvider, { isReadonly: false, isCaseSensitive: true }));
 
 	// register our command to open dlt files as "dlt-logs":
@@ -53,7 +148,211 @@ export function activate(context: vscode.ExtensionContext) {
 		);
 	}));
 
-	// register our command to open dlt files as "dlt-logs":
+	// register our document provider that knows how to handle "dlt-logs"
+	let adltProvider = new ADltDocumentProvider(context, _dltLifecycleTreeView, _treeRootNodes, _onDidChangeTreeData, checkActiveRestQueryDocChanged, _onDidChangeStatus, columns, reporter);
+	context.subscriptions.push(vscode.workspace.registerFileSystemProvider(adltScheme, adltProvider, { isReadonly: false, isCaseSensitive: true }));
+
+	// register our command to open dlt files via adlt:
+	context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.dltOpenAdltFile', async () => {
+		return vscode.window.showOpenDialog({ canSelectFiles: true, canSelectFolders: false, canSelectMany: true, filters: { 'DLT Logs': <Array<string>>(vscode.workspace.getConfiguration().get("dlt-logs.fileExtensions")) }, openLabel: 'Select DLT file(s) to open...' }).then(
+			async (uris: vscode.Uri[] | undefined) => {
+				if (uris) {
+					console.log(`open dlt via adlt got URIs=${uris}`);
+					/*const fileUri = uri.with({ scheme: "file" });
+					if (!fs.existsSync(fileUri.fsPath)*/
+					if (uris.length === 1) {
+						let dltUri = uris[0].with({ scheme: adltScheme });
+						vscode.workspace.openTextDocument(dltUri).then((value) => { vscode.window.showTextDocument(value, { preview: false }); });
+					} else {
+						// we decode the file names with the pattern: path: (the common path and first file), query: json lf:[names of files]
+						// we use the name of all file to detect later if vscode changed e.g. due to breadcrumb selection the file. then (path file not first in files) we do ignore the files
+						// use path for common path of all files (to shorten uris)
+						const basePath = path.parse(uris[0].fsPath).dir;
+						let uri = vscode.Uri.file(uris[0].fsPath).with({ scheme: adltScheme, query: encodeURIComponent(JSON.stringify({ lf: uris.map(u => path.relative(basePath, u.fsPath)) })) });
+						console.log(`open dlt via adlt encoded uris as=${uri.toString()}`);
+						vscode.workspace.openTextDocument(uri).then((value) => { vscode.window.showTextDocument(value, { preview: false }); });
+					}
+				}
+			}
+		);
+	}));
+
+	// on change of active text editor update calculated decorations:
+	context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(async (activeTextEditor: vscode.TextEditor | undefined) => {
+		let hideStatusBar = true;
+		if (activeTextEditor) {
+			//console.log(`dlt-logs.onDidChangeActiveTextEditor ${activeTextEditor.document.uri.toString()} column=${activeTextEditor.viewColumn}`);
+			let { doc, provider } = getDocAndProviderFor(activeTextEditor.document.uri.toString());
+			if (doc) {
+				if (!doc.textEditors.includes(activeTextEditor)) {
+					doc.textEditors.push(activeTextEditor);
+				} // todo remove?
+				_onDidChangeTreeData.fire(doc.treeNode);
+				//console.warn(`dlt-logs.onDidChangeActiveTextEditor revealing ${doc?.treeNode.id}:${doc?.treeNode.label}`);
+				try {
+					_dltLifecycleTreeView.reveal(doc.treeNode, { select: false, focus: true, expand: true }).then(() => {
+						//console.warn(`dlt-logs.onDidChangeActiveTextEditor did reveal ${doc?.treeNode.id}`);
+					});
+				} catch (err) {
+					console.warn(`dlt-logs.onDidChangeActiveTextEditor did reveal got err ${err}`);
+				}
+				//this.checkActiveTextEditor(data);
+				doc.updateDecorations();
+
+				hideStatusBar = false;
+				doc.updateStatusBarItem(_statusBarItem);
+				_statusBarItem.show();
+			}
+		}
+		if (hideStatusBar) {
+			_statusBarItem.hide();
+		}
+	}));
+
+	context.subscriptions.push(vscode.workspace.onDidChangeTextDocument(async (event) => {
+		let { doc, provider } = getDocAndProviderFor(event.document.uri.toString());
+		if (doc) {
+
+			// update decorations:
+			doc.updateDecorations();
+
+			// update status bar only for the last used/active doc:
+			let activeDoc = getRestQueryDocById("0");
+			if (doc === activeDoc) {
+				console.log(`dlt-logs.onDidChangeTextDocument for active document`);
+				doc.updateStatusBarItem(_statusBarItem);
+			}
+		}
+	}));
+
+
+	/**
+	 * docProviders can emit this if they updated status bar relevant info
+	 */
+	context.subscriptions.push(_onDidChangeStatus.event((uri) => {
+		let activeDoc = getRestQueryDocById("0");
+		if (!activeDoc) { return; }
+		if (uri) {
+			let { doc, provider } = getDocAndProviderFor(uri.toString());
+			if (doc === activeDoc) {
+				// update status bar only for the last used/active doc:
+				console.log(`dlt-logs.onDidChangeStatus and doc is active document`);
+				doc.updateStatusBarItem(_statusBarItem);
+			}
+		} else {
+			console.log(`dlt-logs.onDidChangeStatus for active document`);
+			activeDoc.updateStatusBarItem(_statusBarItem);
+		}
+	}));
+
+
+	// register common (adlt/dlt) commands:
+	context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.enableFilter', async (...args: any[]) => {
+		dltProvider.onTreeNodeCommand('enableFilter', args[0]);
+		adltProvider.onTreeNodeCommand('enableFilter', args[0]);
+	}));
+	context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.disableFilter', async (...args: any[]) => {
+		dltProvider.onTreeNodeCommand('disableFilter', args[0]);
+		adltProvider.onTreeNodeCommand('disableFilter', args[0]);
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand("dlt-logs.addFilter", async (...args) => {
+		args.forEach(a => { console.log(` arg='${JSON.stringify(a)}'`); });
+		if (args.length < 2) { return; }
+		// first arg should contain uri
+		const uri = args[0].uri;
+		if (uri) {
+			let { doc, provider } = getDocAndProviderFor(uri.toString());
+			if (doc) {
+				addFilter(doc, args[1]);
+			}
+		}
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.editFilter', async (...args: any[]) => {
+		const filterNode = <FilterNode>args[0];
+		const parentUri = filterNode.parent?.uri;
+		if (parentUri) {
+			let { doc, provider } = getDocAndProviderFor(parentUri.toString());
+			if (doc) {
+				console.log(`editFilter(${filterNode.label}) called for doc=${parentUri}`);
+				editFilter(doc, filterNode.filter).then(() => {
+					console.log(`editFilter resolved...`);
+					_onDidChangeTreeData.fire(filterNode);
+				});
+			}
+		}
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.deleteFilter', async (...args: any[]) => {
+		const filterNode = <FilterNode>args[0];
+		const parentUri = filterNode.parent?.uri;
+		if (parentUri) {
+			let { doc, provider } = getDocAndProviderFor(parentUri.toString());
+			if (doc) {
+				console.log(`deleteFilter(${filterNode.label}) called for doc=${parentUri}`);
+				let parentNode = filterNode.parent;
+				vscode.window.showWarningMessage(`Do you want to delete the filter '${filterNode.filter.name}'? This cannot be undone!`,
+					{ modal: true }, 'Delete').then((value) => {
+						if (value === 'Delete') {
+							deleteFilter(doc!, filterNode.filter).then(() => {
+								console.log(`deleteFilter resolved...`);
+								_onDidChangeTreeData.fire(parentNode);
+							});
+						}
+					});
+			}
+		}
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.zoomIn', async (...args: any[]) => {
+		dltProvider.onTreeNodeCommand('zoomIn', args[0]);
+		adltProvider.onTreeNodeCommand('zoomIn', args[0]);
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.zoomOut', async (...args: any[]) => {
+		dltProvider.onTreeNodeCommand('zoomOut', args[0]);
+		adltProvider.onTreeNodeCommand('zoomOut', args[0]);
+	}));
+
+
+
+	context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.openReport', async (...args: any[]) => {
+		const filterNode = <FilterNode>args[0];
+		const parentUri = filterNode.parent?.uri;
+		if (parentUri) {
+			const doc = dltProvider._documents.get(parentUri.toString());
+			if (doc) {
+				console.log(`openReport(${filterNode.label}) called for doc=${parentUri}`);
+				doc.onOpenReport(context, filterNode.filter);
+			} else {
+				const doc = adltProvider._documents.get(parentUri.toString());
+				if (doc) {
+					console.log(`openReport(${filterNode.label}) called for adlt doc=${parentUri}`);
+					doc.onOpenReport(context, filterNode.filter);
+				}
+			}
+		}
+	}));
+	context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.openNewReport', async (...args: any[]) => {
+		const filterNode = <FilterNode>args[0];
+		const parentUri = filterNode.parent?.uri;
+		if (parentUri) {
+			const doc = dltProvider._documents.get(parentUri.toString());
+			if (doc) {
+				console.log(`openNewReport(${filterNode.label}) called for doc=${parentUri}`);
+				doc.onOpenReport(context, filterNode.filter, true);
+			} else {
+				const doc = adltProvider._documents.get(parentUri.toString());
+				if (doc) {
+					console.log(`openNewReport(${filterNode.label}) called for adlt doc=${parentUri}`);
+					doc.onOpenReport(context, filterNode.filter, true);
+				}
+			}
+		}
+	}));
+
+	// register our command to export dlt files:
 	context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.dltExportFile', async () => {
 		return vscode.window.showOpenDialog({ canSelectFiles: true, canSelectFolders: false, canSelectMany: true, filters: { 'DLT Logs': <Array<string>>(vscode.workspace.getConfiguration().get("dlt-logs.fileExtensions")) }, openLabel: 'Select DLT files to filter/export...' }).then(
 			async (uris: vscode.Uri[] | undefined) => {
@@ -68,6 +367,74 @@ export function activate(context: vscode.ExtensionContext) {
 		);
 	}));
 
+
+	context.subscriptions.push(vscode.commands.registerTextEditorCommand('dlt-logs.toggleSortOrder', async (textEditor: vscode.TextEditor) => {
+		console.log(`dlt-logs.toggleSortOrder(textEditor.uri = ${textEditor.document.uri.toString()}) called...`);
+		const uriStr = textEditor.document.uri.toString();
+		const doc = dltProvider._documents.get(uriStr) || adltProvider._documents.get(uriStr);
+		if (doc) {
+			return doc.toggleSortOrder();
+		}
+	}));
+
+	context.subscriptions.push(vscode.commands.registerTextEditorCommand('dlt-logs.configureColumns', async (textEditor: vscode.TextEditor) => {
+		// console.log(`dlt-logs.configureColumns(textEditor.uri = ${textEditor.document.uri.toString()}) called...`);
+		vscode.window.showQuickPick(columns, {
+			canPickMany: true,
+			placeHolder: "select all columns to show"
+		}).then((selColumns: ColumnConfig[] | undefined) => {
+			if (selColumns) {
+				if (selColumns.length > 0) {
+					columns.forEach((column) => { column.visible = false; });
+					selColumns?.forEach((column) => { column.visible = true; });
+
+					if (true) { // store/update config:
+						const columnObjs = vscode.workspace.getConfiguration().get<Array<object>>("dlt-logs.columns");
+						columnObjs?.forEach((obj: any) => {
+							columns.forEach((column) => {
+								try {
+									if (obj.name === column.name) {
+										obj.visible = column.visible;
+									}
+								} catch (err) {
+									console.error(` err ${err} at updating config obj!`);
+								}
+							});
+						});
+						try {
+							vscode.workspace.getConfiguration().update("dlt-logs.columns", columnObjs, vscode.ConfigurationTarget.Global).then(() => {
+								// todo might need a better solution if workspace config is used.
+								// the changes wont be reflected at next startup. (default->global->workspace)
+								// would need to inspect first.
+								console.log("updated column config.");
+							});
+						} catch (err) {
+							console.error(` err ${err} at updating configuration!`);
+						}
+					}
+					return true;
+				} else { // we disallow unselecting all columns
+					vscode.window.showWarningMessage("At least one column need to be selected. Ignoring selection.");
+					return false;
+				}
+			} // else we don't change anything
+			return false;
+		}).then((ok) => {
+			if (ok) {
+				console.warn(`Dlt.configureColumns()... columns ok`);
+				// retrigger drawing of all docs (and not just the active one?) (todo)
+				const doc = dltProvider._documents.get(textEditor.document.uri.toString()) || adltProvider._documents.get(textEditor.document.uri.toString());
+				if (doc) {
+					return vscode.window.withProgress({ cancellable: false, location: vscode.ProgressLocation.Notification, title: "applying columns to active document..." },
+						(progress) => doc.applyFilter(progress)).then(() => console.log(`Dlt.configureColumns() applyFilter() done`));
+				}
+			} else {
+				console.warn(`Dlt.configureColumns()... not ok`);
+			}
+		});
+
+	}));
+
 	// register a command to test restQuery:
 	context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.testRestQuery', async () => {
 		return vscode.window.showInputBox({
@@ -77,13 +444,372 @@ export function activate(context: vscode.ExtensionContext) {
 		}).then(
 			async (input: string | undefined) => {
 				if (input?.length) {
-					const res = dltProvider.restQuery(context, input);
+					const res = await restQuery(context, input);
 					console.log(`restQuery returned: '${res}'`);
 					vscode.window.showInformationMessage(res, 'ok');
 				}
 			}
 		);
 	}));
+
+	context.subscriptions.push(vscode.window.onDidChangeTextEditorVisibleRanges(util.throttle((e) => {
+		if (e.visibleRanges.length === 1) {
+			const uriStr = e.textEditor.document.uri.toString();
+			const doc = dltProvider._documents.get(uriStr) || adltProvider._documents.get(uriStr);
+			if (doc) {
+				// console.log(`dlt-log.onDidChangeTextEditorVisibleRanges(${e.visibleRanges[0].start.line}-${e.visibleRanges[0].end.line})`);
+				doc.notifyVisibleRange(e.visibleRanges[0]);
+			}
+		}
+	}, 200)));
+
+
+	// maintain list of visible(aka opened) documents for the treeview and maintenance of
+	// the last used one (for restQuery)
+
+	context.subscriptions.push(vscode.window.onDidChangeVisibleTextEditors((editors: vscode.TextEditor[]) => {
+		//console.log(`DltDocumentProvider.onDidChangeVisibleTextEditors= ${editors.length}`);
+		const visibleDocs: TreeviewAbleDocument[] = [];
+		for (const editor of editors) {
+			//console.log(` DltDocumentProvider.onDidChangeVisibleTextEditors editor.document.uri=${editor.document.uri} editor.viewColumn=${editor.viewColumn} editor.document.isClosed=${editor.document.isClosed}`);
+			let doc = dltProvider._documents.get(editor.document.uri.toString()) || adltProvider._documents.get(editor.document.uri.toString());
+			if (doc) {
+				//console.log(` DltDocumentProvider.onDidChangeVisibleTextEditors got doc!`);
+				if (!editor.document.isClosed) { visibleDocs.push(doc); }
+			}
+		}
+
+		// show/hide the status bar if no doc is visible
+		if (visibleDocs.length === 0) {
+			_statusBarItem.hide();
+		} else {
+			_statusBarItem.show();
+		}
+
+		// now close all but the visibleDocs:
+		const notVisibleDocs: TreeviewAbleDocument[] = [];
+		dltProvider._documents.forEach(doc => {
+			if (!visibleDocs.includes(doc)) { notVisibleDocs.push(doc); }
+		});
+		adltProvider._documents.forEach(doc => {
+			if (!visibleDocs.includes(doc)) { notVisibleDocs.push(doc); }
+		});
+
+		//console.log(`dlt-logs.onDidChangeVisibleTextEditors visibleDocs=${visibleDocs.map(v => v?.treeNode.uri?.toString()).join(',')} notVisibleDocs=${notVisibleDocs.map(v => v?.treeNode.uri?.toString()).join(',')}`);
+
+		let doFire = false;
+		notVisibleDocs.forEach(doc => {
+			if (doc) {
+				if (doc.textDocument) {
+					let childNode: TreeViewNode = doc.treeNode;
+					let idx = _treeRootNodes.indexOf(childNode);
+					if (idx >= 0) {
+						// console.log(` dlt-logs.onDidChangeVisibleTextEditors: hiding childNode doc uri=${doc.textDocument.uri.toString()}`);
+						_treeRootNodes.splice(idx, 1);
+					}
+					doFire = true;
+				}
+			}
+		});
+		// and add the visible ones:
+		visibleDocs.forEach(doc => {
+			if (doc && doc.textDocument) {
+				let childNode: TreeViewNode = doc.treeNode;
+				if (!_treeRootNodes.includes(childNode)) {
+					// console.log(` dlt-logs.onDidChangeVisibleTextEditors: adding childNode doc uri=${doc.textDocument.uri.toString()}`);
+					_treeRootNodes.push(childNode);
+					doFire = true;
+				}
+			}
+		});
+
+		if (doFire) { _onDidChangeTreeData.fire(null); }
+		checkActiveRestQueryDocChanged();
+	}));
+
+	const getDocAndProviderFor = (uri: string) => {
+		let doc = dltProvider._documents.get(uri);
+		if (doc) { return { doc: doc, provider: dltProvider }; } else {
+			let doc = adltProvider._documents.get(uri);
+			return { doc: doc, provider: doc ? adltProvider : undefined };
+		}
+	};
+
+	context.subscriptions.push(vscode.workspace.onDidCloseTextDocument((event: vscode.TextDocument) => {
+		// todo investigate why we sometimes dont get a onDidClose for our documents??? (its the garbage collector, ...we get a didOpen and didChange...)
+		const uriStr = event.uri.toString();
+		console.log(`dlt-logs onDidCloseTextDocument uri=${uriStr}`);
+		// is it one of our documents?
+		const { doc, provider } = getDocAndProviderFor(uriStr);
+		if (doc) {
+			console.log(` dlt-logs.onDidCloseTextDocument: found document with uri=${uriStr}`);
+			if (doc.textDocument) {
+				console.log(`  deleting document with uri=${doc.textDocument.uri.toString()}`);
+				doc.textDocument = undefined;
+				let childNode: TreeViewNode = doc.treeNode;
+				for (let i = 0; i < _treeRootNodes.length; ++i) {
+					if (_treeRootNodes[i] === childNode) {
+						_treeRootNodes.splice(i, 1);
+						//console.log(`  deleting rootNode with #${i}`);
+						break;
+					}
+				}
+				provider?._documents.delete(uriStr);
+				_onDidChangeTreeData.fire(null);
+
+				if (provider && ('onDidClose' in provider)) { provider.onDidClose(doc); };
+
+				if ((dltProvider._documents.size + adltProvider._documents.size) === 0) {
+					_statusBarItem.hide();
+				}
+				checkActiveRestQueryDocChanged();
+			}
+		}
+	}));
+
+
+	let getRestQueryDocByIdDidLoadSub: vscode.Disposable | undefined = undefined;
+	const getRestQueryDocById = (id: string): DltDocument | AdltDocument | undefined => {
+		let { doc, provider } = getDocAndProviderFor(id);
+		// fallback to index:
+		if (!doc) {
+			const docIdx: number = Number(id);
+
+			// take the docIdx th. dlt doc that is visible:
+			if (_treeRootNodes.length > docIdx) {
+				const childNode = _treeRootNodes[docIdx];
+				// now find the document for that:
+				dltProvider._documents.forEach(aDoc => {
+					if (aDoc.treeNode === childNode) { doc = aDoc; }
+				});
+				if (!doc) {
+					adltProvider._documents.forEach(aDoc => {
+						if (aDoc.treeNode === childNode) { doc = aDoc; }
+					});
+				}
+			}
+			if (!doc) { // use the ones sorted by last used time
+				let documents = [...dltProvider._documents.values(), ...adltProvider._documents.values()];
+				if (docIdx >= 0 && docIdx < documents.length) {
+					documents.sort((a, b) => b.lastUpdatedStatusBar - a.lastUpdatedStatusBar);
+					doc = documents[docIdx];
+				}
+			}
+		}
+		// if the doc is not yet fully loaded we'll return undefined as the restQuery will return wrong results otherwise:
+		if (doc && !doc.isLoaded) {
+			if (getRestQueryDocByIdDidLoadSub) { getRestQueryDocByIdDidLoadSub.dispose(); };
+			getRestQueryDocByIdDidLoadSub = doc.onDidLoad(load => {
+				console.warn(`dlt-logs.getRestQueryDocById.onDidLoad called...`);
+				if (getRestQueryDocByIdDidLoadSub) {
+					getRestQueryDocByIdDidLoadSub.dispose();
+					getRestQueryDocByIdDidLoadSub = undefined;
+				}
+				checkActiveRestQueryDocChanged();
+			});
+			return undefined;
+		}
+		return doc;
+	};
+
+	/**
+	 * support info query in JSON API format (e.g. used by fishbone ext.)
+	 * input: query : string, e.g. '/get/docs' or '/get/version'
+	 * output: JSON obj as string. e.g. '{"errors":[]}' or '{"data":[...]}'
+	 */
+	/// support info query in JSON API format (e.g. used by fishbone ext.)
+	const restQuery = async (context: vscode.ExtensionContext, query: string): Promise<string> => {
+		console.log(`restQuery(${query}))...`);
+		const retObj: { error?: [Object], data?: [Object] | Object } = {};
+
+		// parse as regex: ^\/(?<cmd>.*?)\/(?<path>.*?)($|\?(?<options>.+)$)
+		var re = /^\/(?<cmd>.*?)\/(?<path>.*?)($|\?(?<options>.+)$)/;
+		const regRes = re.exec(query);
+		if (regRes?.length && regRes.groups) {
+			//console.log(`got regRes.length=${regRes.length}`);
+			//regRes.forEach(regR => console.log(JSON.stringify(regR)));
+			const cmd = regRes.groups['cmd'];
+			const path = regRes.groups['path'];
+			const options = regRes.groups['options'];
+			console.log(` restQuery cmd='${cmd}' path='${path}' options='${options}'`);
+			switch (cmd) {
+				case 'get':
+					{
+						// split path:
+						const paths = path.split('/');
+						switch (paths[0]) {
+							case 'version':
+								{
+									retObj.data = {
+										"type": "version",
+										"id": "1",
+										"attributes": {
+											version: extensionVersion,
+											name: extensionId
+										}
+									};
+								}
+								break;
+							case 'docs':
+								{
+									if (paths.length === 1) {
+										// get info about available documents:
+										const arrRes: Object[] = [];
+										dltProvider._documents.forEach((doc) => {
+											const resObj: { type: string, id: string, attributes?: Object } =
+												{ type: "docs", id: encodeURIComponent(doc.uri.toString()) };
+											let ecusObj = { data: {} };
+											restQueryDocsEcus(cmd, [paths[0], '', 'ecus'], options, doc, ecusObj);
+											resObj.attributes = {
+												name: doc.uri.fsPath,
+												msgs: doc.msgs.length,
+												ecus: ecusObj.data,
+												filters: util.createRestArray(doc.allFilters, (obj: object, i: number) => { const filter = obj as DltFilter; return filter.asRestObject(i); })
+											};
+											arrRes.push(resObj);
+										});
+										adltProvider._documents.forEach((doc) => {
+											const resObj: { type: string, id: string, attributes?: Object } =
+												{ type: "docs", id: encodeURIComponent(doc.uri.toString()) };
+											let ecusObj = { data: {} };
+											//adltProvider.restQueryDocsEcus(cmd, [paths[0], '', 'ecus'], options, doc, ecusObj);
+											/* todo adlt for adlt resObj.attributes = {
+												name: doc.uri.fsPath,
+												msgs: doc.msgs.length,
+												ecus: ecusObj.data,
+												filters: util.createRestArray(doc.allFilters, (obj: object, i: number) => { const filter = obj as DltFilter; return filter.asRestObject(i); })
+											};*/
+											arrRes.push(resObj);
+										});
+										retObj.data = arrRes;
+									} else {
+										// get info about one document:
+										// e.g. get/docs/<id>/ecus/<ecuid>/lifecycles/<lifecycleid>
+										// or   get/docs/<id>/filters
+										if (paths.length >= 2) {
+											const docId = decodeURIComponent(paths[1]);
+											let doc = getRestQueryDocById(docId);
+											if (doc) {
+												if (paths.length === 2) { // get/docs/<id>
+													const resObj: { type: string, id: string, attributes?: Object } =
+														{ type: "docs", id: encodeURIComponent(doc.uri.toString()) };
+													resObj.attributes = {
+														name: doc.uri.fsPath,
+														msgs: doc.fileInfoNrMsgs,
+														ecus: [...doc.lifecycles.keys()].map((ecu => {
+															return {
+																name: ecu, lifecycles: doc!.lifecycles.get(ecu)?.length
+															};
+														})),
+														filters: util.createRestArray(doc.allFilters, (obj: object, i: number) => { const filter = obj as DltFilter; return filter.asRestObject(i); })
+													};
+													retObj.data = resObj;
+												} else { // get/docs/<id>/...
+													switch (paths[2]) {
+														case 'ecus': // get/docs/<id>/ecus
+															restQueryDocsEcus(cmd, paths, options, doc, retObj);
+															break;
+														case 'filters': // get/docs/<id>/filters
+															await doc.restQueryDocsFilters(context, cmd, paths, options, retObj);
+															break;
+														default:
+															retObj.error = [{ title: `${cmd}/${paths[0]}/<docid>/${paths[2]} not supported:'${paths[2]}. Valid: 'ecus' or 'filters'.` }];
+															break;
+													}
+												}
+											} else {
+												retObj.error = [{ title: `${cmd}/${paths[0]} unknown doc id:'${docId}'` }];
+											}
+										}
+
+									}
+								}
+								break;
+							default:
+								retObj.error = [{ title: `${cmd}/${paths[0]} unknown/not supported.` }];
+								break;
+						}
+					}
+					break;
+				default:
+					retObj.error = [{ title: `cmd ('${cmd}') unknown/not supported.` }];
+					break;
+			}
+
+		} else {
+			retObj.error = [{ title: 'query failed regex parsing' }];
+		}
+
+		const retStr = JSON.stringify(retObj);
+		console.log(`restQuery() returning : len=${retStr.length} errors=${retObj?.error?.length}`);
+		return retStr;
+	};
+
+	/**
+ * process /<cmd>/docs/<id>/ecus(paths[2])... restQuery requests
+ * @param cmd get|patch|delete
+ * @param paths docs/<id>/ecus[...]
+ * @param options e.g. ecu=<name>
+ * @param doc DltDocument identified by <id>
+ * @param retObj output: key errors or data has to be filled
+ */
+
+	const restQueryDocsEcus = (cmd: string, paths: string[], options: string, doc: DltDocument | AdltDocument, retObj: { error?: object[], data?: object[] | object }) => {
+		const optionArr = options ? options.split('&') : [];
+		let ecuNameFilter: string | undefined = undefined;
+		optionArr.forEach((opt) => {
+			console.log(`got opt=${opt}`);
+			if (opt.startsWith('ecu=')) {
+				ecuNameFilter = decodeURIComponent(opt.slice(opt.indexOf('=') + 1));
+				// allow the string be placed in "":
+				// we treat 'null' as undefined but "null" as ECU named null.
+				if (ecuNameFilter === 'null') { ecuNameFilter = undefined; } else {
+					ecuNameFilter = ecuNameFilter.replace(/^"(.*?)"$/g, (match, p1, offset) => p1);
+					if (ecuNameFilter.length === 0) { ecuNameFilter = undefined; } else {
+						console.log(`restQueryDocsEcus got ecuNameFilter='${ecuNameFilter}'`);
+					}
+				}
+			}
+		});
+		if (paths.length === 3) { // .../ecus
+			const arrRes: Object[] = [];
+			doc.lifecycles.forEach((lcInfo: DltLifecycleInfo[] | DltLifecycleInfoMinIF[], ecu: string) => {
+				if (!ecuNameFilter || ecuNameFilter === ecu) {
+					const resObj: { type: string, id: string, attributes?: Object } =
+						{ type: "ecus", id: encodeURIComponent(ecu) };
+
+					// determine SW names:
+					let sw: string[] = [];
+					lcInfo.forEach((lc: DltLifecycleInfo | DltLifecycleInfoMinIF) => lc.swVersions.forEach(lsw => { if (!sw.includes(lsw)) { sw.push(lsw); } }));
+
+					resObj.attributes = {
+						name: ecu,
+						lifecycles: [...lcInfo.map((lc: DltLifecycleInfo | DltLifecycleInfoMinIF, idx: number) => {
+							return {
+								type: "lifecycles", id: lc.persistentId,
+								attributes: {
+									index: idx + 1,
+									id: lc.persistentId, // todo to ease parsing with jsonPath...
+									label: lc.getTreeNodeLabel(),
+									startTimeUtc: lc.lifecycleStart.toUTCString(),
+									endTimeUtc: lc.lifecycleEnd.toUTCString(),
+									sws: lc.swVersions,
+									msgs: lc.nrMsgs,
+									// todo apids/ctids
+								}
+							};
+						})],
+						sws: sw,
+						// todo collect APID infos and CTID infos...
+					};
+					arrRes.push(resObj);
+				}
+			});
+			retObj.data = arrRes;
+		} else { // .../ecus/
+			retObj.error = [{ title: `${cmd}/${paths[0]}/${paths[1]}/${paths[2]}/${paths[3]} for ecus not yet implemented.` }];
+		}
+	};
 
 	void showWelcomeOrWhatsNew(context, extensionVersion, prevVersion);
 
@@ -97,8 +823,8 @@ export function activate(context: vscode.ExtensionContext) {
 	let smartLogApi = {
 		onDidChangeSelectedTime(listener: any) { return dltProvider.onDidChangeSelectedTime(listener); },
 		// restQuery should follow the principles from here: https://jsonapi.org/format/
-		restQuery(query: string) { console.log(`dlt-logs.restQuery(${query}) called.`); return dltProvider.restQuery(context, query); },
-		onDidChangeActiveRestQueryDoc(listener: any) { return dltProvider.onDidChangeActiveRestQueryDoc(listener); }
+		restQuery(query: string) { console.log(`dlt-logs.restQuery(${query}) called.`); return restQuery(context, query); },
+		onDidChangeActiveRestQueryDoc(listener: any) { return onDidChangeActiveRestQueryDoc(listener); }
 	};
 
 	return smartLogApi;

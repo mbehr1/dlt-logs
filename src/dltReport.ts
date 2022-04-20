@@ -2,12 +2,16 @@
  * Copyright(C) Matthias Behr.
  */
 
+// todo before release:
+// [ ] implement onNewMessages and reduce msg load by keeping only the data points but not the processed msgs
+
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import { DltLifecycleInfo } from './dltLifecycle';
+import { DltLifecycleInfoMinIF } from './dltLifecycle';
 import { DltFilter } from './dltFilter';
-import { DltDocument } from './dltDocument';
+import { FilterableDltMsg } from './dltParser';
+import { TreeViewNode } from './dltTreeViewNodes';
 
 enum DataPointType {
     Default = 0, // can be used but better to not set t_ then at all
@@ -15,18 +19,38 @@ enum DataPointType {
     LifecycleEnd = 2
 }
 
-export class DltReport implements vscode.Disposable {
+export interface NewMessageSink {
+    onNewMessages?: (nrNewMsgs: number) => void;
+    onDone?: () => void;
+};
+
+export interface ReportDocument {
+    provideTimeByMsg(msg: FilterableDltMsg): Date | undefined;
+    lineCloseToDate(date: Date): Promise<number>;
+    textEditors: Array<vscode.TextEditor>;
+    ecuApidInfosMap?: Map<string, Map<string, { apid: string, desc: string, nrMsgs: number, ctids: Map<string, [string, number]> }>>;
+    lifecycles: Map<string, DltLifecycleInfoMinIF[]>;
+    fileInfoNrMsgs: number;
+}
+
+export interface TreeviewAbleDocument {
+    textDocument: vscode.TextDocument | undefined;
+    treeNode: TreeViewNode;
+}
+
+export class DltReport implements vscode.Disposable, NewMessageSink {
 
     panel: vscode.WebviewPanel | undefined;
     private _gotAliveFromPanel: boolean = false;
     private _msgsToPost: any[] = []; // msgs queued to be send to panel once alive
+    public disposables: vscode.Disposable[];
 
     filter: DltFilter[] = [];
 
     lastChangeActive: Date | undefined;
 
-    constructor(private context: vscode.ExtensionContext, private doc: DltDocument, private callOnDispose: (r: DltReport) => any) {
-
+    constructor(private context: vscode.ExtensionContext, private doc: ReportDocument, public msgs: Array<FilterableDltMsg>, private callOnDispose: (r: DltReport) => any) {
+        this.disposables = [{ dispose: () => callOnDispose(this) }];
         this.panel = vscode.window.createWebviewPanel("dlt-logs.report", `dlt-logs report`, vscode.ViewColumn.Beside,
             {
                 enableScripts: true, retainContextWhenHidden: true,
@@ -67,13 +91,18 @@ export class DltReport implements vscode.Disposable {
                     try {
                         const dateClicked: Date = new Date(e.dataPoint.x);
                         console.log(`report.onDidReceiveMessage clicked date e=${dateClicked}`);
-                        let line = this.doc.lineCloseToDate(dateClicked);
-                        if (line >= 0 && this.doc.textEditors) {
-                            const posRange = new vscode.Range(line, 0, line, 0);
-                            this.doc.textEditors.forEach((value) => {
-                                value.revealRange(posRange, vscode.TextEditorRevealType.AtTop);
-                            });
-                        }
+                        this.doc.lineCloseToDate(dateClicked).then((line) => {
+                            try {
+                                if (line >= 0 && this.doc.textEditors) {
+                                    const posRange = new vscode.Range(line, 0, line, 0);
+                                    this.doc.textEditors.forEach((value) => {
+                                        value.revealRange(posRange, vscode.TextEditorRevealType.AtTop);
+                                    });
+                                }   
+                            } catch (err) {
+                                console.warn(`report.onDidReceiveMessage.then clicked got err=${err}`, e);
+                            }
+                        });
                     } catch (err) {
                         console.warn(`report.onDidReceiveMessage clicked got err=${err}`, e);
                     }
@@ -103,7 +132,10 @@ export class DltReport implements vscode.Disposable {
             this.panel.dispose();
             this.panel = undefined;
         }
-        this.callOnDispose(this);
+        for (let disposable of this.disposables) {
+            disposable.dispose();
+        }
+        this.disposables.length = 0;
     }
 
     postMsgOnceAlive(msg: any) {
@@ -143,6 +175,13 @@ export class DltReport implements vscode.Disposable {
         this.postMsgOnceAlive({ command: "onDidChangeSelectedTime", selectedTime: time });
     }
 
+    onNewMessages(nrNewMsgs: number) {
+        // todo
+        console.warn(`DltReport.onNewMessages(${nrNewMsgs}) nyi! msgs.length=${this.msgs.length}`);
+        this.updateReport(); // todo adlt for now... (later on needs to be optimized to support streaming)
+        // and to empty the msgs that have been processed already
+    }
+
     updateReport() {
         if (!this.panel) { return; }
         // console.log(`webview.enableScripts=${this.panel.webview.options.enableScripts}`);
@@ -176,14 +215,14 @@ export class DltReport implements vscode.Disposable {
         // we keep the last data point by each "label"/data source name:
         let lastDataPoints = new Map<string, { x: Date, y: string | number | any, lcId: number }>();
 
-        const insertDataPoint = function (lifecycle: DltLifecycleInfo, label: string, time: Date, value: number | string | any, insertPrevState = false, insertYLabels = true) {
+        const insertDataPoint = function (lifecycle: DltLifecycleInfoMinIF, label: string, time: Date, value: number | string | any, insertPrevState = false, insertYLabels = true) {
             let dataSet = dataSets.get(label);
 
             if ((minDataPointTime === undefined) || minDataPointTime.valueOf() > time.valueOf()) {
                 minDataPointTime = time;
             }
 
-            const dataPoint = { x: time, y: value, lcId: lifecycle.uniqueId };
+            const dataPoint = { x: time, y: value, lcId: lifecycle.persistentId };
             if (!dataSet) {
                 dataSet = { data: [dataPoint] };
                 dataSets.set(label, dataSet);
@@ -219,9 +258,14 @@ export class DltReport implements vscode.Disposable {
 
         };
 
-        const msgs = this.doc.msgs;
+        const msgs = this.msgs;
         if (msgs.length) {
             console.log(` matching ${this.filter.length} filter on ${msgs.length} msgs:`);
+            /*console.log(`msg[0]=${JSON.stringify(msgs[0], (key, value) =>
+                typeof value === 'bigint'
+                    ? value.toString()
+                    : value
+            )}`);*/
 
             const convFunctionCache = new Map<DltFilter, [Function | undefined, Object]>();
             const reportObj = {}; // an object to store e.g. settings per report from a filter
@@ -419,11 +463,11 @@ export class DltReport implements vscode.Disposable {
                             // we treat datapoints/events as state changes that persists
                             // until there is a new state.
                             // search the last value:
-                            const lastState = leftNeighbor(data.data, lcInfo.lifecycleEnd, lcInfo.uniqueId);
+                            const lastState = leftNeighbor(data.data, lcInfo.lifecycleEnd, lcInfo.persistentId);
                             //console.log(`got lastState = ${lastState}`);
                             if (lastState !== undefined) {
-                                data.data.push({ x: new Date(lcInfo.lifecycleEnd.valueOf() - 1), y: lastState, lcId: lcInfo.uniqueId, t_: DataPointType.PrevStateEnd });
-                                data.data.push({ x: lcInfo.lifecycleEnd, y: '_unus_lbl_', lcId: lcInfo.uniqueId, t_: DataPointType.LifecycleEnd });
+                                data.data.push({ x: new Date(lcInfo.lifecycleEnd.valueOf() - 1), y: lastState, lcId: lcInfo.persistentId, t_: DataPointType.PrevStateEnd });
+                                data.data.push({ x: lcInfo.lifecycleEnd, y: '_unus_lbl_', lcId: lcInfo.persistentId, t_: DataPointType.LifecycleEnd });
                                 // need to sort already here as otherwise those data points are found...
                                 data.data.forEach((d, index) => d.idx_ = index);
                                 data.data.sort((a, b) => {
@@ -436,7 +480,7 @@ export class DltReport implements vscode.Disposable {
                                 data.data.forEach((d) => delete d.idx_);
                             }
                         } else {
-                            data.data.push({ x: lcInfo.lifecycleEnd, y: NaN, lcId: lcInfo.uniqueId, t_: DataPointType.LifecycleEnd }); // todo not quite might end at wrong lifecycle. rethink whether one dataset can come from multiple LCs
+                            data.data.push({ x: lcInfo.lifecycleEnd, y: NaN, lcId: lcInfo.persistentId, t_: DataPointType.LifecycleEnd }); // todo not quite might end at wrong lifecycle. rethink whether one dataset can come from multiple LCs
                             dataNeedsSorting = true;
                         }
                     });

@@ -105,6 +105,25 @@ export const throttle = <F extends (...args: any[]) => any>(func: F, waitFor: nu
         });
 };
 
+// taken from https://stackoverflow.com/questions/38213668/promise-retry-design-patterns
+// slightly adapted to TS
+
+export function retryOperation<T>(operation: (retries_left: number) => Promise<T>, delay: number, retries: number): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+        return operation(retries)
+            .then(resolve)
+            .catch((reason) => {
+                if (retries > 0) {
+                    return sleep(delay)
+                        .then(retryOperation.bind(null, operation, delay, retries - 1))
+                        .then((value) => resolve(value as T))
+                        .catch(reject);
+                }
+                return reject(reason);
+            });
+    });
+};
+
 
 export function updateConfiguration(section: string, newValue: any) {
     // we should try to update first:

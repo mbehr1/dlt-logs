@@ -5,8 +5,6 @@
 import * as vscode from 'vscode';
 import { createUniqueId } from './util';
 import { DltFilter, DltFilterType } from './dltFilter';
-import { DltLifecycleInfo } from './dltLifecycle';
-import { DltDocument } from './dltDocument';
 
 export interface TreeViewNode {
     id: string; // unique id
@@ -245,6 +243,20 @@ export class ConfigNode implements TreeViewNode {
     }
 }
 
+export interface FilterableDocument {
+    uri: vscode.Uri;
+    allFilters: DltFilter[];
+    onFilterEdit(filter: DltFilter): boolean;
+    onFilterDelete(filter: DltFilter, callTriggerApplyFilter?: boolean): boolean;
+    onFilterAdd(filter: DltFilter, callTriggerApplyFilter?: boolean): boolean;
+}
+
+export interface FilterableLifecycleInfo {
+    persistentId: number;
+    tooltip: string;
+    getTreeNodeLabel(): string;
+}
+
 /**
  * TreeViewNode representing the "Detected lifecycles" root node
  * Has a specific icon and methods supporting lifecycle filters
@@ -256,12 +268,12 @@ export class LifecycleRootNode implements TreeViewNode {
     parent: TreeViewNode | null = null;
     iconPath?: vscode.ThemeIcon;
     private lcFilter?: DltFilter;
-    private lcsFiltered: DltLifecycleInfo[] = [];
+    private lcsFiltered: FilterableLifecycleInfo[] = [];
 
     get label(): string { return "Detected lifecycles"; };
     get uri(): vscode.Uri | null { return this.doc.uri; }
 
-    constructor(private doc: DltDocument) {
+    constructor(private doc: FilterableDocument) {
         this.id = createUniqueId();
         this.iconPath = new vscode.ThemeIcon('list-selection');
     }
@@ -281,7 +293,7 @@ export class LifecycleRootNode implements TreeViewNode {
      * Return whether a lifecycle is currently filtered.
      * @param lc lifecycle to get the info for
      */
-    hasLcFiltered(lc: DltLifecycleInfo): boolean {
+    hasLcFiltered(lc: FilterableLifecycleInfo): boolean {
         if (this.lcsFiltered.indexOf(lc) < 0) { return false; };
         return this.lcFilter !== undefined && this.lcFilter.enabled;
     }
@@ -291,7 +303,7 @@ export class LifecycleRootNode implements TreeViewNode {
      * @param lc lifecycle so filter/remove from filter
      * @param doFilter indicate whether the lifecycle should be filtered or not
      */
-    filterLc(lc: DltLifecycleInfo, doFilter: boolean) {
+    filterLc(lc: FilterableLifecycleInfo, doFilter: boolean) {
         let filtersChanged = false;
 
         // if the filter is currently disabled and the filter should be set
@@ -329,15 +341,21 @@ export class LifecycleRootNode implements TreeViewNode {
     }
 }
 
+export interface EcuNode extends TreeViewNode {
+    swVersions: string[];
+    /// decorations for even/odd lifecycles (if any)
+    lcDecorationTypes?: [vscode.TextEditorDecorationType | undefined, vscode.TextEditorDecorationType | undefined]
+}
+
 export class LifecycleNode implements TreeViewNode {
     id: string;
     label: string;
     tooltip: string | undefined;
     get children(): TreeViewNode[] { return []; } // no children 
-    constructor(public uri: vscode.Uri | null, public parent: TreeViewNode,
-        private lcRootNode: LifecycleRootNode, private lc: DltLifecycleInfo, private lcNr: number) {
+    constructor(public uri: vscode.Uri | null, public parent: EcuNode,
+        private lcRootNode: LifecycleRootNode, private lc: FilterableLifecycleInfo, private lcNr: number | undefined) {
         this.id = createUniqueId();
-        this.label = `LC#${lcNr}: ${lc.getTreeNodeLabel()}`;
+        this.label = lcNr !== undefined ? `LC#${lcNr}: ${lc.getTreeNodeLabel()}` : `LC${lc.getTreeNodeLabel()}`;
         this.tooltip = lc.tooltip;
     }
 
@@ -375,7 +393,7 @@ export class DynFilterNode implements TreeViewNode {
     iconPath?: vscode.ThemeIcon;
     get uri(): vscode.Uri | null { return this.doc.uri; }
 
-    constructor(public label: string, private _tooltip: string | undefined, public parent: TreeViewNode, icon: string | undefined, private filterFragment: any, private doc: DltDocument) {
+    constructor(public label: string, private _tooltip: string | undefined, public parent: TreeViewNode, icon: string | undefined, private filterFragment: any, private doc: FilterableDocument) {
         this.id = createUniqueId();
         if (icon) { this.iconPath = new vscode.ThemeIcon(icon); }
         //console.log(`DynFilterNode constr. with filterFragment=${JSON.stringify(filterFragment)}`);

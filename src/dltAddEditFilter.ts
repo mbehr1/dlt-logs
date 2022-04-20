@@ -12,12 +12,13 @@ import * as vscode from 'vscode';
 import { MultiStepInput, PickItem } from './quickPick';
 import { DltFilter, DltFilterType } from './dltFilter';
 import { DltDocument } from './dltDocument';
-import { ConfigNode } from './dltTreeViewNodes';
+import { ConfigNode, FilterableDocument } from './dltTreeViewNodes';
 import * as util from './util';
+import { ReportDocument } from './dltReport';
 
 const confSection = 'dlt-logs.filters';
 
-export function deleteFilter(doc: DltDocument, filter: DltFilter) {
+export function deleteFilter(doc: FilterableDocument, filter: DltFilter) {
     console.log(`dlt-log.deleteFilter(${filter.name}) called...`);
     return new Promise<boolean>((resolveDelete) => {
         // delete config:
@@ -46,18 +47,18 @@ export function deleteFilter(doc: DltDocument, filter: DltFilter) {
     });
 }
 
-export function addFilter(doc: DltDocument, arg: any) {
+export function addFilter(doc: FilterableDocument & ReportDocument, arg: any) {
     console.log(`dlt-log.addFilter called...${JSON.stringify(arg)}`);
     let newFilter = new DltFilter({ type: DltFilterType.POSITIVE, ecu: arg["ecu"], apid: arg["apid"], ctid: arg["ctid"] });
     return editFilter(doc, newFilter, { isAdd: true, payload: arg["payload"] });
 }
 
-export function editFilter(doc: DltDocument, newFilter: DltFilter, optArgs?: { payload?: string, isAdd?: boolean }) {
+export function editFilter(doc: FilterableDocument & ReportDocument, newFilter: DltFilter, optArgs?: { payload?: string, isAdd?: boolean }) {
     return new Promise<boolean>((resolveEdit) => {
         const isAdd = optArgs !== undefined && optArgs.isAdd !== undefined ? optArgs.isAdd : false;
         console.log(`dlt-log.editFilter(isEdit=${isAdd}) called...${newFilter.name}`);
 
-        const updateFilterConfig = (doc: DltDocument, filter: DltFilter, isAdd: boolean) => {
+        const updateFilterConfig = (doc: FilterableDocument, filter: DltFilter, isAdd: boolean) => {
             console.log(`updateFilterConfig(isAdd=${isAdd})...${filter.name}`);
             const curFilter = vscode.workspace.getConfiguration().get(confSection);
             if (curFilter && Array.isArray(curFilter)) {
@@ -106,19 +107,39 @@ export function editFilter(doc: DltDocument, newFilter: DltFilter, optArgs?: { p
         // step 2: APIDs:
         let apidSet = new Map<string, string>();
         let ctidSet = new Map<string, { desc: string, apids: string[] }>();
-        doc.lifecycles.forEach(lI => lI.forEach(l => {
-            l.apidInfos.forEach((v, k) => {
-                if (!apidSet.has(k)) { apidSet.set(k, v.desc); }
-                // ctids we store as ctid, desc, apids[]
-                v.ctids.forEach((desc, ctid) => {
-                    if (!ctidSet.has(ctid)) { ctidSet.set(ctid, { desc: desc, apids: [k] }); } else {
-                        // do we have this apid yet?
-                        const ctInfo = ctidSet.get(ctid);
-                        if (ctInfo && !ctInfo.apids.includes(k)) { ctInfo.apids.push(k); }
-                    }
+
+        // prefill from document if available:
+        if (doc.ecuApidInfosMap !== undefined) {
+            for (let [ecu, apidInfos] of doc.ecuApidInfosMap) {
+                apidInfos.forEach((v, apid) => {
+                    if (!apidSet.has(apid)) { apidSet.set(apid, v.desc); }
+                    // ctids we store as ctid, desc, apids[]
+                    v.ctids.forEach(([desc, nrMsgs], ctid) => {
+                        if (!ctidSet.has(ctid)) { ctidSet.set(ctid, { desc: desc, apids: [apid] }); } else {
+                            // do we have this apid yet?
+                            const ctInfo = ctidSet.get(ctid);
+                            if (ctInfo && !ctInfo.apids.includes(apid)) { ctInfo.apids.push(apid); }
+                        }
+                    });
                 });
-            });
-        }));
+            }
+        } else { // prefill from the lifecycles
+            doc.lifecycles.forEach(lI => lI.forEach(l => {
+                if (l.apidInfos !== undefined) {
+                    l.apidInfos.forEach((v, k) => {
+                        if (!apidSet.has(k)) { apidSet.set(k, v.desc); }
+                        // ctids we store as ctid, desc, apids[]
+                        v.ctids.forEach((desc, ctid) => {
+                            if (!ctidSet.has(ctid)) { ctidSet.set(ctid, { desc: desc, apids: [k] }); } else {
+                                // do we have this apid yet?
+                                const ctInfo = ctidSet.get(ctid);
+                                if (ctInfo && !ctInfo.apids.includes(k)) { ctInfo.apids.push(k); }
+                            }
+                        });
+                    });
+                }
+            }));
+        }
 
         let apids: PickItem[] = [];
         apidSet.forEach((desc, apid) => {
@@ -160,11 +181,13 @@ export function editFilter(doc: DltDocument, newFilter: DltFilter, optArgs?: { p
             }
         };
 
-        doc.configTreeNode.children.forEach(node => {
+        if ('configTreeNode' in doc) {
+            (doc as DltDocument /* todo! */).configTreeNode.children.forEach(node => {
             if (node instanceof ConfigNode) {
                 addConfig(node, '');
             }
         });
+        }
 
         let stepInput = new MultiStepInput(`${isAdd ? 'add' : 'edit'} filter...`, [
             { title: `filter on ECU?`, items: ecus, initialValue: () => { return newFilter.ecu; }, placeholder: 'enter or select the ECU to filter (if any)', onValue: (v) => { newFilter.ecu = v.length ? v : undefined; }, isValid: (v => (v.length <= 4)) },

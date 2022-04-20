@@ -4,7 +4,7 @@
 
 import * as vscode from 'vscode';
 import * as assert from 'assert';
-import { DltLifecycleInfo } from './dltLifecycle';
+import { DltLifecycleInfo, DltLifecycleInfoMinIF } from './dltLifecycle';
 import { DltFilter } from './dltFilter';
 import { printableAscii, toHexString, RestObject } from './util';
 import { DltTransformationPlugin } from './dltTransformationPlugin';
@@ -46,7 +46,7 @@ export const serviceIds: string[] = ["", "set_log_level", "set_trace_status", "g
 */
 
 // map ecu/apid/ctids
-interface EAC {
+export interface EAC {
     e: string,
     a: string,
     c: string
@@ -63,7 +63,7 @@ const mapEAC: Map<number, EAC> = new Map();
 const maprEAC: Map<string, Map<string, Map<string, number>>> = new Map();
 let maxEAC: number = 0;
 
-function getIdxFromEAC(eac: EAC): number {
+export function getIdxFromEAC(eac: EAC): number {
     let eMap = maprEAC.get(eac.e);
     if (eMap === undefined) {
         eMap = new Map<string, Map<string, number>>();
@@ -84,15 +84,37 @@ function getIdxFromEAC(eac: EAC): number {
         return idx;
     }
 }
-function getEACFromIdx(idx: number): EAC | undefined {
+export function getEACFromIdx(idx: number): EAC | undefined {
     const eac = mapEAC.get(idx);
     return eac;
 }
 
-export class DltMsg {
+export interface FilterableDltMsg {
+    timeStamp: number; // timestamp_dms [deci=0.1 ms]
+    mstp: number;
+    mtin: number;
+    //readonly mcnt: number,
+    ecu: string;
+    apid: string;
+    ctid: string;
+    verbose: boolean;
+    payloadString: string;
+    lifecycle?: DltLifecycleInfoMinIF;
+
+    asRestObject(idHint: number): RestObject;
+}
+
+export interface ViewableDltMsg extends FilterableDltMsg {
+    receptionTimeInMs: number;
+    index: number;
+    mcnt: number;
+}
+
+export class DltMsg implements FilterableDltMsg {
     readonly index: number; // index/nr of this msg inside orig file/stream/buffer
-    readonly timeAsNumber: number; // time in ms. Date uses more memory!
-    get timeAsDate(): Date { return new Date(this.timeAsNumber); }
+    readonly receptionTimeInMs: number; // time in ms. Date uses more memory!
+    get timeAsDate(): Date { return new Date(this.receptionTimeInMs); }
+    // todo could add this if e.g. some fba queries use that. get timeAsNumber(): number { return this.recordedTimeInMs; }
 
     // parsed from data:
     readonly mcnt: number;
@@ -113,14 +135,14 @@ export class DltMsg {
     public _payloadArgs: Array<any> | undefined = undefined;
     public /* no friend class ... DltSomeIpPlugin private*/ _payloadText: string | undefined = undefined;
     private _transformCb: ((msg: DltMsg) => void) | undefined = undefined;
-    lifecycle: DltLifecycleInfo | undefined = undefined;
+    lifecycle: DltLifecycleInfoMinIF | DltLifecycleInfo | undefined = undefined;
     decorations: Array<[vscode.TextEditorDecorationType, Array<vscode.DecorationOptions>]> = [];
 
     get isBigEndian(): boolean { return (this._htyp & 0x02) ? true : false; }
 
-    constructor(storageHeaderEcu: string, stdHdr: any, index: number, timeAsNumber: number, data: Buffer) {
+    constructor(storageHeaderEcu: string, stdHdr: any, index: number, receptionTimeInMs: number, data: Buffer) {
         this.index = index;
-        this.timeAsNumber = timeAsNumber;
+        this.receptionTimeInMs = receptionTimeInMs;
 
         // the following code could be moved into a function to allow parallel/delayed processing
         this.mcnt = stdHdr["mcnt"];
@@ -650,7 +672,7 @@ export class DltParser {
             if (storageHeader.pattern === DLT_STORAGE_HEADER_PATTERN) {
                 const msgOffset = offset;
                 offset += DLT_STORAGE_HEADER_SIZE;
-                const timeAsNumber = (storageHeader.secs * 1000) + (storageHeader.micros / 1000);
+                const receptionTimeInMs = (storageHeader.secs * 1000) + (storageHeader.micros / 1000);
                 const stdHeader = dltParseStdHeader(buf, offset);
                 // do we have the remaining data in buf?
                 const len: number = stdHeader.len;
@@ -681,7 +703,7 @@ export class DltParser {
 
                         if (len >= MIN_STD_HEADER_SIZE) {
                             try {
-                                const newMsg = new DltMsg(storageHeader.ecu, stdHeader, startIndex + nrMsgs, timeAsNumber, buf.slice(msgOffset, offset));
+                                const newMsg = new DltMsg(storageHeader.ecu, stdHeader, startIndex + nrMsgs, receptionTimeInMs, buf.slice(msgOffset, offset));
                                 // do we need to filter this one?
                                 let keepAfterNegBeforePosFilters: boolean = true;
                                 if (negBeforePosFilters?.length) {
