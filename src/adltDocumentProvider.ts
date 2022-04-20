@@ -13,8 +13,6 @@
 /// [ ] think about atLoadTime filters (use them as regular ones)
 
 /// bugs:
-/// [ ] adding a 2nd report into an existing one doesn't seem to work (see todo requery in openReport)
-/// [ ] apidInfos based on msg collection missing (currently only on control LOG_INFO... msgs)
 
 /// [x] sort order support
 /// by default logs are sorted by timestamp. If the sort order is toggled the file is closed and reopened.
@@ -43,6 +41,7 @@ import { DltDocument, ColumnConfig } from './dltDocument';
 import { v4 as uuidv4 } from 'uuid';
 import { AdltPlugin } from './adltPlugin';
 import { assert } from 'console';
+import { reporters } from 'mocha';
 
 /// minimum adlt version required
 /// we do show a text if the version is not met.
@@ -1396,8 +1395,32 @@ export class AdltDocument implements vscode.Disposable {
                     }
                 }
             }
-            report.addFilter(filter); // todo requery the msgs so that they include the new filter
-            return report;
+            let filters = Array.isArray(filter) ? filter : [filter];
+            let filterStr = filters.filter(f => f.enabled).map(f => JSON.stringify(f.asConfiguration())).join(',');
+            this.sendAndRecvAdltMsg(`stream {"window":[0,1000000], "binary":true, "filters":[${filterStr}]}`).then((response) => {
+                console.log(`adlt.on startStream got response:'${response}'`);
+                const streamObj = JSON.parse(response.substring(11));
+                console.log(`adtl ok:stream`, JSON.stringify(streamObj));
+
+                let streamMsgs: AdltMsg[] = report.msgs as AdltMsg[]; // add to existing ones
+                report.disposables.push({
+                    dispose: () => {
+                        this.sendAndRecvAdltMsg(`stop ${streamObj.id}`).then(() => { });
+                        console.log(`onOpenReport reportToAdd onDispose stopped stream`);
+                    }
+                });
+
+                let curStreamMsgData = this.streamMsgs.get(streamObj.id);
+                let streamData = { msgs: streamMsgs, sink: report };
+                this.streamMsgs.set(streamObj.id, streamData);
+                if (curStreamMsgData && Array.isArray(curStreamMsgData)) {
+                    // process the data now:
+                    curStreamMsgData.forEach((msgs) => this.processBinDltMsgs(msgs, streamObj.id, streamData));
+                }                
+
+                report.addFilter(filter); // todo requery the msgs so that they include the new filter
+                return report;
+            });
         } else {
             // shall we query first the messages fitting to the filters or shall we 
             // open the report first and add the messages then?

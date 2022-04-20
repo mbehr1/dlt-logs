@@ -43,13 +43,14 @@ export class DltReport implements vscode.Disposable, NewMessageSink {
     panel: vscode.WebviewPanel | undefined;
     private _gotAliveFromPanel: boolean = false;
     private _msgsToPost: any[] = []; // msgs queued to be send to panel once alive
+    public disposables: vscode.Disposable[];
 
     filter: DltFilter[] = [];
 
     lastChangeActive: Date | undefined;
 
     constructor(private context: vscode.ExtensionContext, private doc: ReportDocument, public msgs: Array<FilterableDltMsg>, private callOnDispose: (r: DltReport) => any) {
-
+        this.disposables = [{ dispose: () => callOnDispose(this) }];
         this.panel = vscode.window.createWebviewPanel("dlt-logs.report", `dlt-logs report`, vscode.ViewColumn.Beside,
             {
                 enableScripts: true, retainContextWhenHidden: true,
@@ -131,7 +132,10 @@ export class DltReport implements vscode.Disposable, NewMessageSink {
             this.panel.dispose();
             this.panel = undefined;
         }
-        this.callOnDispose(this);
+        for (let disposable of this.disposables) {
+            disposable.dispose();
+        }
+        this.disposables.length = 0;
     }
 
     postMsgOnceAlive(msg: any) {
