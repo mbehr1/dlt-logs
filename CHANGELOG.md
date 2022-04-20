@@ -1,5 +1,50 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.27.0](https://github.com/mbehr1/dlt-logs/compare/v1.26.5...v1.27.0) (2022-04-20)
+
+
+### Features
+
+* **adlt:** add semver version check for adlt ([cf3b539](https://github.com/mbehr1/dlt-logs/commit/cf3b539c3954fca42c4b50ca446250063402b157))
+* **adlt:** apid/ctid info for hover and add/edit filter ([e8c239f](https://github.com/mbehr1/dlt-logs/commit/e8c239f889a1c2aa68210fe08d124bb701ee4d91))
+* **adlt:** autostart adlt on doc open ([a8b4748](https://github.com/mbehr1/dlt-logs/commit/a8b474879bc75a10c73f01990fcdfeb05637d438))
+* **adlt:** filters autoloaded and decorations ([8e412a7](https://github.com/mbehr1/dlt-logs/commit/8e412a781b28c02b3e08041a6d8a744d559b380f))
+* **adlt:** first apid/ctids ([aa86a63](https://github.com/mbehr1/dlt-logs/commit/aa86a63f7f555c9c8f4eeb4913b8f79709766c4a))
+* **adlt:** jump to lc start on tree view selection ([9ae1fa8](https://github.com/mbehr1/dlt-logs/commit/9ae1fa80c4e3f7a163e4003746783fff99fcbe87))
+* **adlt:** lifecycles and filtering for them ([0de92a5](https://github.com/mbehr1/dlt-logs/commit/0de92a5f92ea34bc7d9ffd363ab79405b1a89e58))
+* **adlt:** lineCloseToDate / jump to line by time ([059401d](https://github.com/mbehr1/dlt-logs/commit/059401d488db6b10f944811ce97e4a2461ac00be))
+* **adlt:** plugin state support ([f075173](https://github.com/mbehr1/dlt-logs/commit/f075173e0b2ed6fb6388453725677cfaff05e1bd))
+* **adlt:** show adlt remote version in status bar ([aea0b68](https://github.com/mbehr1/dlt-logs/commit/aea0b684a0a60e7b5770488fd289ca136cb9f50c))
+* **adlt:** show nr msgs for apids/ctids ([c80920e](https://github.com/mbehr1/dlt-logs/commit/c80920e66201862a9dc643445b4b24376335b1a2))
+* **adlt:** show sw version for the lifecycles ([69f8283](https://github.com/mbehr1/dlt-logs/commit/69f8283006915e738c8d11dae45d73554ad6cbcf))
+* add plugins via adlt ([968bf62](https://github.com/mbehr1/dlt-logs/commit/968bf62254ca9575f3d873c4d4d266901084d4d7))
+* distribute selected time to reports ([aa5efd8](https://github.com/mbehr1/dlt-logs/commit/aa5efd83aff92cf0ca95b30ac103a2444e1a751f))
+* **adlt:** support opening of multiple files ([a7d670f](https://github.com/mbehr1/dlt-logs/commit/a7d670f29ca604706a1da05b61e80c3aa52a0a9f))
+* **adlt:** toggle sort order ([76f8efd](https://github.com/mbehr1/dlt-logs/commit/76f8efd74cd44c6aa20fe9735e72fcc1504dc7c8))
+* poc for adlt ([29efade](https://github.com/mbehr1/dlt-logs/commit/29efade7908a7df6e5d41d3961da126d3423f91e))
+
+
+### Bug Fixes
+
+* **adlt:** adding a report to an existing one supported ([13eff01](https://github.com/mbehr1/dlt-logs/commit/13eff01eec878b40b0632d35b6347028eb7e3984))
+* adjust odd/even lcs according to dlt-log behaviour ([85b478b](https://github.com/mbehr1/dlt-logs/commit/85b478bbc07071403885decf6017ab6f7510a438))
+* if no doc is visible use the last visible one for restquery ([daf6272](https://github.com/mbehr1/dlt-logs/commit/daf627294338ac4ac0bda5742d4d79248c680cb8))
+* **adlt:** add/editFilter ([f75a810](https://github.com/mbehr1/dlt-logs/commit/f75a810b39d02b34cdcdadd7414e6423e95a9627))
+* **adlt:** by config disabled filters are never used ([8692c9f](https://github.com/mbehr1/dlt-logs/commit/8692c9fe481ea93caed3390df371a944b5a9dede))
+* **adlt:** decorate lifecycles ([66418d6](https://github.com/mbehr1/dlt-logs/commit/66418d6a0e8f51dea767e69ff0e43655592e7782))
+* **adlt:** hover support ([11fef66](https://github.com/mbehr1/dlt-logs/commit/11fef66bc9c2b1e23882ad9d51a8e33cde859efd))
+* **adlt:** restQuery use similar format as dlt ([1389f8a](https://github.com/mbehr1/dlt-logs/commit/1389f8a6183fbd6b7ce9b4c9a2e4b6d6dcf6ae81))
+* **adlt:** show ... lead to empty file ([ec2276f](https://github.com/mbehr1/dlt-logs/commit/ec2276f32010068ba34782f87440a284fdd6da73))
+* **adlt:** update status bar on fileInfo, adltPath config ([363b97c](https://github.com/mbehr1/dlt-logs/commit/363b97ca00d072fd408b438facdf1ed3bfa13080))
+* **adlt:** use cached ecu, apid, ctid ([7cae8b3](https://github.com/mbehr1/dlt-logs/commit/7cae8b326667a15ec6c59a133136b47bcf3ee717))
+* **adlt:** use changeWindow instead of a new stream ([acb3cc4](https://github.com/mbehr1/dlt-logs/commit/acb3cc43d52458f4e80fab674d199703ee1f3cc2))
+* less verbose onDidOpenTextDocument ([a9cdc54](https://github.com/mbehr1/dlt-logs/commit/a9cdc54a474b2078fe7f1b96d1c53963255726dd))
+* max_message_size, statusbar errors ([ba1992f](https://github.com/mbehr1/dlt-logs/commit/ba1992fb07bab871765b0cb9eae23b253764627f))
+* **adlt:** status bar ([26729d5](https://github.com/mbehr1/dlt-logs/commit/26729d5145823bd8534df5dde7a313ca87755422))
+* **adlt:** use only enabled filters ([89d0344](https://github.com/mbehr1/dlt-logs/commit/89d0344d01368b01f9ead0fd44f06d139132a009))
+* **hover:** fix markdown table ([7c33742](https://github.com/mbehr1/dlt-logs/commit/7c33742d1256a3cf18555b184008b115cfaacd62))
+* textLinesForMsgs access out of bounds ([9619609](https://github.com/mbehr1/dlt-logs/commit/9619609189829d5b1f4aae0c8d3c04c65ca2f877))
+
 ### [1.26.5](https://github.com/mbehr1/dlt-logs/compare/v1.26.4...v1.26.5) (2022-02-26)
 
 
