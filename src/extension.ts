@@ -467,7 +467,7 @@ export function activate(context: vscode.ExtensionContext) {
 	// maintain list of visible(aka opened) documents for the treeview and maintenance of
 	// the last used one (for restQuery)
 
-	context.subscriptions.push(vscode.window.onDidChangeVisibleTextEditors((editors: vscode.TextEditor[]) => {
+	context.subscriptions.push(vscode.window.onDidChangeVisibleTextEditors((editors: readonly vscode.TextEditor[]) => {
 		//console.log(`DltDocumentProvider.onDidChangeVisibleTextEditors= ${editors.length}`);
 		const visibleDocs: TreeviewAbleDocument[] = [];
 		for (const editor of editors) {

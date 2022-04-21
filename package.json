@@ -18,7 +18,7 @@
 	},
 	"homepage": "https://mbehr1.github.io/dlt-logs/",
 	"engines": {
-		"vscode": "^1.50.0"
+		"vscode": "^1.63.0"
 	},
 	"categories": [
 		"Other"
@@ -774,7 +774,7 @@
 		"@types/node": "^15.0.2",
 		"@types/semver": "^7.3.9",
 		"@types/uuid": "^8.3.0",
-		"@types/vscode": "^1.50.0",
+		"@types/vscode": "1.63.0",
 		"@types/ws": "^8.2.0",
 		"@typescript-eslint/eslint-plugin": "^4.22.1",
 		"@typescript-eslint/parser": "^4.22.1",
@@ -801,7 +801,8 @@
 		"uuid": "^8.3.2",
 		"vscode-extension-telemetry": "^0.1.7",
 		"w3-css": "^4.1.0",
-		"ws": "^8.2.2"
+		"ws": "^8.2.2",
+		"node-adlt": "0.16.2"
 	},
 	"commitlint": {
 		"extends": [
