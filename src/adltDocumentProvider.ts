@@ -41,12 +41,22 @@ import { DltDocument, ColumnConfig } from './dltDocument';
 import { v4 as uuidv4 } from 'uuid';
 import { AdltPlugin } from './adltPlugin';
 import { assert } from 'console';
-import { reporters } from 'mocha';
+
+//import { adltPath } from 'node-adlt';
+// with optionalDependency we use require to catch errors
+let adltPath: string | undefined = undefined;
+try {
+    var adltModule = require('node-adlt');
+    adltPath = adltModule ? adltModule.adltPath : undefined;
+} catch (err) {
+    console.warn("node-adlt not available!");
+}
 
 /// minimum adlt version required
 /// we do show a text if the version is not met.
 /// see https://www.npmjs.com/package/semver#prerelease-identifiers
-const MIN_ADLT_VERSION_SEMVER_RANGE = ">=0.16.0";
+//const MIN_ADLT_VERSION_SEMVER_RANGE = ">=0.16.0";
+const MIN_ADLT_VERSION_SEMVER_RANGE = require("../package.json")?.optionalDependencies["node-adlt"];
 
 function char4U32LeToString(char4le: number): string {
     let codes = [char4le & 0xff, 0xff & (char4le >> 8), 0xff & (char4le >> 16), 0xff & (char4le >> 24)];
@@ -461,6 +471,8 @@ export class AdltDocument implements vscode.Disposable {
                 if (this.adltVersion) {
                     if (!semver.satisfies(this.adltVersion, MIN_ADLT_VERSION_SEMVER_RANGE)) {
                         vscode.window.showErrorMessage(`Your adlt version is not matching the required version!\nPlease correct!\nDetected version is '${this.adltVersion}' vs required '${MIN_ADLT_VERSION_SEMVER_RANGE}.'`, { modal: true });
+                    } else {
+                        console.log(`adlt.AdltDocumentProvider got matching adlt version ${this.adltVersion} vs ${MIN_ADLT_VERSION_SEMVER_RANGE}.`);
                     }
                 }
             });
@@ -650,6 +662,7 @@ export class AdltDocument implements vscode.Disposable {
                             break;
                         case 'NonVerbose':
                             {
+                                // todo add merge of settings with fibexDir from SomeIp to match the docs...
                                 const plugin = new AdltPlugin(`Non-Verbose`, new vscode.ThemeIcon('symbol-numeric'), this.uri, this.pluginTreeNode, this._treeEventEmitter, pluginObj);
                                 this.pluginTreeNode.children.push(plugin);
                             }
@@ -2017,7 +2030,9 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
             throw Error(`MIN_ADLT_VERSION_SEMVER_RANGE is not valied!`);
         }
 
-        this._adltCommand = vscode.workspace.getConfiguration().get<string>("dlt-logs.adltPath") || "adlt";
+        console.log("adlt.ADltDocumentProvider adltPath=", adltPath);
+        this._adltCommand = vscode.workspace.getConfiguration().get<string>("dlt-logs.adltPath") || ((adltPath !== undefined && typeof adltPath === 'string') ? adltPath : "adlt");
+        console.log(`adlt.ADltDocumentProvider using adltCommand='${this._adltCommand}'`);
 
         // config changes
         context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(e => {
@@ -2025,8 +2040,9 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
 
                 // handle it for the next doc to be opened. Active connection will be interrupted (if non debug port)
                 if (e.affectsConfiguration("dlt-logs.adltPath")) {
-                    const newCmd = vscode.workspace.getConfiguration().get<string>("dlt-logs.adltPath") || "adlt";
+                    const newCmd = vscode.workspace.getConfiguration().get<string>("dlt-logs.adltPath") || ((adltPath !== undefined && typeof adltPath === 'string') ? adltPath : "adlt");
                     if (newCmd !== this._adltCommand) {
+                        console.log(`adlt.ADltDocumentProvider using adltCommand='${this._adltCommand}'`);
                         this._adltCommand = newCmd;
                         this.closeAdltProcess();
                     }
