@@ -42,13 +42,21 @@ import { v4 as uuidv4 } from 'uuid';
 import { AdltPlugin } from './adltPlugin';
 import { assert } from 'console';
 
-import { adltPath } from 'node-adlt';
+//import { adltPath } from 'node-adlt';
+// with optionalDependency we use require to catch errors
+let adltPath: string | undefined = undefined;
+try {
+    var adltModule = require('node-adlt');
+    adltPath = adltModule ? adltModule.adltPath : undefined;
+} catch (err) {
+    console.warn("node-adlt not available!");
+}
 
 /// minimum adlt version required
 /// we do show a text if the version is not met.
 /// see https://www.npmjs.com/package/semver#prerelease-identifiers
 //const MIN_ADLT_VERSION_SEMVER_RANGE = ">=0.16.0";
-const MIN_ADLT_VERSION_SEMVER_RANGE = require("../package.json")?.dependencies["node-adlt"];
+const MIN_ADLT_VERSION_SEMVER_RANGE = require("../package.json")?.optionalDependencies["node-adlt"];
 
 function char4U32LeToString(char4le: number): string {
     let codes = [char4le & 0xff, 0xff & (char4le >> 8), 0xff & (char4le >> 16), 0xff & (char4le >> 24)];
@@ -2022,6 +2030,7 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
             throw Error(`MIN_ADLT_VERSION_SEMVER_RANGE is not valied!`);
         }
 
+        console.log("adlt.ADltDocumentProvider adltPath=", adltPath);
         this._adltCommand = vscode.workspace.getConfiguration().get<string>("dlt-logs.adltPath") || ((adltPath !== undefined && typeof adltPath === 'string') ? adltPath : "adlt");
         console.log(`adlt.ADltDocumentProvider using adltCommand='${this._adltCommand}'`);
 

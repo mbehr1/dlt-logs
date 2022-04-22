@@ -169,6 +169,25 @@ Little testing especially on different endianess.
 * Marker filters only partially implemented yet. 3 hard-coded filters are highlighting log levels warning, error and fatal if the decorationIds "warning", "error" and "fatal" do exist.
 * Endianess is not tested/implemented! If you send me a DLT log with different endianess I'll implement it.
 
+## Platform specific releases
+
+Starting with v1.28.0 platform-specifc releases are generated as they include a binary version of [adlt](https://github.com/mbehr1/adlt).
+This is done via usage of the [node-adlt](https://github.com/mbehr1/node-adlt) package that provides pre-compiled adlt binaries for a lot of platforms.
+
+Currently the binaries are included for:
+- macOS, x64, x86_64-apple-darwin
+- macOS, arm64, aarch64-apple-darwin (e.g. M1 Macs)
+- Windows, win32 x64 64bit, x86_64-pc-windows-msvc
+- Windows, win32 ia32 32bit, i686-pc-windows-msvc
+- Linux, x64,  (MUSL), x86_64-unknown-linux-musl
+- Linux, arm64, aarch64-unknown-linux-gnu
+- Alpine, x64, (MUSL), x86_64-unknown-linux-musl
+
+If you have a different platform you do need to install [adlt](https://github.com/mbehr1/adlt) manually and set the **dlt-logs.adltPath** config setting to the path of the installed binary.
+If you miss any platform please create an issue and I'll add it.
+
+If you want to you can always use your locally compiled/installed adlt binary by setting the **dlt-logs.adltPath** config setting.
+
 ## Contributions
 
 Any and all test, code or feedback contributions are welcome.

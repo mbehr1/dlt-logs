@@ -782,8 +782,8 @@
 		"glob": "^7.1.7",
 		"husky": "^6.0.0",
 		"mocha": "^8.4.0",
-		"semantic-release": "^17.4.4",
-		"semantic-release-vsce": "^3.4.1",
+		"semantic-release": "^17.4.7",
+		"semantic-release-vsce": "^3.5.0",
 		"typescript": "^4.2.4",
 		"vscode-test": "^1.5.2"
 	},
@@ -801,8 +801,10 @@
 		"uuid": "^8.3.2",
 		"vscode-extension-telemetry": "^0.1.7",
 		"w3-css": "^4.1.0",
-		"ws": "^8.2.2",
-		"node-adlt": "0.16.2"
+		"ws": "^8.2.2"
+	},
+	"optionalDependencies": {
+		"node-adlt": "0.16.3"
 	},
 	"commitlint": {
 		"extends": [
@@ -838,23 +840,6 @@
 				"@semantic-release/npm",
 				{
 					"npmPublish": false
-				}
-			],
-			[
-				"semantic-release-vsce",
-				{
-					"packageVsix": "dlt-logs.vsix"
-				}
-			],
-			[
-				"@semantic-release/github",
-				{
-					"assets": [
-						{
-							"path": "dlt-logs.vsix",
-							"label": "DLT-Logs Visual Studio Code extension package"
-						}
-					]
 				}
 			],
 			[
