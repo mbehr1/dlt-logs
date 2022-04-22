@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.28.0](https://github.com/mbehr1/dlt-logs/compare/v1.27.0...v1.28.0) (2022-04-22)
+
+
+### Features
+
+* **adlt:** use the provided adlt binary if setting adltPath is not set ([04cb9d8](https://github.com/mbehr1/dlt-logs/commit/04cb9d8888d4c3213d0e6495a54fdeffb51728c1))
+
 ## [1.27.0](https://github.com/mbehr1/dlt-logs/compare/v1.26.5...v1.27.0) (2022-04-20)
 
 
