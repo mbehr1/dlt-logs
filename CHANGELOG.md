@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+### [1.28.1](https://github.com/mbehr1/dlt-logs/compare/v1.28.0...v1.28.1) (2022-04-22)
+
+
+### Bug Fixes
+
+* ci doesn't trigger release generation ([99487a9](https://github.com/mbehr1/dlt-logs/commit/99487a9a644426234fa13005361aeb7571c1641c))
+
 ## [1.28.0](https://github.com/mbehr1/dlt-logs/compare/v1.27.0...v1.28.0) (2022-04-22)
 
 
