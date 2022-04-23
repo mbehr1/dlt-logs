@@ -188,6 +188,16 @@ If you miss any platform please create an issue and I'll add it.
 
 If you want to you can always use your locally compiled/installed adlt binary by setting the **dlt-logs.adltPath** config setting.
 
+Background of this change is the introduction of the new **open with adlt...* feature that uses adlt as a backend.
+It offers:
+- higher performance
+- memory usage only limited by your virtual address space
+- can open multiple files simultaneously (file open order is determined by the first message recorded time of each file)
+- does sort automatically by calculated time.
+
+It currently offers all plugins but the Filetransfer plugin.
+
+
 ## Contributions
 
 Any and all test, code or feedback contributions are welcome.
