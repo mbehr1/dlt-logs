@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+### [1.28.5](https://github.com/mbehr1/dlt-logs/compare/v1.28.4...v1.28.5) (2022-04-23)
+
+
+### Bug Fixes
+
+* ci create github releases with all assets ([e09af3a](https://github.com/mbehr1/dlt-logs/commit/e09af3ab56ae9923c23c9eeeecd93080380d6b5b))
+
 ### [1.28.4](https://github.com/mbehr1/dlt-logs/compare/v1.28.3...v1.28.4) (2022-04-23)
 
 
