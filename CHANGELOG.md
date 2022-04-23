@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+### [1.28.4](https://github.com/mbehr1/dlt-logs/compare/v1.28.3...v1.28.4) (2022-04-23)
+
+
+### Bug Fixes
+
+* ci provide VSCE_TOKEN to called workflow ([cb93f73](https://github.com/mbehr1/dlt-logs/commit/cb93f73b4fff13a2e5ff470b03aa5eec774f0615))
+
 ### [1.28.3](https://github.com/mbehr1/dlt-logs/compare/v1.28.2...v1.28.3) (2022-04-23)
 
 
