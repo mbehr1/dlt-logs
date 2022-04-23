@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+### [1.28.3](https://github.com/mbehr1/dlt-logs/compare/v1.28.2...v1.28.3) (2022-04-23)
+
+
+### Bug Fixes
+
+* ci add v to nextVer tag ([e917644](https://github.com/mbehr1/dlt-logs/commit/e9176447a2b77367e57f32447eca535199eb68b0))
+
 ### [1.28.2](https://github.com/mbehr1/dlt-logs/compare/v1.28.1...v1.28.2) (2022-04-23)
 
 ### [1.28.1](https://github.com/mbehr1/dlt-logs/compare/v1.28.0...v1.28.1) (2022-04-22)
