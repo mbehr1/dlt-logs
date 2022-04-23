@@ -80,3 +80,10 @@ jobs:
       - run: npx vsce publish --packagePath $(find . -iname *.vsix)
         env:
           VSCE_PAT: ${{ secrets.VSCE_TOKEN }}
+      - name: Github release
+        uses: softprops/action-gh-release@v1
+        with:
+          prerelease: false
+          files: "*.vsix"
+          name: ${{ inputs.tagname }}
+          tag_name: ${{ inputs.tagname }}
