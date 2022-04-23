@@ -84,6 +84,8 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           prerelease: false
-          files: "*.vsix"
+          files: |
+            "*/*.vsix"
+            "*/*/*.vsix"
           name: ${{ inputs.tagname }}
           tag_name: ${{ inputs.tagname }}
