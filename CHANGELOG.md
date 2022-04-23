@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+### [1.28.7](https://github.com/mbehr1/dlt-logs/compare/v1.28.6...v1.28.7) (2022-04-23)
+
+
+### Bug Fixes
+
+* ci find vsix in subdirs ([58bd5c9](https://github.com/mbehr1/dlt-logs/commit/58bd5c93ce240753157bad6a51fe34f2161a8fec))
+
 ### [1.28.6](https://github.com/mbehr1/dlt-logs/compare/v1.28.5...v1.28.6) (2022-04-23)
 
 
