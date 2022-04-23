@@ -48,4 +48,5 @@ jobs:
     uses: ./.github/workflows/build_tag.yml
     with:
       tagname: ${{ needs.release.outputs.NEXTVERSION }}
-
+    secrets:
+      VSCE_TOKEN: ${{ secrets.VSCE_TOKEN }}

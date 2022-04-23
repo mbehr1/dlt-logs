@@ -5,6 +5,9 @@ on:
       tagname:
         required: true
         type: string
+    secrets:
+      VSCE_TOKEN:
+        required: true
 
 jobs:
   build:
