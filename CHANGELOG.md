@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+### [1.28.6](https://github.com/mbehr1/dlt-logs/compare/v1.28.5...v1.28.6) (2022-04-23)
+
+
+### Bug Fixes
+
+* ci upload vsix from subdirs ([bbc5f93](https://github.com/mbehr1/dlt-logs/commit/bbc5f938a8bcc7eeb2bc4c04a9d16555797062c3))
+
 ### [1.28.5](https://github.com/mbehr1/dlt-logs/compare/v1.28.4...v1.28.5) (2022-04-23)
 
 
