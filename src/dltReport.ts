@@ -26,8 +26,9 @@ export interface NewMessageSink {
 
 export interface ReportDocument {
     provideTimeByMsg(msg: FilterableDltMsg): Date | undefined;
-    lineCloseToDate(date: Date): Promise<number>;
-    textEditors: Array<vscode.TextEditor>;
+    revealDate(date: Date): void;
+    // not needed, revealDate introduced. lineCloseToDate(date: Date): Promise<number>;
+    // not needed, revealDate introduced, textEditors: Array<vscode.TextEditor>;
     ecuApidInfosMap?: Map<string, Map<string, { apid: string, desc: string, nrMsgs: number, ctids: Map<string, [string, number]> }>>;
     lifecycles: Map<string, DltLifecycleInfoMinIF[]>;
     fileInfoNrMsgs: number;
@@ -91,18 +92,7 @@ export class DltReport implements vscode.Disposable, NewMessageSink {
                     try {
                         const dateClicked: Date = new Date(e.dataPoint.x);
                         console.log(`report.onDidReceiveMessage clicked date e=${dateClicked}`);
-                        this.doc.lineCloseToDate(dateClicked).then((line) => {
-                            try {
-                                if (line >= 0 && this.doc.textEditors) {
-                                    const posRange = new vscode.Range(line, 0, line, 0);
-                                    this.doc.textEditors.forEach((value) => {
-                                        value.revealRange(posRange, vscode.TextEditorRevealType.AtTop);
-                                    });
-                                }   
-                            } catch (err) {
-                                console.warn(`report.onDidReceiveMessage.then clicked got err=${err}`, e);
-                            }
-                        });
+                        this.doc.revealDate(dateClicked);
                     } catch (err) {
                         console.warn(`report.onDidReceiveMessage clicked got err=${err}`, e);
                     }

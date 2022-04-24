@@ -1210,6 +1210,21 @@ export class DltDocument {
         }
     }
 
+    revealDate(time: Date): void {
+        this.lineCloseToDate(time).then((line) => {
+            try {
+                if (line >= 0 && this.textEditors) {
+                    const posRange = new vscode.Range(line, 0, line, 0);
+                    this.textEditors.forEach((value) => {
+                        value.revealRange(posRange, vscode.TextEditorRevealType.AtTop);
+                    });
+                }
+            } catch (err) {
+                console.warn(`DltDocument.revealDate(${time}) got err=${err}`);
+            }
+        });
+    }
+
     public provideHover(position: vscode.Position): vscode.ProviderResult<vscode.Hover> {
         if (position.character > 21) { return; } // we show hovers only at the begin of the line.
         const msg = this.msgByLine(position.line);

@@ -1368,6 +1368,21 @@ export class AdltDocument implements vscode.Disposable {
         this._reports.forEach(r => r.onDidChangeSelectedTime(time));
     }
 
+    revealDate(time: Date): void {
+        this.lineCloseToDate(time).then((line) => {
+            try {
+                if (line >= 0 && this.textEditors) {
+                    const posRange = new vscode.Range(line, 0, line, 0);
+                    this.textEditors.forEach((value) => {
+                        value.revealRange(posRange, vscode.TextEditorRevealType.AtTop);
+                    });
+                }
+            } catch (err) {
+                console.warn(`adlt.revealDate(${time}) got err=${err}`);
+            }
+        });
+    }
+
     /**
      * handler called if the (lifecycle) treeview selection did change towards one of our items
      * Wont be called if the item is deselected or another docs item is selected!
@@ -1377,18 +1392,7 @@ export class AdltDocument implements vscode.Disposable {
         if (event.selection.length && event.selection[0].uri && event.selection[0].uri.fragment.length) {
             console.log(`adlt.onTreeViewDidChangeSelection(${event.selection.length} ${event.selection[0].uri} fragment='${event.selection[0].uri ? event.selection[0].uri.fragment : ''}')`);
             const index = +(event.selection[0].uri.fragment);
-            let willBeLine = this.lineCloseToDate(new Date(index)).then((line) => {
-                try {
-                    if (line >= 0 && this.textEditors) {
-                        const posRange = new vscode.Range(line, 0, line, 0);
-                        this.textEditors.forEach((value) => {
-                            value.revealRange(posRange, vscode.TextEditorRevealType.AtTop);
-                        });
-                    }
-                } catch (err) {
-                    console.warn(`adlt.onTreeViewDidChangeSelection.then got err=${err}`);
-                }
-            });
+            this.revealDate(new Date(index));
         }
     }
 
