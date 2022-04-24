@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.29.0](https://github.com/mbehr1/dlt-logs/compare/v1.28.7...v1.29.0) (2022-04-24)
+
+
+### Features
+
+* **go/jump to entered time:** add button/cmd ([957a212](https://github.com/mbehr1/dlt-logs/commit/957a212340bfff3f9315b7cfd8044bd4e2ab5d25))
+
 ### [1.28.7](https://github.com/mbehr1/dlt-logs/compare/v1.28.6...v1.28.7) (2022-04-23)
 
 
