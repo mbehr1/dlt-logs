@@ -14,7 +14,9 @@ A more detailed documentation is available here: [Docs](https://mbehr1.github.io
 
 ## Features
 
-- Open DLT files (Mac: &#8679;&#8984;P "Open DLT file...", Linux/Win: Ctrl+Shift+P "Open DLT file..." ) without any size restriction. (Tested with ~1500MB files). With files of approx 2GB you get out of memory problems. A "load time filter assistant..." helps you in reducing number of messages while opening files >512MB.
+- Open DLT files (Mac: &#8679;&#8984;P "Open DLT file...", Linux/Win: Ctrl+Shift+P "Open DLT file..." ) with size restriction due to v8 engine memory limits. (Tested with ~1500MB files). With files of approx 2GB you get out of memory problems. A "load time filter assistant..." helps you in reducing number of messages while opening files >512MB.
+
+- Alternative solution is to use "Open DLT file via adlt..."  (Mac: &#8679;&#8984;P "Open DLT files via adlt...", Linux/Win: Ctrl+Shift+P "Open DLT file..." ) command that uses the provided adlt binary and is only limited by your virtual address space. Tested with 20GB DLT file.
 - **Time sync** feature.
   - Calculates time for each line based on timestamp and reception/storage time.
   - An offset for the full time can be set via context menu item *adjust-time...*.
@@ -66,7 +68,7 @@ A more detailed documentation is available here: [Docs](https://mbehr1.github.io
   - zoom in: enable all positive filters and disable all neg. filters (so provide more details/logs)
   - zoom out: disable all positive filters and enable all neg. filters (so provide less details/logs)
 
-- Support **DLT file transfer** file extraction (and automatic filtering of FLDA msgs). Shows the file transfers and allows to save any file.
+- Support **DLT file transfer** file extraction (and automatic filtering of FLDA msgs). Shows the file transfers and allows to save any file. (Not supported with adlt yet.)
 - **SOME/IP decoder** plugin supporting multiple FIBEX files. All known services and methods are listed in the treeview incl. description texts in the tooltips! Note: disabled by default. Need to add option "fibexDir" to use it.
 - **Non-verbose** plugin supporting DLT non-verbose mode to readable text conversion using FIBEX files. Known IDs are listed in the treeview. Note: disabled by default. Need to add option "fibexDir" to use it or share with SOME/IP decoder.
 - **Rewrite** plugin supporting rewriting/changing messages. E.g. timestamp of DLT logs with embedded syslog timestamps can be changed automatically.
@@ -74,6 +76,8 @@ A more detailed documentation is available here: [Docs](https://mbehr1.github.io
 ![Quickly configureable columns](https://github.com/mbehr1/dlt-logs/raw/master/images/selectColumns.png)
 - **Graphical time series reports** based on event filters. You can define event filters (type: 3), add normal filters and use a payloadRegex that captures either one value or even multiple values with named capture groups (?<series_name>.*). All captures needs to represent numbers. Grid lines for lifecycle start/ends are automatically added. To open a report simply press on the "report" icon next to the filter.
 ![Graphical time series reports](https://github.com/mbehr1/dlt-logs/raw/master/images/timeSeriesReport1.png)
+
+- **go/jump to entered time...** command that quickly jumps to the log lines around the time you entered. You can call it via command "go/jump to entered time..." or via the small time/history button in the upper right document button area.
 
 The extension uses telemetry with two events (`activate` (no parameters) and `open file` (file size as parameter)) if telemetry is activated within your general configuration.
 
@@ -182,6 +186,11 @@ Currently the binaries are included for:
 - Linux, x64,  (MUSL), x86_64-unknown-linux-musl
 - Linux, arm64, aarch64-unknown-linux-gnu
 - Alpine, x64, (MUSL), x86_64-unknown-linux-musl
+
+So missing are:
+- Windows, win32-arm64
+- Linux, linux-armhf
+- Alpine Linux, alpine-arm64.
 
 If you have a different platform you do need to install [adlt](https://github.com/mbehr1/adlt) manually and set the **dlt-logs.adltPath** config setting to the path of the installed binary.
 If you miss any platform please create an issue and I'll add it.

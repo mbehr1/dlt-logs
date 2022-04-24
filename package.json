@@ -594,6 +594,11 @@
 				"icon": "$(sync-ignored)"
 			},
 			{
+				"command": "dlt-logs.goToTime",
+				"title": "go/jump to entered time...",
+				"icon": "$(history)"
+			},
+			{
 				"command": "dlt-logs.addFilter",
 				"title": "add filter..."
 			},
@@ -711,20 +716,25 @@
 			],
 			"editor/title": [
 				{
-					"command": "dlt-logs.toggleSortOrder",
+					"command": "dlt-logs.goToTime",
 					"when": "resourceLangId == dlt-log",
 					"group": "navigation@1"
 				},
 				{
-					"command": "dlt-logs.configureColumns",
+					"command": "dlt-logs.toggleSortOrder",
 					"when": "resourceLangId == dlt-log",
 					"group": "navigation@2"
+				},
+				{
+					"command": "dlt-logs.configureColumns",
+					"when": "resourceLangId == dlt-log",
+					"group": "navigation@3"
 				},
 				{
 					"command": "dlt-logs.toggleTimeSync",
 					"alt": "dlt-logs.sendTimeSyncEvents",
 					"when": "editorLangId == dlt-log",
-					"group": "navigation@3"
+					"group": "navigation@4"
 				}
 			]
 		},
