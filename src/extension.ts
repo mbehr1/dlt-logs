@@ -20,6 +20,7 @@ import { addFilter, editFilter, deleteFilter } from './dltAddEditFilter';
 import * as util from './util';
 import * as path from 'path';
 import { DltLifecycleInfo, DltLifecycleInfoMinIF } from './dltLifecycle';
+import { askSingleTime } from './ask_user';
 
 // import { DltLogCustomReadonlyEditorProvider } from './dltCustomEditorProvider';
 
@@ -376,6 +377,35 @@ export function activate(context: vscode.ExtensionContext) {
 			return doc.toggleSortOrder();
 		}
 	}));
+
+	context.subscriptions.push(vscode.commands.registerTextEditorCommand('dlt-logs.goToTime', async (textEditor: vscode.TextEditor) => {
+		console.log(`dlt-logs.goToTime(textEditor.uri = ${textEditor.document.uri.toString()}) called...`);
+		const uriStr = textEditor.document.uri.toString();
+		const doc = dltProvider._documents.get(uriStr) || adltProvider._documents.get(uriStr);
+		if (doc) {
+			// prefill with earliest start time and latest end time
+			let timeFrom: Date | undefined = undefined;
+			let timeTo: Date | undefined = undefined;
+			for (let [ecu, lcInfos] of doc.lifecycles) {
+				for (let lc of lcInfos) {
+					if (timeFrom === undefined || lc.lifecycleStart < timeFrom) {
+						timeFrom = lc.lifecycleStart;
+					}
+					if (timeTo === undefined || lc.lifecycleEnd > timeTo) {
+						timeTo = lc.lifecycleEnd;
+					}
+				}
+			}
+			if (timeFrom !== undefined) {
+				askSingleTime(timeFrom, timeTo).then((time) => {
+					console.log(`dlt-logs.goToTime()=${time}`);
+					doc.revealDate(time);
+				});
+			}
+		}
+	}));
+
+
 
 	context.subscriptions.push(vscode.commands.registerTextEditorCommand('dlt-logs.configureColumns', async (textEditor: vscode.TextEditor) => {
 		// console.log(`dlt-logs.configureColumns(textEditor.uri = ${textEditor.document.uri.toString()}) called...`);
