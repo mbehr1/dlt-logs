@@ -815,7 +815,7 @@
 		"ws": "^8.2.2"
 	},
 	"optionalDependencies": {
-		"node-adlt": "0.16.3"
+		"node-adlt": "0.16.5"
 	},
 	"commitlint": {
 		"extends": [
