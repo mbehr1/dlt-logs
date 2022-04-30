@@ -5,6 +5,7 @@
 /// todo: major issues before release:
 
 /// not mandatory for first release:
+/// [ ] support configs (for filters). currently all filters that have a configs entry are auto disabled at start
 /// [ ] opening of a stream (and support within reports)
 /// [ ] filetransfer support (in adlt)
 /// [ ] onDidChangeConfiguration
@@ -240,6 +241,7 @@ export class AdltDocument implements vscode.Disposable {
     private adltVersion?: string; // the version from last wss upgrade handshake
 
     private streamId: number = 0; // 0 none, neg stop in progress. stream for the messages that reflect the main log/view
+    private _startStreamPendingSince: number | undefined; // startStream() should be called since that time
     private visibleMsgs?: AdltMsg[]; // the array with the msgs that should be shown. set on startStream and cleared on stopStream
     private visibleLcs?: DltLifecycleInfoMinIF[]; // array with the visible lc persistent ids
     private _maxNrMsgs: number; //  setting 'dlt-logs.maxNumberLogs'. That many messages are displayed at once
@@ -579,6 +581,8 @@ export class AdltDocument implements vscode.Disposable {
                         let newFilter = new DltFilter(filterConf);
                         if (newFilter.configs.length > 0) {
                             // todo adlt this.updateConfigs(newFilter);
+                            // for now (as no proper config support) we disable those filters:
+                            newFilter.enabled = false;
                         }
                         // insert at targetIdx:
                         //this.filterTreeNode.children.push(new FilterNode(null, this.filterTreeNode, newFilter));
@@ -867,11 +871,21 @@ export class AdltDocument implements vscode.Disposable {
                 this.isLoaded = true;
                 this._onDidLoad.fire(this.isLoaded);
             }
-            this.startStream();
+            // wait with startStream until the first EAC infos are here to be able to use that for
+            // configs (autoenabling of filters)
+            this._startStreamPendingSince = Date.now();
+            // fallback that if after 5s no EAC... -> start
+            setTimeout(() => {
+                if (this._startStreamPendingSince !== undefined && ((Date.now() - this._startStreamPendingSince) >= 5000)) {
+                    this._startStreamPendingSince = undefined;
+                    this.startStream();
+                }
+            }, 5000);
         });
     }
 
     closeAdltFiles(): Promise<void> {
+        this._startStreamPendingSince = undefined;
         let p = new Promise<void>((resolve, reject) => {
             this.sendAndRecvAdltMsg(`close`).then(() => {
                 this.processFileInfoUpdates({ nr_msgs: 0 });
@@ -957,6 +971,15 @@ export class AdltDocument implements vscode.Disposable {
             }
 
         }
+        if (this._startStreamPendingSince !== undefined) {
+            // now we might have some ECUs and can determine the autoenabled configs/filters
+            // autoEnableConfigs() todo!
+
+            console.log(`adlt.processEacInfo starting stream after ${Date.now() - this._startStreamPendingSince}ms. #Ecus=${this.ecuApidInfosMap.size}`);
+            this._startStreamPendingSince = undefined;
+            this.startStream();
+        }
+
     }
 
     processPluginStateUpdates(states: string[]) {
@@ -974,6 +997,7 @@ export class AdltDocument implements vscode.Disposable {
     }
 
     stopStream() {
+        this._startStreamPendingSince = undefined;
         if (this.streamId > 0) {
             // we do invalidate it already now:
             let oldStreamId = this.streamId;
