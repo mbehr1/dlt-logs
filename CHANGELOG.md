@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+### [1.29.2](https://github.com/mbehr1/dlt-logs/compare/v1.29.1...v1.29.2) (2022-04-30)
+
+
+### Bug Fixes
+
+* **adlt:** disable filters with configs at startup ([58146e1](https://github.com/mbehr1/dlt-logs/commit/58146e16e94fd4326c27d8644bd6caaf362f6282))
+
 ### [1.29.1](https://github.com/mbehr1/dlt-logs/compare/v1.29.0...v1.29.1) (2022-04-26)
 
 
