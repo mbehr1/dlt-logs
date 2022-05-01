@@ -301,7 +301,7 @@
 								"properties": {
 									"name": {
 										"type": "string",
-										"description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp', 'NonVerbose' and 'Rewrite' are available.",
+										"description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp', 'NonVerbose', 'Rewrite' and 'CAN' are available.",
 										"enum": [
 											"FileTransfer"
 										]
@@ -339,7 +339,7 @@
 								"properties": {
 									"name": {
 										"type": "string",
-										"description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp', 'NonVerbose' and 'Rewrite' are available.",
+										"description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp', 'NonVerbose', 'Rewrite' and 'CAN' are available.",
 										"enum": [
 											"SomeIp"
 										]
@@ -371,7 +371,7 @@
 								"properties": {
 									"name": {
 										"type": "string",
-										"description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp', 'NonVerbose' and 'Rewrite' are available.",
+										"description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp', 'NonVerbose', 'Rewrite' and 'CAN' are available.",
 										"enum": [
 											"NonVerbose"
 										]
@@ -393,7 +393,7 @@
 								"properties": {
 									"name": {
 										"type": "string",
-										"description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp', 'NonVerbose' and 'Rewrite' are available.",
+										"description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp', 'NonVerbose', 'Rewrite' and 'CAN' are available.",
 										"enum": [
 											"Rewrite"
 										]
@@ -444,6 +444,38 @@
 										]
 									}
 								}
+							},
+							{
+								"type": "object",
+								"title": "CAN plugin",
+								"properties": {
+									"name": {
+										"type": "string",
+										"description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp', 'NonVerbose', 'Rewrite' and 'CAN' are available.",
+										"enum": [
+											"CAN"
+										]
+									},
+									"enabled": {
+										"type": "boolean",
+										"description": "Determines whether the plugin is currently enabled.",
+										"default": true
+									},
+									"fibexDir": {
+										"type": "string",
+										"description": "The path to directory with the FIBEX files. Needs to be set."
+									},
+									"ctid": {
+										"type": "string",
+										"description": "The CTID to filter for CAN msgs. Should have 4 chars (less will be filled with \\0). Defaults to 'TC'.",
+										"default": "TC"
+									},
+									"mtin": {
+										"type": "integer",
+										"description": "The 'MTIN' to filter for SOME/IP msgs. Defaults to MTIN_NW.TRACE_CAN (2).",
+										"default": 2
+									}
+								}
 							}
 						],
 						"default": [
@@ -478,6 +510,10 @@
 										}
 									}
 								]
+							},
+							{
+								"name": "CAN",
+								"enabled": false
 							}
 						]
 					},
@@ -815,7 +851,7 @@
 		"ws": "^8.2.2"
 	},
 	"optionalDependencies": {
-		"node-adlt": "0.16.5"
+		"node-adlt": "0.17.0"
 	},
 	"commitlint": {
 		"extends": [

@@ -677,6 +677,12 @@ export class AdltDocument implements vscode.Disposable {
                                 this.pluginTreeNode.children.push(plugin);
                             }
                             break;
+                        case 'CAN':
+                            {
+                                const plugin = new AdltPlugin(`CAN Decoder`, new vscode.ThemeIcon('plug'), this.uri, this.pluginTreeNode, this._treeEventEmitter, pluginObj);
+                                this.pluginTreeNode.children.push(plugin);
+                            }
+                            break;
                     }
 
                 } catch (error) {
