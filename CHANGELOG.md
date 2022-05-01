@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.30.0](https://github.com/mbehr1/dlt-logs/compare/v1.29.2...v1.30.0) (2022-05-01)
+
+
+### Features
+
+* **can:** support opening on .asc CAN files ([ebe6014](https://github.com/mbehr1/dlt-logs/commit/ebe6014892650f2307bbdfbd9ec58cafd55fe221))
+
 ### [1.29.2](https://github.com/mbehr1/dlt-logs/compare/v1.29.1...v1.29.2) (2022-04-30)
 
 
