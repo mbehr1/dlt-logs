@@ -17,6 +17,9 @@ A more detailed documentation is available here: [Docs](https://mbehr1.github.io
 - Open DLT files (Mac: &#8679;&#8984;P "Open DLT file...", Linux/Win: Ctrl+Shift+P "Open DLT file..." ) with size restriction due to v8 engine memory limits. (Tested with ~1500MB files). With files of approx 2GB you get out of memory problems. A "load time filter assistant..." helps you in reducing number of messages while opening files >512MB.
 
 - Alternative solution is to use "Open DLT file via adlt..."  (Mac: &#8679;&#8984;P "Open DLT files via adlt...", Linux/Win: Ctrl+Shift+P "Open DLT file..." ) command that uses the provided adlt binary and is only limited by your virtual address space. Tested with 20GB DLT file.
+  - supports opening multiple files at once
+  - supports opening of CAN .asc files (simply choose the .asc file instead of .dlt files during "Open DLT file via adlt..." command)
+  - supports all plugins except file-transfer. Additionally a 'CAN' plugin is available.
 - **Time sync** feature.
   - Calculates time for each line based on timestamp and reception/storage time.
   - An offset for the full time can be set via context menu item *adjust-time...*.
