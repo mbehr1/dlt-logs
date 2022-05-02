@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+### [1.30.1](https://github.com/mbehr1/dlt-logs/compare/v1.30.0...v1.30.1) (2022-05-02)
+
+
+### Bug Fixes
+
+* hotfix for error file_exts.push is not a function ([83e4e4e](https://github.com/mbehr1/dlt-logs/commit/83e4e4ef5e18384142e9a81b2c69fd27e1b1800e))
+
 ## [1.30.0](https://github.com/mbehr1/dlt-logs/compare/v1.29.2...v1.30.0) (2022-05-01)
 
 
