@@ -155,8 +155,8 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// register our command to open dlt files via adlt:
 	context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.dltOpenAdltFile', async () => {
-		let file_exts = <Array<string>>(vscode.workspace.getConfiguration().get("dlt-logs.fileExtensions"));
-		file_exts.push("asc");
+		let file_exts = <Array<string>>(vscode.workspace.getConfiguration().get("dlt-logs.fileExtensions")) || [];
+		if (Array.isArray(file_exts)) { file_exts.push("asc"); }
 		console.log(`open dlt via adlt file_exts=${JSON.stringify(file_exts)}`);
 		return vscode.window.showOpenDialog({ canSelectFiles: true, canSelectFolders: false, canSelectMany: true, filters: { 'DLT Logs': file_exts }, openLabel: 'Select DLT file(s) to open...' }).then(
 			async (uris: vscode.Uri[] | undefined) => {
