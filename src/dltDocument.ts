@@ -1597,7 +1597,7 @@ export class DltDocument {
             try {
                 if (showIndex) { toRet += String(msg.index).padStart(maxIndexLength) + ' '; }
                 if (showTime) { toRet += new Date(msg.receptionTimeInMs).toLocaleTimeString() + ' '; } // todo pad to one len?
-                if (showTimestamp) { toRet += String(msg.timeStamp).padStart(8) + ' '; }
+                if (showTimestamp) { toRet += (msg.timeStamp / 10000).toFixed(4).padStart(9) + ' '; }
                 if (showMcnt) { toRet += String(msg.mcnt).padStart(3) + ' '; }
                 if (showEcu) { toRet += String(msg.ecu).padEnd(5); } // 5 as we need a space anyhow
                 if (showApid) { toRet += String(msg.apid).padEnd(5); }
