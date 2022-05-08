@@ -70,7 +70,7 @@ export class AdltPlugin implements TreeViewNode {
             label: childObj.label || '<no label>',
             description: childObj.description || false,
             contextValue: childObj.contextValue,
-            tooltip: childObj.tooltip, // or as MarkDownString?
+            tooltip: childObj.tooltip !== undefined && typeof childObj.tooltip === "string" ? childObj.tooltip : undefined, // or as MarkDownString?
             parent: parent,
             uri: this.uri,
             children: [], // todo

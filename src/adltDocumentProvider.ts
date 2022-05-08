@@ -443,7 +443,7 @@ export class AdltDocument implements vscode.Disposable {
                                 }
                                     break;
                                 case 'PluginState': {
-                                    let states: Array<string> = bin_type.value;
+                                    let states: Array<string> = bin_type.value || [];
                                     this.processPluginStateUpdates(states);
                                 }
                                     break;    
@@ -1005,14 +1005,18 @@ export class AdltDocument implements vscode.Disposable {
 
     processPluginStateUpdates(states: string[]) {
         for (let stateStr of states) {
-            let state = JSON.parse(stateStr);
-            let pluginName = state.name;
-            // find proper plugin:
-            for (let plugin of this.pluginTreeNode.children as AdltPlugin[]) {
-                if (plugin.name === pluginName) {
-                    plugin.processStateUpdate(state);
-                    break;
+            try {
+                let state = JSON.parse(stateStr);
+                let pluginName = state.name;
+                // find proper plugin:
+                for (let plugin of this.pluginTreeNode.children as AdltPlugin[]) {
+                    if (plugin.name === pluginName) {
+                        plugin.processStateUpdate(state);
+                        break;
+                    }
                 }
+            } catch (e) {
+                console.error(`adlt.processPluginStateUpdates got err=${e}`);
             }
         }
     }
