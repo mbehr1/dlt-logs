@@ -74,6 +74,7 @@ class AdltLifecycleInfo implements DltLifecycleInfoMinIF {
     // has bigints that dont serialize well, binLc: remote_types.BinLifecycle;
     adjustTimeMs: number = 0;
     startTime: number; // in ms
+    resumeTime?: number;
     endTime: number; // in ms
     swVersion?: string;
     node: LifecycleNode;
@@ -84,12 +85,13 @@ class AdltLifecycleInfo implements DltLifecycleInfoMinIF {
         this.ecu = char4U32LeToString(binLc.ecu);
         this.id = binLc.id;
         this.nrMsgs = binLc.nr_msgs;
-        this.startTime = Number(binLc.start_time / 1000n); // start time in ms
+        this.startTime = Number(binLc.start_time / 1000n); // start time in ms for calc.
+        this.resumeTime = binLc.resume_time !== undefined ? Number(binLc.resume_time / 1000n) : undefined;
         this.endTime = Number(binLc.end_time / 1000n); // end time in ms
         this.swVersion = binLc.sw_version;
         //this.binLc = binLc;
         this.ecuLcNr = ecuNode.children.length;
-        this.node = new LifecycleNode(uri.with({ fragment: this.startTime.toString() }), ecuNode, lcRootNode, this, undefined);
+        this.node = new LifecycleNode(uri.with({ fragment: this.resumeTime !== undefined ? this.resumeTime.toString() : this.startTime.toString() }), ecuNode, lcRootNode, this, undefined);
         ecuNode.children.push(this.node);
         if (this.swVersion !== undefined) {
             if (!ecuNode.swVersions.includes(this.swVersion)) {
@@ -105,6 +107,7 @@ class AdltLifecycleInfo implements DltLifecycleInfoMinIF {
     update(binLc: remote_types.BinLifecycle, eventEmitter: vscode.EventEmitter<TreeViewNode | null>) {
         this.nrMsgs = binLc.nr_msgs;
         this.startTime = Number(binLc.start_time / 1000n); // start time in ms
+        this.resumeTime = binLc.resume_time !== undefined ? Number(binLc.resume_time / 1000n) : undefined;
         this.endTime = Number(binLc.end_time / 1000n); // end time in ms
         this.swVersion = binLc.sw_version; // todo update parent ecuNode if changed
         // update node (todo refactor)
@@ -121,12 +124,24 @@ class AdltLifecycleInfo implements DltLifecycleInfoMinIF {
         return new Date(this.adjustTimeMs + this.startTime);
     }
 
+    get isResume(): boolean {
+        return this.resumeTime !== undefined;
+    }
+
+    get lifecycleResume(): Date {
+        if (this.resumeTime !== undefined) {
+            return new Date(this.resumeTime);
+        } else {
+            return this.lifecycleStart;
+        }
+    }
+
     get lifecycleEnd(): Date {
         return new Date(this.adjustTimeMs + this.endTime);
     }
 
     getTreeNodeLabel(): string {
-        return `#${this.ecuLcNr}: ${this.lifecycleStart.toLocaleString()}-${this.lifecycleEnd.toLocaleTimeString()} #${this.nrMsgs}`;
+        return `#${this.ecuLcNr}: ${this.resumeTime !== undefined ? `${new Date(this.resumeTime).toLocaleString()} RESUME ` : this.lifecycleStart.toLocaleString()}-${this.lifecycleEnd.toLocaleTimeString()} #${this.nrMsgs}`;
     }
 
     get tooltip(): string {

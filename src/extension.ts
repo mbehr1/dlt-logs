@@ -128,6 +128,13 @@ export function activate(context: vscode.ExtensionContext) {
 				console.error(`error '${err} parsing '`, obj);
 			}
 		});
+		// new column name 'calculated time', visible:false, ... included?
+		let calcCol = columns.find((v) => v.name === 'calculated time');
+		if (calcCol === undefined) {
+			// insert (before timestamp)
+			let recCol = columns.findIndex((v) => v.name === 'timestamp');
+			columns.splice(recCol >= 0 ? recCol : 0, 0, new ColumnConfig({ name: "calculated time", visible: false, icon: "$(history)", description: "calculated time when the message was sent" }));
+		}
 	}
 
 	// register our document provider that knows how to handle "dlt-logs"
@@ -422,18 +429,25 @@ export function activate(context: vscode.ExtensionContext) {
 					selColumns?.forEach((column) => { column.visible = true; });
 
 					if (true) { // store/update config:
-						const columnObjs = vscode.workspace.getConfiguration().get<Array<object>>("dlt-logs.columns");
-						columnObjs?.forEach((obj: any) => {
-							columns.forEach((column) => {
+						const columnObjs = vscode.workspace.getConfiguration().get<Array<any>>("dlt-logs.columns") || [];
+
+						for (let [idx, column] of columns.entries()) {
+							let found = false;
+							for (let obj of columnObjs) {
 								try {
-									if (obj.name === column.name) {
+									if ('name' in obj && obj.name === column.name) {
 										obj.visible = column.visible;
+										found = true;
+										break;
 									}
 								} catch (err) {
 									console.error(` err ${err} at updating config obj!`);
 								}
-							});
-						});
+							};
+							if (!found) { // add it:
+								columnObjs.splice(idx, 0, JSON.parse(JSON.stringify(column)));
+							}
+						};
 						try {
 							vscode.workspace.getConfiguration().update("dlt-logs.columns", columnObjs, vscode.ConfigurationTarget.Global).then(() => {
 								// todo might need a better solution if workspace config is used.

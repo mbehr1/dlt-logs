@@ -14,6 +14,8 @@ export interface DltLifecycleInfoMinIF {
     ecu: string,
     persistentId: number,
     lifecycleStart: Date,
+    isResume?: boolean, // is this a resumed lifecycle?
+    lifecycleResume?: Date, // resume time if any. use this instead of lifecycleStart then.
     lifecycleEnd: Date,
     getTreeNodeLabel(): string,
     tooltip: string,
