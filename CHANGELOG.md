@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+### [1.31.1](https://github.com/mbehr1/dlt-logs/compare/v1.31.0...v1.31.1) (2022-05-08)
+
+
+### Bug Fixes
+
+* **adlt:** plugin state parsing robustness ([c2e826e](https://github.com/mbehr1/dlt-logs/commit/c2e826e6135db746afaa295e11d7380615df981d))
+
 ## [1.31.0](https://github.com/mbehr1/dlt-logs/compare/v1.30.1...v1.31.0) (2022-05-08)
 
 
