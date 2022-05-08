@@ -1,5 +1,18 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.31.0](https://github.com/mbehr1/dlt-logs/compare/v1.30.1...v1.31.0) (2022-05-08)
+
+
+### Features
+
+* add calculated time column ([e4dc973](https://github.com/mbehr1/dlt-logs/commit/e4dc973a5c71ac2f0a91e799860ed19764f72f17))
+* **adlt:** support SUSPEND/RESUME lifecycles ([87cf5e1](https://github.com/mbehr1/dlt-logs/commit/87cf5e11b2772c1c480226a95303c35c9412b779))
+
+
+### Bug Fixes
+
+* **timestamp:** show timestamp in seconds with 4 decimals ([0674b28](https://github.com/mbehr1/dlt-logs/commit/0674b288dd5855f4a01e3a3a53ef248865ade363))
+
 ### [1.30.1](https://github.com/mbehr1/dlt-logs/compare/v1.30.0...v1.30.1) (2022-05-02)
 
 
