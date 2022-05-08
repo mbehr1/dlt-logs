@@ -1560,6 +1560,7 @@ export class DltDocument {
         // which columns should be shown?
         let showIndex: boolean = true;
         let showTime: boolean = false;
+        let showCalculatedTime: boolean = false;
         let showTimestamp: boolean = false;
         let showMcnt: boolean = false;
         let showEcu: boolean = true;
@@ -1575,6 +1576,7 @@ export class DltDocument {
             switch (column.name) {
                 case 'index': showIndex = column.visible; break;
                 case 'recorded time': showTime = column.visible; break;
+                case 'calculated time': showCalculatedTime = column.visible; break;
                 case 'timestamp': showTimestamp = column.visible; break;
                 case 'ecu': showEcu = column.visible; break;
                 case 'apid': showApid = column.visible; break;
@@ -1597,6 +1599,11 @@ export class DltDocument {
             try {
                 if (showIndex) { toRet += String(msg.index).padStart(maxIndexLength) + ' '; }
                 if (showTime) { toRet += new Date(msg.receptionTimeInMs).toLocaleTimeString() + ' '; } // todo pad to one len?
+                if (showCalculatedTime) {
+                    let timeC = ((msg.mstp === MSTP.TYPE_CONTROL && msg.mtin === MTIN_CTRL.CONTROL_REQUEST)) ? msg.receptionTimeInMs :
+                        (msg.lifecycle ? msg.lifecycle.lifecycleStart.valueOf() + (msg.timeStamp / 10) : msg.receptionTimeInMs);
+                    toRet += new Date(timeC).toLocaleTimeString() + ' ';
+                } // todo pad to len of max time? (23:59:59?)
                 if (showTimestamp) { toRet += (msg.timeStamp / 10000).toFixed(4).padStart(9) + ' '; }
                 if (showMcnt) { toRet += String(msg.mcnt).padStart(3) + ' '; }
                 if (showEcu) { toRet += String(msg.ecu).padEnd(5); } // 5 as we need a space anyhow

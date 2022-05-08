@@ -83,6 +83,7 @@
 									"enum": [
 										"index",
 										"recorded time",
+										"calculated time",
 										"timestamp",
 										"ecu",
 										"apid",
@@ -119,6 +120,12 @@
 								"name": "recorded time",
 								"icon": "$(radio-tower)",
 								"description": "recorded time as local time string",
+								"visible": false
+							},
+							{
+								"name": "calculated time",
+								"icon": "$(history)",
+								"description": "calculated time when the message was sent",
 								"visible": false
 							},
 							{
