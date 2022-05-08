@@ -181,7 +181,7 @@ export class DltReport implements vscode.Disposable, NewMessageSink {
         let lcDates: Date[] = [];
         this.doc.lifecycles.forEach((lcInfos) => {
             lcInfos.forEach((lcInfo) => {
-                lcDates.push(lcInfo.lifecycleStart);
+                lcDates.push(lcInfo.isResume ? lcInfo.lifecycleResume! : lcInfo.lifecycleStart);
                 lcDates.push(lcInfo.lifecycleEnd);
             });
         });

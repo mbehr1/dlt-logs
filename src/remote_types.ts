@@ -90,6 +90,7 @@ export interface BinLifecycle {
   start_time: bigint;
   end_time: bigint;
   sw_version: string | undefined;
+  resume_time: bigint | undefined;
 }
 
 export function writeBinLifecycle(value: BinLifecycle, sinkOrBuf?: SinkOrBuf): Sink {
@@ -100,6 +101,7 @@ export function writeBinLifecycle(value: BinLifecycle, sinkOrBuf?: SinkOrBuf): S
   writeU64(value.start_time, sink);
   writeU64(value.end_time, sink);
   writeOption(writeString)(value.sw_version, sink); 
+  writeOption(writeU64)(value.resume_time, sink); 
   return sink;
 }
 
@@ -112,6 +114,7 @@ export function readBinLifecycle(sinkOrBuf: SinkOrBuf): BinLifecycle {
     start_time: readU64(sink),
     end_time: readU64(sink),
     sw_version: readOption(readString)(sink), 
+    resume_time: readOption(readU64)(sink), 
   };
 }
 
