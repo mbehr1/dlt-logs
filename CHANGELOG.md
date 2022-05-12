@@ -1,5 +1,17 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.32.0](https://github.com/mbehr1/dlt-logs/compare/v1.31.1...v1.32.0) (2022-05-12)
+
+
+### Features
+
+* **adlt_can:** update adlt version for can plugin ([96bd87a](https://github.com/mbehr1/dlt-logs/commit/96bd87a0ccf0a49890002485f1ebc248754ebfdd))
+
+
+### Bug Fixes
+
+* **adlt:** use reception time for msgs without lifecycle ([ad90fa1](https://github.com/mbehr1/dlt-logs/commit/ad90fa1013b72db407f46f3c60625cc7d17079b1))
+
 ### [1.31.1](https://github.com/mbehr1/dlt-logs/compare/v1.31.0...v1.31.1) (2022-05-08)
 
 
