@@ -1526,14 +1526,14 @@ export class AdltDocument implements vscode.Disposable {
         }
     }
 
-    provideTimeByMsg(msg: FilterableDltMsg): Date | undefined {
+    provideTimeByMsg(msg: FilterableDltMsg | ViewableDltMsg): Date | undefined {
         if ((msg.mstp === MSTP.TYPE_CONTROL && msg.mtin === MTIN_CTRL.CONTROL_REQUEST)) {
             return;
         }
         if (msg.lifecycle) {
             return new Date(msg.lifecycle.lifecycleStart.valueOf() + (msg.timeStamp / 10));
         }
-        return new Date(/* todo this._timeAdjustMs + */ /* todo msg.receptionTimeInMs +*/(msg.timeStamp / 10));
+        return new Date(/* todo this._timeAdjustMs + */ 'receptionTimeInMs' in msg ? msg.receptionTimeInMs : (msg.timeStamp / 10));
     }
     async lineCloseToDate(date: Date): Promise<number> {
         // ideas:
