@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+### [1.32.1](https://github.com/mbehr1/dlt-logs/compare/v1.32.0...v1.32.1) (2022-05-22)
+
+
+### Bug Fixes
+
+* use adlt v0.20.0 for lifecycle detection fix ([02f5808](https://github.com/mbehr1/dlt-logs/commit/02f58083c14032d62d78404c28b0a64685793c83))
+
 ## [1.32.0](https://github.com/mbehr1/dlt-logs/compare/v1.31.1...v1.32.0) (2022-05-12)
 
 
