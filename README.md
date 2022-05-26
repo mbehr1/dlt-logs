@@ -20,6 +20,7 @@ A more detailed documentation is available here: [Docs](https://mbehr1.github.io
   - supports opening multiple files at once
   - supports opening of CAN .asc files (simply choose the .asc file instead of .dlt files during "Open DLT file via adlt..." command)
   - supports all plugins except file-transfer. Additionally a 'CAN' plugin is available.
+  - an adlt binary is provided with the extension and the path to it is available in VS code terminals or via command "New terminal with adlt in path".
 - **Time sync** feature.
   - Calculates time for each line based on timestamp and reception/storage time.
   - An offset for the full time can be set via context menu item *adjust-time...*.

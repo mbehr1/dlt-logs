@@ -188,6 +188,13 @@ export function activate(context: vscode.ExtensionContext) {
 		);
 	}));
 
+	// register command to open a terminal with adlt:
+	context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.adltTerminal', async () => {
+		// this is not really needed as the path of the shipped/contained adlt binary is anyhow added to env but
+		// only after the extension has been loaded. So using this command loads the extension.
+		vscode.window.createTerminal({ name: `adlt terminal`, message: `use e.g. 'adlt -h' to see help for adlt` }).show();
+	}));
+
 	// on change of active text editor update calculated decorations:
 	context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(async (activeTextEditor: vscode.TextEditor | undefined) => {
 		let hideStatusBar = true;

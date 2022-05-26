@@ -2087,6 +2087,14 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
         this._adltCommand = vscode.workspace.getConfiguration().get<string>("dlt-logs.adltPath") || ((adltPath !== undefined && typeof adltPath === 'string') ? adltPath : "adlt");
         console.log(`adlt.ADltDocumentProvider using adltCommand='${this._adltCommand}'`);
 
+        if (adltPath !== undefined) {
+            // add it to env
+            let envCol = context.environmentVariableCollection;
+            const adltPathPath = path.dirname(adltPath);
+            console.log(`adlt updating env PATH with :'${adltPathPath}'`);
+            context.environmentVariableCollection.prepend('PATH', adltPathPath + path.delimiter);
+        }
+
         // config changes
         context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(e => {
             if (e.affectsConfiguration('dlt-logs')) {

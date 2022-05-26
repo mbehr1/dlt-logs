@@ -28,7 +28,8 @@
 		"onFileSystem:adlt-log",
 		"onCommand:dlt-logs.dltOpenFile",
 		"onCommand:dlt-logs.dltOpenAdltFile",
-		"onCommand:dlt-logs.dltExportFile"
+		"onCommand:dlt-logs.dltExportFile",
+		"onCommand:dlt-logs.adltTerminal"
 	],
 	"capabilities": {
 		"virtualWorkspaces": false,
@@ -616,6 +617,10 @@
 			{
 				"command": "dlt-logs.dltOpenAdltFile",
 				"title": "Open DLT file via adlt..."
+			},
+			{
+				"command": "dlt-logs.adltTerminal",
+				"title": "New terminal with adlt in path"
 			},
 			{
 				"command": "dlt-logs.adjustTime",
