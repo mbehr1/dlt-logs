@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.33.0](https://github.com/mbehr1/dlt-logs/compare/v1.32.1...v1.33.0) (2022-05-26)
+
+
+### Features
+
+* **adlt:** add path to adlt to terminal ([1d9f2d9](https://github.com/mbehr1/dlt-logs/commit/1d9f2d9f609095ed815fb6361a9241a4ecccdb06))
+
 ### [1.32.1](https://github.com/mbehr1/dlt-logs/compare/v1.32.0...v1.32.1) (2022-05-22)
 
 
