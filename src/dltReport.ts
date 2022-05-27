@@ -397,13 +397,13 @@ export class DltReport implements vscode.Disposable, NewMessageSink {
                             console.log(` got yAxes.'${dataSetName}' : ${JSON.stringify(yAxes[dataSetName], null, 2)}`);
                             const dataSet = dataSets.get(dataSetName);
                             if (dataSet) {
-                                dataSet.yAxis = yAxes[dataSetName];
+                                dataSet.yAxis = this.migrateAxesV2V3(yAxes[dataSetName]);
                             } else {
                                 const regEx = new RegExp(dataSetName);
                                 let found = false;
                                 for (const [name, dataSet] of dataSets.entries()) {
                                     if (name.match(regEx) && dataSet.yAxis === undefined) {
-                                        dataSet.yAxis = yAxes[dataSetName];
+                                        dataSet.yAxis = this.migrateAxesV2V3(yAxes[dataSetName]);
                                         found = true;
                                         console.log(`  set yAxis for '${name}' from regex '${dataSetName}'`);
                                     }
@@ -457,7 +457,7 @@ export class DltReport implements vscode.Disposable, NewMessageSink {
                             //console.log(`got lastState = ${lastState}`);
                             if (lastState !== undefined) {
                                 data.data.push({ x: new Date(lcInfo.lifecycleEnd.valueOf() - 1), y: lastState, lcId: lcInfo.persistentId, t_: DataPointType.PrevStateEnd });
-                                data.data.push({ x: lcInfo.lifecycleEnd, y: '_unus_lbl_', lcId: lcInfo.persistentId, t_: DataPointType.LifecycleEnd });
+                                data.data.push({ x: lcInfo.lifecycleEnd, y: null /*'_unus_lbl_'*/, lcId: lcInfo.persistentId, t_: DataPointType.LifecycleEnd });
                                 // need to sort already here as otherwise those data points are found...
                                 data.data.forEach((d, index) => d.idx_ = index);
                                 data.data.sort((a, b) => {
@@ -495,5 +495,37 @@ export class DltReport implements vscode.Disposable, NewMessageSink {
             this.postMsgOnceAlive({ command: "update", data: datasetArray });
         }
 
+    }
+
+    /**
+     *  migrate axis from chartjs v2 to chartjs v3 format
+     * 
+     *  converts
+     *  - scaleLabel to title incl. scaleLabel.labelString to title.text
+     *  - ticks.min/max/reverse -> min/max/reverse
+     *  */
+    migrateAxesV2V3(axis: any): any {
+        // do we need to convert?
+        if ('scaleLabel' in axis || 'ticks' in axis) {
+            console.log(`migrateAxesV2V2: converting: ${JSON.stringify(axis)}`);
+            let newAxis = JSON.parse(JSON.stringify(axis));
+            // scaleLabel -> title
+            if ('scaleLabel' in axis) {
+                newAxis.title = { ...axis.scaleLabel, text: axis.scaleLabel.labelString, labelString: undefined };
+                delete newAxis.scaleLabel;
+            }
+            // ticks -> min, max, reverse
+            if ('ticks' in axis) {
+                let tickObj = axis['ticks'];
+                if ('min' in tickObj) { newAxis.min = tickObj['min']; }
+                if ('max' in tickObj) { newAxis.max = tickObj['max']; }
+                if ('reverse' in tickObj) { newAxis.reverse = tickObj['reverse']; }
+                delete newAxis.ticks;
+            }
+            console.log(`migrateAxesV2V2: to: ${JSON.stringify(newAxis)}`);
+            return newAxis;
+        } else {
+            return axis;
+        }
     }
 }
