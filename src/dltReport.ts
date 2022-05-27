@@ -32,6 +32,7 @@ export interface ReportDocument {
     ecuApidInfosMap?: Map<string, Map<string, { apid: string, desc: string, nrMsgs: number, ctids: Map<string, [string, number]> }>>;
     lifecycles: Map<string, DltLifecycleInfoMinIF[]>;
     fileInfoNrMsgs: number;
+    fileNames: string[];
 }
 
 export interface TreeviewAbleDocument {
@@ -45,6 +46,8 @@ export class DltReport implements vscode.Disposable, NewMessageSink {
     private _gotAliveFromPanel: boolean = false;
     private _msgsToPost: any[] = []; // msgs queued to be send to panel once alive
     public disposables: vscode.Disposable[];
+
+    private _reportTitles: string[] = [];
 
     filter: DltFilter[] = [];
 
@@ -333,10 +336,24 @@ export class DltReport implements vscode.Disposable, NewMessageSink {
         console.log(` have ${dataSets.size} data sets`);
         //dataSets.forEach((data, key) => { console.log(`  ${key} with ${data.data.length} entries and ${data.yLabels?.length} yLabels`); });
 
+        this._reportTitles.length = 0; // empty here
+
         for (let f = 0; f < this.filter.length; ++f) {
             const filter = this.filter[f];
             if (filter.reportOptions) {
                 try {
+                    if ('title' in filter.reportOptions) {
+                        let title = filter.reportOptions.title;
+                        if (typeof title === 'string') {
+                            this._reportTitles.push(title);
+                        } else if (typeof title === 'boolean') { // with boolean we do use the filter.name from configOptions (not the auto gen one)
+                            if (title === true && 'name' in filter.configOptions && typeof filter.configOptions.name === 'string') {
+                                this._reportTitles.push(filter.configOptions.name);
+                            }
+                        } else {
+                            console.warn(`dltReport: unsupported type for reportOptions.title. expect string or boolean got ${typeof title}`);
+                        }
+                    }
                     if ('valueMap' in filter.reportOptions) {
                         /*
                         For valueMap we do expect an object where the keys/properties match to the dataset name
@@ -419,6 +436,8 @@ export class DltReport implements vscode.Disposable, NewMessageSink {
                 }
             }
         }
+
+        this.postMsgOnceAlive({ command: "update titles", titles: this._reportTitles, fileNames: this.doc.fileNames });
 
         if (dataSets.size) {
             this.postMsgOnceAlive({ command: "update labels", labels: lcDates, minDataPointTime: minDataPointTime });
