@@ -248,6 +248,32 @@ if (lastLc !== params.msg.lifecycle) {
 
 todo ... add liveeditor to convert a function into the json string repr.
 
+### Setting report title
+
+The title for a report can be set by specifying 'title' in the 'reportOptions' for the filters from the report.
+The title variable can either be a boolean and if true the name from the filter config is used or it can be a string.
+If multiple filters/titles are used the titles are drawn each on a single line.
+
+#### title example
+
+```jsonc
+{
+    ...
+  "payloadRegex": "Pressue\\s+.*\\s(?<pres>.*) mbar",
+  "name": "Pressure",
+  "reportOptions": {
+    "title": true
+  }
+
+  ...
+  "payloadRegex": "Temp\\s+.*\\s(?<temp>.*) deg",
+  "reportOptions": {
+    "title": "Temperature measured"
+  }
+}
+```
+in this example two title lines will be added. "Pressure" from the first filter and "Temperature measured" from the 2nd filter.
+
 ### Specifying y-axis options
 
 By default there are two different y-axes used. One for all numerical values and one for all **enums** or **strings** e.g. from a value map.

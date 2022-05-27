@@ -96,6 +96,10 @@ export class DltDocument {
         return this.msgs.length;
     }
 
+    get fileNames(): string[] {
+        return [path.basename(this._fileUri.fsPath)];
+    }
+
     treeNode: TreeViewNode;
     lifecycleTreeNode: LifecycleRootNode;
     filterTreeNode: FilterRootNode;

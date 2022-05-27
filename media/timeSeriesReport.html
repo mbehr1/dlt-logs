@@ -33,12 +33,22 @@
         input {
             height: 17px;
             padding: 6px;
-            border: solid 1px;
             font-size: var(--vscode-editor-font-size);
             font-family: var(--vscode-editor-font-family);
             color: var(--vscode-settings-textInputForeground);
             background: var(--vscode-settings-textInputBackground);
             border: 1px solid var(--vscode-settings-textInputBorder);
+        }
+
+        #report_filenames {
+            font-size: var(--vscode-editor-font-size);
+            font-family: var(--vscode-editor-font-family);
+            background-color: var(--vscode-settings-textInputBackground);
+            color: var(--vscode-settings-textInputForeground);
+            fill: var(--vscode-editor-background);
+            border: 5px solid var(--vscode-settings-textInputBorder);
+            resize:vertical;
+            width: 100%;
         }
 
         body {
@@ -114,7 +124,8 @@
 </head>
 
 <body>
-    <div id="message">Time-series report:
+    <div id="message">
+        <textarea id="report_filenames" rows="1" cols="120" readonly>dlt-logs report ok: unknown</textarea>
         <canvas id="report-canvas"></canvas>
     </div>
     <br>
@@ -534,6 +545,14 @@
                         window.myReport.update();
                         // todo ? timelineChartUpdate({config:config});
                         vscode.postMessage({ message: 'update labels #' + message.labels.length });
+                        break;
+                    case 'update titles':
+                        const titles = message.titles;
+                        config.options.plugins.title.display = titles.length > 0;
+                        config.options.plugins.title.text = titles;
+                        // update filenames:
+                        document.getElementById('report_filenames').innerText = 'dlt-logs report of: '+message.fileNames.join(' & ');
+                        
                         break;
                 }
             } catch (err) {

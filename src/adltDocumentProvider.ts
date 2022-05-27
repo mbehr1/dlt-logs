@@ -248,7 +248,7 @@ function decodeAdltUri(uri: vscode.Uri): string[] {
 }
 
 export class AdltDocument implements vscode.Disposable {
-    private fileNames: string[]; // the real local file names
+    private _fileNames: string[]; // the real local file names
     private realStat: fs.Stats;
     private webSocket?: WebSocket;
     private webSocketIsConnected = false;
@@ -322,6 +322,10 @@ export class AdltDocument implements vscode.Disposable {
     private _onDidLoad = new vscode.EventEmitter<boolean>();
     get onDidLoad() { return this._onDidLoad.event; }
 
+    get fileNames(): string[] {
+        return this._fileNames.map((fullName) => path.basename(fullName));
+    }
+
     processBinDltMsgs(msgs: remote_types.BinDltMsg[], streamId: number, streamData: StreamMsgData) {
         if (msgs.length === 0) { // indicates end of query:
             if (streamData.sink.onDone) { streamData.sink.onDone(); }
@@ -344,11 +348,11 @@ export class AdltDocument implements vscode.Disposable {
         this._treeEventEmitter = treeEventEmitter;
 
         // support for multiple uris encoded...
-        this.fileNames = decodeAdltUri(uri);
-        if (!this.fileNames.length || !fs.existsSync(this.fileNames[0])) {
+        this._fileNames = decodeAdltUri(uri);
+        if (!this._fileNames.length || !fs.existsSync(this._fileNames[0])) {
             throw Error(`AdltDocument file ${uri.toString()} doesn't exist!`);
         }
-        this.realStat = fs.statSync(this.fileNames[0]); // todo summarize all stats
+        this.realStat = fs.statSync(this._fileNames[0]); // todo summarize all stats
 
         // configuration:
         const maxNrMsgsConf = vscode.workspace.getConfiguration().get<number>('dlt-logs.maxNumberLogs');
@@ -363,7 +367,7 @@ export class AdltDocument implements vscode.Disposable {
 
         this.treeNode = {
             id: util.createUniqueId(),
-            label: `${path.basename(this.fileNames[0]) + (this.fileNames.length > 1 ? `+${this.fileNames.length - 1}` : '')}`, uri: this.uri, parent: null, children: [
+            label: `${path.basename(this._fileNames[0]) + (this._fileNames.length > 1 ? `+${this._fileNames.length - 1}` : '')}`, uri: this.uri, parent: null, children: [
                 this.lifecycleTreeNode,
                 this.filterTreeNode,
                 //      this.configTreeNode,
@@ -387,7 +391,7 @@ export class AdltDocument implements vscode.Disposable {
             this.parsePluginConfigs(pluginObjs);
         }
 
-        this.text = `Loading logs via adlt from ${this.fileNames.join(', ')} with max ${this._maxNrMsgs} msgs per page...`;
+        this.text = `Loading logs via adlt from ${this._fileNames.join(', ')} with max ${this._maxNrMsgs} msgs per page...`;
 
         // connect to adlt via websocket:
         adltPort.then((port) => {
@@ -872,7 +876,7 @@ export class AdltDocument implements vscode.Disposable {
     openAdltFiles() {
         // plugin configs:
         const pluginCfgs = JSON.stringify(this.pluginTreeNode.children.map(tr => (tr as AdltPlugin).options));
-        this.sendAndRecvAdltMsg(`open {"sort":${this._sortOrderByTime},"files":${JSON.stringify(this.fileNames)},"plugins":${pluginCfgs}}`).then((response) => {
+        this.sendAndRecvAdltMsg(`open {"sort":${this._sortOrderByTime},"files":${JSON.stringify(this._fileNames)},"plugins":${pluginCfgs}}`).then((response) => {
             console.log(`adlt.on open got response:'${response}'`);
             // parse plugins_active from response:
             try {
@@ -1639,10 +1643,10 @@ export class AdltDocument implements vscode.Disposable {
             });
             const nrAllFilters = this.allFilters.length;
             // todo show wss connection status
-            item.tooltip = `ADLT v${this.adltVersion || ":unknown!"}: ${this.fileNames.join(', ')}, showing max ${this._maxNrMsgs} msgs, ${0/*this._timeAdjustMs / 1000*/}s time-adjust, ${0 /* todo this.timeSyncs.length*/} time-sync events, ${nrEnabledFilters}/${nrAllFilters} enabled filters, sorted by ${this._sortOrderByTime ? 'time' : 'index'}`;
+            item.tooltip = `ADLT v${this.adltVersion || ":unknown!"}: ${this._fileNames.join(', ')}, showing max ${this._maxNrMsgs} msgs, ${0/*this._timeAdjustMs / 1000*/}s time-adjust, ${0 /* todo this.timeSyncs.length*/} time-sync events, ${nrEnabledFilters}/${nrAllFilters} enabled filters, sorted by ${this._sortOrderByTime ? 'time' : 'index'}`;
         } else {
             item.text = "$(alert) adlt not con!";
-            item.tooltip = `ADLT: ${this.fileNames.join(', ')}, not connected to adlt via websocket!`;
+            item.tooltip = `ADLT: ${this._fileNames.join(', ')}, not connected to adlt via websocket!`;
         }
         if (this.webSocketErrors.length > 0) {
             item.text += ` $(alert) ${this.webSocketErrors.length} errors!`;
