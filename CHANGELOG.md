@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+### [1.33.1](https://github.com/mbehr1/dlt-logs/compare/v1.33.0...v1.33.1) (2022-05-27)
+
+
+### Performance Improvements
+
+* **report:** upgrade to chartjs v3.8 ([7a50f24](https://github.com/mbehr1/dlt-logs/commit/7a50f246ff8e29de60e350bd2f0d555ecda534b6))
+
 ## [1.33.0](https://github.com/mbehr1/dlt-logs/compare/v1.32.1...v1.33.0) (2022-05-26)
 
 
