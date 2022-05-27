@@ -268,13 +268,11 @@ For those cases a `yAxes` object can be added to the `reportOptions`object:
       "temp":{ // either dataset/capture name or a regex as wildcard, e.g. "^(temp_0|temperature)$"
         "type": "linear", // or logarithmic or category, optional
         "position": "right", // or left, optional
-        "ticks": {
-          "min": -20,
-          "max": 60
-        },
-        "scaleLabel":{
+        "min": -20,
+        "max": 60,
+        "title":{
           "display": true,
-          "labelString": "temp in °C"
+          "text": "temp in °C"
         }
       }
     }
@@ -292,9 +290,7 @@ in this example a right hand side, linear axis with range [-20,60] and label "te
       "STATE_onOff":{
         "type": "category", // or logarithmic or category, optional
         "position": "right",
-        "ticks": {
-          "reverse": true // the default used y-axis for enums/strings uses reverse:true
-        }
+        "reverse": true // the default used y-axis for enums/strings uses reverse:true
       }
     }
   }
@@ -326,7 +322,7 @@ The yAxes options are **global** for the full report. So if a different report i
 :::
 
 :::note
-For a full list of options for each y-axis see the [chartjs doc](https://www.chartjs.org/docs/latest/axes/cartesian/) for cartesian axes.
+For a full list of options for each y-axis see the [chartjs doc](https://www.chartjs.org/docs/latest/axes/cartesian/) for cartesian axes. The format changed for chartjs v3 significantly. Please use v3 options.
 :::
 
 :::warning

@@ -4,11 +4,12 @@
 <head>
     <title>Report</title>
     <script src="${{scripts}}/moment/min/moment.min.js"></script>
-    <script src="${{scripts}}/chart.js/dist/Chart.min.js"></script>
-    <script src="${{scripts}}/chartjs-plugin-colorschemes/dist/chartjs-plugin-colorschemes.min.js"></script>
+    <script src="${{scripts}}/chart.js/dist/chart.min.js"></script>
+    <script src="${{scripts}}/hw-chartjs-plugin-colorschemes/dist/chartjs-plugin-colorschemes.min.js"></script>
+    <script src="${{scripts}}/chartjs-adapter-moment/dist/chartjs-adapter-moment.min.js"></script>
     <script src="${{scripts}}/hammerjs/hammer.min.js"></script>
     <script src="${{scripts}}/chartjs-plugin-zoom/dist/chartjs-plugin-zoom.min.js"></script>
-    <script src="${{scripts}}/chartjs-plugin-annotation/chartjs-plugin-annotation.min.js"></script>
+    <script src="${{scripts}}/chartjs-plugin-annotation/dist/chartjs-plugin-annotation.min.js"></script>
     <!-- for timelines-chart: -->
     <script src="${{scripts}}/timelines-chart/dist/timelines-chart.min.js"></script>
     <script src="${{media}}/timeLinesChart.js"></script>
@@ -158,20 +159,21 @@
             },
             options: {
                 responsive: true,
-                title: { display: true, text: 'report' },
+                indexAxis:'x-axis-0',
                 scales: {
-                    xAxes: [{
+                    'x-axis-0': {
                         type: 'time',
+                        parsing: false, // we provide timestamps directly
                         time: {
                             unit: 'second',
                             tooltipFormat: 'LTS.SSS [ms]'
                         },
                         display: true,
-                        scaleLabel: {
-                            display: true,
-                            labelString: 'time'
+                        title:{
+                            display:true,
+                            text:'time'
                         },
-                        gridLines: {
+                        grid: {
                             display: true,
                             color: 'rgba(0,200,0,0.5)'
                         },
@@ -179,38 +181,51 @@
                             source: 'labels',
                             minRotation: 30,
                         }
-                    }],
-                    yAxes: [{
+                    },
+                    'y-axis-0': {
                         id: 'y-axis-0',
                         display: 'auto',
-                        scaleLabel: {
+                        title: {
                             display: true,
-                            labelString: 'values'
+                            text: 'values'
                         }
                     },
-                    {
+                    'y-axis-1':{
                         id: 'y-axis-1',
                         display: 'auto',
                         type: 'category',
-                        ticks: {
-                            reverse: true
-                        }
-                    }]
+                        reverse: true,
+                    }
                 },
-                tooltips:{
-                    backgroundColor: vscodeStyles.getPropertyValue('--vscode-editorHoverWidget-background'),
-                    borderColor: vscodeStyles.getPropertyValue('--vscode-editorHoverWidget-border'),
-                    borderWidth: 1,
-                    titleFontColor: vscodeStyles.getPropertyValue('--vscode-editorHoverWidget-foreground'),
-                    bodyFontColor: vscodeStyles.getPropertyValue('--vscode-editorHoverWidget-foreground'),
-                },
-                annotation:{
-                    annotations:[]
-                },
-                animation: { duration: 0 },
-                hover: { animationDuration: 0 },
-                responsiveAnimationDuration: 0,
+                animation: { duration: 0, active:{duration: 0}, resize:{duration: 0} },
                 plugins: {
+                    title: { display: false, text: 'report', color: vscodeStyles.getPropertyValue('--vscode-editor-foreground') },
+                    tooltip:{
+                        backgroundColor: vscodeStyles.getPropertyValue('--vscode-editorHoverWidget-background'),
+                        borderColor: vscodeStyles.getPropertyValue('--vscode-editorHoverWidget-border'),
+                        borderWidth: 1,
+                        titleColor: vscodeStyles.getPropertyValue('--vscode-editorHoverWidget-foreground'),
+                        bodyColor: vscodeStyles.getPropertyValue('--vscode-editorHoverWidget-foreground'),
+                        footerColor: vscodeStyles.getPropertyValue('--vscode-editorHoverWidget-foreground'),
+                        titleFont: { size:vscodeStyles.getPropertyValue('--vscode-editor-font-size'), weight: 'bold', family: vscodeStyles.getPropertyValue('--vscode-editor-font-family'),},
+                        bodyFont: { size: 10, family: vscodeStyles.getPropertyValue('--vscode-editor-font-family'),},
+                        usePointStyle: true,
+                        position: 'nearest',
+                        mode:'nearest',
+                        callbacks:{
+                            title:(items)=>{
+                                if (items.length>0){
+                                    const item = items[0];
+                                    return item.formattedValue; // weird that's the time/x-axis value
+                                }
+                                return "";
+                            },
+                            label:(item)=>{
+                                return (item.dataset.label||'no dataset label')+': '+ (item.label||'no item label');
+                            }
+
+                        }
+                    },
                     colorschemes: {
                         scheme: 'tableau.Tableau20'
                     },
@@ -221,13 +236,23 @@
                             onPanComplete: handlePanZoomComplete
                         },
                         zoom: {
-                            enabled: true,
-                            drag: false,
+                            drag: {
+                                enabled:false
+                            },
+                            wheel: {
+                                enabled:false
+                            },
+                            pinch:{
+                                enabled:false
+                            },
                             mode: 'x',
                             speed: 0.05,
                             onZoomComplete: handlePanZoomComplete
                         }
-                    }
+                    },
+                    annotation:{
+                        annotations:{}
+                    },
                 },
                 onClick: handleClick
             }
@@ -253,14 +278,10 @@
 
         function handleClick(evt) {
             try {
-                const clickedElement = window.myReport.getElementAtEvent(evt);
-                if (clickedElement && clickedElement.length > 0) {
-                    var smallElement = { _index: clickedElement[0]._index, _datasetIndex: clickedElement[0]._datasetIndex };
-                    // var label = window.myReport.data.xLabels[clickedElement[0]._index];
-                    var dataPoint = window.myReport.data.datasets[smallElement._datasetIndex].data[smallElement._index];
-                    vscode.postMessage({ message: 'clicked', dataPoint: dataPoint });
-                    timelineChartUpdate({selectedTime:new Date(dataPoint.x)});
-                }
+                const canvasPosition = Chart.helpers.getRelativePosition(evt, window.myReport);
+                const dataX = window.myReport.scales['x-axis-0'].getValueForPixel(canvasPosition.x);
+                vscode.postMessage({ message: 'clicked', dataPoint: {x:dataX} }); // todo return full value, e.g. ... see intersect
+                timelineChartUpdate({selectedTime:new Date(dataX)});
             } catch (err) {
                 vscode.postMessage({ message: 'clicked got err ' + err });
             }
@@ -276,23 +297,30 @@
         };
 
         function handleTimelineChartZoom(startDate, endDate){
+            try{
             if (startDate === undefined || endDate === undefined){
                 window.resetZoom();
             }else{
                 const chart = window.myReport;
                 //console.log(`handleTimelineChartZoom ${startDate}/${startDate.valueOf()}-${endDate}, cur=${chart.scales['x-axis-0'].min }-${chart.scales['x-axis-0'].max}`);
-                //config.options.scales.xAxes[0].min = startDate.valueOf();
-                //config.options.scales.xAxes[0].max = endDate.valueOf();
-                chart.scales['x-axis-0'].options.time.min = startDate.valueOf();
-                chart.scales['x-axis-0'].options.time.max = endDate.valueOf();
+                config.options.scales['x-axis-0'].min = startDate.valueOf();
+                config.options.scales['x-axis-0'].max = endDate.valueOf();
                 chart.update();
+            }
+            }catch(e){
+                console.error(`handleTimelineChartZoom got e=${e}`);
             }
         }
 
         window.onload = function () {
-            Chart.defaults.line.spanGaps = false;
-            var ctx = document.getElementById('report-canvas').getContext('2d');
-            window.myReport = new Chart(ctx, config);
+            try{
+                Chart.defaults.datasets.line.spanGaps = false;
+                Chart.defaults.borderColor=vscodeStyles.getPropertyValue('--vscode-editorWidget-border');
+                var ctx = document.getElementById('report-canvas').getContext('2d');
+                window.myReport = new Chart(ctx, config);
+            }catch(e){
+                console.log(`window.onload() got e=${e}`);
+            }
         };
 
         let minDataPointTime = undefined;
@@ -304,7 +332,7 @@
 
             let similar=true;
             for (const [bKey, bVal] of Object.entries(b)) {
-                if (a.hasOwnProperty(bKey) && typeof a[bKey] === typeof bVal){
+                if ((bKey in a) && typeof a[bKey] === typeof bVal){
                     switch (typeof bVal){
                         case 'object': similar = isSimilarYAxis(a[bKey], bVal); break;
                         default:
@@ -321,7 +349,8 @@
         /**
          * update the config YAxes based on newData[].yAxis
          */
-        const updateYAxes = (configYAxes, newData)=>{
+        const updateYAxes = (configScales, newData)=>{
+            try{
             if (Array.isArray(newData)){
                 newData.forEach(dataSet =>{
                     if (dataSet.yAxis !== undefined){
@@ -335,21 +364,35 @@
                             newYAxis.type = 'category';
                         }
 
-                        const found = configYAxes.find(yAxis => isSimilarYAxis(yAxis, newYAxis));
+                        let found = undefined;
+                        let nrYAxes = 0;
+                        for (const [sKey, sVal] of Object.entries(configScales)){
+                            if (sKey.startsWith('y-axis-')){
+                                nrYAxes += 1;
+                                if (found===undefined && isSimilarYAxis(sVal, newYAxis)){
+                                    found=sKey;
+                                    // we determine the nr as well so no break;
+                                }
+                            }
+                        }
+                        //const found = configYAxes.find(yAxis => isSimilarYAxis(yAxis, newYAxis));
                         if (!found){
                             // add new one:
-                            dataSet.yAxisID = `y-axis-${configYAxes.length}`;
-                            configYAxes.push({...newYAxis, id: dataSet.yAxisID})
+                            dataSet.yAxisID = `y-axis-${nrYAxes}`;
+                            configScales[dataSet.yAxisID] = {...newYAxis, id: dataSet.yAxisID};
                         } else {
-                            dataSet.yAxisID = found.id;
+                            dataSet.yAxisID = found;
                         }
                     }
                 });
             }
+        }catch(e){
+            console.error(`updateYAxes got e=${e}`);
+        }
         };
 
         const selectedTimeAnnotations = [{
-            id:'selectedTime',
+            id:'selTime',
             drawTime: 'beforeDatasetsDraw',
             type: 'line',
             mode: 'vertical',
@@ -360,12 +403,14 @@
             label:{
                 content: 'selected',
                 enabled: true,
-                position: "top",
+                position: "start",
                 backgroundColor: vscodeStyles.getPropertyValue('--vscode-editor-background'), // 'rgba(0,0,0,0)' todo or fully transparent?
-                fontSize: 8,
-                fontFamily: vscodeStyles.getPropertyValue('--vscode-editor-font-family'),
-                fontStyle:'normal',
-                fontColor: vscodeStyles.getPropertyValue('--vscode-editor-foreground')
+                font:{
+                    size:8, // todo could use font-size but then the yAdjust needs to take this into account as well
+                    family: vscodeStyles.getPropertyValue('--vscode-editor-font-family'),
+                },
+                color: vscodeStyles.getPropertyValue('--vscode-editor-foreground'),
+                padding: 2
             },
             value: null, // wont be shown
             tag_: 'msg' // I hope its unused by the plugin (first one needs to have msg tag)
@@ -376,10 +421,10 @@
             while (times.length > tagAnnotations.length){
                 // clone the first element but change a few attributes:
                 // todo better use a proper clone here. if e.g. new object attributes are added they are not cloned
-                const newAnn = {...selectedTimeAnnotations[0], label: {...selectedTimeAnnotations[0].label}, value: null, id: selectedTimeAnnotations[0].id + `_${selectedTimeAnnotations.length+1}`, tag_: tag};
+                const newAnn = {...selectedTimeAnnotations[0], label: {...selectedTimeAnnotations[0].label, yAdjust: (selectedTimeAnnotations.length%6)*22}, value: null, id: selectedTimeAnnotations[0].id + `_${selectedTimeAnnotations.length+1}`, tag_: tag};
                 selectedTimeAnnotations.push(newAnn);
                 tagAnnotations.push(newAnn);
-                // console.warn(` created ${JSON.stringify(selectedTimeAnnotations[selectedTimeAnnotations.length-1], undefined, 2)}`);
+                //console.warn(` created ${JSON.stringify(selectedTimeAnnotations[selectedTimeAnnotations.length-1], undefined, 2)}`);
             }
             for (let i=0; i<tagAnnotations.length; ++i)
             {
@@ -387,23 +432,17 @@
                 const hadSelectedTime = timeAnnotation.value !== null;
                 const [timeVal, timeLabel] = i < times.length ? (typeof times[i]==='object' ? [times[i].value, times[i].label] : [times[i],undefined]) : [null, undefined];
                 timeAnnotation.value = timeVal;
-                timeAnnotation.label.content = `${moment(timeAnnotation.value).format('LTS.SSS [ms]')}${timeLabel ? `: ${timeLabel}`:''}`;
+                timeAnnotation.endValue = timeVal;
+                timeAnnotation.label.content = timeLabel ? [moment(timeAnnotation.value).format('LTS.SSS [ms]'), timeLabel] : moment(timeAnnotation.value).format('LTS.SSS [ms]');
                 const haveSelectedTime = timeAnnotation.value !== null;
                 //console.warn(` onDidChangeSelectedTime times #${i} had=${hadSelectedTime} have=${haveSelectedTime} label=${selectedTimeAnnotation.label.content} annotations=${config.options.annotation.annotations.length}`);
                 if (haveSelectedTime && !hadSelectedTime){
-                    config.options.annotation.annotations.push(timeAnnotation);
+                    config.options.plugins.annotation.annotations[timeAnnotation.id] = timeAnnotation;
                 } else if (hadSelectedTime && !haveSelectedTime){
-                    const index = config.options.annotation.annotations.findIndex((e) => e.id === timeAnnotation.id);
-                    if (index > -1){
-                        config.options.annotation.annotations.splice(index, 1);
-                    }else{
-                        console.warn(`logical error! cant delete! i=${i}, index=${index}`, config.options.annotation.annotations, timeAnnotation);
-                    }
-                }else if (haveSelectedTime && hadSelectedTime){
-                    // need to modify elements directly: (fixed with chartjs v3...)
-                    window.myReport.annotation.elements[timeAnnotation.id].options.value = timeAnnotation.value;
-                    window.myReport.annotation.elements[timeAnnotation.id].options.label.content = timeAnnotation.label.content;
-                }
+                    delete config.options.plugins.annotation.annotations[timeAnnotation.id];
+                }/*else if (haveSelectedTime && hadSelectedTime){
+                    // no need to modify elements directly: (fixed with chartjs v3...)
+                }*/
             }
 
         };
@@ -425,9 +464,15 @@
                         //vscode.postMessage({ message: 'update config.data.datasets[0].data.length=' + config.data.datasets[0].data.length });
                         //vscode.postMessage({ message: `#yAxis= ${message.data.filter(f=>f.yAxis !== undefined).length}`});
                         
-                        updateYAxes(config.options.scales.yAxes ,message.data ); // afterwards dataSet.yAxisID is set if dataSet.yAxis was set
+                        updateYAxes(config.options.scales ,message.data ); // afterwards dataSet.yAxisID is set if dataSet.yAxis was set
                         // remove labels for all type 'category' axes:
-                        config.options.scales.yAxes.forEach(yAxis => { if (yAxis.type === 'category') {yAxis.labels = []; }}); // remove labels here. we merge (=add) all values here later
+                        for (const [sKey, sVal] of Object.entries(config.options.scales)){
+                            if (sKey.startsWith('y-axis-')){
+                                if (sVal.type === 'category'){
+                                    sVal.labels = []; // remove labels here. we merge (=add) all values here later
+                                }
+                            }
+                        }
                         for (let i = 0,d=0; i < message.data.length; ++i) {
                             const messageData = message.data[i];
                             if (messageData.label.startsWith("TL_")) {continue;}
@@ -451,7 +496,7 @@
                                 if (messageData.dataYLabels.yLabels !== undefined) { // todo! yAxisID could be set!
                                     vscode.postMessage({ message: 'update config.data.yLabels=' + config.data.yLabels + ' with ' + messageData.dataYLabels.yLabels });
                                     const dsi = configDataset;
-                                    const yAxis = messageData.yAxisID !== undefined ? config.options.scales.yAxes.find(yAxis => yAxis.id===messageData.yAxisID) : config.options.scales.yAxes[1];
+                                    const yAxis = messageData.yAxisID !== undefined ? config.options.scales[messageData.yAxisID]  : config.options.scales['y-axis-1'];
                                     configDataset.yAxisID = yAxis.id;
                                     configDataset.lineTension = 0;
                                     for (let j = 0; j < messageData.dataYLabels.yLabels.length; ++j) {
@@ -459,7 +504,7 @@
                                             yAxis.labels.push(messageData.dataYLabels.yLabels[j]);
                                     }
                                 } else {
-                                    configDataset.yAxisID = messageData.yAxisID !== undefined ? messageData.yAxisID : config.options.scales.yAxes[0].id;
+                                    configDataset.yAxisID = messageData.yAxisID !== undefined ? messageData.yAxisID : 'y-axis-0';
                                     configDataset.lineTension = 0.4;
                                 }
                                 configDataset.data = messageData.dataYLabels.data;
@@ -522,8 +567,9 @@
         window.resetZoom = function () {
             const chart = window.myReport;
             // have to delete them as timelineChart zoom might have set them
-            delete chart.scales['x-axis-0'].options.time.min;
-            delete chart.scales['x-axis-0'].options.time.max;
+            config.options.scales['x-axis-0'].min = undefined;
+            config.options.scales['x-axis-0'].max = undefined;
+            chart.update();
 
             window.myReport.resetZoom();
             const minDate = new Date(chart.scales['x-axis-0'].min);
@@ -532,13 +578,14 @@
         }
 
         window.toggleDragMode = function () {
-            var zoomOptions = window.myReport.options.plugins.zoom.zoom;
-            zoomOptions.drag = zoomOptions.drag ? false : dragOptions;
-            window.myReport.options.plugins.zoom.pan.enabled = zoomOptions.drag ? false : true;
+            var zoomOptions = window.myReport.options.plugins.zoom;
+            // we toggle between pan and drag
+            zoomOptions.zoom.drag.enabled = !zoomOptions.zoom.drag.enabled;
+            zoomOptions.pan.enabled = !zoomOptions.zoom.drag.enabled;
 
             window.myReport.update();
             // doesn't change zoom or any other data... timelineChartUpdate({config:config});
-            document.getElementById('drag-switch').innerText = zoomOptions.drag ? "Disable drag mode" : "Enable drag mode";
+            document.getElementById('drag-switch').innerText = zoomOptions.zoom.drag.enabled ? "Disable drag mode" : "Enable drag mode";
         }
 
         vscode.postMessage({ message: 'hello from timeSeriesReport.html' });
