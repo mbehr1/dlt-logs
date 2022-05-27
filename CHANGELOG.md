@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.34.0](https://github.com/mbehr1/dlt-logs/compare/v1.33.1...v1.34.0) (2022-05-27)
+
+
+### Features
+
+* **report:** support setting of title for report ([230c53b](https://github.com/mbehr1/dlt-logs/commit/230c53b785f7d0030d830b5a2460064f690b4f49))
+
 ### [1.33.1](https://github.com/mbehr1/dlt-logs/compare/v1.33.0...v1.33.1) (2022-05-27)
 
 
