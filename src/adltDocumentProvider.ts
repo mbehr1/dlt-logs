@@ -2225,6 +2225,7 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
             case 'disableFilter': this.modifyNode(node, 'disable'); break;
             case 'zoomOut': this.modifyNode(node, 'zoomOut'); break;
             case 'zoomIn': this.modifyNode(node, 'zoomIn'); break;
+            case 'setPosFilter': this.modifyNode(node, 'setPosFilter'); break;
             default:
                 console.error(`adlt.onTreeNodeCommand unknown command '${command}'`); break;
         }

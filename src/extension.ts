@@ -333,6 +333,10 @@ export function activate(context: vscode.ExtensionContext) {
 		adltProvider.onTreeNodeCommand('zoomOut', args[0]);
 	}));
 
+	context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.setPosFilter', async (...args: any[]) => {
+		dltProvider.onTreeNodeCommand('setPosFilter', args[0]);
+		adltProvider.onTreeNodeCommand('setPosFilter', args[0]);
+	}));
 
 
 	context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.openReport', async (...args: any[]) => {

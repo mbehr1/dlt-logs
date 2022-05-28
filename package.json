@@ -681,6 +681,11 @@
 				"icon": "$(zoom-out)"
 			},
 			{
+				"command": "dlt-logs.setPosFilter",
+				"title": "set pos. filter",
+				"icon": "$(add)"
+			},
+			{
 				"command": "dlt-logs.openReport",
 				"title": "open report",
 				"icon": "$(graph)"
@@ -759,6 +764,11 @@
 				{
 					"command": "dlt-logs.zoomOut",
 					"when": "view == dltLifecycleExplorer && viewItem =~ /canZoomOut/",
+					"group": "inline"
+				},
+				{
+					"command": "dlt-logs.setPosFilter",
+					"when": "view == dltLifecycleExplorer && viewItem =~ /canSetPosF/",
 					"group": "inline"
 				}
 			],
