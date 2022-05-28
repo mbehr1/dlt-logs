@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.35.0](https://github.com/mbehr1/dlt-logs/compare/v1.34.0...v1.35.0) (2022-05-28)
+
+
+### Features
+
+* add button 'set pos filter' to treeview ([0632e28](https://github.com/mbehr1/dlt-logs/commit/0632e28f61a9d75a66deae81f631bc1f7e83f9f2))
+
 ## [1.34.0](https://github.com/mbehr1/dlt-logs/compare/v1.33.1...v1.34.0) (2022-05-27)
 
 
