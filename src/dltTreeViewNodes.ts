@@ -105,6 +105,11 @@ export class FilterRootNode implements TreeViewNode {
                             c.filter.enabled = true; break;
                     }
                     break;
+                case 'setPosFilter':
+                    if (c.filter.type === DltFilterType.POSITIVE) {
+                        c.filter.enabled = true;
+                    }
+                    break;
                 default:
                     console.warn(`FilterRootNode.applyCommand: unknown command='${cmd}'`);
             }
@@ -232,6 +237,11 @@ export class ConfigNode implements TreeViewNode {
                                 c.filter.enabled = false; break;
                             case DltFilterType.NEGATIVE:
                                 c.filter.enabled = true; break;
+                        }
+                        break;
+                    case 'setPosFilter':
+                        if (c.filter.type === DltFilterType.POSITIVE) {
+                            c.filter.enabled = true;
                         }
                         break;
                 }
@@ -418,14 +428,19 @@ export class DynFilterNode implements TreeViewNode {
         }
 
         let isCurrentlyVisible = (posFiltersActive || anyPosFilterActive === 0) && (negFiltersActive === 0);
-        return `${isCurrentlyVisible ? 'canZoomOut' : 'canZoomIn'}`;
+        let canSetPosF = isCurrentlyVisible && (anyPosFilterActive === 0);
+        return `${isCurrentlyVisible ? 'canZoomOut' : 'canZoomIn'}${canSetPosF ? ' canSetPosF' : ''}`;
     }
 
     get tooltip(): string | undefined {
         const activeFilters = this.filtersActive(false);
         if (activeFilters.length) {
             return `${this._tooltip ? this._tooltip + '\n' : ''}Active filters:\n${activeFilters.map(f => f.name).join(',\n')}`;
-        } else { return this._tooltip; }
+        } else {
+            const filterFrag = { ...this.filterFragment };
+            Object.keys(filterFrag).forEach(key => !(filterFrag[key] === null) || delete filterFrag[key]);
+            return `${this._tooltip ? this._tooltip + '\n' : ''}Would set filter:\n${JSON.stringify(filterFrag)}`;
+        }
     }
 
     applyCommand(cmd: string) {
@@ -473,6 +488,22 @@ export class DynFilterNode implements TreeViewNode {
                         const newFilter = new DltFilter(filterFrag, true);
                         this.doc.onFilterAdd(newFilter, false);
                     }
+                }
+                break;
+            case 'setPosFilter':
+                // for now we assume we're called if canSetPosF is available, so the data is seen
+                // which is the case if no pos filter at all is visible. In this case the current logic allows only to remove the entry/add neg filter
+                // but not to add a filter only for that one
+
+                // check that no pos filter is active:
+                if (this.doc.allFilters.filter(f => f.enabled && !f.atLoadTime && f.type === DltFilterType.POSITIVE).length === 0) {
+                    const filterFrag = { type: DltFilterType.POSITIVE, ...this.filterFragment };
+                    Object.keys(filterFrag).forEach(key => !(filterFrag[key] === null) || delete filterFrag[key]);
+                    //console.log(` setPosFilter adding new pos ${JSON.stringify(filterFrag)}`);
+                    const newFilter = new DltFilter(filterFrag, true);
+                    this.doc.onFilterAdd(newFilter, false);
+                } else {
+                    console.warn(`dlt-logs.DynFilterNode.setPosFilter logical error!`);
                 }
                 break;
             default:
