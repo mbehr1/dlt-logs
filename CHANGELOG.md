@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.36.0](https://github.com/mbehr1/dlt-logs/compare/v1.35.0...v1.36.0) (2022-05-28)
+
+
+### Features
+
+* **welcome:** add welcome view when no DLT log file is opened ([024d9a5](https://github.com/mbehr1/dlt-logs/commit/024d9a5156a1ced6437ae24166527d7b49071615))
+
 ## [1.35.0](https://github.com/mbehr1/dlt-logs/compare/v1.34.0...v1.35.0) (2022-05-28)
 
 
