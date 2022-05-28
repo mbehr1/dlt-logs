@@ -813,6 +813,12 @@
 				}
 			]
 		},
+		"viewsWelcome": [
+			{
+				"view": "dltLifecycleExplorer",
+				"contents": "No DLT log file opened/visible. [Learn more](https://mbehr1.github.io/dlt-logs/).\n[Open dlt file(s)](command:dlt-logs.dltOpenAdltFile)"
+			}
+		],
 		"languages": [
 			{
 				"id": "dlt-log",
