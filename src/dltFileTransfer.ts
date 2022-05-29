@@ -133,7 +133,7 @@ export class DltFileTransfer implements TreeViewNode {
             } else {
                 this.label = `Recovered file transfer '${this.fileName}'`; // todo add size from buffers
             }
-            this.contextValue = this.allowSave ? 'fileTransferComplete' : 'fileTransferCompleteNoBuffers';
+            this.contextValue = this.allowSave ? 'canSave' : 'fileTransferCompleteNoBuffers';
         }
     }
 

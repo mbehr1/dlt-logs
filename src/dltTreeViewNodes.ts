@@ -110,6 +110,7 @@ export class FilterRootNode implements TreeViewNode {
                         c.filter.enabled = true;
                     }
                     break;
+                case 'save': break; // noop for FilterRootNode
                 default:
                     console.warn(`FilterRootNode.applyCommand: unknown command='${cmd}'`);
             }
