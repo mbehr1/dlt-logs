@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+### [1.37.1](https://github.com/mbehr1/dlt-logs/compare/v1.37.0...v1.37.1) (2022-05-29)
+
+
+### Bug Fixes
+
+* hotfix for release failure ([6cc210d](https://github.com/mbehr1/dlt-logs/commit/6cc210d1da0a1c32d85547df8cf3e7392bcb5ff7))
+
 ## [1.37.0](https://github.com/mbehr1/dlt-logs/compare/v1.36.0...v1.37.0) (2022-05-29)
 
 
