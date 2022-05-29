@@ -209,7 +209,7 @@ interface StreamMsgData {
     sink: NewMessageSink
 };
 
-function decodeAdltUri(uri: vscode.Uri): string[] {
+export function decodeAdltUri(uri: vscode.Uri): string[] {
     let fileNames;
     if (uri.query.length > 0) {
         // multiple ones encoded in query:
@@ -671,7 +671,7 @@ export class AdltDocument implements vscode.Disposable {
                     switch (pluginName) {
                         case 'FileTransfer':
                             {
-                                const plugin = new AdltPlugin(`File transfers`, new vscode.ThemeIcon('files'), this.uri, this.pluginTreeNode, this._treeEventEmitter, pluginObj);
+                                const plugin = new AdltPlugin(`File transfers`, new vscode.ThemeIcon('files'), this.uri, this.pluginTreeNode, this._treeEventEmitter, pluginObj, this);
                                 this.pluginTreeNode.children.push(plugin);
                                 //this.allFilters.push(plugin);
                                 //this.filterTreeNode.children.push(new FilterNode(null, this.filterTreeNode, plugin)); // add to filter as well
@@ -679,26 +679,26 @@ export class AdltDocument implements vscode.Disposable {
                             break;
                         case 'SomeIp':
                             {
-                                const plugin = new AdltPlugin(`SOME/IP Decoder`, new vscode.ThemeIcon('group-by-ref-type'), this.uri, this.pluginTreeNode, this._treeEventEmitter, pluginObj);
+                                const plugin = new AdltPlugin(`SOME/IP Decoder`, new vscode.ThemeIcon('group-by-ref-type'), this.uri, this.pluginTreeNode, this._treeEventEmitter, pluginObj, this);
                                 this.pluginTreeNode.children.push(plugin);
                             }
                             break;
                         case 'NonVerbose':
                             {
                                 // todo add merge of settings with fibexDir from SomeIp to match the docs...
-                                const plugin = new AdltPlugin(`Non-Verbose`, new vscode.ThemeIcon('symbol-numeric'), this.uri, this.pluginTreeNode, this._treeEventEmitter, pluginObj);
+                                const plugin = new AdltPlugin(`Non-Verbose`, new vscode.ThemeIcon('symbol-numeric'), this.uri, this.pluginTreeNode, this._treeEventEmitter, pluginObj, this);
                                 this.pluginTreeNode.children.push(plugin);
                             }
                             break;
                         case 'Rewrite':
                             {
-                                const plugin = new AdltPlugin(`'Rewrite' plugin`, new vscode.ThemeIcon('replace-all'), this.uri, this.pluginTreeNode, this._treeEventEmitter, pluginObj);
+                                const plugin = new AdltPlugin(`'Rewrite' plugin`, new vscode.ThemeIcon('replace-all'), this.uri, this.pluginTreeNode, this._treeEventEmitter, pluginObj, this);
                                 this.pluginTreeNode.children.push(plugin);
                             }
                             break;
                         case 'CAN':
                             {
-                                const plugin = new AdltPlugin(`CAN Decoder`, new vscode.ThemeIcon('plug'), this.uri, this.pluginTreeNode, this._treeEventEmitter, pluginObj);
+                                const plugin = new AdltPlugin(`CAN Decoder`, new vscode.ThemeIcon('plug'), this.uri, this.pluginTreeNode, this._treeEventEmitter, pluginObj, this);
                                 this.pluginTreeNode.children.push(plugin);
                             }
                             break;
@@ -2226,8 +2226,10 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
             case 'zoomOut': this.modifyNode(node, 'zoomOut'); break;
             case 'zoomIn': this.modifyNode(node, 'zoomIn'); break;
             case 'setPosFilter': this.modifyNode(node, 'setPosFilter'); break;
+            case 'save': if (node.uri !== null && this._documents.get(node.uri.toString()) !== undefined && node.applyCommand) { node.applyCommand(command); } break;
+            // todo refactor to always call applyCommand... currently dltDocumentProvider handles it as well!
             default:
-                console.error(`adlt.onTreeNodeCommand unknown command '${command}'`); break;
+                console.error(`adlt.onTreeNodeCommand unknown command '${command}' for node '${node.label}' '${node.uri}'`); break;
         }
     }
 

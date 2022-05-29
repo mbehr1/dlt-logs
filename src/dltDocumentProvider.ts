@@ -238,24 +238,6 @@ export class DltDocumentProvider implements vscode.FileSystemProvider,
             }
         }));
 
-        context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.fileTransferSave', async (...args: any[]) => {
-            const fileTransfer = <DltFileTransfer>args[0];
-            if (fileTransfer && fileTransfer.isComplete) {
-                let newFileUri = fileTransfer.uri.with({ path: path.join(path.dirname(fileTransfer.uri.fsPath), fileTransfer.fileName) });
-                return vscode.window.showSaveDialog({ defaultUri: newFileUri, filters: { 'all': ['*'] }, saveLabel: 'Save file as' }).then( // todo defaultUri from config?
-                    async (uri: vscode.Uri | undefined) => {
-                        if (uri) {
-                            try {
-                                fileTransfer.saveAs(uri);
-                            } catch (err) {
-                                return vscode.window.showErrorMessage(`Save file failed with error:'${err}'`);
-                            }
-                        }
-                    }
-                );
-            }
-        }));
-
         // time-sync feature: check other extensions for api onDidChangeSelectedTime and connect to them.
         // we do have to connect to ourself as well (in case of multiple smart-logs docs)
         this._subscriptions.push(vscode.extensions.onDidChange(() => {
@@ -291,6 +273,29 @@ export class DltDocumentProvider implements vscode.FileSystemProvider,
         }
     };
 
+    private async onTreeViewSave(node: TreeViewNode) {
+        // the node might not be ours... but from e.g adlt
+        if (node instanceof DltFileTransfer) {
+            const fileTransfer = <DltFileTransfer>node;
+            if (fileTransfer && fileTransfer.isComplete) {
+                let newFileUri = fileTransfer.uri.with({ scheme: "file", path: path.join(path.dirname(fileTransfer.uri.fsPath), fileTransfer.fileName) });
+                return vscode.window.showSaveDialog({ defaultUri: newFileUri, filters: { 'all': ['*'] }, saveLabel: 'Save file as' }).then( // todo defaultUri from config?
+                    async (uri: vscode.Uri | undefined) => {
+                        if (uri) {
+                            try {
+                                fileTransfer.saveAs(uri);
+                            } catch (err) {
+                                return vscode.window.showErrorMessage(`Save file failed with error:'${err}'`);
+                            }
+                        }
+                    }
+                );
+            }
+        } else {
+            console.log(`dlt-logs.onTreeViewSave not instance of DltFileTransfer`);
+        }
+    }
+
     public onTreeNodeCommand(command: string, node: TreeViewNode) {
         switch (command) {
             case 'enableFilter': this.modifyNode(node, 'enable'); break;
@@ -298,6 +303,7 @@ export class DltDocumentProvider implements vscode.FileSystemProvider,
             case 'zoomOut': this.modifyNode(node, 'zoomOut'); break;
             case 'zoomIn': this.modifyNode(node, 'zoomIn'); break;
             case 'setPosFilter': this.modifyNode(node, 'setPosFilter'); break;
+            case 'save': this.onTreeViewSave(node); break;
             default:
                 console.error(`dlt.onTreeNodeCommand unknown command '${command}'`); break;
         }

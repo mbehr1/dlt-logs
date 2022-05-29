@@ -696,7 +696,7 @@
 				"icon": "$(expand-all)"
 			},
 			{
-				"command": "dlt-logs.fileTransferSave",
+				"command": "dlt-logs.treeViewSave",
 				"title": "save as...",
 				"icon": "$(save-as)"
 			},
@@ -752,8 +752,8 @@
 					"group": "inline@2"
 				},
 				{
-					"command": "dlt-logs.fileTransferSave",
-					"when": "view == dltLifecycleExplorer && viewItem == fileTransferComplete",
+					"command": "dlt-logs.treeViewSave",
+					"when": "view == dltLifecycleExplorer && viewItem =~ /canSave/",
 					"group": "inline"
 				},
 				{
@@ -880,7 +880,7 @@
 		"ws": "^8.2.2"
 	},
 	"optionalDependencies": {
-		"node-adlt": "0.20.0"
+		"node-adlt": "0.21.0"
 	},
 	"commitlint": {
 		"extends": [

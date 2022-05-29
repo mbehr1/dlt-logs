@@ -338,6 +338,10 @@ export function activate(context: vscode.ExtensionContext) {
 		adltProvider.onTreeNodeCommand('setPosFilter', args[0]);
 	}));
 
+	context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.treeViewSave', async (...args: any[]) => {
+		dltProvider.onTreeNodeCommand('save', args[0]);
+		adltProvider.onTreeNodeCommand('save', args[0]);
+	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.openReport', async (...args: any[]) => {
 		const filterNode = <FilterNode>args[0];
