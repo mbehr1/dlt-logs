@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.37.0](https://github.com/mbehr1/dlt-logs/compare/v1.36.0...v1.37.0) (2022-05-29)
+
+
+### Features
+
+* **adlt:** support filetransfer plugin with adlt ([16b1ac7](https://github.com/mbehr1/dlt-logs/commit/16b1ac715d9746b27525d4a81d8cca9e6abf26cb))
+
 ## [1.36.0](https://github.com/mbehr1/dlt-logs/compare/v1.35.0...v1.36.0) (2022-05-28)
 
 
