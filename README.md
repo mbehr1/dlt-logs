@@ -208,7 +208,7 @@ It offers:
 - can open multiple files simultaneously (file open order is determined by the first message recorded time of each file)
 - does sort automatically by calculated time.
 
-It currently offers all plugins but the Filetransfer plugin.
+All plugins are supported.
 
 
 ## Contributions

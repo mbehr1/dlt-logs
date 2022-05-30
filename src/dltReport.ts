@@ -251,6 +251,16 @@ export class DltReport implements vscode.Disposable, NewMessageSink {
 
         };
 
+        // warnings that will be made visible for the customer as part of the report:
+        let warnings: string[] = [];
+
+        // add a warnning text just once
+        const addWarning = function (warning: string) {
+            if (!warnings.includes(warning)) {
+                warnings.push(warning);
+            }
+        };
+
         const msgs = this.msgs;
         if (msgs.length) {
             console.log(` matching ${this.filter.length} filter on ${msgs.length} msgs:`);
@@ -280,10 +290,16 @@ export class DltReport implements vscode.Disposable, NewMessageSink {
                                     [convValuesFunction, convValuesObj] = convFunctionCache.get(filter) || [undefined, {}];
                                 } else {
                                     if (filter.reportOptions?.conversionFunction !== undefined) {
-                                        convValuesFunction = Function("matches,params", filter.reportOptions.conversionFunction);
-                                        convValuesObj = {};
-                                        console.warn(` using conversionFunction = '${convValuesFunction}'`);
-                                        convFunctionCache.set(filter, [convValuesFunction, convValuesObj]);
+                                        try {
+                                            convValuesFunction = Function("matches,params", filter.reportOptions.conversionFunction);
+                                            convValuesObj = {};
+                                            console.log(` using conversionFunction = '${convValuesFunction}'`);
+                                            convFunctionCache.set(filter, [convValuesFunction, convValuesObj]);    
+                                        } catch (e) {
+                                            convValuesObj = {};
+                                            let warning = `conversionFunction {\n${filter.reportOptions.conversionFunction}\n} failed parsing with:\n${e}`;
+                                            addWarning(warning);
+                                        }
                                     } else {
                                         convValuesObj = {};
                                         convFunctionCache.set(filter, [undefined, convValuesObj]);
@@ -292,7 +308,14 @@ export class DltReport implements vscode.Disposable, NewMessageSink {
 
                                 if (matches && matches.length > 0) {
                                     let convertedMatches = undefined;
-                                    if (convValuesFunction !== undefined) { convertedMatches = convValuesFunction(matches, { msg: msg, localObj: convValuesObj, reportObj: reportObj }); }
+                                    if (convValuesFunction !== undefined) {
+                                        try {
+                                            convertedMatches = convValuesFunction(matches, { msg: msg, localObj: convValuesObj, reportObj: reportObj });
+                                        } catch (e) {
+                                            let warning = `conversionFunction {\n${filter.reportOptions.conversionFunction}\n} failed conversion with:\n${e}`;
+                                            addWarning(warning);
+                                        }
+                                    }
                                     if (convertedMatches !== undefined || matches.groups) {
                                         const groups = convertedMatches !== undefined ? convertedMatches : matches.groups;
                                         Object.keys(groups).forEach((valueName) => {
@@ -438,6 +461,10 @@ export class DltReport implements vscode.Disposable, NewMessageSink {
         }
 
         this.postMsgOnceAlive({ command: "update titles", titles: this._reportTitles, fileNames: this.doc.fileNames });
+
+        if (warnings.length > 0) {
+            this.postMsgOnceAlive({ command: "update warnings", warnings: warnings });
+        }
 
         if (dataSets.size) {
             this.postMsgOnceAlive({ command: "update labels", labels: lcDates, minDataPointTime: minDataPointTime });
