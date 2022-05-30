@@ -51,6 +51,19 @@
             width: 100%;
         }
 
+        #report_warnings {
+            font-size: var(--vscode-editor-font-size);
+            font-family: var(--vscode-editor-font-family);
+            background-color: var(--vscode-textBlockQuote-background);
+            color: var(--vscode-errorForeground);
+            border: 3px solid var(--vscode-inputValidation-errorBorder);
+            resize:vertical;
+            width: 100%;
+            height: 200px;
+            white-space: pre-wrap;
+            overflow-y: scroll;
+        }
+
         body {
             color: var(--vscode-editor-foreground);
             background-color: var(--vscode-editor-background);
@@ -126,6 +139,7 @@
 <body>
     <div id="message">
         <textarea id="report_filenames" rows="1" cols="120" readonly>dlt-logs report ok: unknown</textarea>
+        <pre id="report_warnings" hidden></pre>
         <canvas id="report-canvas"></canvas>
     </div>
     <br>
@@ -552,7 +566,11 @@
                         config.options.plugins.title.text = titles;
                         // update filenames:
                         document.getElementById('report_filenames').innerText = 'dlt-logs report of: '+message.fileNames.join(' & ');
-                        
+                        break;
+                    case 'update warnings':
+                        const warnings = message.warnings || [];
+                        document.getElementById('report_warnings').hidden = warnings.length === 0;
+                        document.getElementById('report_warnings').innerText = warnings.length>0 ? 'Errors/warnings during report generation:\n\n'+warnings.join('\n\n') : '';
                         break;
                 }
             } catch (err) {
