@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.38.0](https://github.com/mbehr1/dlt-logs/compare/v1.37.1...v1.38.0) (2022-05-30)
+
+
+### Features
+
+* **report:** show warnings during report generation ([adc7611](https://github.com/mbehr1/dlt-logs/commit/adc76113307ce385c17eb9d4b8c520d35d82d94c))
+
 ### [1.37.1](https://github.com/mbehr1/dlt-logs/compare/v1.37.0...v1.37.1) (2022-05-29)
 
 
