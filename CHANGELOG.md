@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+### [1.38.1](https://github.com/mbehr1/dlt-logs/compare/v1.38.0...v1.38.1) (2022-05-31)
+
+
+### Bug Fixes
+
+* **adlt:** ensure fileExtensions contain dlt and asc ([997a843](https://github.com/mbehr1/dlt-logs/commit/997a8434117258a86b780d914886afe83a654bc1))
+
 ## [1.38.0](https://github.com/mbehr1/dlt-logs/compare/v1.37.1...v1.38.0) (2022-05-30)
 
 
