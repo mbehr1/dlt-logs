@@ -1372,10 +1372,10 @@ export class AdltDocument implements vscode.Disposable {
      * apply filter operation that is longlasting.
      */
     triggerApplyFilter() {
-        console.log(`adlt.triggerApplyFilter() called for '${this.uri.toString()}'`);
+        console.log(`adlt.triggerApplyFilter() called for '${this.uri.toString().slice(0, 100)}'`);
         if (this.debouncedApplyFilterTimeout) { clearTimeout(this.debouncedApplyFilterTimeout); }
         this.debouncedApplyFilterTimeout = setTimeout(() => {
-            console.log(`adlt.triggerApplyFilter after debounce for '${this.uri.toString()}'`);
+            console.log(`adlt.triggerApplyFilter after debounce for '${this.uri.toString().slice(0, 100)}'`);
             if (this._applyFilterRunning) {
                 console.warn(`adlt.triggerApplyFilter currently running, Retriggering.`);
                 this.triggerApplyFilter();
@@ -2359,7 +2359,7 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
             let fileNames = decodeAdltUri(uri);
             if (fileNames.length > 0) {
                 const realStat = fs.statSync(fileNames[0]);
-                console.log(`adlt-logs.stat(uri=${uri.toString()})... isDirectory=${realStat.isDirectory()}}`);
+                console.log(`adlt-logs.stat(uri=${uri.toString().slice(0, 100)})... isDirectory=${realStat.isDirectory()}}`);
                 if (realStat.isFile() && (true /* todo dlt extension */)) {
                     try {
                         let port = this.getAdltProcessAndPort();
@@ -2369,7 +2369,7 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
                             // this.checkActiveRestQueryDocChanged();
                         }
                     } catch (error) {
-                        console.log(` adlt-logs.stat(uri=${uri.toString()}) returning realStat ${realStat.size} size.`);
+                        console.log(` adlt-logs.stat(uri=${uri.toString().slice(0, 100)}) returning realStat ${realStat.size} size.`);
                         return {
                             size: realStat.size, ctime: realStat.ctime.valueOf(), mtime: realStat.mtime.valueOf(),
                             type: realStat.isDirectory() ? vscode.FileType.Directory : (realStat.isFile() ? vscode.FileType.File : vscode.FileType.Unknown) // todo symlinks as file?
@@ -2379,7 +2379,7 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
                 if (document) {
                     return document.stat();
                 } else {
-                    console.log(` adlt-logs.stat(uri=${uri.toString()}) returning realStat ${realStat.size} size.`);
+                    console.log(` adlt-logs.stat(uri=${uri.toString().slice(0, 100)}) returning realStat ${realStat.size} size.`);
                     return {
                         size: realStat.size, ctime: realStat.ctime.valueOf(), mtime: realStat.mtime.valueOf(),
                         type: realStat.isDirectory() ? vscode.FileType.Directory : (realStat.isFile() ? vscode.FileType.File : vscode.FileType.Unknown) // todo symlinks as file?
@@ -2387,14 +2387,14 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
                 }
             }
         } catch (err) {
-            console.warn(`adlt-logs.stat(uri=${uri.toString()}) got err '${err}'!`);
+            console.warn(`adlt-logs.stat(uri=${uri.toString().slice(0, 100)}) got err '${err}'!`);
         }
         return { size: 0, ctime: 0, mtime: 0, type: vscode.FileType.Unknown };
     }
 
     readFile(uri: vscode.Uri): Uint8Array {
         let doc = this._documents.get(uri.toString());
-        console.log(`adlt-logs.readFile(uri=${uri.toString()})...`);
+        console.log(`adlt-logs.readFile(uri=${uri.toString().slice(0, 100)})...`);
         if (!doc) {
             const port = this.getAdltProcessAndPort();
             doc = new AdltDocument(port, uri, this._onDidChangeFile, this._onDidChangeTreeData, this._treeRootNodes, this._onDidChangeStatus, this._columns, this._reporter);
@@ -2407,7 +2407,7 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
     }
 
     watch(uri: vscode.Uri): vscode.Disposable {
-        console.log(`adlt-logs.watch(uri=${uri.toString()}...`);
+        console.log(`adlt-logs.watch(uri=${uri.toString().slice(0, 100)}...`);
         return new vscode.Disposable(() => {
             console.log(`adlt-logs.watch.Dispose ${uri}`);
             // const fileUri = uri.with({ scheme: 'file' });
@@ -2422,7 +2422,7 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
     }
 
     readDirectory(uri: vscode.Uri): [string, vscode.FileType][] {
-        console.log(`adlt-logs.readDirectory(uri=${uri.toString()}...`);
+        console.log(`adlt-logs.readDirectory(uri=${uri.toString().slice(0, 100)}...`);
         let entries: [string, vscode.FileType][] = [];
         // list all dirs and dlt files:
         let dirPath = uri.with({ query: "" }).fsPath; // for multiple files we take the first one as reference
@@ -2437,27 +2437,27 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
                 }
             }
         }
-        console.log(` adlt-logs.readDirectory(uri=${uri.toString()}) returning ${entries.length} entries.`);
+        console.log(` adlt-logs.readDirectory(uri=${uri.toString().slice(0, 100)}) returning ${entries.length} entries.`);
         return entries;
     }
 
     writeFile(uri: vscode.Uri, content: Uint8Array, options: { create: boolean, overwrite: boolean }): void {
-        console.log(`adlt-logs.writeFile(uri=${uri.toString()}...`);
+        console.log(`adlt-logs.writeFile(uri=${uri.toString().slice(0, 100)}...`);
         throw vscode.FileSystemError.NoPermissions();
     }
 
     rename(oldUri: vscode.Uri, newUri: vscode.Uri, options: { overwrite: boolean }): void {
-        console.log(`adlt-logs.rename(oldUri=${oldUri.toString()}...`);
+        console.log(`adlt-logs.rename(oldUri=${oldUri.toString().slice(0, 100)}...`);
         throw vscode.FileSystemError.NoPermissions();
     }
 
     delete(uri: vscode.Uri): void {
-        console.log(`adlt-logs.delete(uri=${uri.toString()}...`);
+        console.log(`adlt-logs.delete(uri=${uri.toString().slice(0, 100)}...`);
         throw vscode.FileSystemError.NoPermissions();
     }
 
     createDirectory(uri: vscode.Uri): void {
-        console.log(`adlt-logs.createDirectory(uri=${uri.toString()}...`);
+        console.log(`adlt-logs.createDirectory(uri=${uri.toString().slice(0, 100)}...`);
         throw vscode.FileSystemError.NoPermissions();
     }
 
