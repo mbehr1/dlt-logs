@@ -1,5 +1,13 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+### [1.38.2](https://github.com/mbehr1/dlt-logs/compare/v1.38.1...v1.38.2) (2022-06-03)
+
+
+### Bug Fixes
+
+* **adlt:** reduce log output for readFile to 100 chars ([0487ec7](https://github.com/mbehr1/dlt-logs/commit/0487ec72bca21266c16f2b74ba64aa3134100bb3))
+* **report:** re-enable zoom by wheel ([54ffa93](https://github.com/mbehr1/dlt-logs/commit/54ffa93768b0b08cd836a39b177212d686d41ae1))
+
 ### [1.38.1](https://github.com/mbehr1/dlt-logs/compare/v1.38.0...v1.38.1) (2022-05-31)
 
 
