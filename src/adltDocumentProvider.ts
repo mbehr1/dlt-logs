@@ -276,10 +276,6 @@ export class AdltDocument implements vscode.Disposable {
     private mdFatal = new vscode.MarkdownString("$(error) LOG_FATAL", true);
     private _decorationTypes = new Map<string, vscode.TextEditorDecorationType>(); // map with id and settings. init from config in parseDecorationsConfigs
 
-    private editPending: boolean = false;
-    private pendingTextUpdate: string = "";
-    private timerId: NodeJS.Timeout;
-
     // textEditors showing this document. Is updated from AdltDocumentProvider
     textEditors: Array<vscode.TextEditor> = [];
 
@@ -461,16 +457,7 @@ export class AdltDocument implements vscode.Disposable {
                         }
                     } else { // !isBinary
                         const text = data.toString();
-                        if (text.startsWith("stream:")) { // todo change to binary
-                            let firstSpace = text.indexOf(" ");
-                            const id = Number.parseInt(text.substring(7, firstSpace));
-                            if (id === 0 /*this.streamId*/) {
-                                this.addText(text.substring(firstSpace + 1) + '\n');
-
-                            } else {
-                                console.warn(`dlt-logs.AdltDocumentProvider.on(message) stream for unexpected id ${id} exp ${0 /*this.streamId*/}`);
-                            }
-                        } else if (text.startsWith("info:")) { // todo change to binary and add status bar
+                        if (text.startsWith("info:")) { // todo still used?
                             console.info(`dlt-logs.AdltDocumentProvider.on(message) info:`, text);
                         } else if (this._reqCallbacks.length > 0) { // response to a request:
                             console.info(`dlt-logs.AdltDocumentProvider.on(message) response for request:`, text);
@@ -518,9 +505,6 @@ export class AdltDocument implements vscode.Disposable {
             this.text = `Couldn't start adlt due to reason: '${reason}'!\n\n` + this.text;
             this.emitDocChanges.fire([{ type: vscode.FileChangeType.Changed, uri: this.uri }]);
         });
-        this.timerId = setInterval(() => {
-            this.checkTextUpdates(); // todo this might not be needed at all!
-        }, 1000);
 
         // add a static report filter for testing:
         // this.onFilterAdd(new DltFilter({ type: DltFilterType.EVENT, payloadRegex: "(?<STATE_error>error)", name: "test report" }, false), false);
@@ -528,8 +512,15 @@ export class AdltDocument implements vscode.Disposable {
 
     dispose() {
         console.log(`AdltDocument.dispose()`);
-        clearInterval(this.timerId);
-        this.closeAdltFiles().catch((reason) => {
+        this.streamMsgs.clear();
+
+        this.closeAdltFiles().then(() => {
+            if (this.webSocket !== undefined) {
+                console.log(`AdltDocument.dispose closing webSocket`);
+                this.webSocket.close();
+                this.webSocket = undefined;
+            }
+        }, (reason) => {
             console.log(`AdltDocument.dispose closeAdltFiles failed with '${reason}'`);
         });
     }
@@ -799,80 +790,6 @@ export class AdltDocument implements vscode.Disposable {
         return prom;
     }
 
-
-    addText(text: string) {
-        // todo debounce
-        // this.emitDocChanges.fire([{ type: vscode.FileChangeType.Changed, uri: this.uri }]);
-        const editor = vscode.window.activeTextEditor;
-        //console.warn(`dlt-logs.AdltDocumentProvider.addText() ...editPending=${this.editPending} editor?${editor !== undefined}`,);
-        if (this.editPending || !editor) {
-            this.pendingTextUpdate += text;
-        } else {
-            const lineCount = editor.document.lineCount;
-            const nextEditText = this.pendingTextUpdate + text;
-            this.pendingTextUpdate = "";
-            this.editPending = true;
-            editor.edit((editBuilder: vscode.TextEditorEdit) => {
-                editBuilder.insert(new vscode.Position(lineCount, 0), nextEditText);
-            }, { undoStopAfter: false, undoStopBefore: false }).then(() => {
-                this.editPending = false;
-                this.text += nextEditText;
-                // console.warn(`dlt-logs.AdltDocumentProvider.on(message) stream edited ok`);
-            }, () => {
-                this.editPending = false;
-                this.pendingTextUpdate = nextEditText + this.pendingTextUpdate;
-                // trigger new... todo
-                console.warn(`dlt-logs.AdltDocumentProvider.on(message) stream edited failed`);
-            });
-        }
-    }
-
-    checkTextUpdates() {
-        const editor = vscode.window.activeTextEditor;
-        if (editor && !this.editPending && this.pendingTextUpdate.length > 0) {
-            const lineCount = editor.document.lineCount;
-            const nextEditText = this.pendingTextUpdate;
-            this.pendingTextUpdate = "";
-            editor.edit((editBuilder: vscode.TextEditorEdit) => {
-                editBuilder.insert(new vscode.Position(lineCount, 0), nextEditText);
-            }, { undoStopAfter: false, undoStopBefore: false }).then(() => {
-                this.editPending = false;
-                this.text += nextEditText;
-                //console.warn(`dlt-logs.AdltDocumentProvider.on(message) stream edited ok`);
-            }, () => {
-                this.editPending = false;
-                this.pendingTextUpdate = nextEditText + this.pendingTextUpdate;
-                // trigger new... todo
-                console.warn(`dlt-logs.AdltDocumentProvider.on(message) stream edited failed`);
-            });
-
-        }
-    }
-
-    clearText() {
-        const editor = vscode.window.activeTextEditor;
-        if (this.editPending || !editor) {
-            this.pendingTextUpdate = "";
-            this.text = "";
-            console.error(`adlt.clearText() unhandled case! (editPending=${this.editPending})`);
-        } else {
-            const lineCount = editor.document.lineCount;
-            this.pendingTextUpdate = "";
-            this.editPending = true;
-            editor.edit((editBuilder: vscode.TextEditorEdit) => {
-                editBuilder.delete(new vscode.Range(new vscode.Position(0, 0), new vscode.Position(lineCount, 0)));
-            }, { undoStopAfter: false, undoStopBefore: false }).then(() => {
-                this.editPending = false;
-                this.text = "";
-            }, () => {
-                this.editPending = false;
-                this.pendingTextUpdate = ""; // todo nextEditText + this.pendingTextUpdate;
-                // trigger new... todo
-                console.warn(`adlt.clearText() edited failed`);
-            });
-        }
-    }
-
     openAdltFiles() {
         // plugin configs:
         const pluginCfgs = JSON.stringify(this.pluginTreeNode.children.map(tr => (tr as AdltPlugin).options));
@@ -1064,6 +981,7 @@ export class AdltDocument implements vscode.Disposable {
 
                 this.streamMsgs.set(streamObj.id, streamData!);
                 this.streamMsgs.delete(oldStreamId);
+                console.warn(`adlt.changeWindow streamMsgs #${this.streamMsgs.size}`);
                 if (curStreamMsgData && Array.isArray(curStreamMsgData)) {
                     // process the data now:
                     curStreamMsgData.forEach((msgs) => this.processBinDltMsgs(msgs, streamObj.id, streamData as StreamMsgData));
@@ -2175,12 +2093,20 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
         }, 500)));
 
         context.subscriptions.push(vscode.languages.registerHoverProvider({ scheme: "adlt-log" }, this));
+
+        this.timerId = setInterval(() => {
+            // dump mem usage:
+            const memUsage = process.memoryUsage();
+            console.log(`memUsage=${JSON.stringify(memUsage)} adlt #docs=${this._documents.size}`);
+        }, 10000);
     }
+    private timerId: NodeJS.Timeout;
 
     dispose() {
         console.log("AdltDocumentProvider dispose() called");
         this._documents.forEach((doc) => doc.dispose());
         this._documents.clear();
+        clearInterval(this.timerId);
 
         this.closeAdltProcess();
 
@@ -2234,6 +2160,9 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
     }
 
     public onDidClose(doc: ReportDocument) { // doc has been removed already from this._documents!
+        if (doc !== undefined && doc instanceof AdltDocument) {
+            doc.dispose();
+        }
         if (this._documents.size === 0) {
             this.closeAdltProcess();
         }
