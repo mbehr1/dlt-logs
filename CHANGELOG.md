@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+### [1.38.3](https://github.com/mbehr1/dlt-logs/compare/v1.38.2...v1.38.3) (2022-06-05)
+
+
+### Bug Fixes
+
+* dispose for doc called, mem dump, cleanups ([a855de3](https://github.com/mbehr1/dlt-logs/commit/a855de397e2782e857f67667ef43aef7407067c8))
+
 ### [1.38.2](https://github.com/mbehr1/dlt-logs/compare/v1.38.1...v1.38.2) (2022-06-03)
 
 
