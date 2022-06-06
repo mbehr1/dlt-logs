@@ -3,6 +3,8 @@
 
 <head>
     <title>Report</title>
+    <script type="module" src="${{scripts}}/@vscode/webview-ui-toolkit/dist/toolkit.min.js"></script>
+
     <script src="${{scripts}}/moment/min/moment.min.js"></script>
     <script src="${{scripts}}/chart.js/dist/chart.min.js"></script>
     <script src="${{scripts}}/hw-chartjs-plugin-colorschemes/dist/chartjs-plugin-colorschemes.min.js"></script>
@@ -73,25 +75,6 @@
 
         }
 
-        button {
-            color: var(--vscode-button-foreground);
-            background-color: var(--vscode-button-background);
-            border: solid 1px var(--vscode-contrastBorder);
-            padding: 6px 14px;
-        }
-
-        button:hover {
-            background-color: var(--vscode-button-hoverBackground);
-        }
-
-        button:focus {
-            outline: 1px solid -webkit-focus-ring-color;
-            outline-offset: 2px
-        }
-
-        button:active {
-            outline: none;
-        }
         .timelines-chart .series-group {
             fill-opacity: 0.2;
         }
@@ -143,23 +126,15 @@
         <canvas id="report-canvas"></canvas>
     </div>
     <br>
-    <div id="buttons">
-        <div class="w3-row-padding">
-            <div class="w3-third" id="lifecycleOptions">
-                <button id="toggleLifecycleStart"
-                    title="This toggles the display of the detected lifecycle start until the first message. So removing the leftmost empty time of the first lifecycle.">Toggle
-                    lifecycle start</button>
-            </div>
-            <div class="w3-third" id="empty">
-                <br>
-            </div>
-            <div class="w3-third" id="reportSettings">
-                <button onclick="resetZoom()">Reset zoom</button>
-                <button id="drag-switch" onclick="toggleDragMode()"
+    <div id="buttons" width="100%" style="display:flex; flex-direction:row; gap:3px; align-items: center;">
+            <vscode-checkbox id="toggleLifecycleStart" checked onclick="toggleLifecycleStart(this)" title="This toggles the display of the detected lifecycle start until the first message. So removing the leftmost empty time of the first lifecycle.">Show lifecycle start</vscode-checkbox>
+            <div style="flex-grow: 1;"></div>
+            <vscode-button onclick="resetZoom()">Reset zoom</vscode-button>
+            <vscode-button id="drag-switch" 
+                onclick="toggleDragMode()"
                     title="In drag mode you can select the area to zoom into by mouse. In non-drag mode you can zoom+pan with the mouse.">
-                    Enable drag mode</button>
-            </div>
-        </div>
+                Enable drag mode
+            </vscode-button>
     </div>
     <div class="w3-container">
         <div id="timeline"></div>
@@ -580,15 +555,16 @@
 
         let lcStartDate = [];
 
-        document.getElementById('toggleLifecycleStart').addEventListener('click', function () {
-            console.log("toggleLifecycleStart " + lcStartDate.length);
-            if (lcStartDate.length > 0) {
+        window.toggleLifecycleStart = function (checkbox) {
+            console.log("toggleLifecycleStart checkbox " + lcStartDate.length, checkbox.checked);
+            // checkbox.checked contains the prev value
+            if (!checkbox.checked && lcStartDate.length > 0) { // we're currently not showing
                 config.data.xLabels.shift(); // remove minDataPointTime
                 for (let i = lcStartDate.length - 1; i >= 0; --i) {
                     config.data.xLabels.unshift(lcStartDate[i]);
                 }
                 lcStartDate = [];
-            } else {
+            } else if (checkbox.checked) {
                 // remove labels <= minDataPointTime:
                 if (minDataPointTime) {
                     while (config.data.xLabels.length > 0 && config.data.xLabels[0].valueOf() <= minDataPointTime.valueOf()) { lcStartDate.push(config.data.xLabels.shift()); }
@@ -598,8 +574,7 @@
                 }
             }
             window.myReport.update();
-            // todo ? timelineChartUpdate({config:config});
-        });
+        }
 
         window.resetZoom = function () {
             const chart = window.myReport;
