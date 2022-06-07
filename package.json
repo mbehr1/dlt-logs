@@ -863,6 +863,7 @@
 		"vscode-test": "^1.5.2"
 	},
 	"dependencies": {
+		"@vscode/codicons": "^0.0.30",
 		"@vscode/webview-ui-toolkit": "^1.0.0",
 		"chart.js": "^3.8.0",
 		"chartjs-adapter-moment": "^1.0.0",

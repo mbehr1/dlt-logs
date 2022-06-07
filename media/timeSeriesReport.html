@@ -16,6 +16,8 @@
     <script src="${{scripts}}/timelines-chart/dist/timelines-chart.min.js"></script>
     <script src="${{media}}/timeLinesChart.js"></script>
 
+    <link href="${{scripts}}/@vscode/codicons/dist/codicon.css" rel="stylesheet" />
+
     <script>
         const vscode = acquireVsCodeApi(); // acquireVsCodeApi can only be invoked once
     </script>
@@ -24,12 +26,6 @@
             user-select: none;
             -moz-user-select: none;
             -webkit-user-select: none;
-        }
-
-        checkbox {
-            color: var(--vscode-settings-checkboxForeground);
-            background: var(--vscode-settings-checkboxForeground);
-            border: var(--vscode-settings-checkboxBorder);
         }
 
         input {
@@ -114,6 +110,19 @@
             border-color: var(--vscode-editorHoverWidget-border);
             border-width: 1;
         }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left:10%;
+            top:10%;
+            color: var(--vscode-editorHoverWidget-foreground);
+            font-family: var(--vscode-editor-font-family);
+            font-weight: var(--vscode-editor-font-weight);
+            font-size: var(--vscode-editor-font-size);
+            background: var(--vscode-editorHoverWidget-background);
+            border: 2px solid var(--vscode-editorHoverWidget-border);
+        }
 
     </style>
     <link rel="stylesheet" href="${{scripts}}/w3-css/w3.css">
@@ -132,18 +141,37 @@
             <vscode-button onclick="resetZoom()">Reset zoom</vscode-button>
             <vscode-button id="drag-switch" 
                 onclick="toggleDragMode()"
-                    title="In drag mode you can select the area to zoom into by mouse. In non-drag mode you can zoom+pan with the mouse.">
+                title="In drag mode you can select the area to zoom into by mouse. In non-drag mode you can zoom+pan with the mouse.">
                 Enable drag mode
             </vscode-button>
     </div>
     <div class="w3-container">
         <div id="timeline"></div>
     </div>
+    <!-- modal dialog for annotations edit -->
+    <div id="editAnnotation" class="modal">
+        <div width="95%" style="display:flex; flex-direction: row; gap:3px; align-items: center;">
+            <vscode-button id="editAnnotationPinBtn" appearance="icon" onclick="editAnnotationPin(true);" aria-label="pin">
+                Pin annotation
+                <span slot="start" class="codicon codicon-pin"></span>
+            </vscode-button>
+            <vscode-button id="editAnnotationUnpinBtn" appearance="icon" onclick="editAnnotationPin(false);" aria-label="unpin" style="display:none;">
+                Unpin annotation
+                <span slot="start" class="codicon codicon-pinned"></span>
+            </vscode-button>
+            <vscode-button appearance="icon" onclick="closeEditAnnotation();">
+                <span class="codicon codicon-close"></span>
+            </vscode-button>
+        </div>
+        <!-- <vscode-text-area resize="both">Description</vscode-text-area> -->
+    </div>
     <script>
         const vscodeStyles = window.getComputedStyle(document.body);
         var dragOptions = {
             animationDuration: 1000
         };
+
+        var editAnnotationObj = undefined; // object (selectedTimeAnnotations member) clicked for editAnnotation modal dialog
 
         var config = {
             type: 'line',
@@ -251,12 +279,66 @@
                         }
                     },
                     annotation:{
-                        annotations:{}
+                        annotations:{},
+                        click:(context, event)=>{
+                            //console.log(`annotation click context=${Object.keys(context).join(',')}, event=${Object.keys(event).join(',')}`, context, event);
+                            event.native.stopImmediatePropagation();
+                            event.native.preventDefault();
+                            let anDi = document.getElementById("editAnnotation");
+                            editAnnotationObj = selectedTimeAnnotations.find(t => (t.id === context.element.options.id));
+                            if (editAnnotationObj){
+                                anDi.style.display="block";
+                                anDi.style.top = event.native.y + "px";
+                                anDi.style.left = event.native.x + "px";
+
+                                let btnPin = document.getElementById("editAnnotationPinBtn");
+                                let btnUnpin = document.getElementById("editAnnotationUnpinBtn");
+
+                                if (editAnnotationObj.pinned_){
+                                    btnPin.style.display="none";
+                                    btnUnpin.style.display="";
+                                }else{
+                                    btnUnpin.style.display="none";
+                                    btnPin.style.display="";
+                                }
+                            }
+                        },
                     },
                 },
                 onClick: handleClick
             }
         };
+
+        function closeEditAnnotation(){
+            document.getElementById("editAnnotation").style.display="none";
+            editAnnotationObj = undefined;
+        }
+
+        function editAnnotationPin(doPin) {
+            try{
+                //console.log(`editAnnotationPin(${doPin})`, editAnnotationObj);
+                if (editAnnotationObj){
+                    let nextPinNr;
+                    if (doPin){
+                        nextPinNr = selectedTimeAnnotations.reduce((prev, cur)=>cur.pinned_>0 ? Math.max(cur.pinned_, prev): prev, 0) +1;
+                        editAnnotationObj.pinned_ = nextPinNr;
+                    }else{
+                        delete(editAnnotationObj.pinned_);
+                    }
+                    let content = editAnnotationObj.label.content; // todo refactor with updateSelectedTimeAnnotations
+                    let newTimeLabel =`${doPin ? `(${nextPinNr}) `:''}${moment(editAnnotationObj.value).format('LTS.SSS [ms]')}`;
+                    if (Array.isArray(content)){
+                        content[0] = newTimeLabel;
+                    }else{
+                        editAnnotationObj.label.content = newTimeLabel;
+                    }
+                    window.myReport.update();
+                }
+                closeEditAnnotation();
+            }catch(e){
+                console.error(`editAnnotationPin got e=${e}`);
+            }
+        }
 
         // safely handles circular references
         // https://stackoverflow.com/questions/11616630/how-can-i-print-a-circular-structure-in-a-json-like-format
@@ -278,6 +360,11 @@
 
         function handleClick(evt) {
             try {
+                if (!evt.native.defaultPrevented){
+                    if (editAnnotationObj!==undefined){
+                        closeEditAnnotation();
+                    };
+                }
                 const canvasPosition = Chart.helpers.getRelativePosition(evt, window.myReport);
                 const dataX = window.myReport.scales['x-axis-0'].getValueForPixel(canvasPosition.x);
                 vscode.postMessage({ message: 'clicked', dataPoint: {x:dataX} }); // todo return full value, e.g. ... see intersect
@@ -413,15 +500,16 @@
                 padding: 2
             },
             value: null, // wont be shown
-            tag_: 'msg' // I hope its unused by the plugin (first one needs to have msg tag)
+            tag_: 'msg' // I hope tag_ is unused by the plugin. 'msg' used for cur. selected msg(s) and 'tl' for selected timeline element
+            // pinned_: Number>0|undefined ... will be set by editAnnotations Pin/UnpinBtn
         }];
 
         const updateSelectedTimeAnnotations = (times, tag) => {
-            const tagAnnotations = selectedTimeAnnotations.filter(t => t.tag_ === tag);
+            const tagAnnotations = selectedTimeAnnotations.filter(t => (t.tag_ === tag && !t.pinned_));
             while (times.length > tagAnnotations.length){
                 // clone the first element but change a few attributes:
                 // todo better use a proper clone here. if e.g. new object attributes are added they are not cloned
-                const newAnn = {...selectedTimeAnnotations[0], label: {...selectedTimeAnnotations[0].label, yAdjust: (selectedTimeAnnotations.length%6)*22}, value: null, id: selectedTimeAnnotations[0].id + `_${selectedTimeAnnotations.length+1}`, tag_: tag};
+                const newAnn = {...selectedTimeAnnotations[0], label: {...selectedTimeAnnotations[0].label, yAdjust: (selectedTimeAnnotations.length%6)*22}, value: null, id: selectedTimeAnnotations[0].id + `_${selectedTimeAnnotations.length+1}`, tag_: tag, pinned_:undefined};
                 selectedTimeAnnotations.push(newAnn);
                 tagAnnotations.push(newAnn);
                 //console.warn(` created ${JSON.stringify(selectedTimeAnnotations[selectedTimeAnnotations.length-1], undefined, 2)}`);
@@ -433,6 +521,7 @@
                 const [timeVal, timeLabel] = i < times.length ? (typeof times[i]==='object' ? [times[i].value, times[i].label] : [times[i],undefined]) : [null, undefined];
                 timeAnnotation.value = timeVal;
                 timeAnnotation.endValue = timeVal;
+                // todo format below assumed/used in editAnnotationPin as well!
                 timeAnnotation.label.content = timeLabel ? [moment(timeAnnotation.value).format('LTS.SSS [ms]'), timeLabel] : moment(timeAnnotation.value).format('LTS.SSS [ms]');
                 const haveSelectedTime = timeAnnotation.value !== null;
                 //console.warn(` onDidChangeSelectedTime times #${i} had=${hadSelectedTime} have=${haveSelectedTime} label=${selectedTimeAnnotation.label.content} annotations=${config.options.annotation.annotations.length}`);
@@ -521,8 +610,13 @@
                             const times = Array.isArray(message.selectedTime) ? message.selectedTime : [message.selectedTime];
                             updateSelectedTimeAnnotations(times, 'msg');
 
-                            if (selectedTimeAnnotations.length>0 && selectedTimeAnnotations[0].value !== null){ // relies on first one being tagged with 'msg'
-                                timelineChartUpdate({selectedTime:new Date(selectedTimeAnnotations[0].value)}); 
+                            let msgAnnotation = selectedTimeAnnotations.find(t => t.tag_ === 'msg' && !t.pinned_ && t.value !== null);
+                            if (msgAnnotation === undefined){
+                                msgAnnotation = selectedTimeAnnotations.find(t => t.tag_ === 'msg' && t.value !== null); // fallback to pinned one
+                            }
+
+                            if (msgAnnotation !== undefined){
+                                timelineChartUpdate({selectedTime:new Date(msgAnnotation.value)}); 
                             }
 
                             window.myReport.update();

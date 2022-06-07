@@ -81,6 +81,8 @@ A more detailed documentation is available here: [Docs](https://mbehr1.github.io
 - **Graphical time series reports** based on event filters. You can define event filters (type: 3), add normal filters and use a payloadRegex that captures either one value or even multiple values with named capture groups (?<series_name>.*). All captures needs to represent numbers. Grid lines for lifecycle start/ends are automatically added. To open a report simply press on the "report" icon next to the filter.
 ![Graphical time series reports](https://github.com/mbehr1/dlt-logs/raw/master/images/timeSeriesReport1.png)
 
+Reports are quite interactive: zoom, pan, toggle data sets, pin annotations/time markers.
+
 - **go/jump to entered time...** command that quickly jumps to the log lines around the time you entered. You can call it via command "go/jump to entered time..." or via the small time/history button in the upper right document button area.
 
 The extension uses telemetry with two events (`activate` (no parameters) and `open file` (file size as parameter)) if telemetry is activated within your general configuration.
