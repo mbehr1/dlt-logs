@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+### [1.39.2](https://github.com/mbehr1/dlt-logs/compare/v1.39.1...v1.39.2) (2022-06-07)
+
+
+### Bug Fixes
+
+* **build:** update build_tag action as well ([ff0cf2a](https://github.com/mbehr1/dlt-logs/commit/ff0cf2a4b73ee4d7cf9a3ce39e82a7e2e2eb9ffd))
+
 ### [1.39.1](https://github.com/mbehr1/dlt-logs/compare/v1.39.0...v1.39.1) (2022-06-07)
 
 
