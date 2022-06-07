@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.39.0](https://github.com/mbehr1/dlt-logs/compare/v1.38.3...v1.39.0) (2022-06-07)
+
+
+### Features
+
+* **report:** add pin/unpin for timemarkers/annotations ([8b4f130](https://github.com/mbehr1/dlt-logs/commit/8b4f130cd126f8a25d0cc1dee36a257df4f81da5))
+
 ### [1.38.3](https://github.com/mbehr1/dlt-logs/compare/v1.38.2...v1.38.3) (2022-06-05)
 
 
