@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+### [1.39.1](https://github.com/mbehr1/dlt-logs/compare/v1.39.0...v1.39.1) (2022-06-07)
+
+
+### Bug Fixes
+
+* **build:** update setup-node version 3, node 16 ([0b654e6](https://github.com/mbehr1/dlt-logs/commit/0b654e61278ac54d7adfa0e1e6b13035d5b2f0d7))
+
 ## [1.39.0](https://github.com/mbehr1/dlt-logs/compare/v1.38.3...v1.39.0) (2022-06-07)
 
 
