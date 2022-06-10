@@ -211,7 +211,9 @@ It offers:
 - does sort automatically by calculated time.
 
 All plugins are supported.
+Rewrite plugin doesn't support conversionFunction but only the replacements via keywords.
 
+Timesync feature is not supported yet with adlt.
 
 ## Contributions
 
