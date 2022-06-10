@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+### [1.39.4](https://github.com/mbehr1/dlt-logs/compare/v1.39.3...v1.39.4) (2022-06-10)
+
+
+### Bug Fixes
+
+* update doc on adlt restrictions ([5394dd3](https://github.com/mbehr1/dlt-logs/commit/5394dd3d106561905162fa975b8ca25dbcf1962f))
+
 ### [1.39.3](https://github.com/mbehr1/dlt-logs/compare/v1.39.2...v1.39.3) (2022-06-10)
 
 
