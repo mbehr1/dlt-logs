@@ -13,6 +13,9 @@
 		"type": "git",
 		"url": "https://github.com/mbehr1/dlt-logs.git"
 	},
+	"sponsor": {
+		"url": "https://github.com/sponsors/mbehr1"
+	},
 	"bugs": {
 		"url": "https://github.com/mbehr1/dlt-logs/issues"
 	},
