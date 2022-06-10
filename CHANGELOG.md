@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+### [1.39.3](https://github.com/mbehr1/dlt-logs/compare/v1.39.2...v1.39.3) (2022-06-10)
+
+
+### Bug Fixes
+
+* add sponsor to package.json ([b56b615](https://github.com/mbehr1/dlt-logs/commit/b56b615d17d72a8a7a2ad00a026ea1602473f04d))
+
 ### [1.39.2](https://github.com/mbehr1/dlt-logs/compare/v1.39.1...v1.39.2) (2022-06-07)
 
 
