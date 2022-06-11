@@ -159,11 +159,16 @@
                 Unpin annotation
                 <span slot="start" class="codicon codicon-pinned"></span>
             </vscode-button>
-            <vscode-button appearance="icon" onclick="closeEditAnnotation();">
+            <vscode-button appearance="icon" onclick="closeEditAnnotation();" style="margin-left:auto">
                 <span class="codicon codicon-close"></span>
             </vscode-button>
         </div>
-        <!-- <vscode-text-area resize="both">Description</vscode-text-area> -->
+        <br/>
+        <vscode-text-area id="editAnnotationDesc" resize="both">Description</vscode-text-area>
+        <vscode-button id="editAnnotationUpdateBtn" appearance="icon" onclick="editAnnotationPin(true);" aria-label="pin">
+            Pin / update
+            <span slot="start" class="codicon codicon-edit"></span>
+        </vscode-button>
     </div>
     <script>
         const vscodeStyles = window.getComputedStyle(document.body);
@@ -294,6 +299,10 @@
                                 let btnPin = document.getElementById("editAnnotationPinBtn");
                                 let btnUnpin = document.getElementById("editAnnotationUnpinBtn");
 
+                                let textDesc = document.getElementById("editAnnotationDesc");
+                                const curDesc = editAnnotationObj.desc_;
+                                textDesc.value = curDesc!== undefined ? curDesc : "";
+
                                 if (editAnnotationObj.pinned_){
                                     btnPin.style.display="none";
                                     btnUnpin.style.display="";
@@ -322,6 +331,9 @@
                     if (doPin){
                         nextPinNr = selectedTimeAnnotations.reduce((prev, cur)=>cur.pinned_>0 ? Math.max(cur.pinned_, prev): prev, 0) +1;
                         editAnnotationObj.pinned_ = nextPinNr;
+                        let textDesc = document.getElementById("editAnnotationDesc");
+                        const textVal = textDesc.value;
+                        editAnnotationObj.desc_ = textVal;
                     }else{
                         delete(editAnnotationObj.pinned_);
                     }
@@ -329,8 +341,13 @@
                     let newTimeLabel =`${doPin ? `(${nextPinNr}) `:''}${moment(editAnnotationObj.value).format('LTS.SSS [ms]')}`;
                     if (Array.isArray(content)){
                         content[0] = newTimeLabel;
+                        content[1] = editAnnotationObj.desc_;
                     }else{
-                        editAnnotationObj.label.content = newTimeLabel;
+                        if (editAnnotationObj.desc_.length>0){
+                            editAnnotationObj.label.content = [newTimeLabel, editAnnotationObj.desc_];
+                        }else{
+                            editAnnotationObj.label.content = newTimeLabel;
+                        }
                     }
                     window.myReport.update();
                 }
@@ -509,7 +526,7 @@
             while (times.length > tagAnnotations.length){
                 // clone the first element but change a few attributes:
                 // todo better use a proper clone here. if e.g. new object attributes are added they are not cloned
-                const newAnn = {...selectedTimeAnnotations[0], label: {...selectedTimeAnnotations[0].label, yAdjust: (selectedTimeAnnotations.length%6)*22}, value: null, id: selectedTimeAnnotations[0].id + `_${selectedTimeAnnotations.length+1}`, tag_: tag, pinned_:undefined};
+                const newAnn = {...selectedTimeAnnotations[0], label: {...selectedTimeAnnotations[0].label, yAdjust: (selectedTimeAnnotations.length%6)*22}, value: null, id: selectedTimeAnnotations[0].id + `_${selectedTimeAnnotations.length+1}`, tag_: tag, pinned_:undefined, desc_:undefined};
                 selectedTimeAnnotations.push(newAnn);
                 tagAnnotations.push(newAnn);
                 //console.warn(` created ${JSON.stringify(selectedTimeAnnotations[selectedTimeAnnotations.length-1], undefined, 2)}`);
@@ -522,6 +539,7 @@
                 timeAnnotation.value = timeVal;
                 timeAnnotation.endValue = timeVal;
                 // todo format below assumed/used in editAnnotationPin as well!
+                timeAnnotation.desc_ = timeLabel;
                 timeAnnotation.label.content = timeLabel ? [moment(timeAnnotation.value).format('LTS.SSS [ms]'), timeLabel] : moment(timeAnnotation.value).format('LTS.SSS [ms]');
                 const haveSelectedTime = timeAnnotation.value !== null;
                 //console.warn(` onDidChangeSelectedTime times #${i} had=${hadSelectedTime} have=${haveSelectedTime} label=${selectedTimeAnnotation.label.content} annotations=${config.options.annotation.annotations.length}`);
