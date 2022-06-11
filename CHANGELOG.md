@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.40.0](https://github.com/mbehr1/dlt-logs/compare/v1.39.4...v1.40.0) (2022-06-11)
+
+
+### Features
+
+* **report:** descriptions for pinned annotations ([24c2a51](https://github.com/mbehr1/dlt-logs/commit/24c2a514d212dd9abe8b3ff12181eed52d7380a1))
+
 ### [1.39.4](https://github.com/mbehr1/dlt-logs/compare/v1.39.3...v1.39.4) (2022-06-10)
 
 
