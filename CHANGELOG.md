@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+### [1.40.2](https://github.com/mbehr1/dlt-logs/compare/v1.40.1...v1.40.2) (2022-06-12)
+
+
+### Bug Fixes
+
+* **config:** plugins can be specified in any order ([8aa1667](https://github.com/mbehr1/dlt-logs/commit/8aa1667ca692633f696fd6dd629c070a469d7c57))
+
 ### [1.40.1](https://github.com/mbehr1/dlt-logs/compare/v1.40.0...v1.40.1) (2022-06-12)
 
 

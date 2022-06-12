@@ -2,7 +2,7 @@
 	"name": "dlt-logs",
 	"displayName": "DLT-Logs",
 	"description": "Open DLT diagnostic log and trace files with lifecycle detection, filters, time-sync, etc.",
-	"version": "1.40.1",
+	"version": "1.40.2",
 	"license": "CC-BY-NC-SA-4.0",
 	"publisher": "mbehr1",
 	"author": {
@@ -307,190 +307,190 @@
 						"type": "array",
 						"items": {
 							"oneOf": [
-							{
-								"type": "object",
-								"title": "FileTransfer plugin",
-								"properties": {
-									"name": {
-										"type": "string",
-										"description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp', 'NonVerbose', 'Rewrite' and 'CAN' are available.",
-										"enum": [
-											"FileTransfer"
-										]
-									},
-									"enabled": {
-										"type": "boolean",
-										"description": "Determines whether the plugin is currently enabled.",
-										"default": true
-									},
-									"allowSave": {
-										"type": "boolean",
-										"description": "Determing whether saving the files is supported. Otherwise just the information of filetransfers is provided. This reduces the memory footprint. Default: true (allow).",
-										"default": true
-									},
-									"keepFLDA": {
-										"type": "boolean",
-										"description": "Whether to keep the FLDA log messages. Default is to remove them from the logs.",
-										"default": false
-									},
-									"apid": {
-										"type": "string",
-										"description": "The APID to filter for FL* msgs. Should have 4 chars (less will be filled with \\0). Ignored if empty. The spec doesn't define any but providing one speeds up parsing.",
-										"default": ""
-									},
-									"ctid": {
-										"type": "string",
-										"description": "The CTID to filter for FL* msgs. Should have 4 chars (less will be filled with \\0). Ignored if empty. The spec doesn't define any value but providing one speeds up parsing.",
-										"default": ""
-									}
-								}
-							},
-							{
-								"type": "object",
-								"title": "SOME/IP plugin",
-								"properties": {
-									"name": {
-										"type": "string",
-										"description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp', 'NonVerbose', 'Rewrite' and 'CAN' are available.",
-										"enum": [
-											"SomeIp"
-										]
-									},
-									"enabled": {
-										"type": "boolean",
-										"description": "Determines whether the plugin is currently enabled.",
-										"default": true
-									},
-									"fibexDir": {
-										"type": "string",
-										"description": "The path to directory with the FIBEX files. Needs to be set."
-									},
-									"ctid": {
-										"type": "string",
-										"description": "The CTID to filter for SOME/IP msgs. Should have 4 chars (less will be filled with \\0). Defaults to 'TC'.",
-										"default": "TC"
-									},
-									"mtin": {
-										"type": "integer",
-										"description": "The 'MTIN' to filter for SOME/IP msgs. Defaults to MTIN_NW.TRACE_IPC (1).",
-										"default": 1
-									}
-								}
-							},
-							{
-								"type": "object",
-								"title": "Non-Verbose plugin",
-								"properties": {
-									"name": {
-										"type": "string",
-										"description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp', 'NonVerbose', 'Rewrite' and 'CAN' are available.",
-										"enum": [
-											"NonVerbose"
-										]
-									},
-									"enabled": {
-										"type": "boolean",
-										"description": "Determines whether the plugin is currently enabled.",
-										"default": true
-									},
-									"fibexDir": {
-										"type": "string",
-										"description": "The path to directory with the FIBEX files. Can be empty if shared folder with SomeIp is used."
-									}
-								}
-							},
-							{
-								"type": "object",
-								"title": "Rewrite plugin",
-								"properties": {
-									"name": {
-										"type": "string",
-										"description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp', 'NonVerbose', 'Rewrite' and 'CAN' are available.",
-										"enum": [
-											"Rewrite"
-										]
-									},
-									"enabled": {
-										"type": "boolean",
-										"description": "Determines whether the plugin is currently enabled.",
-										"default": true
-									},
-									"rewrites": {
-										"type": "array",
-										"description": "Array with rewrite configurations.",
-										"items": {
-											"type": "object",
-											"title": "rewrite config",
-											"properties": {
-												"name": {
-													"type": "string",
-													"description": "Identifier of this rewrite config."
-												},
-												"filter": {
-													"type": "object",
-													"description": "Filter attributes. Type is set automatically to positive filter. This determines which messages will be rewritten by this config."
-												},
-												"payloadRegex": {
-													"type": "string",
-													"description": "Regex on the payload. This will be called after the message is matched and is applied on the payloadText. The match/result is passed as first parameter to the rewrite functions."
-												},
-												"rewrite": {
-													"type": "object",
-													"description": "Rewrite functions. Function definition taking two parameter: match from payloadRegex (or undefined) and the message object. Currently functions for message attributes: payloadText and timeStamp are supported. Those functions will be called and if a value is returned this will replace the current msg attribute value."
-												}
-											}
+								{
+									"type": "object",
+									"title": "FileTransfer plugin",
+									"properties": {
+										"name": {
+											"type": "string",
+											"description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp', 'NonVerbose', 'Rewrite' and 'CAN' are available.",
+											"enum": [
+												"FileTransfer"
+											]
 										},
-										"default": [
-											{
-												"name": "SYS/JOUR timestamp and text",
-												"filter": {
-													"apid": "SYS",
-													"ctid": "JOUR"
-												},
-												"payloadRegex": "^.*? .*? (?<timeStamp>\\d+\\.\\d+) (?<text>.*)$",
-												"rewrite": {
-													"timeStamp": "function(m,msg){ if (!m) { return undefined; } return Math.round(Number(m.groups?.['timeStamp']) * 10000)}",
-													"payloadText": "function(m,msg){ if (!m) {return undefined; } return m.groups?.['text']}"
+										"enabled": {
+											"type": "boolean",
+											"description": "Determines whether the plugin is currently enabled.",
+											"default": true
+										},
+										"allowSave": {
+											"type": "boolean",
+											"description": "Determing whether saving the files is supported. Otherwise just the information of filetransfers is provided. This reduces the memory footprint. Default: true (allow).",
+											"default": true
+										},
+										"keepFLDA": {
+											"type": "boolean",
+											"description": "Whether to keep the FLDA log messages. Default is to remove them from the logs.",
+											"default": false
+										},
+										"apid": {
+											"type": "string",
+											"description": "The APID to filter for FL* msgs. Should have 4 chars (less will be filled with \\0). Ignored if empty. The spec doesn't define any but providing one speeds up parsing.",
+											"default": ""
+										},
+										"ctid": {
+											"type": "string",
+											"description": "The CTID to filter for FL* msgs. Should have 4 chars (less will be filled with \\0). Ignored if empty. The spec doesn't define any value but providing one speeds up parsing.",
+											"default": ""
+										}
+									}
+								},
+								{
+									"type": "object",
+									"title": "SOME/IP plugin",
+									"properties": {
+										"name": {
+											"type": "string",
+											"description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp', 'NonVerbose', 'Rewrite' and 'CAN' are available.",
+											"enum": [
+												"SomeIp"
+											]
+										},
+										"enabled": {
+											"type": "boolean",
+											"description": "Determines whether the plugin is currently enabled.",
+											"default": true
+										},
+										"fibexDir": {
+											"type": "string",
+											"description": "The path to directory with the FIBEX files. Needs to be set."
+										},
+										"ctid": {
+											"type": "string",
+											"description": "The CTID to filter for SOME/IP msgs. Should have 4 chars (less will be filled with \\0). Defaults to 'TC'.",
+											"default": "TC"
+										},
+										"mtin": {
+											"type": "integer",
+											"description": "The 'MTIN' to filter for SOME/IP msgs. Defaults to MTIN_NW.TRACE_IPC (1).",
+											"default": 1
+										}
+									}
+								},
+								{
+									"type": "object",
+									"title": "Non-Verbose plugin",
+									"properties": {
+										"name": {
+											"type": "string",
+											"description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp', 'NonVerbose', 'Rewrite' and 'CAN' are available.",
+											"enum": [
+												"NonVerbose"
+											]
+										},
+										"enabled": {
+											"type": "boolean",
+											"description": "Determines whether the plugin is currently enabled.",
+											"default": true
+										},
+										"fibexDir": {
+											"type": "string",
+											"description": "The path to directory with the FIBEX files. Can be empty if shared folder with SomeIp is used."
+										}
+									}
+								},
+								{
+									"type": "object",
+									"title": "Rewrite plugin",
+									"properties": {
+										"name": {
+											"type": "string",
+											"description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp', 'NonVerbose', 'Rewrite' and 'CAN' are available.",
+											"enum": [
+												"Rewrite"
+											]
+										},
+										"enabled": {
+											"type": "boolean",
+											"description": "Determines whether the plugin is currently enabled.",
+											"default": true
+										},
+										"rewrites": {
+											"type": "array",
+											"description": "Array with rewrite configurations.",
+											"items": {
+												"type": "object",
+												"title": "rewrite config",
+												"properties": {
+													"name": {
+														"type": "string",
+														"description": "Identifier of this rewrite config."
+													},
+													"filter": {
+														"type": "object",
+														"description": "Filter attributes. Type is set automatically to positive filter. This determines which messages will be rewritten by this config."
+													},
+													"payloadRegex": {
+														"type": "string",
+														"description": "Regex on the payload. This will be called after the message is matched and is applied on the payloadText. The match/result is passed as first parameter to the rewrite functions."
+													},
+													"rewrite": {
+														"type": "object",
+														"description": "Rewrite functions. Function definition taking two parameter: match from payloadRegex (or undefined) and the message object. Currently functions for message attributes: payloadText and timeStamp are supported. Those functions will be called and if a value is returned this will replace the current msg attribute value."
+													}
 												}
-											}
-										]
+											},
+											"default": [
+												{
+													"name": "SYS/JOUR timestamp and text",
+													"filter": {
+														"apid": "SYS",
+														"ctid": "JOUR"
+													},
+													"payloadRegex": "^.*? .*? (?<timeStamp>\\d+\\.\\d+) (?<text>.*)$",
+													"rewrite": {
+														"timeStamp": "function(m,msg){ if (!m) { return undefined; } return Math.round(Number(m.groups?.['timeStamp']) * 10000)}",
+														"payloadText": "function(m,msg){ if (!m) {return undefined; } return m.groups?.['text']}"
+													}
+												}
+											]
+										}
+									}
+								},
+								{
+									"type": "object",
+									"title": "CAN plugin",
+									"properties": {
+										"name": {
+											"type": "string",
+											"description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp', 'NonVerbose', 'Rewrite' and 'CAN' are available.",
+											"enum": [
+												"CAN"
+											]
+										},
+										"enabled": {
+											"type": "boolean",
+											"description": "Determines whether the plugin is currently enabled.",
+											"default": true
+										},
+										"fibexDir": {
+											"type": "string",
+											"description": "The path to directory with the FIBEX files. Needs to be set."
+										},
+										"ctid": {
+											"type": "string",
+											"description": "The CTID to filter for CAN msgs. Should have 4 chars (less will be filled with \\0). Defaults to 'TC'.",
+											"default": "TC"
+										},
+										"mtin": {
+											"type": "integer",
+											"description": "The 'MTIN' to filter for SOME/IP msgs. Defaults to MTIN_NW.TRACE_CAN (2).",
+											"default": 2
+										}
 									}
 								}
-							},
-							{
-								"type": "object",
-								"title": "CAN plugin",
-								"properties": {
-									"name": {
-										"type": "string",
-										"description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp', 'NonVerbose', 'Rewrite' and 'CAN' are available.",
-										"enum": [
-											"CAN"
-										]
-									},
-									"enabled": {
-										"type": "boolean",
-										"description": "Determines whether the plugin is currently enabled.",
-										"default": true
-									},
-									"fibexDir": {
-										"type": "string",
-										"description": "The path to directory with the FIBEX files. Needs to be set."
-									},
-									"ctid": {
-										"type": "string",
-										"description": "The CTID to filter for CAN msgs. Should have 4 chars (less will be filled with \\0). Defaults to 'TC'.",
-										"default": "TC"
-									},
-									"mtin": {
-										"type": "integer",
-										"description": "The 'MTIN' to filter for SOME/IP msgs. Defaults to MTIN_NW.TRACE_CAN (2).",
-										"default": 2
-									}
-								}
-							}
-						]
-					},
+							]
+						},
 						"default": [
 							{
 								"name": "FileTransfer",
