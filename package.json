@@ -305,7 +305,8 @@
 					},
 					"dlt-logs.plugins": {
 						"type": "array",
-						"items": [
+						"items": {
+							"oneOf": [
 							{
 								"type": "object",
 								"title": "FileTransfer plugin",
@@ -488,7 +489,8 @@
 									}
 								}
 							}
-						],
+						]
+					},
 						"default": [
 							{
 								"name": "FileTransfer",
