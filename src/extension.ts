@@ -102,15 +102,41 @@ export function activate(context: vscode.ExtensionContext) {
 	/**
 	 * event that we'll trigger once the active rest query doc
 	 * (aka the one on top of the tree or with the fallback within restquery) changes
+	 * or 3s after the number of messages in the last doc changed
 	 */
 	const onDidChangeActiveRestQueryDoc: vscode.Event<vscode.Uri | undefined> = _onDidChangeActiveRestQueryDoc.event;
 
 	let _lastActiveQueryDocUri: vscode.Uri | undefined = undefined;
+	let _lastActiveQueryDocNrMsgs: number | undefined = undefined;
+	let _lastActiveQueryDocRetriggerTimer: NodeJS.Timeout | undefined = undefined;
+
 	const checkActiveRestQueryDocChanged = (): boolean => {
-		const newDoc0Uri = getRestQueryDocById('0')?.uri;
+		const newDoc0 = getRestQueryDocById('0');
+		const newDoc0Uri = newDoc0?.uri;
+		const newDoc0NrMsgs = newDoc0?.fileInfoNrMsgs;
 		if (newDoc0Uri !== _lastActiveQueryDocUri) {
 			_lastActiveQueryDocUri = newDoc0Uri;
+			_lastActiveQueryDocNrMsgs = newDoc0NrMsgs;
+			if (_lastActiveQueryDocRetriggerTimer) {
+				clearTimeout(_lastActiveQueryDocRetriggerTimer);
+				_lastActiveQueryDocRetriggerTimer = undefined;
+			}
 			_onDidChangeActiveRestQueryDoc.fire(newDoc0Uri);
+			return true;
+		} else if (newDoc0NrMsgs !== undefined && newDoc0NrMsgs !== _lastActiveQueryDocNrMsgs) {
+			// the dlt doc changed (e.g. kept on loading)
+			// we want to debounce this to a few sec after last update
+			_lastActiveQueryDocNrMsgs = newDoc0NrMsgs;
+			//console.log(`dlt-logs.checkActiveRestQueryDocChanged triggered delayed update`);
+			if (_lastActiveQueryDocRetriggerTimer) {
+				clearTimeout(_lastActiveQueryDocRetriggerTimer);
+				_lastActiveQueryDocRetriggerTimer = undefined;
+			}
+			_lastActiveQueryDocRetriggerTimer = setTimeout(() => {
+				//console.log(`dlt-logs.checkActiveRestQueryDocChanged fired delayed update`);
+				_onDidChangeActiveRestQueryDoc.fire(newDoc0Uri);
+				_lastActiveQueryDocRetriggerTimer = undefined;
+			}, 3000);
 			return true;
 		}
 		return false;
