@@ -339,7 +339,7 @@ export class AdltDocument implements vscode.Disposable {
     }
 
     constructor(adltPort: Promise<number>, public uri: vscode.Uri, private emitDocChanges: vscode.EventEmitter<vscode.FileChangeEvent[]>, treeEventEmitter: vscode.EventEmitter<TreeViewNode | null>,
-        parentTreeNode: TreeViewNode[], private emitStatusChanges: vscode.EventEmitter<vscode.Uri | undefined>, private _columns: ColumnConfig[], reporter?: TelemetryReporter) {
+        parentTreeNode: TreeViewNode[], private emitStatusChanges: vscode.EventEmitter<vscode.Uri | undefined>, private checkActiveRestQueryDocChanged: () => boolean, private _columns: ColumnConfig[], reporter?: TelemetryReporter) {
 
         this._treeEventEmitter = treeEventEmitter;
 
@@ -1577,6 +1577,7 @@ export class AdltDocument implements vscode.Disposable {
         //console.log(`adlt fileInfo: nr_msgs=${fileInfo.nr_msgs}`);
         this.fileInfoNrMsgs = fileInfo.nr_msgs;
         this.emitStatusChanges.fire(this.uri);
+        this.checkActiveRestQueryDocChanged();
     }
 
     /**
@@ -2292,11 +2293,8 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
                 if (realStat.isFile() && (true /* todo dlt extension */)) {
                     try {
                         let port = this.getAdltProcessAndPort();
-                        document = new AdltDocument(port, uri, this._onDidChangeFile, this._onDidChangeTreeData, this._treeRootNodes, this._onDidChangeStatus, this._columns, this._reporter);
+                        document = new AdltDocument(port, uri, this._onDidChangeFile, this._onDidChangeTreeData, this._treeRootNodes, this._onDidChangeStatus, this.checkActiveRestQueryDocChanged, this._columns, this._reporter);
                         this._documents.set(uri.toString(), document);
-                        if (this._documents.size === 1) {
-                            // this.checkActiveRestQueryDocChanged();
-                        }
                     } catch (error) {
                         console.log(` adlt-logs.stat(uri=${uri.toString().slice(0, 100)}) returning realStat ${realStat.size} size.`);
                         return {
@@ -2326,11 +2324,8 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
         console.log(`adlt-logs.readFile(uri=${uri.toString().slice(0, 100)})...`);
         if (!doc) {
             const port = this.getAdltProcessAndPort();
-            doc = new AdltDocument(port, uri, this._onDidChangeFile, this._onDidChangeTreeData, this._treeRootNodes, this._onDidChangeStatus, this._columns, this._reporter);
+            doc = new AdltDocument(port, uri, this._onDidChangeFile, this._onDidChangeTreeData, this._treeRootNodes, this._onDidChangeStatus, this.checkActiveRestQueryDocChanged, this._columns, this._reporter);
             this._documents.set(uri.toString(), doc);
-            if (this._documents.size === 1) {
-                // todo this.checkActiveRestQueryDocChanged();
-            }
         }
         return Buffer.from(doc.text);
     }
