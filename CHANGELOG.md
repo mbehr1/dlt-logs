@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+### [1.40.1](https://github.com/mbehr1/dlt-logs/compare/v1.40.0...v1.40.1) (2022-06-12)
+
+
+### Bug Fixes
+
+* **adlt:** retigger restQueries if doc changes ([06e864f](https://github.com/mbehr1/dlt-logs/commit/06e864f0cc9271a14b1b617b68b0b94a4293d3c5))
+
 ## [1.40.0](https://github.com/mbehr1/dlt-logs/compare/v1.39.4...v1.40.0) (2022-06-11)
 
 
