@@ -375,15 +375,15 @@
             return retVal;
         };
 
-        function handleClick(evt) {
+        function handleClick(evt, elements, chart) {
             try {
                 if (!evt.native.defaultPrevented){
                     if (editAnnotationObj!==undefined){
                         closeEditAnnotation();
                     };
                 }
-                const canvasPosition = Chart.helpers.getRelativePosition(evt, window.myReport);
-                const dataX = window.myReport.scales['x-axis-0'].getValueForPixel(canvasPosition.x);
+                const canvasPosition = Chart.helpers.getRelativePosition(evt, chart);
+                const dataX = chart.scales['x-axis-0'].getValueForPixel(canvasPosition.x);
                 vscode.postMessage({ message: 'clicked', dataPoint: {x:dataX} }); // todo return full value, e.g. ... see intersect
                 timelineChartUpdate({selectedTime:new Date(dataX)});
             } catch (err) {
