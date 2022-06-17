@@ -112,6 +112,8 @@ const updateGraphs = (graphId) => {
             let chartAreaMinRight = Number.MAX_VALUE;
             let chartAreaMaxRight = 0;
 
+            let minPadLeft = Number.MAX_VALUE;
+            let minPadRight = Number.MAX_VALUE;
 
             graphs.forEach((graph, id) => {
                 //console.warn(`updateGraphs: graph.id=${id} pan.enabled=${graph.config.options.plugins.zoom.pan.enabled} chart.scales=${Object.keys(graph.chart.options.scales).join(',')} config.scales=${Object.keys(graph.config.options.scales).join(',')}`);
@@ -121,14 +123,23 @@ const updateGraphs = (graphId) => {
                     if (graph.chart.chartArea.left < chartAreaMinLeft) { chartAreaMinLeft = graph.chart.chartArea.left; }
                     if (graph.chart.chartArea.right > chartAreaMaxRight) { chartAreaMaxRight = graph.chart.chartArea.right; }
                     if (graph.chart.chartArea.right < chartAreaMinRight) { chartAreaMinRight = graph.chart.chartArea.right; }
-
                 }
+                if (graph.config.options.layout.padding.left < minPadLeft) { minPadLeft = graph.config.options.layout.padding.left; };
+                if (graph.config.options.layout.padding.right < minPadRight) { minPadRight = graph.config.options.layout.padding.right; };
                 //console.warn(`updateGraphs: graph.id=${id} pan.enabled=${graph.chart.options.plugins.zoom.pan.enabled} chart.scales=${Object.keys(graph.chart.options.scales).join(',')} config.scales=${Object.keys(graph.config.options.scales).join(',')}`);
             });
-            // todo with the current logic it can happen that all charts have a padding.left (and/or all .right). Should remove here then
+            // with the current logic it can happen that all charts have a padding.left (and/or all .right). Remove the offset here:
+            if (graphs.size > 0 && (minPadLeft > 0 || minPadRight > 0)) {
+                console.log(`updateGraphs: common min padding detected: l:${minPadLeft} r:${minPadRight}`);
+                graphs.forEach((graph, id) => {
+                    if (minPadLeft > 0) { graph.config.options.layout.padding.left -= minPadLeft; }
+                    if (minPadRight > 0) { graph.config.options.layout.padding.right -= minPadRight; }
+                    graph.chart.update();
+                });
+            }
 
             if (Math.abs(chartAreaMinLeft - chartAreaMaxLeft) > 1 || Math.abs(chartAreaMinRight - chartAreaMaxRight) > 1) {
-                console.log(`updateGraphs: chart areas not aligned yet: l:${chartAreaMinLeft}-${chartAreaMaxLeft} r:${chartAreaMinRight}-${chartAreaMaxRight} `);
+                console.log(`updateGraphs: chart areas not aligned yet: l:${chartAreaMinLeft}-${chartAreaMaxLeft} r:${chartAreaMinRight}-${chartAreaMaxRight}`);
                 graphs.forEach((graph, id) => {
                     if (graph.chart.chartArea) {
                         let doUpdate = false;
