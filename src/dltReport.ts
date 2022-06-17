@@ -201,7 +201,7 @@ export class DltReport implements vscode.Disposable, NewMessageSink {
         const lcEndDate: Date = lcDates[lcDates.length - 1];
         console.log(`updateReport lcStartDate=${lcStartDate}, lcEndDate=${lcEndDate}`);
 
-        let dataSets = new Map<string, { data: { x: Date, y: string | number | any, lcId: number, t_?: DataPointType, idx_?: number }[], yLabels?: string[], yAxis?: any }>();
+        let dataSets = new Map<string, { data: { x: Date, y: string | number | any, lcId: number, t_?: DataPointType, idx_?: number }[], yLabels?: string[], yAxis?: any, group?: string }>();
 
         let minDataPointTime: Date | undefined = undefined;
 
@@ -449,7 +449,30 @@ export class DltReport implements vscode.Disposable, NewMessageSink {
                                     }
                                 }
                                 if (!found) {
-                                    console.warn(`  no dataSet found for '${dataSetName}'`);
+                                    console.warn(`  no dataSet found for yAxis '${dataSetName}'`);
+                                }
+                            }
+                        });
+                    }
+                    if ('group' in filter.reportOptions) {
+                        const group = filter.reportOptions.group;
+                        Object.keys(group).forEach((dataSetName) => {
+                            console.log(` got group.'${dataSetName}' : ${JSON.stringify(group[dataSetName], null, 2)}`);
+                            const dataSet = dataSets.get(dataSetName);
+                            if (dataSet) {
+                                dataSet.group = group[dataSetName];
+                            } else {
+                                const regEx = new RegExp(dataSetName);
+                                let found = false;
+                                for (const [name, dataSet] of dataSets.entries()) {
+                                    if (name.match(regEx) && dataSet.yAxis === undefined) {
+                                        dataSet.group = group[dataSetName];
+                                        found = true;
+                                        console.log(`  set group for '${name}' from regex '${dataSetName}'`);
+                                    }
+                                }
+                                if (!found) {
+                                    console.warn(`  no dataSet found for group '${dataSetName}'`);
                                 }
                             }
                         });
@@ -535,7 +558,7 @@ export class DltReport implements vscode.Disposable, NewMessageSink {
                     data.data.forEach((d) => delete d.idx_);
                 }
 
-                datasetArray.push({ label: label, dataYLabels: data, type: label.startsWith('EVENT_') ? 'scatter' : 'line', yAxis: data.yAxis });
+                datasetArray.push({ label: label, dataYLabels: data, type: label.startsWith('EVENT_') ? 'scatter' : 'line', yAxis: data.yAxis, group: data.group });
             });
 
             this.postMsgOnceAlive({ command: "update", data: datasetArray });

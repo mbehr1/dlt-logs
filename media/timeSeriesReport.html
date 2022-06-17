@@ -132,7 +132,8 @@
     <div id="message">
         <textarea id="report_filenames" rows="1" cols="120" readonly>dlt-logs report ok: unknown</textarea>
         <pre id="report_warnings" hidden></pre>
-        <canvas id="report-canvas"></canvas>
+        <div id="stacked-reports">
+        </div>
     </div>
     <br>
     <div id="buttons" width="100%" style="display:flex; flex-direction:row; gap:3px; align-items: center;">
@@ -172,151 +173,15 @@
     </div>
     <script>
         const vscodeStyles = window.getComputedStyle(document.body);
+    </script>
+    <script src="${{media}}/regularGraphs.js"></script>
+    <script>
+
         var dragOptions = {
             animationDuration: 1000
         };
 
         var editAnnotationObj = undefined; // object (selectedTimeAnnotations member) clicked for editAnnotation modal dialog
-
-        var config = {
-            type: 'line',
-            data: {
-                labels: [],
-                datasets: [{
-                    label: 'dataset 1',
-                    borderWidth: 1,
-                    pointRadius: 2,
-                    fill: false,
-                    data: []
-                }]
-            },
-            options: {
-                responsive: true,
-                indexAxis:'x-axis-0',
-                scales: {
-                    'x-axis-0': {
-                        type: 'time',
-                        parsing: false, // we provide timestamps directly
-                        time: {
-                            unit: 'second',
-                            tooltipFormat: 'LTS.SSS [ms]'
-                        },
-                        display: true,
-                        title:{
-                            display:true,
-                            text:'time'
-                        },
-                        grid: {
-                            display: true,
-                            color: 'rgba(0,200,0,0.5)'
-                        },
-                        ticks: {
-                            source: 'labels',
-                            minRotation: 30,
-                        }
-                    },
-                    'y-axis-0': {
-                        id: 'y-axis-0',
-                        display: 'auto',
-                        title: {
-                            display: true,
-                            text: 'values'
-                        }
-                    },
-                    'y-axis-1':{
-                        id: 'y-axis-1',
-                        display: 'auto',
-                        type: 'category',
-                        reverse: true,
-                    }
-                },
-                animation: { duration: 0, active:{duration: 0}, resize:{duration: 0} },
-                plugins: {
-                    title: { display: false, text: 'report', color: vscodeStyles.getPropertyValue('--vscode-editor-foreground') },
-                    tooltip:{
-                        backgroundColor: vscodeStyles.getPropertyValue('--vscode-editorHoverWidget-background'),
-                        borderColor: vscodeStyles.getPropertyValue('--vscode-editorHoverWidget-border'),
-                        borderWidth: 1,
-                        titleColor: vscodeStyles.getPropertyValue('--vscode-editorHoverWidget-foreground'),
-                        bodyColor: vscodeStyles.getPropertyValue('--vscode-editorHoverWidget-foreground'),
-                        footerColor: vscodeStyles.getPropertyValue('--vscode-editorHoverWidget-foreground'),
-                        titleFont: { size:vscodeStyles.getPropertyValue('--vscode-editor-font-size'), weight: 'bold', family: vscodeStyles.getPropertyValue('--vscode-editor-font-family'),},
-                        bodyFont: { size: 10, family: vscodeStyles.getPropertyValue('--vscode-editor-font-family'),},
-                        usePointStyle: true,
-                        position: 'nearest',
-                        mode:'nearest',
-                        callbacks:{
-                            title:(items)=>{
-                                if (items.length>0){
-                                    const item = items[0];
-                                    return item.formattedValue; // weird that's the time/x-axis value
-                                }
-                                return "";
-                            },
-                            label:(item)=>{
-                                return (item.dataset.label||'no dataset label')+': '+ (item.label||'no item label');
-                            }
-
-                        }
-                    },
-                    colorschemes: {
-                        scheme: 'tableau.Tableau20'
-                    },
-                    zoom: {
-                        pan: {
-                            enabled: true,
-                            mode: 'x',
-                            onPanComplete: handlePanZoomComplete
-                        },
-                        zoom: {
-                            drag: {
-                                enabled:false
-                            },
-                            wheel: {
-                                enabled:true
-                            },
-                            pinch:{
-                                enabled:false
-                            },
-                            mode: 'x',
-                            speed: 0.05,
-                            onZoomComplete: handlePanZoomComplete
-                        }
-                    },
-                    annotation:{
-                        annotations:{},
-                        click:(context, event)=>{
-                            //console.log(`annotation click context=${Object.keys(context).join(',')}, event=${Object.keys(event).join(',')}`, context, event);
-                            event.native.stopImmediatePropagation();
-                            event.native.preventDefault();
-                            let anDi = document.getElementById("editAnnotation");
-                            editAnnotationObj = selectedTimeAnnotations.find(t => (t.id === context.element.options.id));
-                            if (editAnnotationObj){
-                                anDi.style.display="block";
-                                anDi.style.top = event.native.y + "px";
-                                anDi.style.left = event.native.x + "px";
-
-                                let btnPin = document.getElementById("editAnnotationPinBtn");
-                                let btnUnpin = document.getElementById("editAnnotationUnpinBtn");
-
-                                let textDesc = document.getElementById("editAnnotationDesc");
-                                const curDesc = editAnnotationObj.desc_;
-                                textDesc.value = curDesc!== undefined ? curDesc : "";
-
-                                if (editAnnotationObj.pinned_){
-                                    btnPin.style.display="none";
-                                    btnUnpin.style.display="";
-                                }else{
-                                    btnUnpin.style.display="none";
-                                    btnPin.style.display="";
-                                }
-                            }
-                        },
-                    },
-                },
-                onClick: handleClick
-            }
-        };
 
         function closeEditAnnotation(){
             document.getElementById("editAnnotation").style.display="none";
@@ -349,7 +214,7 @@
                             editAnnotationObj.label.content = newTimeLabel;
                         }
                     }
-                    window.myReport.update();
+                    updateGraphs();
                 }
                 closeEditAnnotation();
             }catch(e){
@@ -375,41 +240,30 @@
             return retVal;
         };
 
-        function handleClick(evt) {
+        function handleClick(evt, elements, chart) {
             try {
                 if (!evt.native.defaultPrevented){
                     if (editAnnotationObj!==undefined){
                         closeEditAnnotation();
                     };
                 }
-                const canvasPosition = Chart.helpers.getRelativePosition(evt, window.myReport);
-                const dataX = window.myReport.scales['x-axis-0'].getValueForPixel(canvasPosition.x);
+                const canvasPosition = Chart.helpers.getRelativePosition(evt, chart);
+                const dataX = chart.scales['x-axis-0'].getValueForPixel(canvasPosition.x);
                 vscode.postMessage({ message: 'clicked', dataPoint: {x:dataX} }); // todo return full value, e.g. ... see intersect
                 timelineChartUpdate({selectedTime:new Date(dataX)});
             } catch (err) {
                 vscode.postMessage({ message: 'clicked got err ' + err });
             }
         }
-
-        function handlePanZoomComplete({chart}){
-            //console.log(`handlePanZoomComplete`, chart);
-            //console.log(`handlePanZoomComplete`, chart.scales['x-axis-0']);
-            const minDate = new Date(chart.scales['x-axis-0'].min);
-            const maxDate = new Date(chart.scales['x-axis-0'].max);
-            //console.log(`handlePanZoomComplete ${minDate}-${maxDate}`);
-            timelineChartUpdate({zoomX: [minDate, maxDate]});
-        };
+        graphsCommonOptions.onClick = handleClick;
 
         function handleTimelineChartZoom(startDate, endDate){
             try{
             if (startDate === undefined || endDate === undefined){
                 window.resetZoom();
             }else{
-                const chart = window.myReport;
                 //console.log(`handleTimelineChartZoom ${startDate}/${startDate.valueOf()}-${endDate}, cur=${chart.scales['x-axis-0'].min }-${chart.scales['x-axis-0'].max}`);
-                config.options.scales['x-axis-0'].min = startDate.valueOf();
-                config.options.scales['x-axis-0'].max = endDate.valueOf();
-                chart.update();
+                graphsSetStartEndDate(startDate, endDate);
             }
             }catch(e){
                 console.error(`handleTimelineChartZoom got e=${e}`);
@@ -418,10 +272,11 @@
 
         window.onload = function () {
             try{
+                Chart.defaults.font = { weight: vscodeStyles.getPropertyValue('--vscode-editor-font-weight'), size: vscodeStyles.getPropertyValue('--vscode-editor-font-size'), family: vscodeStyles.getPropertyValue('--vscode-editor-font-family'), };
                 Chart.defaults.datasets.line.spanGaps = false;
                 Chart.defaults.borderColor=vscodeStyles.getPropertyValue('--vscode-editorWidget-border');
-                var ctx = document.getElementById('report-canvas').getContext('2d');
-                window.myReport = new Chart(ctx, config);
+                const stackedReports = document.getElementById('stacked-reports');
+                addNewGraph(stackedReports, null, 'main');
             }catch(e){
                 console.log(`window.onload() got e=${e}`);
             }
@@ -453,73 +308,64 @@
         /**
          * update the config YAxes based on newData[].yAxis
          */
-        const updateYAxes = (configScales, newData)=>{
+        const updateYAxes = (newData)=>{
             try{
-            if (Array.isArray(newData)){
-                newData.forEach(dataSet =>{
-                    if (dataSet.yAxis !== undefined){
-                        const newYAxis = dataSet.yAxis;
-                        // do we have a similar yAxis already?
-                        // to avoid issue #16 we do need to differentiate between
-                        // category and non-category axis depending on whether the dataSet has
-                        // dataYLabels.yLabels or not.
-                        // So if the dataSet has yLabels it needs a category type. 
-                        if (dataSet.dataYLabels.yLabels !== undefined){
-                            newYAxis.type = 'category';
-                        }
+                if (Array.isArray(newData)){
+                    newData.forEach(dataSet =>{
+                        const group = dataSet.group || 'main';
+                        const graph = graphsGetOrCreate(group) || graphs.get('main');
+                        let configScales =graph.config.options.scales; 
 
-                        let found = undefined;
-                        let nrYAxes = 0;
-                        for (const [sKey, sVal] of Object.entries(configScales)){
-                            if (sKey.startsWith('y-axis-')){
-                                nrYAxes += 1;
-                                if (found===undefined && isSimilarYAxis(sVal, newYAxis)){
-                                    found=sKey;
-                                    // we determine the nr as well so no break;
+                        if (dataSet.yAxis !== undefined){
+                            const newYAxis = dataSet.yAxis;
+                            // do we have a similar yAxis already?
+                            // to avoid issue #16 we do need to differentiate between
+                            // category and non-category axis depending on whether the dataSet has
+                            // dataYLabels.yLabels or not.
+                            // So if the dataSet has yLabels it needs a category type. 
+                            if (dataSet.dataYLabels.yLabels !== undefined){
+                                newYAxis.type = 'category';
+                            }
+
+                            let found = undefined;
+                            let nrYAxes = 0;
+                            for (const [sKey, sVal] of Object.entries(configScales)){
+                                if (sKey.startsWith('y-axis-')){
+                                    nrYAxes += 1;
+                                    if (found===undefined && isSimilarYAxis(sVal, newYAxis)){
+                                        found=sKey;
+                                        // we determine the nr as well so no break;
+                                    }
                                 }
                             }
+                            //const found = configYAxes.find(yAxis => isSimilarYAxis(yAxis, newYAxis));
+                            if (!found){
+                                // add new one:
+                                dataSet.yAxisID = `y-axis-${nrYAxes}`;
+                                configScales[dataSet.yAxisID] = {...newYAxis, id: dataSet.yAxisID};
+                            } else {
+                                dataSet.yAxisID = found;
+                            }
                         }
-                        //const found = configYAxes.find(yAxis => isSimilarYAxis(yAxis, newYAxis));
-                        if (!found){
-                            // add new one:
-                            dataSet.yAxisID = `y-axis-${nrYAxes}`;
-                            configScales[dataSet.yAxisID] = {...newYAxis, id: dataSet.yAxisID};
-                        } else {
-                            dataSet.yAxisID = found;
+                    });
+                }
+                
+                graphs.forEach((graph)=>{
+                    // remove labels for all type 'category' axes:
+                    const scales = graph.config.options.scales;
+                    for (const [sKey, sVal] of Object.entries(scales)){
+                        if (sKey.startsWith('y-axis-')){
+                            if (sVal.type === 'category'){
+                                sVal.labels = []; // remove labels here. we merge (=add) all values here later
+                            }
                         }
                     }
                 });
-            }
-        }catch(e){
-            console.error(`updateYAxes got e=${e}`);
-        }
-        };
 
-        const selectedTimeAnnotations = [{
-            id:'selTime',
-            drawTime: 'beforeDatasetsDraw',
-            type: 'line',
-            mode: 'vertical',
-            scaleID: 'x-axis-0',
-            borderColor: 'green',
-            borderWidth: 1,
-            borderDash:[2,2],
-            label:{
-                content: 'selected',
-                enabled: true,
-                position: "start",
-                backgroundColor: vscodeStyles.getPropertyValue('--vscode-editor-background'), // 'rgba(0,0,0,0)' todo or fully transparent?
-                font:{
-                    size:8, // todo could use font-size but then the yAdjust needs to take this into account as well
-                    family: vscodeStyles.getPropertyValue('--vscode-editor-font-family'),
-                },
-                color: vscodeStyles.getPropertyValue('--vscode-editor-foreground'),
-                padding: 2
-            },
-            value: null, // wont be shown
-            tag_: 'msg' // I hope tag_ is unused by the plugin. 'msg' used for cur. selected msg(s) and 'tl' for selected timeline element
-            // pinned_: Number>0|undefined ... will be set by editAnnotations Pin/UnpinBtn
-        }];
+            }catch(e){
+                console.error(`updateYAxes got e=${e}`);
+            }
+        };
 
         const updateSelectedTimeAnnotations = (times, tag) => {
             const tagAnnotations = selectedTimeAnnotations.filter(t => (t.tag_ === tag && !t.pinned_));
@@ -544,9 +390,9 @@
                 const haveSelectedTime = timeAnnotation.value !== null;
                 //console.warn(` onDidChangeSelectedTime times #${i} had=${hadSelectedTime} have=${haveSelectedTime} label=${selectedTimeAnnotation.label.content} annotations=${config.options.annotation.annotations.length}`);
                 if (haveSelectedTime && !hadSelectedTime){
-                    config.options.plugins.annotation.annotations[timeAnnotation.id] = timeAnnotation;
+                    graphsCommonOptions.plugins.annotation.annotations[timeAnnotation.id] = timeAnnotation;
                 } else if (hadSelectedTime && !haveSelectedTime){
-                    delete config.options.plugins.annotation.annotations[timeAnnotation.id];
+                    delete graphsCommonOptions.plugins.annotation.annotations[timeAnnotation.id];
                 }/*else if (haveSelectedTime && hadSelectedTime){
                     // no need to modify elements directly: (fixed with chartjs v3...)
                 }*/
@@ -555,10 +401,9 @@
         };
 
         function handleTimelineChartSelectedTime(times){
-            const chart = window.myReport;
             console.log(`handleTimelineChartSelectedTimes`, times);
             updateSelectedTimeAnnotations(times, 'tl');
-            window.myReport.update();
+            updateGraphs();
         }
 
         window.addEventListener('message', event => {
@@ -570,21 +415,22 @@
                         //vscode.postMessage({ message: 'update message.data.length=' + message.data.length });
                         //vscode.postMessage({ message: 'update config.data.datasets[0].data.length=' + config.data.datasets[0].data.length });
                         //vscode.postMessage({ message: `#yAxis= ${message.data.filter(f=>f.yAxis !== undefined).length}`});
-                        
-                        updateYAxes(config.options.scales ,message.data ); // afterwards dataSet.yAxisID is set if dataSet.yAxis was set
-                        // remove labels for all type 'category' axes:
-                        for (const [sKey, sVal] of Object.entries(config.options.scales)){
-                            if (sKey.startsWith('y-axis-')){
-                                if (sVal.type === 'category'){
-                                    sVal.labels = []; // remove labels here. we merge (=add) all values here later
-                                }
-                            }
-                        }
-                        for (let i = 0,d=0; i < message.data.length; ++i) {
+
+                        updateYAxes(message.data ); // afterwards dataSet.yAxisID is set if dataSet.yAxis was set
+
+                        const nrDatasetsByGroup = new Map();
+                        for (let i = 0; i < message.data.length; ++i) {
                             const messageData = message.data[i];
                             if (messageData.label.startsWith("TL_")) {continue;}
-                            if (d >= config.data.datasets.length) {
-                                config.data.datasets.push({ // todo check for multiple yLabels
+
+                            // determine which chart to use by group name:
+                            const group = messageData.group || 'main';
+                            const graph = graphsGetOrCreate(group) || graphs.get('main');
+                            let d = nrDatasetsByGroup.get(group) || 0;
+                            const graphData = graph.config.data;
+                            const scales = graph.config.options.scales;
+                            if (d >= graphData.datasets.length) {
+                                graphData.datasets.push({ // todo check for multiple yLabels
                                     type: ('type' in messageData) ? messageData.type : 'line',
                                     label: messageData.label,
                                     data: messageData.dataYLabels.data,
@@ -595,17 +441,19 @@
                                 });
                             }
 
-                            if (d < config.data.datasets.length) {
-                                const configDataset = config.data.datasets[d];
+                            if (d < graphData.datasets.length) {
+                                const configDataset = graphData.datasets[d];
                                 configDataset.label = messageData.label;
                                 configDataset.hidden = messageData.yAxis?.hidden;
                                 configDataset.type = ('type' in messageData) ? messageData.type : 'line';
                                 if (messageData.dataYLabels.yLabels !== undefined) { // todo! yAxisID could be set!
-                                    vscode.postMessage({ message: 'update config.data.yLabels=' + config.data.yLabels + ' with ' + messageData.dataYLabels.yLabels });
                                     const dsi = configDataset;
-                                    const yAxis = messageData.yAxisID !== undefined ? config.options.scales[messageData.yAxisID]  : config.options.scales['y-axis-1'];
+                                    const yAxis = messageData.yAxisID !== undefined ? scales[messageData.yAxisID]  : scales['y-axis-1'];
                                     configDataset.yAxisID = yAxis.id;
                                     configDataset.lineTension = 0;
+                                    if (!Array.isArray(yAxis.labels)){
+                                            yAxis['labels'] = [];
+                                    }
                                     for (let j = 0; j < messageData.dataYLabels.yLabels.length; ++j) {
                                         if (!(yAxis.labels.includes(messageData.dataYLabels.yLabels[j])))
                                             yAxis.labels.push(messageData.dataYLabels.yLabels[j]);
@@ -616,12 +464,11 @@
                                 }
                                 configDataset.data = messageData.dataYLabels.data;
                             }
-                            ++d;
+                            d += 1;
+                            nrDatasetsByGroup.set(group, d);
                         }
-                        window.myReport.update();
+                        updateGraphs();
                         timelineChartUpdate({datasets:message.data.filter(d=>d.label.startsWith("TL_")), onZoom: handleTimelineChartZoom, onSelectedTime:handleTimelineChartSelectedTime});
-                        vscode.postMessage({ message: 'updated report data ' + message.data.length });
-
                         break;
                     case 'onDidChangeSelectedTime':
                         { // todo check if times are within boundaries of this report?
@@ -637,20 +484,23 @@
                                 timelineChartUpdate({selectedTime:new Date(msgAnnotation.value)}); 
                             }
 
-                            window.myReport.update();
+                            updateGraphs();
                         }
                         break;
                     case 'update labels':
-                        config.data.xLabels = message.labels;
+                        // we must not change the array obj but modify it:
+                        graphsCommonXLabels.length = 0;
+                        if (Array.isArray(message.labels)){
+                            message.labels.forEach((label)=>graphsCommonXLabels.push(label));
+                        }
+
                         minDataPointTime = message.minDataPointTime;
-                        window.myReport.update();
+                        updateGraphs();
                         // todo ? timelineChartUpdate({config:config});
                         vscode.postMessage({ message: 'update labels #' + message.labels.length });
                         break;
                     case 'update titles':
-                        const titles = message.titles;
-                        config.options.plugins.title.display = titles.length > 0;
-                        config.options.plugins.title.text = titles;
+                        graphsUpdateTitle('main', message.titles);
                         // update filenames:
                         document.getElementById('report_filenames').innerText = 'dlt-logs report of: '+message.fileNames.join(' & ');
                         break;
@@ -671,43 +521,29 @@
             console.log("toggleLifecycleStart checkbox " + lcStartDate.length, checkbox.checked);
             // checkbox.checked contains the prev value
             if (!checkbox.checked && lcStartDate.length > 0) { // we're currently not showing
-                config.data.xLabels.shift(); // remove minDataPointTime
+                graphsCommonXLabels.shift(); // remove minDataPointTime
                 for (let i = lcStartDate.length - 1; i >= 0; --i) {
-                    config.data.xLabels.unshift(lcStartDate[i]);
+                    graphsCommonXLabels.unshift(lcStartDate[i]);
                 }
                 lcStartDate = [];
             } else if (checkbox.checked) {
                 // remove labels <= minDataPointTime:
                 if (minDataPointTime) {
-                    while (config.data.xLabels.length > 0 && config.data.xLabels[0].valueOf() <= minDataPointTime.valueOf()) { lcStartDate.push(config.data.xLabels.shift()); }
+                    while (graphsCommonXLabels.length > 0 && graphsCommonXLabels[0].valueOf() <= minDataPointTime.valueOf()) { lcStartDate.push(graphsCommonXLabels.shift()); }
                     if (lcStartDate.length > 0) {
-                        config.data.xLabels.unshift(minDataPointTime); // add minDataPointTime
+                        graphsCommonXLabels.unshift(minDataPointTime); // add minDataPointTime
                     }
                 }
             }
-            window.myReport.update();
+            updateGraphs();
         }
 
         window.resetZoom = function () {
-            const chart = window.myReport;
-            // have to delete them as timelineChart zoom might have set them
-            config.options.scales['x-axis-0'].min = undefined;
-            config.options.scales['x-axis-0'].max = undefined;
-            chart.update();
-
-            window.myReport.resetZoom();
-            const minDate = new Date(chart.scales['x-axis-0'].min);
-            const maxDate = new Date(chart.scales['x-axis-0'].max);
-            timelineChartUpdate({zoomX: [minDate, maxDate]});
+            graphsResetZoom();
         }
 
         window.toggleDragMode = function () {
-            var zoomOptions = window.myReport.options.plugins.zoom;
-            // we toggle between pan and drag
-            zoomOptions.zoom.drag.enabled = !zoomOptions.zoom.drag.enabled;
-            zoomOptions.pan.enabled = !zoomOptions.zoom.drag.enabled;
-
-            window.myReport.update();
+            graphsToggleDragMode();
             // doesn't change zoom or any other data... timelineChartUpdate({config:config});
             document.getElementById('drag-switch').innerText = zoomOptions.zoom.drag.enabled ? "Disable drag mode" : "Enable drag mode";
         }
