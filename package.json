@@ -862,7 +862,7 @@
 		"glob": "^8.0.3",
 		"husky": "^6.0.0",
 		"mocha": "^8.4.0",
-		"semantic-release": "^17.4.7",
+		"semantic-release": "^19.0.3",
 		"semantic-release-vsce": "^3.5.0",
 		"typescript": "^4.2.4",
 		"vsce": "^2.9.1",
