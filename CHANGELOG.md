@@ -1,5 +1,18 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.41.0](https://github.com/mbehr1/dlt-logs/compare/v1.40.2...v1.41.0) (2022-06-17)
+
+
+### Features
+
+* **report:** support group of charts / multiple charts ([6e205b8](https://github.com/mbehr1/dlt-logs/commit/6e205b875696e46674a15eb78f20212ad8707048))
+
+
+### Bug Fixes
+
+* **report:** detect and remove common padding ([a0c1515](https://github.com/mbehr1/dlt-logs/commit/a0c15152c9901056653885383b35ab1ae1741a88))
+* **report:** first try to aligh multiple chart areas ([4bcc86c](https://github.com/mbehr1/dlt-logs/commit/4bcc86c14dfa825855f674e09148639d43e75be8))
+
 ### [1.40.2](https://github.com/mbehr1/dlt-logs/compare/v1.40.1...v1.40.2) (2022-06-12)
 
 
