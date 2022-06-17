@@ -281,7 +281,7 @@ Both axes are shown on the left hand side.
 
 Especially for numerical values if you use multiple datasets or even multiple reports (see below) you might want to specify different y-axis options.
 
-For those cases a `yAxes` object can be added to the `reportOptions`object:
+For those cases a `yAxes` object can be added to the `reportOptions` object:
 
 #### yAxes examples
 
@@ -354,6 +354,32 @@ For a full list of options for each y-axis see the [chartjs doc](https://www.cha
 :::warning
 Do not set the `id` key as this will be automatically set.
 :::
+
+#### Grouping / splitting the data sets to multiple charts
+
+By default all data sets are either shown in the "main" chart or in the [timeline/swimlane](#timeline--swimlane-charts) chart.
+By specifying the `group` object in the `reportOptions` data sets can be added to their own chart per group.
+
+```jsonc
+{
+  ...
+  "payloadRegex": "Temp\\s+.*\\s(?<temp>.*) deg",
+  "reportOptions": {
+    "group": {
+      // key is either dataset/capture name or a regex as wildcard, e.g. "^(temp_0|temperature)$"
+      // value (= group name) needs to be a string
+      "temp": "Sensors"
+    }
+    ...
+  }
+}
+```
+in this example a new group named `Sensors` is created and the data is shown in a smaller chart (aspect ratio 5) below the "main" chart.
+
+:::note
+The group object values need to be strings. Similar to `yAxes`the setting is **global** for the full report.
+:::
+
 
 ### Opening one report or multiple reports in one graph
 
