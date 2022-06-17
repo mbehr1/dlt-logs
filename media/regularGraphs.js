@@ -3,7 +3,8 @@
  * (c) Matthias Behr, 2022
  *
  * todo:
- * - chartArea left/right border need to be aligned
+ * - chartArea left/right border need to be aligned. Pre-liminary impl. done. But not to the point. Investigate better ways
+ *   e.g. own "fill axis plugin".
  * - annotations are positioned too low for graphs with high aspectRatio
  */
 
@@ -30,12 +31,14 @@ const addNewGraph = (element, existing, graphId) => {
     // we takeover the common options but not:
     //  plugins.title
     //  plugins.legend
-    //  options.aspectRation
+    //  options.aspectRatio
+    //  options.layout
     //
     // we cannot copy scales as the Chart overwrites that!
     const config = {
         ...graphConfigTemplate, options: {
             ...graphConfigTemplate.options,
+            layout: { ...graphConfigTemplate.options.layout, padding: { ...graphConfigTemplate.options.layout.padding } },
             aspectRatio: graphs.size > 0 ? 5 : undefined,
             // toggleDrawMode currently relies on plugins.zoom being the same object!
             plugins: { ...graphConfigTemplate.options.plugins, title: { ...graphConfigTemplate.options.plugins.title }, legend: { ...graphConfigTemplate.options.plugins.legend } },
@@ -77,6 +80,14 @@ const addNewGraph = (element, existing, graphId) => {
     return newGraph;
 };
 
+/**
+ * get graph for a group id. Will try tro create if it doesn't exist yet.
+ * 
+ * New graph will be added to DOM element 'stacked-reports'. This is a bit
+ * inconsistent with addNewGraph api where it explicitly needs to be provided.
+ * @param {*} groupId group to retrieve
+ * @returns {{chart: Chart, config:any}} graph data
+ */
 const graphsGetOrCreate = (groupId) => {
     let graph = graphs.get(groupId);
     if (graph) {
@@ -86,24 +97,72 @@ const graphsGetOrCreate = (groupId) => {
     }
 };
 
-let chartAreaMaxLeft = 0;
 
 /**
  * update all graphs/charts or a single specified one
  * @param {string?} graphId id of graph to be updated. if null/undefined all graphs will be updated
  */
 const updateGraphs = (graphId) => {
-    if (graphId) {
-        graphs.get(graphId)?.chart.update();
-    } else {
-        graphs.forEach((graph, id) => {
-            //console.warn(`updateGraphs: graph.id=${id} pan.enabled=${graph.config.options.plugins.zoom.pan.enabled} chart.scales=${Object.keys(graph.chart.options.scales).join(',')} config.scales=${Object.keys(graph.config.options.scales).join(',')}`);
-            graph.chart.update();
-            if (graph.chart.chartArea && graph.chart.chartArea.left > chartAreaMaxLeft) {
-                chartAreaMaxLeft = graph.chart.chartArea.left;
+    try {
+        if (graphId) {
+            graphs.get(graphId)?.chart.update();
+        } else {
+            let chartAreaMinLeft = Number.MAX_VALUE;
+            let chartAreaMaxLeft = 0;
+            let chartAreaMinRight = Number.MAX_VALUE;
+            let chartAreaMaxRight = 0;
+
+
+            graphs.forEach((graph, id) => {
+                //console.warn(`updateGraphs: graph.id=${id} pan.enabled=${graph.config.options.plugins.zoom.pan.enabled} chart.scales=${Object.keys(graph.chart.options.scales).join(',')} config.scales=${Object.keys(graph.config.options.scales).join(',')}`);
+                graph.chart.update();
+                if (graph.chart.chartArea) {
+                    if (graph.chart.chartArea.left > chartAreaMaxLeft) { chartAreaMaxLeft = graph.chart.chartArea.left; }
+                    if (graph.chart.chartArea.left < chartAreaMinLeft) { chartAreaMinLeft = graph.chart.chartArea.left; }
+                    if (graph.chart.chartArea.right > chartAreaMaxRight) { chartAreaMaxRight = graph.chart.chartArea.right; }
+                    if (graph.chart.chartArea.right < chartAreaMinRight) { chartAreaMinRight = graph.chart.chartArea.right; }
+
+                }
+                //console.warn(`updateGraphs: graph.id=${id} pan.enabled=${graph.chart.options.plugins.zoom.pan.enabled} chart.scales=${Object.keys(graph.chart.options.scales).join(',')} config.scales=${Object.keys(graph.config.options.scales).join(',')}`);
+            });
+            // todo with the current logic it can happen that all charts have a padding.left (and/or all .right). Should remove here then
+
+            if (Math.abs(chartAreaMinLeft - chartAreaMaxLeft) > 1 || Math.abs(chartAreaMinRight - chartAreaMaxRight) > 1) {
+                console.log(`updateGraphs: chart areas not aligned yet: l:${chartAreaMinLeft}-${chartAreaMaxLeft} r:${chartAreaMinRight}-${chartAreaMaxRight} `);
+                graphs.forEach((graph, id) => {
+                    if (graph.chart.chartArea) {
+                        let doUpdate = false;
+                        if (graph.chart.chartArea.left < chartAreaMaxLeft) {
+                            const shiftBy = chartAreaMaxLeft - graph.chart.chartArea.left;
+                            if (shiftBy > 1) {
+                                //const scale = graph.chart.options.scales['y-axis-0'];
+                                //console.warn(`updateGraphs: chart areas for ${id} needs shift by ${shiftBy} for 'stacked-reports_${id}.${scale.id}'`);
+                                //console.warn(`updateGraphs: chart areas for ${id} scales:`, Object.keys(graph.chart.options.scales));
+                                //console.warn(` updateGraphs: chart areas for ${id} scale ${scale.id} width ${scale.width} ${scale.axis.width}:`, Object.keys(scale), scale, scale.axis);
+                                // lets try with padding
+                                console.log(` updateGraphs: chart areas for ${id} pr=${window.devicePixelRatio} changing padding.left from ${graph.config.options.layout.padding.left} by ${shiftBy}`);
+                                graph.config.options.layout.padding.left += shiftBy /* todo investigate: this doesn't fit to the point but is always a bit too few  * window.devicePixelRatio*/;
+                                doUpdate = true;
+                            }
+                        }
+                        if (graph.chart.chartArea.right > chartAreaMinRight) {
+                            const shiftBy = graph.chart.chartArea.right - chartAreaMinRight;
+                            if (shiftBy > 1) {
+                                // lets try with padding
+                                console.log(` updateGraphs: chart areas for ${id} pr=${window.devicePixelRatio} changing padding.right from ${graph.config.options.layout.padding.right} by ${shiftBy}`);
+                                graph.config.options.layout.padding.right += shiftBy /* * window.devicePixelRatio*/;
+                                doUpdate = true;
+                            }
+                        }
+                        if (doUpdate) { updateGraphs(id); }
+                    }
+                });
+            } else {
+                // console.warn(`updateGraphs: chart areas aligned`);
             }
-            //console.warn(`updateGraphs: graph.id=${id} pan.enabled=${graph.chart.options.plugins.zoom.pan.enabled} chart.scales=${Object.keys(graph.chart.options.scales).join(',')} config.scales=${Object.keys(graph.config.options.scales).join(',')}`);
-        });
+        }
+    } catch (e) {
+        console.error(`updateGraphs: got e=${e}`);
     }
 };
 
@@ -145,8 +204,9 @@ const handlePanZoomComplete = ({ chart }) => {
     timelineChartUpdate({ zoomX: [minDate, maxDate] });
 };
 
+/*
 const yAxisAfterSetDimensions = (axis) => {
-    console.log(`yAxisAfterSetDimensions chartAreaMaxLeft=${chartAreaMaxLeft} id=${axis.ctx.canvas.id}.${axis.id} chartArea.Left=${axis.chart && axis.chart.chartArea ? axis.chart.chartArea.left : NaN} left=${axis.left} width=${axis.width}`, axis);
+    console.log(`yAxisAfterSetDimensions chartAreaMaxLeft=${chartAreaMaxLeft} id=${axis.ctx.canvas.id}.${axis.id} chartArea.Left=${axis.chart && axis.chart.chartArea ? axis.chart.chartArea.left : NaN} left=${axis.left} width=${axis.width} right=${axis.right}`, axis);
     if (axis.position === 'left' && axis.width > 0) {
         if (axis.chart.chartArea.left > chartAreaMaxLeft) {
             chartAreaMaxLeft = axis.chart.chartArea.left;
@@ -162,27 +222,31 @@ const yAxisAfterSetDimensions = (axis) => {
             }
         }
     }
-};
+};*/
 
+/*
 const axisAfterFit = (axis) => {
-    console.log(`axisAfterFit  chartAreaMaxLeft=${chartAreaMaxLeft} id=${axis.ctx.canvas.id}.${axis.id} paddingLeft=${axis.paddingLeft} left=${axis.left} width=${axis.width}`, axis);
-    if (axis.position === 'left' && axis.width > 0) {
-        //axis.width = 100; works as well but padding looks nicer
-        let chartAreaNeedsShiftRightBy = chartAreaMaxLeft - axis.right;
-        if (chartAreaNeedsShiftRightBy > 0) {
-            if (axis.ctx.canvas.id === 'stacked-reports_main') {
-                console.warn(`axisAfterFit ${axis.ctx.canvas.id}.${axis.id} needs adjust by ${chartAreaNeedsShiftRightBy} to align at ${chartAreaMaxLeft}`);
-                //axis.paddingLeft = newPadding;
-                axis.width = axis.width + chartAreaNeedsShiftRightBy;
-                //axis.right = axis.right + chartAreaNeedsShiftRightBy;
+    try {
+        //console.log(`updateGraphs axisAfterFit id=${axis.ctx.canvas.id}.${axis.id} paddingLeft=${axis.paddingLeft} left=${axis.left} width=${axis.width}`, axis);
+        if (axis.position === 'left' && axis.width > 0) {
+            //axis.width = 100; works as well but padding looks nicer
+            // todo undefined!
+            let chartAreaNeedsShiftRightBy = shifts.get(`${axis.ctx.canvas.id}.${axis.id}`);
+            if (chartAreaNeedsShiftRightBy > 0) {
+                console.log(`updateGraphs axisAfterFit id=${axis.ctx.canvas.id}.${axis.id} paddingLeft=${axis.paddingLeft} left=${axis.left} width=${axis.width} right=${axis.right} margins.left=${axis._margins.left}`, axis);
+                //axis.width = axis.width + chartAreaNeedsShiftRightBy + axis.left;
+                axis.width = chartAreaMaxLeft;
+                console.warn(`updateGraphs axisAfterFit: shift needed for '${axis.ctx.canvas.id}.${axis.id}' width increased by ${chartAreaNeedsShiftRightBy} to ${axis.width}`);
+            } else {
+                //console.warn(`updateGraphs axisAfterFit: no shift needed for '${axis.ctx.canvas.id}.${axis.id}'`);
             }
-        } else {
-            //console.warn(`${axis.ctx.canvas.id}.${axis.id}  newWidth=${newWidth} < ${axis.width}`);
-        }
-    } else { // assume right
+        } else { // assume right
 
+        }
+    } catch (e) {
+        console.warn(`updateGraphs axisAfterFit: got e=${e}`);
     }
-};
+};*/
 
 
 const graphsResetZoom = () => {
@@ -249,6 +313,12 @@ const graphConfigTemplate = {
     },
     options: {
         responsive: true,
+        layout: {
+            padding: {
+                left: 0,
+                right: 0,
+            }
+        },
         indexAxis: 'x-axis-0',
         scales: {
             'x-axis-0': {
