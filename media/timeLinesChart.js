@@ -572,14 +572,14 @@ const thinAllLines = () => {
 
 const timelineChartUpdate = (options) => {
     if (!options) { return; }
-    const { datasets = undefined, selectedTime = undefined, zoomX = undefined, onZoom = undefined, onSelectedTime = undefined } = options;
+    const { datasets = undefined, groupPrios = undefined, selectedTime = undefined, zoomX = undefined, onZoom = undefined, onSelectedTime = undefined } = options;
     if (onZoom) { onZoomCallback = onZoom; }
     if (onSelectedTime) { onSelectTimeCallback = onSelectedTime; }
     let timelineDataWasUpdated = false;
     if (datasets) {
         timelineDataWasUpdated = true;
-        timelineData = [];
-        console.log(`timelineChartUpdate got data`);
+        timelineData = []; // todo once we support a real update the groupPrios need to be merged as well!
+        //console.log(`timelineChartUpdate got data`);
         // todo cleanup into sep. functions/data
         for (let i = 0; i < datasets.length; ++i) {
             const dataset = datasets[i];
@@ -604,6 +604,30 @@ const timelineChartUpdate = (options) => {
                 }
             }
         }
+        // sort timelines:
+        // by groupPrio 1 2,3, ... 0, -3, -2, -1 and within same prio by group name
+        console.log(`timeSeriesReport unsorted timelineData = ${timelineData.map((a) => a.group).join(',')}`);
+        timelineData.sort((a, b) => {
+            // elements a, b are of type {group:string, data:[]}
+            // group is without TL_ but we search for both and prefer the most specific one
+            const prioA = groupPrios !== undefined ? (groupPrios[`TL_${a.group}`] || groupPrios[a.group] || 0) : 0;
+            const prioB = groupPrios !== undefined ? (groupPrios[`TL_${b.group}`] || groupPrios[b.group] || 0) : 0;
+            if (prioA === prioB) {
+                return a.group.localeCompare(b.group);
+            } else { // return neg if A shall be before B
+                // Both >0?
+                if (prioA > 0 && prioB > 0) {
+                    return prioA - prioB;
+                } else if (prioA < 0 && prioB < 0) {
+                    return prioA - prioB;
+                } else if (prioA <= 0 && prioB >= 0) {
+                    return 1;
+                }
+                return -1;
+            }
+        });
+        //console.log(`timeSeriesReport sorted timelineData = ${timelineData.map((a) => a.group).join(',')}`);
+
         for (let index = 0; index < timelineData.length; ++index) {
             const group = timelineData[index];
             try {

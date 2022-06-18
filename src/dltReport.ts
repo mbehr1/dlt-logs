@@ -202,6 +202,7 @@ export class DltReport implements vscode.Disposable, NewMessageSink {
         console.log(`updateReport lcStartDate=${lcStartDate}, lcEndDate=${lcEndDate}`);
 
         let dataSets = new Map<string, { data: { x: Date, y: string | number | any, lcId: number, t_?: DataPointType, idx_?: number }[], yLabels?: string[], yAxis?: any, group?: string }>();
+        let dataSetsGroupPrios: any = {};
 
         let minDataPointTime: Date | undefined = undefined;
 
@@ -477,6 +478,13 @@ export class DltReport implements vscode.Disposable, NewMessageSink {
                             }
                         });
                     }
+                    if ('groupPrio' in filter.reportOptions) {
+                        const groupPrio = filter.reportOptions.groupPrio;
+                        Object.keys(groupPrio).forEach((groupName) => {
+                            dataSetsGroupPrios[groupName] = Number(groupPrio[groupName]);
+                            console.log(`dltReport groupPrios=${JSON.stringify(dataSetsGroupPrios)}`);
+                        });
+                    }
                 } catch (err) {
                     console.log(`got error '${err}' processing reportOptions.`);
                 }
@@ -561,7 +569,7 @@ export class DltReport implements vscode.Disposable, NewMessageSink {
                 datasetArray.push({ label: label, dataYLabels: data, type: label.startsWith('EVENT_') ? 'scatter' : 'line', yAxis: data.yAxis, group: data.group });
             });
 
-            this.postMsgOnceAlive({ command: "update", data: datasetArray });
+            this.postMsgOnceAlive({ command: "update", data: datasetArray, groupPrios: dataSetsGroupPrios });
         }
 
     }
