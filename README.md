@@ -239,23 +239,23 @@ See [Changelog](./CHANGELOG.md)
 
 This project leverages the following third party content.
 
-momentjs.com (2.13.0)
+momentjs.com (2.29.3)
  - License: MIT
  - Source: https://momentjs.com
 
-chartjs.org (2.9.4)
+chartjs.org (3.8.0)
  - License: MIT https://github.com/chartjs/Chart.js/blob/master/LICENSE.md
  - Source: https://github.com/chartjs/Chart.js
 
-chartjs-plugin-colorschemes
-  - License: MIT https://github.com/nagix/chartjs-plugin-colorschemes/blob/master/LICENSE.md
-  - Source: https://github.com/nagix/chartjs-plugin-colorschemes
+hw-chartjs-plugin-colorschemes
+  - License: MIT https://github.com/MaximBelov/chartjs-plugin-colorschemes/blob/master/LICENSE.md
+  - Source: https://github.com/MaximBelov/chartjs-plugin-colorschemes
 
-chartjs-plugin-zoom (0.7.7)
+chartjs-plugin-zoom (1.2.1)
   - License: MIT https://github.com/chartjs/chartjs-plugin-zoom/blob/master/LICENSE.md
   - Source: https://github.com/chartjs/chartjs-plugin-zoom
 
-chartjs-plugin-annotation (0.5.7)
+chartjs-plugin-annotation (1.4.0)
   - License: MIT https://github.com/chartjs/chartjs-plugin-annotation/blob/master/LICENSE.md
   - Source: https://github.com/chartjs/chartjs-plugin-annotation
 
