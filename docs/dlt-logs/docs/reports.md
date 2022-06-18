@@ -434,6 +434,8 @@ The name for the `TL_` event/datapoint should follow a specific syntax:
  `lanename` can additionally contain `_`.
 :::
 
+#### Timeline value format details
+
 The value can be single numbers or strings but it allows to provide some more information:
 
 `<value>[|tooltip[|color][|,$]]`.
@@ -454,3 +456,39 @@ TL_name:value | description
 <code>TL_group1_lane2:"reset\|lane 2 had a reset\|red\|"</code> | lane2 in group1 showing value "reset" and tooltip "lane 2 had a reset" for that timepoint only in color red.
 <code>TL_group1_lane2:"up\|startup done"</code> | lane2 in group1 showing value "up" and tooltip "startup done" in any of the default colors.
 <code>TL_group1_lane2:"unavailable\|port not open\|\|$"</code> | lane2 in group1 showing value "unavailable" and tooltip "port not open" until next value even if in new lifecycle.
+
+###  Sort order within a timeline chart
+
+By default the groups will be ordered by their group name (alphabetic / locale compare).
+
+Additionaly a `priority` can be defined per group via the `reportOptions.groupPrio` object:
+
+```jsonc
+{
+  ...
+  "payloadRegex": "state\\s+.*\\s(?<TL_boot_state>.*)",
+  "reportOptions": {
+    "groupPrio": {
+      // key is the name of the group and can be set with or without the 'TL_'. Using the 'TL_' is recommended.
+      // value is the group priority and can be a positive or negative number
+      "TL_boot": -1
+    }
+    ...
+  }
+}
+```
+in this example the group named `boot` get the prio -1 assigned and thus will be put at the end of the time line chart.
+
+The sort order of groups within the time line chart is the following:
+Groups are partitioned into those 3 areas:
+ 1. sorted by 1st: group priority ascending and 2nd group name (for groups with positive priority)
+ 2. sorted by group name (for groups without priority or priority 0)
+ 3. sorted by 1st: negative group priority ascending and group name. (for groups with neg. priority) (e.g. -2 before -1. So -1 will be at the end).
+
+:::note
+The lanes within a group are sorted by their appearance in the trace!
+:::
+
+:::note
+The groupPrio is valid for the full report and not just the single filter! Multiple filter can set the `groupPrio` and the keys/groups will be merged into one groupPrio object. If the same `groupPrio`is provided the last filter overwrites the prev. priority.
+:::

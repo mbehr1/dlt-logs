@@ -468,7 +468,7 @@
                             nrDatasetsByGroup.set(group, d);
                         }
                         updateGraphs();
-                        timelineChartUpdate({datasets:message.data.filter(d=>d.label.startsWith("TL_")), onZoom: handleTimelineChartZoom, onSelectedTime:handleTimelineChartSelectedTime});
+                        timelineChartUpdate({datasets:message.data /* no need to filter here. timelineChartUpdate checks anyhow */, groupPrios: message.groupPrios, onZoom: handleTimelineChartZoom, onSelectedTime:handleTimelineChartSelectedTime});
                         break;
                     case 'onDidChangeSelectedTime':
                         { // todo check if times are within boundaries of this report?
