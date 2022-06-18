@@ -6,6 +6,7 @@
  * - chartArea left/right border need to be aligned. Pre-liminary impl. done. But not to the point. Investigate better ways
  *   e.g. own "fill axis plugin".
  * - annotations are positioned too low for graphs with high aspectRatio
+ * - hide graphs (e.g. 'main') if they contain no datasets
  */
 
 /**
