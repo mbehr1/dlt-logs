@@ -2,7 +2,7 @@
 	"name": "dlt-logs",
 	"displayName": "DLT-Logs",
 	"description": "Open DLT diagnostic log and trace files with lifecycle detection, filters, time-sync, etc.",
-	"version": "1.41.0",
+	"version": "1.41.1",
 	"license": "CC-BY-NC-SA-4.0",
 	"publisher": "mbehr1",
 	"author": {
