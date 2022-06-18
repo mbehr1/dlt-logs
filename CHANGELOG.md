@@ -2,6 +2,8 @@
 
 ## [1.41.1](https://github.com/mbehr1/dlt-logs/compare/v1.41.0...v1.41.1) (2022-06-18)
 
+## [1.41.1](https://github.com/mbehr1/dlt-logs/compare/v1.41.0...v1.41.1) (2022-06-18)
+
 ## [1.41.0](https://github.com/mbehr1/dlt-logs/compare/v1.40.2...v1.41.0) (2022-06-17)
 
 
