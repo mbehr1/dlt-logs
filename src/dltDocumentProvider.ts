@@ -9,7 +9,7 @@ import * as path from 'path';
 import * as util from './util';
 import { extensionId } from './constants';
 import { DltDocument, ColumnConfig } from './dltDocument';
-import TelemetryReporter from 'vscode-extension-telemetry';
+import TelemetryReporter from '@vscode/extension-telemetry';
 import { DltFilter } from './dltFilter';
 import { DltFileTransfer } from './dltFileTransfer';
 import { TreeViewNode, FilterNode } from './dltTreeViewNodes';

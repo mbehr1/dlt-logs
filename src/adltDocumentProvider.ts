@@ -23,7 +23,7 @@
 /// [x] opening of multiple dlt files (needs more testing. seems to work even with breadcrumb selection)
 
 import * as vscode from 'vscode';
-import TelemetryReporter from 'vscode-extension-telemetry';
+import TelemetryReporter from '@vscode/extension-telemetry';
 import * as fs from 'fs';
 import * as WebSocket from 'ws';
 import * as util from './util';

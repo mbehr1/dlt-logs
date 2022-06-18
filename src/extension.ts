@@ -6,7 +6,7 @@
 // [ ] status line support
 
 import * as vscode from 'vscode';
-import TelemetryReporter from 'vscode-extension-telemetry';
+import TelemetryReporter from '@vscode/extension-telemetry';
 import { extensionId, dltScheme, adltScheme, GlobalState } from './constants';
 import * as dltDocument from './dltDocumentProvider';
 import { exportDlt } from './dltExport';
