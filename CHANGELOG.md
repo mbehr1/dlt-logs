@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.42.0](https://github.com/mbehr1/dlt-logs/compare/v1.41.1...v1.42.0) (2022-06-18)
+
+
+### Features
+
+* **report:** add sorting of groups for timeline chart ([a6b7808](https://github.com/mbehr1/dlt-logs/commit/a6b780824c3d5a46dd133e070ef14459ee33fd45))
+
 ## [1.41.1](https://github.com/mbehr1/dlt-logs/compare/v1.41.0...v1.41.1) (2022-06-18)
 
 ## [1.41.1](https://github.com/mbehr1/dlt-logs/compare/v1.41.0...v1.41.1) (2022-06-18)
