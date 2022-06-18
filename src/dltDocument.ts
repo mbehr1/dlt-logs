@@ -12,7 +12,7 @@ import { DltLifecycleInfo } from './dltLifecycle';
 import { TimeSyncData } from './dltDocumentProvider';
 import { TreeViewNode, ConfigNode, FilterRootNode, FilterNode, LifecycleNode, LifecycleRootNode, DynFilterNode, EcuNode } from './dltTreeViewNodes';
 import { DltFilter, DltFilterType } from './dltFilter';
-import TelemetryReporter from 'vscode-extension-telemetry';
+import TelemetryReporter from '@vscode/extension-telemetry';
 import { DltFileTransferPlugin } from './dltFileTransfer';
 import { DltTransformationPlugin } from './dltTransformationPlugin';
 import { DltNonVerbosePlugin } from './dltNonVerbosePlugin';

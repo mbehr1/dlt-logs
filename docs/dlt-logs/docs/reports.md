@@ -355,7 +355,7 @@ For a full list of options for each y-axis see the [chartjs doc](https://www.cha
 Do not set the `id` key as this will be automatically set.
 :::
 
-#### Grouping / splitting the data sets to multiple charts
+### Grouping / splitting the data sets to multiple charts
 
 By default all data sets are either shown in the "main" chart or in the [timeline/swimlane](#timeline--swimlane-charts) chart.
 By specifying the `group` object in the `reportOptions` data sets can be added to their own chart per group.
