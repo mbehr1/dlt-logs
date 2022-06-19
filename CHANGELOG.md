@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.43.0](https://github.com/mbehr1/dlt-logs/compare/v1.42.0...v1.43.0) (2022-06-19)
+
+
+### Features
+
+* **report:** more colors for timeline legend ([8a6a470](https://github.com/mbehr1/dlt-logs/commit/8a6a4709cc26bf6335a2abbc4befb8824dc4bfd7))
+
 ## [1.42.0](https://github.com/mbehr1/dlt-logs/compare/v1.41.1...v1.42.0) (2022-06-18)
 
 
