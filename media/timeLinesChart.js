@@ -45,27 +45,76 @@ const handleZoom = (dates, lines) => {
 };
 
 const colorScaleData = {
-    colors: ['steelblue', 'lightblue'],
-    domains: []
+    // colors like tableau.Tableau20 but orange/red/green removed (to not indicate anything good/bad as we dont know this)
+    // and first grey from SeattleGrays5 added as 2nd
+    colors: ['#4E79A7', '#767f8b', '#A0CBE8', /*'#F28E2B',*/ /*'#FFBE7D',*/ /*'#59A14F', '#8CD17D',*/ '#B6992D', '#F1CE63', /*'#499894',*/ '#86BCB6', /*'#E15759',*/ '#FF9D9A', '#79706E', '#BAB0AC', '#D37295', '#FABFD2', '#B07AA1', '#D4A6C8', '#9D7660', '#D7B5A6'],// ['steelblue', 'lightblue'],
+    glMap: new Map(), // map g_l (group.label) -> Map a.v to object with {d: string (unique_domain_name) and ci: index to color} (map of values for which we did assign a color/domain name already)
+    reverseDomainMap: new Map(), // map from domain name to ci (index to color)
 };
+
+/**
+ * return the color to be used for a value.
+ * It's a "d3.scale.ordinal(x)" function.
+ * Can be called with two different types:
+ * a) string -> to retrieve the color for a legend item
+ * b) object -> to retrieve the color for a timeline item
+ * 
+ * For case a) the color must exist already in the colorScaleData!
+ * For case b) if a object contains .c this color will be returned and no item
+ * will be added to the legend ("domain()").
+ * We try to assign the colors to unique values with g.l.v (group/lane)
+ * 
+ * @param {string|{v:string, c:string?}} a 
+ * @returns 
+ */
 const colorScale = (a) => {
-    const v = typeof a === 'string' ? a : a.v;
     const color = typeof a === 'object' ? a.c : undefined;
-    if (color) { return color; } // dont add to domain?
-    const index = colorScaleData.domains.indexOf(v);
-    if (index >= 0) {
-        return colorScaleData.colors[index % colorScaleData.colors.length];
-    } else {
-        // console.log(`colorScale`, a, v);
-        colorScaleData.domains.push(v);
-        return colorScaleData.colors[(colorScaleData.domains.length - 1) % colorScaleData.colors.length];
+    if (color) { return color; } // dont add to domain
+
+    if (typeof a === 'object') {
+        const g_l = `${a.g}_${a.l}`;
+        let valMap = colorScaleData.glMap.get(g_l);
+        if (valMap === undefined) {
+            // we dont know this group/label yet
+            valMap = new Map();
+            colorScaleData.glMap.set(g_l, valMap);
+        }
+        let valEntry = valMap.get(a.v);
+        if (valEntry !== undefined) {
+            return colorScaleData.colors[valEntry.ci % colorScaleData.colors.length];
+        } else {
+            // assign a color index. it gets the next one for this group/label
+            const ci = valMap.size;
+            // and a domain name. its the value (a.v) except if this exists already:
+            const domainName = colorScaleData.reverseDomainMap.has(a.v) ? `${a.g}.${a.l}=${a.v}` : a.v;
+            colorScaleData.reverseDomainMap.set(domainName, ci);
+            valMap.set(a.v, { d: domainName, ci: ci });
+            return colorScaleData.colors[ci % colorScaleData.colors.length];
+        }
+    } else { // assume string (= domain name)
+        const ci = colorScaleData.reverseDomainMap.get(a) || 0;
+        return colorScaleData.colors[ci % colorScaleData.colors.length];
     }
 };
+
+/**
+ * return a list of strings to be shown in the legend
+ * It's a "d3.scale.ordinal.domain([values])" function.
+ * 
+ * Those strings must be retrievable to a color via colorScale function above!
+ * @param {} a unused
+ * @returns string[]
+ */
 colorScale.domain = (a) => {
     if (a !== undefined) {
         console.log(`colorScale.domain(...) nyi`, a);
     }
-    return colorScaleData.domains; // todo if a then set/merge domains
+    // we return the domain names sorted by group/label:
+    let domainNames = [];
+    colorScaleData.glMap.forEach((valMap) => {
+        valMap.forEach((o) => domainNames.push(o.d));
+    });
+    return domainNames;
 };
 
 const segmentTooltipContent = (seg) => {

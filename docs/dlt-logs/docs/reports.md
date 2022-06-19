@@ -461,7 +461,7 @@ TL_name:value | description
 
 By default the groups will be ordered by their group name (alphabetic / locale compare).
 
-Additionaly a `priority` can be defined per group via the `reportOptions.groupPrio` object:
+Additionally a priority can be defined per group via the `reportOptions.groupPrio` object. Example:
 
 ```jsonc
 {
@@ -469,7 +469,7 @@ Additionaly a `priority` can be defined per group via the `reportOptions.groupPr
   "payloadRegex": "state\\s+.*\\s(?<TL_boot_state>.*)",
   "reportOptions": {
     "groupPrio": {
-      // key is the name of the group and can be set with or without the 'TL_'. Using the 'TL_' is recommended.
+      // key is the name of the group and can be set with or without the 'TL_'. Using the 'TL_' is recommended. The group name is case sensitive!
       // value is the group priority and can be a positive or negative number
       "TL_boot": -1
     }
@@ -477,18 +477,18 @@ Additionaly a `priority` can be defined per group via the `reportOptions.groupPr
   }
 }
 ```
-in this example the group named `boot` get the prio -1 assigned and thus will be put at the end of the time line chart.
+in this example the group named `boot` has prio -1 and thus will be put at the end of the time line chart.
 
 The sort order of groups within the time line chart is the following:
 Groups are partitioned into those 3 areas:
- 1. sorted by 1st: group priority ascending and 2nd group name (for groups with positive priority)
+ 1. sorted 1st by "group priority" ascending and 2nd by group name (for groups with positive priority)
  2. sorted by group name (for groups without priority or priority 0)
- 3. sorted by 1st: negative group priority ascending and group name. (for groups with neg. priority) (e.g. -2 before -1. So -1 will be at the end).
+ 3. sorted 1st by "negative group priority" ascending and 2nd by group name. (for groups with neg. priority) (e.g. -2 before -1. So -1 will be at the end).
 
 :::note
 The lanes within a group are sorted by their appearance in the trace!
 :::
 
 :::note
-The groupPrio is valid for the full report and not just the single filter! Multiple filter can set the `groupPrio` and the keys/groups will be merged into one groupPrio object. If the same `groupPrio`is provided the last filter overwrites the prev. priority.
+The groupPrio is valid for the full report and not just the single filter! Multiple filter can set the `groupPrio` and the keys/groups will be merged into one groupPrio object. If the same `groupPrio` is provided the last filter overwrites the prev. priority.
 :::
