@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.43.1](https://github.com/mbehr1/dlt-logs/compare/v1.43.0...v1.43.1) (2022-07-04)
+
+
+### Bug Fixes
+
+* **adlt:** update adlt to fix asc pm dates ([3091225](https://github.com/mbehr1/dlt-logs/commit/3091225b9bf614cefd984c5780e6827f070848dc))
+
 ## [1.43.0](https://github.com/mbehr1/dlt-logs/compare/v1.42.0...v1.43.0) (2022-06-19)
 
 
