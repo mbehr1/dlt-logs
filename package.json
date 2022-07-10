@@ -831,6 +831,12 @@
 					".dlt",
 					".DLT"
 				]
+			},
+			{
+				"id": "can-asc",
+				"extensions": [
+					".asc"
+				]
 			}
 		]
 	},
