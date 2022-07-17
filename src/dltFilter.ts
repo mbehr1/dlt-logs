@@ -306,6 +306,8 @@ export class DltFilter {
         };
     }
 
+    private static similarFiltersKeysToIgnore = ['name', 'reportOptions'];
+
     /**
      * return a list of filters "similar" to the filterFragment provided.
      * 
@@ -324,7 +326,8 @@ export class DltFilter {
     public static getSimilarFilters(lessRestrictive: boolean, includeDisabled: boolean = false, filterFragment: any, allFilters: DltFilter[]): DltFilter[] {
         // we check allFilters whether any is "similar":
         const activeFilters: DltFilter[] = [];
-        const keys = Object.keys(filterFragment);
+        // all keys that are not to be ignored
+        const keys = Object.keys(filterFragment).filter((key) => !DltFilter.similarFiltersKeysToIgnore.includes(key));
         let minMatchingFragementKeys = lessRestrictive ? 1 : keys.length;
 
         for (let i = 0; i < allFilters.length; ++i) {
@@ -343,7 +346,7 @@ export class DltFilter {
                         if (filterValue === keyValue) { fragmentKeysMatching++; } else { allFragmentKeysMatch = false; }
                     } else if (keyValue === null) { fragmentKeysMatching++; }
                 }
-                if (allFragmentKeysMatch && fragmentKeysMatching >= minMatchingFragementKeys) { // for less restrictive there shouldn't be any other keys??? (except non filter relevant like name)
+                if (allFragmentKeysMatch && fragmentKeysMatching >= minMatchingFragementKeys) { // for less restrictive there shouldn't be any other keys???
                     activeFilters.push(filter);
                 }
             }
