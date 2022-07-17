@@ -305,4 +305,50 @@ export class DltFilter {
             attributes: this.asConfiguration() // inludes id again...
         };
     }
+
+    /**
+     * return a list of filters "similar" to the filterFragment provided.
+     * 
+     * Compares from the provided filters (allFilters) which ones are similar to the filterFragment.
+     * A filter is consideres "similar" if it contains the same key/value pairs.
+     * The parameter `lessRestrictive`determines whether less or more restrictive filters are returned.
+     * E.g. 
+     * - lessRestrictive=true: (ctid='ct1') is less restrictive than (apid='ap1', ctid='ct1').
+     * 
+     * @param lessRestrictive less restrictive or completely matching/more restrictive
+     * @param includeDisabled shall disabled filters be included if they are similar
+     * @param filterFragment (needle) fragements (keys/values) that all have to match
+     * @param allFilters (haystack) list of filters to search within
+     * @returns list of filters that are similar
+     */
+    public static getSimilarFilters(lessRestrictive: boolean, includeDisabled: boolean = false, filterFragment: any, allFilters: DltFilter[]): DltFilter[] {
+        // we check allFilters whether any is "similar":
+        const activeFilters: DltFilter[] = [];
+        const keys = Object.keys(filterFragment);
+        let minMatchingFragementKeys = lessRestrictive ? 1 : keys.length;
+
+        for (let i = 0; i < allFilters.length; ++i) {
+            const filter = allFilters[i];
+            if (!filter.atLoadTime && (includeDisabled || filter.enabled) && (filter.type === DltFilterType.POSITIVE || filter.type === DltFilterType.NEGATIVE)) { // todo marker support?
+                const filterConfigOptions = filter.configOptions; // todo double check: we compare against configOptions from filter but it's not nec. up-to-date? check edit use-cases...
+                // a filter is similar if all specified filterFragment keys match
+                // the filter can be less restrictive (e.g. miss the ecu key but have apid for a filterFragment {ecu: ..., apid: ...})
+                let allFragmentKeysMatch = true;
+                let fragmentKeysMatching = 0;
+                for (let k = 0; k < keys.length && allFragmentKeysMatch; ++k) {
+                    const key = keys[k];
+                    const keyValue = filterFragment[key];
+                    const filterValue = filterConfigOptions[key];
+                    if (filterValue !== undefined) {
+                        if (filterValue === keyValue) { fragmentKeysMatching++; } else { allFragmentKeysMatch = false; }
+                    } else if (keyValue === null) { fragmentKeysMatching++; }
+                }
+                if (allFragmentKeysMatch && fragmentKeysMatching >= minMatchingFragementKeys) { // for less restrictive there shouldn't be any other keys??? (except non filter relevant like name)
+                    activeFilters.push(filter);
+                }
+            }
+        }
+        return activeFilters;
+    }
+
 }
