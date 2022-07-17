@@ -1,5 +1,18 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.45.0](https://github.com/mbehr1/dlt-logs/compare/v1.44.0...v1.45.0) (2022-07-17)
+
+
+### Features
+
+* **adlt:** use v0.23.0 to add reports from can,someip ([1ee3740](https://github.com/mbehr1/dlt-logs/commit/1ee374053693519711d48b7611c8c9b33ee808ba))
+* **plugins:** allow plugins to offer reports ([1f0e5e0](https://github.com/mbehr1/dlt-logs/commit/1f0e5e065746f45dd5d403a116a466291caec6bf))
+
+
+### Bug Fixes
+
+* ignore name and reportOption for similar filters ([fe000fb](https://github.com/mbehr1/dlt-logs/commit/fe000fbcc7031ffd1d4ce19bde7a937ba6f9420e))
+
 ## [1.44.0](https://github.com/mbehr1/dlt-logs/compare/v1.43.1...v1.44.0) (2022-07-17)
 
 
