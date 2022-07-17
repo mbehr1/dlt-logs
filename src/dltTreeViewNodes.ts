@@ -418,7 +418,7 @@ export class DynFilterNode implements TreeViewNode {
         //  and
         //  c) not removed with a neg. filter
 
-        const filtersActive = this.filtersActive(false);
+        const filtersActive = this.getSimilarFilters(true);
 
         const posFiltersActive = filtersActive.filter(f => f.type === DltFilterType.POSITIVE).length;
         const negFiltersActive = filtersActive.filter(f => f.type === DltFilterType.NEGATIVE).length;
@@ -434,7 +434,7 @@ export class DynFilterNode implements TreeViewNode {
     }
 
     get tooltip(): string | undefined {
-        const activeFilters = this.filtersActive(false);
+        const activeFilters = this.getSimilarFilters(true);
         if (activeFilters.length) {
             return `${this._tooltip ? this._tooltip + '\n' : ''}Active filters:\n${activeFilters.map(f => f.name).join(',\n')}`;
         } else {
@@ -446,9 +446,9 @@ export class DynFilterNode implements TreeViewNode {
 
     applyCommand(cmd: string) {
         console.log(`DynFilterNode.applyCommand('${cmd}')`);
-        const nonRestFiltersActive = this.filtersActive(true, true);
+        const nonRestFiltersActive = this.getSimilarFilters(false, true);
         console.log(` non less restrictive filters='${nonRestFiltersActive.map(f => f.name).join(',')}'`);
-        const filtersActive = this.filtersActive(false, true);
+        const filtersActive = this.getSimilarFilters(true, true);
         console.log(` less restrictive filters='${filtersActive.map(f => f.name).join(',')}'`);
 
         switch (cmd) {
@@ -513,35 +513,9 @@ export class DynFilterNode implements TreeViewNode {
         }
     }
 
-    filtersActive(notLessRestrictive: boolean, includeDisabled: boolean = false): DltFilter[] {
-        // we check allFilters whether any is "similar":
-        const allFilters = this.doc.allFilters;
-        const activeFilters: DltFilter[] = [];
-        const keys = Object.keys(this.filterFragment);
-        let minMatchingFragementKeys = notLessRestrictive ? keys.length : 1;
-
-        for (let i = 0; i < allFilters.length; ++i) {
-            const filter = allFilters[i];
-            if (!filter.atLoadTime && (includeDisabled || filter.enabled) && (filter.type === DltFilterType.POSITIVE || filter.type === DltFilterType.NEGATIVE)) { // todo marker support?
-                const filterConfigOptions = filter.configOptions; // todo double check: we compare against configOptions from filter but it's not nec. up-to-date? check edit use-cases...
-                // a filter is similar if all specified filterFragment keys match
-                // the filter can be less restrictive (e.g. miss the ecu key but have apid for a filterFragment {ecu: ..., apid: ...})
-                let allFragmentKeysMatch = true;
-                let fragmentKeysMatching = 0;
-                for (let k = 0; k < keys.length && allFragmentKeysMatch; ++k) {
-                    const key = keys[k];
-                    const keyValue = this.filterFragment[key];
-                    const filterValue = filterConfigOptions[key];
-                    if (filterValue !== undefined) {
-                        if (filterValue === keyValue) { fragmentKeysMatching++; } else { allFragmentKeysMatch = false; }
-                    } else if (keyValue === null) { fragmentKeysMatching++; }
-                }
-                if (allFragmentKeysMatch && fragmentKeysMatching >= minMatchingFragementKeys) {
-                    activeFilters.push(filter);
-                }
-            }
-        }
-        return activeFilters;
+    getSimilarFilters(lessRestrictive: boolean, includeDisabled: boolean = false): DltFilter[] {
+        return DltFilter.getSimilarFilters(lessRestrictive, includeDisabled, this.filterFragment, this.doc.allFilters);
     }
+
 }
 

@@ -2095,19 +2095,19 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
 
         context.subscriptions.push(vscode.languages.registerHoverProvider({ scheme: "adlt-log" }, this));
 
-        this.timerId = setInterval(() => {
+        /* this.timerId = setInterval(() => {
             // dump mem usage:
             const memUsage = process.memoryUsage();
             console.log(`memUsage=${JSON.stringify(memUsage)} adlt #docs=${this._documents.size}`);
-        }, 10000);
+        }, 10000);*/
     }
-    private timerId: NodeJS.Timeout;
+    // private timerId: NodeJS.Timeout;
 
     dispose() {
         console.log("AdltDocumentProvider dispose() called");
         this._documents.forEach((doc) => doc.dispose());
         this._documents.clear();
-        clearInterval(this.timerId);
+        // clearInterval(this.timerId);
 
         this.closeAdltProcess();
 
