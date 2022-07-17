@@ -79,7 +79,7 @@ export class AdltPluginChildNode implements TreeViewNode {
             }
             let isCurrentlyVisible = (posFiltersActive || anyPosFilterActive === 0) && (negFiltersActive === 0);
             let canSetPosF = isCurrentlyVisible && (anyPosFilterActive === 0);
-            return `${isCurrentlyVisible ? 'canZoomOut' : 'canZoomIn'}${canSetPosF ? ' canSetPosF ' : ' '}` + this._contextValue;
+            return `${'reportOptions' in this._filterFragment ? 'filterReport ' : ''}${isCurrentlyVisible ? 'canZoomOut' : 'canZoomIn'}${canSetPosF ? ' canSetPosF ' : ' '}` + this._contextValue;
         } else {
             return this._contextValue;
         }
@@ -91,10 +91,23 @@ export class AdltPluginChildNode implements TreeViewNode {
             if (activeFilters.length) {
                 return `${this._tooltip ? this._tooltip + '\n' : ''}Active filters:\n${activeFilters.map(f => f.name).join(',\n')}`;
             } else {
-                return `${this._tooltip ? this._tooltip + '\n' : ''}Would set filter:\n${JSON.stringify(this._filterFragment)}`;
+                return `${this._tooltip ? this._tooltip + '\n' : ''}Would set filter:\n${JSON.stringify({ ...this._filterFragment, reportOptions: undefined })}`;
             }
         } else {
             return this._tooltip;
+        }
+    }
+
+    /**
+     * return an array of filters. This is e.g. as we return 'filterReport' as part of context() and the user clicks openReport.
+     * 
+     * todo: add proper interface here (and not cast simply to FilterNode on registerCommand('...openReport'...))
+     */
+    get filter(): DltFilter[] {
+        if ('reportOptions' in this._filterFragment) {
+            return [new DltFilter({ type: 3, ...this._filterFragment }, false)];
+        } else {
+            return [];
         }
     }
 
