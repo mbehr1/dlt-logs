@@ -1,5 +1,13 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.44.0](https://github.com/mbehr1/dlt-logs/compare/v1.43.1...v1.44.0) (2022-07-17)
+
+
+### Features
+
+* plugins can provide filters to plugin tree ([43fa027](https://github.com/mbehr1/dlt-logs/commit/43fa027350f37ff4caa4e6c8704e9b3c2005630a))
+* use adlt v0.22.0 to provide the plugin filters ([903ebaf](https://github.com/mbehr1/dlt-logs/commit/903ebaf9fd56d1c37757000655af2a850168a4bb))
+
 ## [1.43.1](https://github.com/mbehr1/dlt-logs/compare/v1.43.0...v1.43.1) (2022-07-04)
 
 
