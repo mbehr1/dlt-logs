@@ -1,5 +1,17 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.46.0](https://github.com/mbehr1/dlt-logs/compare/v1.45.0...v1.46.0) (2022-07-19)
+
+
+### Features
+
+* **can:** update adlt to get CANFD support ([883c07b](https://github.com/mbehr1/dlt-logs/commit/883c07be39582242e2d905a0ffae99b7f6c5144e))
+
+
+### Bug Fixes
+
+* **report:** use , instead of ampersand ([61caf8d](https://github.com/mbehr1/dlt-logs/commit/61caf8da7c7b2ffe2203ae9093327cc731043e2d))
+
 ## [1.45.0](https://github.com/mbehr1/dlt-logs/compare/v1.44.0...v1.45.0) (2022-07-17)
 
 
