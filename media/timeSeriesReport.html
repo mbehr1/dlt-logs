@@ -502,7 +502,7 @@
                     case 'update titles':
                         graphsUpdateTitle('main', message.titles);
                         // update filenames:
-                        document.getElementById('report_filenames').innerText = 'dlt-logs report of: '+message.fileNames.join(' & ');
+                        document.getElementById('report_filenames').innerText = 'dlt-logs report of: '+message.fileNames.join(' , ');
                         break;
                     case 'update warnings':
                         const warnings = message.warnings || [];
