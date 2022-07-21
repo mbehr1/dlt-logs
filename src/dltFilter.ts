@@ -162,13 +162,15 @@ export class DltFilter {
 
         this.decorationId = undefined;
         this.filterColour = undefined;
-        if (this.type === DltFilterType.MARKER) {
+        if (this.type === DltFilterType.MARKER || this.type === DltFilterType.POSITIVE) {
             if ('decorationId' in options) { // has preference wrt filterColour
                 this.decorationId = options.decorationId;
             } else if ('filterColour' in options) {
                 this.filterColour = options.filterColour;
             } else {
-                this.filterColour = "blue"; // default to blue
+                if (this.type === DltFilterType.MARKER) {
+                    this.filterColour = "blue"; // default to blue
+                }
             }
         }
 
@@ -306,7 +308,7 @@ export class DltFilter {
         };
     }
 
-    private static similarFiltersKeysToIgnore = ['name', 'reportOptions'];
+    private static similarFiltersKeysToIgnore = ['name', 'reportOptions', 'filterColour', 'decorationId'];
 
     /**
      * return a list of filters "similar" to the filterFragment provided.
