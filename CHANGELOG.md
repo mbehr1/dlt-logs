@@ -1,5 +1,18 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.47.0](https://github.com/mbehr1/dlt-logs/compare/v1.46.0...v1.47.0) (2022-07-21)
+
+
+### Features
+
+* **adlt:** use v0.25.0 with error frame for canfd ([3b09980](https://github.com/mbehr1/dlt-logs/commit/3b099805ce7b165c0177a9324940ee1ba0d561f9))
+
+
+### Bug Fixes
+
+* **adlt:** support filterColour and decorationId ([5d78e15](https://github.com/mbehr1/dlt-logs/commit/5d78e15f364a2b62e6a8acd80295d46de450affe))
+* **filter:** support filterColour and decorationId ([485bb8c](https://github.com/mbehr1/dlt-logs/commit/485bb8c0ffa1a28bff544cc7aeb5736e087fb65d))
+
 ## [1.46.0](https://github.com/mbehr1/dlt-logs/compare/v1.45.0...v1.46.0) (2022-07-19)
 
 
