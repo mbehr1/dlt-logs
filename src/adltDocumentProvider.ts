@@ -15,6 +15,7 @@
 
 /// bugs:
 
+/// [ ] if during applyFilter no change is triggered, the decorations are not updated (e.g. if marker filters are enabled)
 /// [x] sort order support
 /// by default logs are sorted by timestamp. If the sort order is toggled the file is closed and reopened.
 /// this can be weird/confusing with real streams.
@@ -750,7 +751,7 @@ export class AdltDocument implements vscode.Disposable {
             this._decorationsHoverTexts.set(filterName, mdHoverText);
         }
 
-        if (filter.decorationId) { let dec = this._decorationTypes.get(filter.decorationId); if (!dec) { return undefined; } else { [dec, mdHoverText]; } };
+        if (filter.decorationId) { let dec = this._decorationTypes.get(filter.decorationId); if (!dec) { return undefined; } else { return [dec, mdHoverText]; } };
         // now we assume at least a filterColour:
         if (!filter.filterColour) { return undefined; }
         const decFilterName = `filterColour_${filter.filterColour}`;
@@ -995,12 +996,13 @@ export class AdltDocument implements vscode.Disposable {
     startStream() {
         // start stream:
         let filterStr = this.allFilters.filter(f => (f.type === DltFilterType.POSITIVE || f.type === DltFilterType.NEGATIVE) && f.enabled).map(f => JSON.stringify({ ...f.asConfiguration(), enabled: true })).join(','); // enabled is not updated/stored in config. so have to overwrite here
-        let decFilters = this.allFilters.filter(f => f.type === DltFilterType.MARKER && f.enabled);
+        let decFilters = this.allFilters.filter(f => (f.type === DltFilterType.MARKER || ((f.type === DltFilterType.POSITIVE) && (f.decorationId !== undefined || f.filterColour !== undefined))) && f.enabled);
+        console.log(`adlt.startStream have ${decFilters.length} decoration filters: ${decFilters.map((f) => f.name).join(',')}`);
         // todo optimize the window so that the start can do a binary search!
         this.sendAndRecvAdltMsg(`stream {"window":[${this._skipMsgs},${this._skipMsgs + this._maxNrMsgs}], "binary":true, "filters":[${filterStr}]}`).then((response) => {
             console.log(`adlt.on startStream got response:'${response}'`);
             const streamObj = JSON.parse(response.substring(11));
-            console.log(`adtl ok:stream`, JSON.stringify(streamObj));
+            console.log(`adlt ok:stream`, JSON.stringify(streamObj));
             this.streamId = streamObj.id;
             this.text = "";
             this.visibleMsgs = [];
@@ -1149,6 +1151,7 @@ export class AdltDocument implements vscode.Disposable {
     }
 
     clearDecorations() {
+        console.log(`adlt.clearDecorations()...`);
         this.textEditors.forEach((editor) => {
             this.decorations.forEach((value, key) => {
                 value.length = 0; // seems a way to clear all elements
@@ -1158,6 +1161,7 @@ export class AdltDocument implements vscode.Disposable {
     }
 
     updateDecorations() {
+        console.log(`adlt.updateDecorations()...`);
         this.textEditors.forEach((editor) => {
             this.decorations.forEach((value, key) => {
                 editor.setDecorations(key, value);
@@ -1307,7 +1311,7 @@ export class AdltDocument implements vscode.Disposable {
     private _applyFilterRunning: boolean = false;
     async applyFilter(progress: vscode.Progress<{ increment?: number | undefined, message?: string | undefined, }> | undefined, applyEventFilter: boolean = false) {
         if (this._applyFilterRunning) {
-            console.warn(`applyFilter called while running already. ignoring for now. todo!`); // do proper fix queuing this request or some promise magic.
+            console.warn(`adlt.applyFilter called while running already. ignoring for now. todo!`); // do proper fix queuing this request or some promise magic.
             return;
         } else {
             console.info(`adlt.applyFilter called...`);
