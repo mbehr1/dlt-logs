@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.47.1](https://github.com/mbehr1/dlt-logs/compare/v1.47.0...v1.47.1) (2022-07-22)
+
+
+### Bug Fixes
+
+* **adlt:** last line wasn't decorated ([3c48369](https://github.com/mbehr1/dlt-logs/commit/3c483696027bd9d754e470343dfbbb068f61c701))
+
 ## [1.47.0](https://github.com/mbehr1/dlt-logs/compare/v1.46.0...v1.47.0) (2022-07-21)
 
 
