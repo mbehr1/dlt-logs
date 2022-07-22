@@ -1044,7 +1044,7 @@ export class AdltDocument implements vscode.Disposable {
                             let newLcs: [DltLifecycleInfoMinIF, number][] = [];
                             let endOfLcs: Map<DltLifecycleInfoMinIF, number> = new Map();
                             let updatedLcs: Map<string, DltLifecycleInfoMinIF> = new Map(); // per ecu only one can be updated
-                            for (let i = viewMsgsLength - nrNewMsgs; i < viewMsgsLength - 1; ++i) {
+                            for (let i = viewMsgsLength - nrNewMsgs; i <= viewMsgsLength - 1; ++i) {
                                 let msg = viewMsgs[i];
                                 if (msg.lifecycle !== lastLc) {
                                     let lc: DltLifecycleInfoMinIF | undefined = msg.lifecycle;
