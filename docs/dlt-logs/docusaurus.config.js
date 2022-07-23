@@ -9,10 +9,6 @@ module.exports = {
   projectName: 'dlt-logs', // Usually your repo name.
   // plugins: ['@docusaurus/plugin-google-gtag'],
   themeConfig: {
-    gtag: {
-      trackingID: 'UA-180286216-1',
-      anonymizeIP: true
-    },
     navbar: {
       title: 'DLT-Logs',
       logo: {
@@ -111,6 +107,10 @@ module.exports = {
         theme: {
           customCss: require.resolve('./src/css/custom.css'),
         },
+        gtag: {
+          trackingID: 'UA-180286216-1',
+          anonymizeIP: true
+        },    
       },
     ],
   ],
