@@ -31,7 +31,7 @@ export class DltFilter {
     lifecycles: number[] | undefined; // array with persistentIds from lifecycles
 
     // marker decorations:
-    filterColour: string | undefined;
+    filterColour: string | object | undefined;
     decorationId: string | undefined;
 
     // time sync:
