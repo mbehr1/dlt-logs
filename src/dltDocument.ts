@@ -355,13 +355,26 @@ export class DltDocument {
         // for filter we use decorationId or filterColour:
         if (filter.decorationId) { return this._decorationTypes.get(filter.decorationId); };
         // now we assume at least a filterColour:
-        const decFilterName = `filterColour_${filter.filterColour}`;
-        let dec = this._decorationTypes.get(decFilterName);
-        if (dec) { return dec; }
-        // create this decoration:
-        dec = vscode.window.createTextEditorDecorationType({ borderColor: filter.filterColour, borderWidth: "1px", borderStyle: "dotted", overviewRulerColor: filter.filterColour, overviewRulerLane: 2, isWholeLine: true });
-        this._decorationTypes.set(decFilterName, dec);
-        return dec;
+        if (typeof filter.filterColour === 'string') {
+            const decFilterName = `filterColour_${filter.filterColour}`;
+            let dec = this._decorationTypes.get(decFilterName);
+            if (dec) { return dec; }
+            // create this decoration:
+            dec = vscode.window.createTextEditorDecorationType({ borderColor: filter.filterColour, borderWidth: "1px", borderStyle: "dotted", overviewRulerColor: filter.filterColour, overviewRulerLane: 2, isWholeLine: true });
+            this._decorationTypes.set(decFilterName, dec);
+            return dec;
+        } else if (typeof filter.filterColour === 'object') {
+            // decorationType alike object.
+            let filterName = `MARKER_${filter.id}`;
+            let dec = this._decorationTypes.get(filterName); // we use filter name here as well as decoration key
+            if (dec) { return dec; } else {
+                // create
+                dec = vscode.window.createTextEditorDecorationType({ isWholeLine: true, ...filter.filterColour });
+                this._decorationTypes.set(filterName, dec);
+                return dec;
+            }
+        }
+        return undefined;
     }
 
     parseDecorationsConfigs(decorationConfigs: Object[] | undefined) {

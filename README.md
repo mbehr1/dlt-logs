@@ -133,7 +133,7 @@ This extension contributes the following settings:
    * **atLoadTime**: filter is used already at file load/opening time (only pos/neg filters). This reduces the memory-load with huge files significantly but the filter can't be turned off once the file is opened. Take care: this changes the index of the message and might impact the lifecycle detection as well (todo improve later).
 
    Marker filter can be highlighted / **decorated** either by
-   * **filterColour**: css colour code to use (e.g. #f0f0f0 or 'red', etc.) or
+   * **filterColour**: can be either a string with css colour code to use (e.g. #f0f0f0 or 'red', etc.) or an object with same properties as **decorations** (see below). Using of an object is mainly intended for usage with fishbone extension as then all data is kept within the filter and can be easily shared. 
    * **decorationId**: id of a defined **decoration** configured with dlt-logs.decorations.
 
    For time-sync feature event filter can be used:

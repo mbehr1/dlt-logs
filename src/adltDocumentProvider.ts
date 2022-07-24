@@ -753,14 +753,26 @@ export class AdltDocument implements vscode.Disposable {
 
         if (filter.decorationId) { let dec = this._decorationTypes.get(filter.decorationId); if (!dec) { return undefined; } else { return [dec, mdHoverText]; } };
         // now we assume at least a filterColour:
-        if (!filter.filterColour) { return undefined; }
-        const decFilterName = `filterColour_${filter.filterColour}`;
-        let dec = this._decorationTypes.get(decFilterName);
-        if (dec) { return [dec, mdHoverText]; }
-        // create this decoration:
-        dec = vscode.window.createTextEditorDecorationType({ borderColor: filter.filterColour, borderWidth: "1px", borderStyle: "dotted", overviewRulerColor: filter.filterColour, overviewRulerLane: 2, isWholeLine: true });
-        this._decorationTypes.set(decFilterName, dec);
-        return [dec, mdHoverText];
+        if (typeof filter.filterColour === 'string') {
+            if (!filter.filterColour.length) { return undefined; }
+            const decFilterName = `filterColour_${filter.filterColour}`;
+            let dec = this._decorationTypes.get(decFilterName);
+            if (dec) { return [dec, mdHoverText]; }
+            // create this decoration:
+            dec = vscode.window.createTextEditorDecorationType({ borderColor: filter.filterColour, borderWidth: "1px", borderStyle: "dotted", overviewRulerColor: filter.filterColour, overviewRulerLane: 2, isWholeLine: true });
+            this._decorationTypes.set(decFilterName, dec);
+            return [dec, mdHoverText];
+        } else if (typeof filter.filterColour === 'object') {
+            // decorationType alike object.
+            let dec = this._decorationTypes.get(filterName); // we use filter name here as well as decoration key
+            if (dec) { return [dec, mdHoverText]; } else {
+                // create
+                dec = vscode.window.createTextEditorDecorationType({ isWholeLine: true, ...filter.filterColour });
+                this._decorationTypes.set(filterName, dec);
+                return [dec, mdHoverText];
+            }
+        }
+        return undefined;
     }
 
     private _reqCallbacks: ((resp: string) => void)[] = []; // could change to a map. but for now we get responses in fifo order

@@ -90,8 +90,8 @@ attribute name | expected type | default value | description
 `enabled`| boolean | true | If this is set to `false` the filter will never match any message, i.e. is not active.
 `not`| boolean | false | Negate the match result expect for `enabled`
 `atLoadTime`| boolean | false | This filter is evaluated during initial file opening. This is useful to reduce the load times and size of large DLT-files. Any changes to the filter are only applied after the file is closed and newly opened.
-`filterColour`| string | undefined| only for `type=2`(MARKER): specifies the background color to be used for the marker.
-`decorationId`| string | undefined| only for `type=2`(MARKER). Specified the "decorationId" (todo... see ... ) fo the be used for the marker.
+`filterColour`| string or object | undefined| only for `type=2`(MARKER) or `type=0`(POSITIVE): If a string is provided it specifies the border color to be used for the marker. This can be any css color like `red` or hexadecimal color e.g. `#ff0000` (see e.g. [w3schools](https://www.w3schools.com/cssref/css_colors.asp)). To set other colors than the border color an object can be used. E.g. `{"backgroundColor":"blue"}`. See [decoration options](#decoration-options).
+`decorationId`| string | undefined| only for `type=2`(MARKER) or `type=0`(POSITIVE). Specifies the "decorationId" to the be used for the marker. (Deprecated. Use `filterColour` object settings).
 `timeSyncId`| string | undefined| only in conjunction with `payloadRegex`and `timeSyncPrio`. See [Time Sync](timeSync).
 `timeSyncPrio`| number | undefined| only in conjunction with `timeSyncId`.
 `reportOptions`|JSON object| undefined| see [Report generation](reports).
@@ -134,3 +134,42 @@ The filter name shows the following information:
 - `payload matches '...'`: if payloadRegex is specified
 - `in .. LCs`: if lifecycles is specified (todo see ...)
 - `timeSyncId: ... prio:... `: if timeSync is specified. 
+
+### decoration options
+
+Filter markers can use the full color capabilities provided by the VS-Code API [DecorationRenderOptions](https://code.visualstudio.com/api/references/vscode-api#DecorationRenderOptions).
+Excerpt:
+
+property | description
+-------- | -----------
+backgroundColor | Background color (as css color like for string based filterColour)
+borderColor | Color of the border (used for string based filterColour). E.g. `"blue"`. Needs to be used with borderWidth and borderStyle together.
+borderWidth | With of the border as CSS styling property. E.g. `"1px"`.
+borderStyle | Style applied to the border. E.g. `"dotted"`.
+color | Color of the text. E.g. `green`.
+overviewRulerColor | Color of the decoration in the overview ruler.
+overviewRulerLane | Lane to use. Possible values: 2 (center), 7 (full), 1 (left), 4 (right).
+
+The `isWholeLine` property is automatically applied.
+
+:::tip Color theme support
+You can provide different settings for light and dark themes, e.g. `{"light":{...}, "dark":{...}}`.
+:::
+
+:::tip Overview ruler
+If you provide the `overviewRulerColor` and `overviewRulerLane` properties the marker is visible in the overview ruler as well!
+:::
+
+Example:
+
+```jsonc
+"filterColour":{
+  "backgroundColor":"yellow",
+  "borderColor":"blue",
+  "borderWidth":"2px",
+  "borderStyle":"dotted",
+  "color":"green",
+  "overviewRulerLane":1, // left
+  "overviewRulerColor":"yellow"
+}
+```
