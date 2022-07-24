@@ -1,17 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
-    <id>https://mbehr1.github.io/blog</id>
+    <id>https://mbehr1.github.io/dlt-logs/blog</id>
     <title>DLT-Logs Visual Studio Code Extension Blog</title>
     <updated>2020-10-10T00:00:00.000Z</updated>
     <generator>https://github.com/jpmonette/feed</generator>
-    <link rel="alternate" href="https://mbehr1.github.io/blog"/>
+    <link rel="alternate" href="https://mbehr1.github.io/dlt-logs/blog"/>
     <subtitle>DLT-Logs Visual Studio Code Extension Blog</subtitle>
-    <icon>https://mbehr1.github.io/img/favicon.ico</icon>
+    <icon>https://mbehr1.github.io/dlt-logs/img/favicon.ico</icon>
     <entry>
         <title type="html"><![CDATA[Welcome]]></title>
         <id>welcome</id>
         <link href="https://mbehr1.github.io/dlt-logs/blog/welcome"/>
         <updated>2020-10-10T00:00:00.000Z</updated>
         <summary type="html"><![CDATA[I'll use this blog to announce new features or doc updates to my Visual Studio Code extension "dlt-logs" or to announce other related extensions.]]></summary>
+        <content type="html"><![CDATA[<p>I'll use this blog to announce new features or doc updates to my Visual Studio Code extension "dlt-logs" or to announce other related extensions.
+If you have any questions please feel free to contact me!</p>]]></content>
+        <author>
+            <name>Matthias Behr</name>
+            <uri>https://github.com/mbehr1</uri>
+        </author>
+        <category label="visual studio code" term="visual studio code"/>
+        <category label="dlt-logs" term="dlt-logs"/>
     </entry>
 </feed>

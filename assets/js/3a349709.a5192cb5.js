@@ -1,1 +1,0 @@
-(self.webpackChunkdlt_logs=self.webpackChunkdlt_logs||[]).push([[26],{9088:function(s){"use strict";s.exports=JSON.parse('{"allTagsPath":"/dlt-logs/blog/tags","slug":"visual-studio-code","name":"visual studio code","count":1,"permalink":"/dlt-logs/blog/tags/visual-studio-code"}')}}]);
