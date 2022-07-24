@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.49.0](https://github.com/mbehr1/dlt-logs/compare/v1.48.0...v1.49.0) (2022-07-24)
+
+
+### Features
+
+* **someip:** add filter/report from adlt v0.26 ([3ce2e5a](https://github.com/mbehr1/dlt-logs/commit/3ce2e5a2c42426daf58cffe230e7f5d7e5f8e54e))
+
 ## [1.48.0](https://github.com/mbehr1/dlt-logs/compare/v1.47.1...v1.48.0) (2022-07-24)
 
 
