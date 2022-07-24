@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.48.0](https://github.com/mbehr1/dlt-logs/compare/v1.47.1...v1.48.0) (2022-07-24)
+
+
+### Features
+
+* extend filterColour with decoration attribs ([b3c26e6](https://github.com/mbehr1/dlt-logs/commit/b3c26e651528810dee341d17627bbbd60445d32e))
+
 ## [1.47.1](https://github.com/mbehr1/dlt-logs/compare/v1.47.0...v1.47.1) (2022-07-22)
 
 
