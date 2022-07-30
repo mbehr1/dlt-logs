@@ -14,13 +14,17 @@ A more detailed documentation is available here: [Docs](https://mbehr1.github.io
 
 ## Features
 
-- Open DLT files (Mac: &#8679;&#8984;P "Open DLT file...", Linux/Win: Ctrl+Shift+P "Open DLT file..." ) with size restriction due to v8 engine memory limits. (Tested with ~1500MB files). With files of approx 2GB you get out of memory problems. A "load time filter assistant..." helps you in reducing number of messages while opening files >512MB.
-
-- Alternative solution is to use "Open DLT file via adlt..."  (Mac: &#8679;&#8984;P "Open DLT files via adlt...", Linux/Win: Ctrl+Shift+P "Open DLT file..." ) command that uses the provided adlt binary and is only limited by your virtual address space. Tested with 20GB DLT file.
+- Open DLT files (Mac: &#8679;&#8984;P "Open DLT file...", Linux/Win: Ctrl+Shift+P "Open DLT file..." ) command that uses the provided adlt binary and is only limited by your virtual address space. Tested with 20GB DLT file.
   - supports opening multiple files at once
-  - supports opening of CAN .asc files (simply choose the .asc file instead of .dlt files during "Open DLT file via adlt..." command)
-  - supports all plugins except file-transfer. Additionally a 'CAN' plugin is available.
+  - supports opening of CAN .asc files (simply choose the .asc file instead of .dlt files during "Open DLT file..." command)
+  - supports all plugins including a 'CAN' plugin.
+  - sorts DLT messages automatically by the monotonic timestamp (and first by lifecycles)
   - an adlt binary is provided with the extension and the path to it is available in VS code terminals or via command "New terminal with adlt in path".
+
+- Alternative/deprecated/previous (<= v1.49.0) solution is to use "Open DLT file via deprecated NodeJS implementation..."  (Mac: &#8679;&#8984;P "Open DLT file via deprecated NodeJS implementation...", Linux/Win: Ctrl+Shift+P "Open DLT file via deprecated NodeJS implementation..." ) command that uses a NodeJS / v8 engine based implementation and is limited by v8 engine memory. (Tested with ~1500MB files). With files of approx 2GB you get out of memory problems. A "load time filter assistant..." helps you in reducing number of messages while opening files >512MB.
+
+**If you experience any issues with the new adlt based implementation compared to the previous NodeJS implementation please open an [issue](https://github.com/mbehr1/dlt-logs/issues). I'll take care with high priority!**
+
 - **Time sync** feature.
   - Calculates time for each line based on timestamp and reception/storage time.
   - An offset for the full time can be set via context menu item *adjust-time...*.
@@ -54,7 +58,7 @@ A more detailed documentation is available here: [Docs](https://mbehr1.github.io
   - be enabled/disabled if the config is enabled/disabled
   - positive filters get enabled if the config "zoom in" button is used and vice versa on "zoom out"
   - negative filters will be disabled if the config "zoom in" button is used  and vice versa on "zoom out"
-- **Configs** can be automatically enabled if lifecycles with a specific ECUs are detected. To enable this set the "autoEnableIf" regex for that config to e.g. "ecu1|ecu2". Configs allow to quickly configure different configurations or use-cases/scenes for that you want to use different filter configurations. E.g.
+- **Configs** can be automatically enabled if lifecycles with a specific ECUs are detected. **Automatic enabling only implemented yet for the deprecated "Open DLT files via deprecated NodeJS implementation...".** To enable this set the "autoEnableIf" regex for that config to e.g. "ecu1|ecu2". Configs allow to quickly configure different configurations or use-cases/scenes for that you want to use different filter configurations. E.g.
   - ECU1
     - generic (this config can be referred to as "ECU1/generic")
     - crashes
@@ -93,7 +97,6 @@ The extension uses telemetry with two events (`activate` (no parameters) and `op
 - Allow filter add/edit for report, timesync, MSTP and log levels (currently only possible via JSON configuration)
 - Check whether revealing the line on broadcasted time is possible if document is hidden/not visible.
 - Support easier splitting of huge files into files per lifecycle. Currently only possible to restrict to lifecycles via Export/filter...
-- Allow merging/opening of multiple DLT files. Currently only possible via Export/filter ...
 - Check default colors on multiple color themes. Check color contrast to background.
 - Support time synchronized split-view between e.g. two APIDs from within one DLT log file.
 - Use the outline view for lifecycles, errors,...

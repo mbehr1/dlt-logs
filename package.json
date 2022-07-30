@@ -624,6 +624,10 @@
 				"title": "Open DLT file via adlt..."
 			},
 			{
+				"command": "dlt-logs.dltOpenFileDeprecated",
+				"title": "Open DLT file via deprecated NodeJS implementation..."
+			},
+			{
 				"command": "dlt-logs.adltTerminal",
 				"title": "New terminal with adlt in path"
 			},

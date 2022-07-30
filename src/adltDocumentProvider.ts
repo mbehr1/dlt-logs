@@ -7,9 +7,9 @@
 /// not mandatory for first release:
 /// [ ] support configs (for filters). currently all filters that have a configs entry are auto disabled at start
 /// [ ] opening of a stream (and support within reports)
-/// [ ] filetransfer support (in adlt)
 /// [ ] onDidChangeConfiguration
-/// [ ] timeSync support
+/// [ ] timeSync, adjustTime support
+/// [ ] change exportDlt to use adlt
 /// [ ] move decorations parsing/mgmt to extension
 /// [ ] think about atLoadTime filters (use them as regular ones)
 

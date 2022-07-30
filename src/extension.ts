@@ -167,27 +167,11 @@ export function activate(context: vscode.ExtensionContext) {
 	let dltProvider = new dltDocument.DltDocumentProvider(context, _dltLifecycleTreeView, _treeRootNodes, _onDidChangeTreeData, checkActiveRestQueryDocChanged, columns, reporter);
 	context.subscriptions.push(vscode.workspace.registerFileSystemProvider(dltScheme, dltProvider, { isReadonly: false, isCaseSensitive: true }));
 
-	// register our command to open dlt files as "dlt-logs":
-	context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.dltOpenFile', async () => {
-		return vscode.window.showOpenDialog({ canSelectFiles: true, canSelectFolders: false, canSelectMany: false, filters: { 'DLT Logs': <Array<string>>(vscode.workspace.getConfiguration().get("dlt-logs.fileExtensions")) }, openLabel: 'Select DLT file to open...' }).then(
-			async (uris: vscode.Uri[] | undefined) => {
-				if (uris) {
-					uris.forEach((uri) => {
-						console.log(`open dlt got URI=${uri.toString()}`);
-						let dltUri = uri.with({ scheme: dltScheme });
-						vscode.workspace.openTextDocument(dltUri).then((value) => { vscode.window.showTextDocument(value, { preview: false }); });
-					});
-				}
-			}
-		);
-	}));
-
 	// register our document provider that knows how to handle "dlt-logs"
 	let adltProvider = new ADltDocumentProvider(context, _dltLifecycleTreeView, _treeRootNodes, _onDidChangeTreeData, checkActiveRestQueryDocChanged, _onDidChangeStatus, columns, reporter);
 	context.subscriptions.push(vscode.workspace.registerFileSystemProvider(adltScheme, adltProvider, { isReadonly: false, isCaseSensitive: true }));
 
-	// register our command to open dlt files via adlt:
-	context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.dltOpenAdltFile', async () => {
+	const openADltFunction = async () => {
 		let file_exts = <Array<string>>(vscode.workspace.getConfiguration().get("dlt-logs.fileExtensions")) || [];
 		if (Array.isArray(file_exts)) {
 			if (!file_exts.includes("dlt")) { file_exts.push("dlt"); }
@@ -196,7 +180,7 @@ export function activate(context: vscode.ExtensionContext) {
 			file_exts = ["dlt", "asc"];
 		}
 		console.log(`open dlt via adlt file_exts=${JSON.stringify(file_exts)}`);
-		return vscode.window.showOpenDialog({ canSelectFiles: true, canSelectFolders: false, canSelectMany: true, filters: { 'DLT Logs': file_exts }, openLabel: 'Select DLT file(s) to open...' }).then(
+		return vscode.window.showOpenDialog({ canSelectFiles: true, canSelectFolders: false, canSelectMany: true, filters: { 'DLT Logs': file_exts }, openLabel: 'Select DLT or CAN file(s) to open...' }).then(
 			async (uris: vscode.Uri[] | undefined) => {
 				if (uris) {
 					console.log(`open dlt via adlt got URIs=${uris}`);
@@ -217,7 +201,26 @@ export function activate(context: vscode.ExtensionContext) {
 				}
 			}
 		);
+	};
+
+	// register our command to open dlt files as "dlt-logs":
+	context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.dltOpenFileDeprecated', async () => {
+		return vscode.window.showOpenDialog({ canSelectFiles: true, canSelectFolders: false, canSelectMany: false, filters: { 'DLT Logs': <Array<string>>(vscode.workspace.getConfiguration().get("dlt-logs.fileExtensions")) }, openLabel: 'Select DLT file to open...' }).then(
+			async (uris: vscode.Uri[] | undefined) => {
+				if (uris) {
+					uris.forEach((uri) => {
+						console.log(`open dlt got URI=${uri.toString()}`);
+						let dltUri = uri.with({ scheme: dltScheme });
+						vscode.workspace.openTextDocument(dltUri).then((value) => { vscode.window.showTextDocument(value, { preview: false }); });
+					});
+				}
+			}
+		);
 	}));
+
+	// register our command to open dlt files via adlt:
+	context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.dltOpenAdltFile', openADltFunction));
+	context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.dltOpenFile', openADltFunction));
 
 	// register command to open a terminal with adlt:
 	context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.adltTerminal', async () => {
