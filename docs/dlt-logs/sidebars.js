@@ -10,7 +10,7 @@ module.exports = {
         {
           "type": "category",
           "label": "Features",
-          "items": ['lifecycleDetection', 'toggleSortOrder', 'timeSync', 'reports', 'exportAndFilter', 'fileTransfer', 'someIpPlugin', 'nonVerbosePlugin', 'rewritePlugin'],
+          "items": ['lifecycleDetection', 'toggleSortOrder', 'timeSync', 'reports', 'exportAndFilter', 'fileTransfer', 'someIpPlugin', 'canPlugin', 'nonVerbosePlugin', 'rewritePlugin'],
           "collapsed": false
         },
         {
