@@ -15,9 +15,9 @@ Often e.g. SysLog based messages are piped into DLT. But as typically there are 
 E.g.
 ```sh
 ...
-14043 5:43:24 PM 64859 ECU1 SYS  JOUR info 2020/03/24 17:18:19.118891 0.000000 kernel: Informational: Booting Linux on physical CPU 0x0
+14043 5:43:24 PM  6.4859 ECU1 SYS  JOUR info 2020/03/24 17:18:19.118891 0.000000 kernel: Informational: Booting Linux on physical CPU 0x0
 ...
-14188 5:43:24 PM 64897 ECU1 SYS  JOUR info 2020/03/24 17:18:19.121146 0.002251 kernel: Informational: Console: colour dummy device 80x25
+14188 5:43:24 PM  6.4897 ECU1 SYS  JOUR info 2020/03/24 17:18:19.121146 0.002251 kernel: Informational: Console: colour dummy device 80x25
 ...
 ```
 
@@ -25,9 +25,9 @@ using the config below this can be changed to:
 
 ```sh
 ...
-14043 5:43:24 PM     0 ECU1 SYS  JOUR info kernel: Informational: Booting Linux on physical CPU 0x0
+14043 5:43:24 PM  0.0000 ECU1 SYS  JOUR info kernel: Informational: Booting Linux on physical CPU 0x0
 ...
-14188 5:43:24 PM    23 ECU1 SYS  JOUR info kernel: Informational: Console: colour dummy device 80x25
+14188 5:43:24 PM  0.0023 ECU1 SYS  JOUR info kernel: Informational: Console: colour dummy device 80x25
 ...
 ```
 :::note
@@ -69,11 +69,9 @@ You have to configure the 'rewrite' plugin. To configure the plugin call
                         "apid":"SYS",
                         "ctid":"JOUR"
                     },
-                    "payloadRegex":"^.*? .*? (?<timeStamp>\\d+\\.\\d+) (?<text>.*)$", // optional, for the payload a regex can be defined to avoid recalculating this for each rewrite function below. This will be evaluated after the message was matched towards the filter already!
-                    "rewrite":{ // rewrite functions. `key`is the field to change for the msg. Currently only `timeStamp` and `payloadText` are supported. Each value is a javascript function that will be called with 2 parameters: the match from payloadRegex (if defined) and the message itself that matched. If the function returns a value !== undefined the attribute will be set to that value.
-                        "timeStamp":"function(m,msg){ if (!m) {return undefined; } return Math.round(Number(m.groups?.['timeStamp']) * 10000)}",
-                        "payloadText":"function(m,msg){ if (!m) {return undefined; } return m.groups?.['text']}"
-                    }
+                    "payloadRegex":"^.*? .*? (?<timeStamp>\\d+\\.\\d+) (?<text>.*)$", // regex applied on the payload. Rewrites are done based on two possible capture group names: 
+                    // The captured value from group `text` will be used as the new text for the message.
+                    // The value from group `timeStamp` is expected to be in seconds and will be used for the new timestamp of the message (so internally multiplied by 10000 to be in 0.1ms).
                 }
             ]
         },
@@ -101,4 +99,4 @@ The tooltip of each rewrite config contains more info e.g. the filter settings a
 ## Limitations
 
 - The plugin is not applied on exporting DLT logs. Only on viewing.
-- tbd... (be careful with what you change...)
+- Rewrite functions are only supported with the deprecated NodeJS based parser. So removed the documentation from here. If you have use-cases for it please raise an issue in github!
