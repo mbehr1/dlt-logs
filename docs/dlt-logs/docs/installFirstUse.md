@@ -37,8 +37,8 @@ After installation you can open DLT files via
 and select the DLT file to open from the opened file selection dialog.
 
 ### Opening multiple files
-:::note
+:::tip
 You can open multiple DLT files one after the other and they will appear in different views.
 
-If you want to open multiple DLT files into the same view you do need to use the [export](exportAndFilter) feature to merge/export them into one file. 
+If you want to open multiple DLT files into the same view you can simply select multiple files in the "Open DLT file..." dialog. They will be sorted by the first valid DLT message recorded time and then opened.
 :::

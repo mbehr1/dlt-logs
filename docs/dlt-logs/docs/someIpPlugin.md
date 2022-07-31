@@ -91,6 +91,13 @@ The tooltip of each item contains more info e.g. the description (if available i
 :::
 (todo add picture)
 
+:::tip
+From the tree view you can directly apply a filter for a service or method/field/event with the `adjust filter to hide details` (if the items are currently visible) or `adjust filter to show more details` icon button on the right hand side of the tree view item.
+
+Using the `open report` icon you can directly open a graphical report showing the service or field data over time!
+(todo add picture)
+:::
+
 ## Encoding of SOME/IP messages in DLT log message
 
 The decoder assumes that the message is encoded as type `NW_TRACE` with the configured `MTIN` and `CTID`.See [Configuration](#configuration). The SOME/IP message itself is encoded as two raw message payloads:
@@ -99,8 +106,4 @@ The decoder assumes that the message is encoded as type `NW_TRACE` with the conf
 
 ## Limitations
 
-- Currently all payloads are expected to be big-endian even if the FIBEX files defines something else! If you need support for little-endian please raise an issue in github.
-- Currently not supported are:
-  - UNIONs are not supported yet.
-  - Booleans as payload are not supported yet.
-  - Segmented messages are not supported.
+- Little testing. If you have encounter any problems please raise an issue in github!
