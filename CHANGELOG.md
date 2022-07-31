@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.50.1](https://github.com/mbehr1/dlt-logs/compare/v1.50.0...v1.50.1) (2022-07-31)
+
+
+### Bug Fixes
+
+* **adlt:** use v0.27.0 to get multi fibex can support ([49a2c93](https://github.com/mbehr1/dlt-logs/commit/49a2c9372ff46fb98745bbb0909668a8c1c5fea5))
+
 ## [1.50.0](https://github.com/mbehr1/dlt-logs/compare/v1.49.0...v1.50.0) (2022-07-30)
 
 
