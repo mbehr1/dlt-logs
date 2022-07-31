@@ -65,7 +65,7 @@ The `fibexDir` needs to point to a folder containing the FIBEX files with extens
 Please keep the files uncompressed (no .zip, no .tgz) there.
 :::
 :::note
-You can keep multiple files in the folder. If you have multiple files providing info for the same CAN bus the one with the most frames will be used.
+You can keep multiple files in the folder. If you have multiple files providing info for the same CAN bus/channel the channels are merged by adding missing frame ids to the first fibex providing the channel. So please ensure that all frames from channels with the same short-name and with same a identifier have the same semantics/meaning!
 :::
 
 :::note
