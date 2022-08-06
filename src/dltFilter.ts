@@ -7,6 +7,7 @@ import { ThemeIcon } from 'vscode';
 import { FilterableDltMsg, MSTP, MTIN_LOG, MTIN_CTRL, MSTP_strs, MTIN_LOG_strs } from './dltParser';
 import * as util from './util';
 import { v4 as uuidv4 } from 'uuid';
+import * as fastXmlParser from 'fast-xml-parser';
 
 export enum DltFilterType { POSITIVE, NEGATIVE, MARKER, EVENT };
 
@@ -356,4 +357,137 @@ export class DltFilter {
         return activeFilters;
     }
 
+    /**
+     * parse dlt-viewer filter files in xml/dlf format
+     * 
+     * It returns an array with a filter config/fragment that can be passed to the constructor or a string with the warning/error
+     * that occurred during parsing that filter.
+     * It does not directly return a DltFilter so that `getSimilarFilters` can be used first to return already existing filters
+     * instead of newly created ones.
+     * @param dlfString filter file as string (e.g. from fs.readFileSync(...{encoding: 'utf8'}))
+     * @returns array of either a filter config/fragment or a string with the warning/error during parsing that filter
+     */
+    public static filtersFromXmlDlf(dlfString: string): (any | string)[] {
+        let filters: (any | string)[] = [];
+        try {
+            const filtersJson = fastXmlParser.parse(dlfString, {
+                arrayMode: (tagName, parentTagName) => {
+                    switch (tagName) {
+                        case 'dltfilter':
+                            return true;
+                        case 'filter':
+                            return true;
+                        default:
+                            return false;
+                    }
+                },
+            });
+            if ('dltfilter' in filtersJson) {
+                const dltfilters = filtersJson['dltfilter'];
+                if (Array.isArray(dltfilters)) {
+                    for (const filterElems of dltfilters) {
+                        // we expect as elements only 'filter'
+                        if ('filter' in filterElems && Array.isArray(filterElems.filter)) {
+                            for (const dltFilter of filterElems.filter) {
+                                // check for mandatory entries: (only type for now)
+                                if ('type' in dltFilter) {
+                                    // map from dlf to our naming convention
+                                    let filterFrag: any = { type: dltFilter.type };
+                                    if ('name' in dltFilter) {
+                                        const name = dltFilter.name;
+                                        if (typeof name === 'string' && name.length > 0) {
+                                            filterFrag.name = name;
+                                        }
+                                    }
+                                    if ('enableecuid' in dltFilter && dltFilter.enableecuid === 1) {
+                                        if ('ecuid' in dltFilter && dltFilter.ecuid.length > 0) {
+                                            filterFrag.ecu = dltFilter.ecuid;
+                                        }
+                                    }
+                                    if ('enableapplicationid' in dltFilter && dltFilter.enableapplicationid === 1) {
+                                        if ('enableregexp_Appid' in dltFilter && dltFilter.enableregexp_Appid === 1) {
+                                            filters.push(`regexp for apid not supported yet! ignoring dlf filter ('${JSON.stringify(dltFilter)}')`);
+                                            continue;
+                                        } else
+                                            if ('applicationid' in dltFilter && dltFilter.applicationid.length > 0) {
+                                                filterFrag.apid = dltFilter.applicationid;
+                                            }
+                                    }
+                                    if ('enablecontextid' in dltFilter && dltFilter.enablecontextid === 1) {
+                                        if ('enableregexp_Context' in dltFilter && dltFilter.enableregexp_Context === 1) {
+                                            filters.push(`regexp for ctid not supported yet! ignoring dlf filter ('${JSON.stringify(dltFilter)}')`);
+                                            continue;
+                                        } else
+                                            if ('contextid' in dltFilter && dltFilter.contextid.length > 0) {
+                                                filterFrag.ctid = dltFilter.contextid;
+                                            }
+                                    }
+                                    // headertext, enableregexp_Header, ignoreCase_Header
+                                    if ('enableheadertext' in dltFilter && dltFilter.enableheadertext === 1) {
+                                        filters.push(`filter for headertext not supported yet! ignoring dlf filter ('${JSON.stringify(dltFilter)}')`);
+                                        continue;
+                                    }
+                                    if ('enablepayloadtext' in dltFilter && dltFilter.enablepayloadtext === 1) {
+                                        if (('enableregexp_Payload' in dltFilter && dltFilter.enableregexp_Payload === 1) ||
+                                            ('enableregexp' in dltFilter && dltFilter.enableregexp === 1)) {
+                                            if ('payloadtext' in dltFilter && dltFilter.payloadtext.length > 0) {
+                                                filterFrag.payloadRegex = dltFilter.payloadtext;
+                                            }
+                                        } else {
+                                            if ('ignoreCase_Payload' in dltFilter && dltFilter.ignoreCase_Payload === 1) {
+                                                filters.push(`ignore case payload not supported yet! Please use regex. Ignoring dlf filter ('${JSON.stringify(dltFilter)}')`);
+                                                continue;
+                                            }
+                                            if ('payloadtext' in dltFilter && dltFilter.payloadtext.length > 0) {
+                                                filterFrag.payload = dltFilter.payloadtext;
+                                            }
+                                        }
+                                    }
+                                    // regex_search/_replace not supported!
+                                    if ('enableRegexSearchReplace' in dltFilter && dltFilter.enableRegexSearchReplace !== 0) {
+                                        filters.push(`regex_search/_replace not supported! Please use plugin 'rewrite'! Ignoring dlf filter ('${JSON.stringify(dltFilter)}')`);
+                                        continue;
+                                    }
+                                    if ('enablefilter' in dltFilter && dltFilter.enablefilter === 0) {
+                                        filterFrag.enabled = false; // we default to true and dont include in configuration
+                                    }
+                                    if ('enablectrlmsgs' in dltFilter && dltFilter.enablectrlmsgs === 1) {
+                                        filterFrag.mstp = MSTP.TYPE_CONTROL;
+                                    }
+                                    // messageIdMax/Min not supported!
+                                    if ('enableMessageId' in dltFilter && dltFilter.enableMessageId !== 0) {
+                                        filters.push(`messageIdMin/Max not supported yet! Ignoring dlf filter ('${JSON.stringify(dltFilter)}')`);
+                                        continue;
+                                    }
+                                    if ('enableLogLevelMax' in dltFilter && dltFilter.enableLogLevelMax === 1 && 'logLevelMax' in dltFilter) {
+                                        filterFrag.logLevelMax = dltFilter.logLevelMax;
+                                    }
+                                    if ('enableLogLevelMin' in dltFilter && dltFilter.enableLogLevelMin === 1 && 'logLevelMin' in dltFilter) {
+                                        filterFrag.logLevelMin = dltFilter.logLevelMin;
+                                    }
+                                    if ('enableMarker' in dltFilter && dltFilter.enableMarker === 1 && 'filterColour' in dltFilter) {
+                                        filterFrag.filterColour = dltFilter.filterColour;
+                                    }
+
+                                    filters.push(filterFrag);
+                                } else {
+                                    filters.push(`type missing in dlf filter ('${JSON.stringify(dltFilter)}')`);
+                                }
+                            }
+                        } else {
+                            filters.push(`unexpected object (no filter) in dlf ('${JSON.stringify(filterElems)}')`);
+                        }
+                    }
+                } else {
+                    filters.push("dltfilter wrong type (no array) in dlf");
+                }
+            } else {
+                filters.push("dltfilter missing in dlf");
+            }
+        } catch (e) {
+            console.warn(`filtersFromXmlDlf got e=${e}`);
+            filters.push(`exception: ${e}`);
+        }
+        return filters;
+    }
 }
