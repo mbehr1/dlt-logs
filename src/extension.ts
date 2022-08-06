@@ -79,6 +79,25 @@ export function activate(context: vscode.ExtensionContext) {
 					description: element.description
 				};
 			}
+		},
+		dragAndDropController: {
+			dragMimeTypes: [], // ['text/uri-list'],
+			dropMimeTypes: ['text/uri-list'],
+			async handleDrop(target: TreeViewNode | undefined, sources: vscode.DataTransfer, token: vscode.CancellationToken): Promise<void> {
+				let srcs: string[] = [];
+				sources.forEach((value, key) => srcs.push(`key:${key}=${value.asString()}`));
+				console.log(`adlt.handleDrop sources: ${srcs.join(',')}`);
+				//console.log(`adlt.handleDrop get: ${await (await sources.get('text/uri-list'))?.asString()}`);
+				// use-cases:
+				// drop Dlt-Viewer filter files -> adltProvider with .dlf files
+				//  - activate
+				//  - ask for storage? store as config?
+
+				// drop dlt/asc files -> open
+				// for now we do pass all to the adltProvide
+				// but we might filter for .asc,... here already
+				return adltProvider.onDrop(target, sources, token);
+			}
 		}
 	});
 
