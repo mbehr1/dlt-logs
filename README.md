@@ -52,6 +52,7 @@ A more detailed documentation is available here: [Docs](https://mbehr1.github.io
 
 - Filters can be *added* based on the hover text of a log line. The filter settings will be prefilled with ECU, APID, CTID.
 - Filters can be *edited* and *deleted* (press option key at the edit icon) from the *filters* tree view.
+- Filters can be loaded and activated directly by dragging a DLT-Viewer `.dlf` filter file onto the tree view.
 - Adding or editing filters menu allows to select ECUs, APIDs, CTIDs from the descriptions found in the loaded log file.
 - Filters can be added to **configs**. If a filter is part of a config it will be:
   - disabled by default on opening a file.
