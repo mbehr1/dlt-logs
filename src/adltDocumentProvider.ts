@@ -43,6 +43,7 @@ import { DltDocument, ColumnConfig } from './dltDocument';
 import { v4 as uuidv4 } from 'uuid';
 import { AdltPlugin } from './adltPlugin';
 import { assert } from 'console';
+import { fileURLToPath } from 'node:url';
 
 //import { adltPath } from 'node-adlt';
 // with optionalDependency we use require to catch errors
@@ -2173,6 +2174,91 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
             // todo refactor to always call applyCommand... currently dltDocumentProvider handles it as well!
             default:
                 console.error(`adlt.onTreeNodeCommand unknown command '${command}' for node '${node.label}' '${node.uri}'`); break;
+        }
+    }
+
+    private onDropFilterFrags(node: TreeViewNode | undefined, filterFrags: any[]) {
+        if (node !== undefined && node.uri) {
+            const doc = this._documents.get(node.uri.toString());
+            if (doc !== undefined) {
+                const allFilters = doc.allFilters;
+                let doApplyFilter = false;
+                for (const filterFrag of filterFrags) {
+                    // do we have a similar filter already?
+                    const similarFilters = DltFilter.getSimilarFilters(false, true, filterFrag, allFilters);
+                    if (!similarFilters.length) {
+                        let filter = new DltFilter(filterFrag);
+                        console.info(`adlt.onDropFilterFrags got a filter: '${filter.name}'`);
+                        doc.onFilterAdd(filter, false);
+                        doApplyFilter = true;
+                    } else {
+                        console.info(`adlt.onDropFilterFrags got similar filter: '${similarFilters.map((f) => f.name).join(',')}'`);
+                        if (!('enabled' in filterFrag) || ('enabled' in filterFrag && filterFrag.enabled === true)) {
+                            // any of the similarFilters enabled yet?
+                            if (similarFilters.filter((f) => f.enabled).length === 0) {
+                                // enable the first one:
+                                similarFilters[0].enabled = true;
+                                doApplyFilter = true;
+                                console.info(`adlt.onDropFilterFrags enabling similar filter: '${similarFilters[0].name}'`);
+                            }
+                        }
+                    }
+                }
+                if (doApplyFilter) {
+                    doc.triggerApplyFilter();
+                    this._onDidChangeTreeData.fire(doc.treeNode); // as filters in config might be impacted as well! 
+                }
+            } else {
+                console.warn(`adlt.onDropFilterFrags found no doc for: '${node.uri.toString()}'`);
+            }
+        }
+    }
+
+    public async onDrop(node: TreeViewNode | undefined, sources: vscode.DataTransfer, token: vscode.CancellationToken) {
+        try {
+            console.info(`adlt.onDrop (node=${node?.label})`);
+            let transferItem = sources.get('text/uri-list');
+            if (transferItem !== undefined) {
+                transferItem.asString().then((urisString) => {
+                    try {
+                        let uris = urisString.split(/\r?\n/);
+                        console.log(`adlt.onDrop got uris(${uris.length}): '${uris.join(',')}'`);
+                        let warnings: string[] = [];;
+                        let filterFrags: any[] = [];
+                        for (const uri of uris) {
+                            if (uri.toLowerCase().endsWith('.dlf')) { // support for dlt-viewer .dlf files
+                                console.info(`adlt.onDrop processing uri '${uri}' as dlt-viewer .dlf filter file`);
+                                // open the file:
+                                let fileContent = fs.readFileSync(fileURLToPath(uri), { encoding: 'utf-8' });
+                                let filterFragsOrWarnings = DltFilter.filtersFromXmlDlf(fileContent);
+                                console.log(`adlt.onDrop got ${filterFragsOrWarnings.length} filter frags`);
+                                for (const filterFrag of filterFragsOrWarnings) {
+                                    if (typeof filterFrag === 'string') {
+                                        console.warn(`adlt.onDrop filterFrag got warning: '${filterFrag}'`);
+                                        warnings.push(filterFrag);
+                                    } else {
+                                        filterFrags.push(filterFrag);
+                                    }
+                                }
+                            } else {
+                                const warning = `ignoring uri '${uri}'}`;
+                                console.warn(`adlt.onDrop ${warning}`);
+                                warnings.push(warning);
+                            }
+                        }
+                        if (warnings.length) {
+                            vscode.window.showWarningMessage(`opening as dlt-viewer filter files got warnings:\n${warnings.join('\n')}`);
+                        }
+                        if (filterFrags.length) {
+                            this.onDropFilterFrags(node, filterFrags);
+                        }
+                    } catch (e) {
+                        console.warn(`adlt.onDrop(urisString='${urisString}') got e='${e}'`);
+                    }
+                });
+            }
+        } catch (e) {
+            console.warn(`adlt.onDrop got e='${e}'`);
         }
     }
 
