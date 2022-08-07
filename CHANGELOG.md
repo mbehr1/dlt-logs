@@ -1,5 +1,18 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.51.0](https://github.com/mbehr1/dlt-logs/compare/v1.50.1...v1.51.0) (2022-08-07)
+
+
+### Features
+
+* support drop of dlt-viewer filter files ([65bc079](https://github.com/mbehr1/dlt-logs/commit/65bc0796c0bb5290fc4a5678884e99344d947548))
+* support for dlt-viewer filter format ([7a2e31d](https://github.com/mbehr1/dlt-logs/commit/7a2e31d0207f219a30bed8f2bff8c4062f502fc6))
+
+
+### Bug Fixes
+
+* **adlt:** mstp and loglevel fix ([aa34899](https://github.com/mbehr1/dlt-logs/commit/aa34899b43a7c136bf2d6463a73a17ce542b15ee))
+
 ## [1.50.1](https://github.com/mbehr1/dlt-logs/compare/v1.50.0...v1.50.1) (2022-07-31)
 
 
