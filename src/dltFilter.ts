@@ -28,7 +28,9 @@ export class DltFilter {
     logLevelMax: number | undefined;
     verbose: boolean | undefined;
     payload: string | undefined;
+    payloadToUpper: string | undefined; // will be set if ignoreCasePayload is used, internal speedup
     payloadRegex: RegExp | undefined;
+    ignoreCasePayload: boolean = false; // for both payload and payloadRegex, default to false
     lifecycles: number[] | undefined; // array with persistentIds from lifecycles
 
     // marker decorations:
@@ -90,6 +92,7 @@ export class DltFilter {
         obj.verbose = this.verbose;
         obj.payload = this.payload;
         obj.payloadRegex = this.payloadRegex !== undefined ? this.payloadRegex.source : undefined;
+        obj.ignoreCasePayload = this.ignoreCasePayload ? true : undefined; // default to false
         obj.lifecycles = this.lifecycles;
         obj.timeSyncId = this.timeSyncId;
         obj.timeSyncPrio = this.timeSyncPrio;
@@ -141,11 +144,18 @@ export class DltFilter {
 
         this.verbose = 'verbose' in options ? options.verbose : undefined;
 
+        this.ignoreCasePayload = 'ignoreCasePayload' in options ? options.ignoreCasePayload === true : false;
         this.payload = 'payload' in options ? options.payload : undefined;
+        if (this.ignoreCasePayload && this.payload !== undefined) {
+            this.payloadToUpper = this.payload.toUpperCase();
+        } else {
+            this.payloadToUpper = undefined;
+        }
 
         if ('payloadRegex' in options) {
             this.payload = undefined;
-            this.payloadRegex = new RegExp(options.payloadRegex);
+            this.payloadToUpper = undefined;
+            this.payloadRegex = new RegExp(options.payloadRegex, this.ignoreCasePayload ? "i" : undefined);
 
             // needs payloadRegex
             if ('timeSyncId' in options && 'timeSyncPrio' in options) {
@@ -204,7 +214,13 @@ export class DltFilter {
         if (this.apid && msg.apid !== this.apid) { return negated; }
         if (this.ctid && msg.ctid !== this.ctid) { return negated; }
         if (this.verbose !== undefined && msg.verbose !== this.verbose) { return negated; }
-        if (this.payload && !msg.payloadString.includes(this.payload)) { return negated; }
+        if (this.payload) {
+            if (!this.ignoreCasePayload) {
+                if (!msg.payloadString.includes(this.payload)) { return negated; }
+            } else {
+                if (!msg.payloadString.toUpperCase().includes(this.payloadToUpper!)) { return negated; }
+            }
+        }
         if (this.payloadRegex !== undefined && !this.payloadRegex.test(msg.payloadString)) { return negated; }
         if (this.lifecycles !== undefined && this.lifecycles.length > 0) {
             // we treat an empty array as always matching (that's why we skip this check if length<=0)
@@ -274,8 +290,8 @@ export class DltFilter {
         if (this.apid) { nameStr += `APID:${this.apid} `; }
         if (this.ctid) { nameStr += `CTID:${this.ctid} `; }
         if (this.verbose !== undefined) { nameStr += this.verbose ? 'VERB ' : 'NON-VERB '; }
-        if (this.payload) { nameStr += `payload contains '${this.payload}' `; }
-        if (this.payloadRegex !== undefined) { nameStr += `payload matches '${this.payloadRegex.source}'`; }
+        if (this.payload) { nameStr += `payload contains ${this.ignoreCasePayload ? 'ignoring case ' : ''}'${this.payload}' `; }
+        if (this.payloadRegex !== undefined) { nameStr += `payload matches ${this.ignoreCasePayload ? 'ignoring case ' : ''}'${this.payloadRegex.source}'`; }
         if (this.lifecycles !== undefined) { nameStr += ` in ${this.lifecycles.length} LCs`; }
         if (this.timeSyncId !== undefined) { nameStr += ` timeSyncId:${this.timeSyncId} prio:${this.timeSyncPrio}`; }
 
@@ -428,16 +444,15 @@ export class DltFilter {
                                         continue;
                                     }
                                     if ('enablepayloadtext' in dltFilter && dltFilter.enablepayloadtext === 1) {
+                                        if ('ignoreCase_Payload' in dltFilter && dltFilter.ignoreCase_Payload === 1) {
+                                            filterFrag.ignoreCasePayload = true;
+                                        }
                                         if (('enableregexp_Payload' in dltFilter && dltFilter.enableregexp_Payload === 1) ||
                                             ('enableregexp' in dltFilter && dltFilter.enableregexp === 1)) {
                                             if ('payloadtext' in dltFilter && dltFilter.payloadtext.length > 0) {
                                                 filterFrag.payloadRegex = dltFilter.payloadtext;
                                             }
                                         } else {
-                                            if ('ignoreCase_Payload' in dltFilter && dltFilter.ignoreCase_Payload === 1) {
-                                                filters.push(`ignore case payload not supported yet! Please use regex. Ignoring dlf filter ('${JSON.stringify(dltFilter)}')`);
-                                                continue;
-                                            }
                                             if ('payloadtext' in dltFilter && dltFilter.payloadtext.length > 0) {
                                                 filterFrag.payload = dltFilter.payloadtext;
                                             }
