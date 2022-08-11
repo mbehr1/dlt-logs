@@ -49,6 +49,7 @@ attribute name | expected type | default value | description
 `verbose`| boolean | undefined| `verbose` or `non-verbose` messages. Verbose flag is part of the extended header of a DLT msg and defaults to false if the ext. header doesn't exist.
 `payload`| string |undefined| String that is searched in the (textual) representation of the message payload. Matches if the string is contained within the payload.
 `payloadRegex`|string | undefined| Regular expression that the full (textual) representation of the message payload has to match against. This is in general faster than payload if e.g. `^` for the begin of the text is used. E.g. `^Exception:` is faster than `payload`=`"Exception:"` as the search can be stopped at the first characters already if the payload doesn't start with "Exc..."
+`ignoreCasePayload`| boolean | false | Determines whether payload or payloadRegex is using case sensitive (default) or `ignoring case` searches. With payload for case insensitive search both strings are converted to (ascii) upper case first. For regex the "i" option is used (javascript implementation) or (?i) (adlt/rust implementation).
 
 :::note undefined attributes
 Undefined attributes are ignored.
