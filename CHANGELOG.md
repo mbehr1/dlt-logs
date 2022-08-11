@@ -1,5 +1,13 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.52.0](https://github.com/mbehr1/dlt-logs/compare/v1.51.0...v1.52.0) (2022-08-11)
+
+
+### Features
+
+* add ignoreCasePayload ([b174282](https://github.com/mbehr1/dlt-logs/commit/b17428247ced1b3c99a72f7ec71dc66b84a7d036))
+* **filter:** support ignoreCasePayload ([d60c051](https://github.com/mbehr1/dlt-logs/commit/d60c0510857bf7a5a4312700ed4d2aedbd9b6d67))
+
 ## [1.51.0](https://github.com/mbehr1/dlt-logs/compare/v1.50.1...v1.51.0) (2022-08-07)
 
 
