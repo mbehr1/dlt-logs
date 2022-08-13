@@ -1897,10 +1897,17 @@ export class DltDocument {
                     }
                 }
             }
-            report.addFilter(filter);
-            return report;
+            let singleReport = report.addFilter(filter);
+            if (singleReport) {
+                singleReport.pruneMsgsAfterProcessing = false;
+                singleReport.msgs = this.msgs;
+                singleReport.onNewMessages(singleReport.msgs.length);
+                return report;
+            } else {
+                return undefined;
+            }
         } else {
-            let report = new DltReport(context, this, this.msgs, (r: DltReport) => {
+            let report = new DltReport(context, this, (r: DltReport) => {
                 console.log(`onOpenReport onDispose called... #reports=${this._reports.length}`);
                 const idx = this._reports.indexOf(r);
                 if (idx >= 0) {
@@ -1909,8 +1916,15 @@ export class DltDocument {
                 console.log(`onOpenReport onDispose done #reports=${this._reports.length}`);
             });;
             this._reports.push(report); // todo implement Disposable for DltDocument as well so that closing a doc closes the report as well
-            report.addFilter(filter);
-            return report;
+            let singleReport = report.addFilter(filter);
+            if (singleReport) {
+                singleReport.pruneMsgsAfterProcessing = false;
+                singleReport.msgs = this.msgs;
+                singleReport.onNewMessages(singleReport.msgs.length);
+                return report;
+            } else {
+                return undefined;
+            }
         }
     }
 
