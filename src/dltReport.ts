@@ -71,6 +71,9 @@ class SingleReport implements NewMessageSink {
     public warnings: string[] = [];
     public reportTitles: string[] = [];
     public dataSetsGroupPrios: any = {};
+    convFunctionCache = new Map<DltFilter, [Function | undefined, Object]>();
+    reportObj = {}; // an object to store e.g. settings per report from a filter
+
 
     constructor(private dltReport: DltReport, private doc: ReportDocument, public filters: DltFilter[]) { }
 
@@ -94,8 +97,6 @@ class SingleReport implements NewMessageSink {
                     : value
             )}`);*/
 
-            const convFunctionCache = new Map<DltFilter, [Function | undefined, Object]>();
-            const reportObj = {}; // an object to store e.g. settings per report from a filter
 
             for (let i = 0; i < msgs.length; ++i) { // todo make async and report progress...
                 const msg = msgs[i];
@@ -110,15 +111,15 @@ class SingleReport implements NewMessageSink {
                                 // if we have a conversion function we apply that:
                                 var convValuesFunction: Function | undefined = undefined;
                                 var convValuesObj: Object;
-                                if (convFunctionCache.has(filter)) {
-                                    [convValuesFunction, convValuesObj] = convFunctionCache.get(filter) || [undefined, {}];
+                                if (this.convFunctionCache.has(filter)) {
+                                    [convValuesFunction, convValuesObj] = this.convFunctionCache.get(filter) || [undefined, {}];
                                 } else {
                                     if (filter.reportOptions?.conversionFunction !== undefined) {
                                         try {
                                             convValuesFunction = Function("matches,params", filter.reportOptions.conversionFunction);
                                             convValuesObj = {};
                                             console.log(` using conversionFunction = '${convValuesFunction}'`);
-                                            convFunctionCache.set(filter, [convValuesFunction, convValuesObj]);
+                                            this.convFunctionCache.set(filter, [convValuesFunction, convValuesObj]);
                                         } catch (e) {
                                             convValuesObj = {};
                                             let warning = `conversionFunction {\n${filter.reportOptions.conversionFunction}\n} failed parsing with:\n${e}`;
@@ -126,7 +127,7 @@ class SingleReport implements NewMessageSink {
                                         }
                                     } else {
                                         convValuesObj = {};
-                                        convFunctionCache.set(filter, [undefined, convValuesObj]);
+                                        this.convFunctionCache.set(filter, [undefined, convValuesObj]);
                                     }
                                 }
 
@@ -134,7 +135,7 @@ class SingleReport implements NewMessageSink {
                                     let convertedMatches = undefined;
                                     if (convValuesFunction !== undefined) {
                                         try {
-                                            convertedMatches = convValuesFunction(matches, { msg: msg, localObj: convValuesObj, reportObj: reportObj });
+                                            convertedMatches = convValuesFunction(matches, { msg: msg, localObj: convValuesObj, reportObj: this.reportObj });
                                         } catch (e) {
                                             let warning = `conversionFunction {\n${filter.reportOptions.conversionFunction}\n} failed conversion with:\n${e}`;
                                             this.addWarning(warning);
