@@ -72,6 +72,7 @@ class SingleReport implements NewMessageSink {
     public dataSetsGroupPrios: any = {};
     convFunctionCache = new Map<DltFilter, [Function | undefined, Object]>();
     reportObj = {}; // an object to store e.g. settings per report from a filter
+    lateEvalDPs: Map<DataPoint, any> = new Map();
 
     constructor(private dltReport: DltReport, private doc: ReportDocument, public filters: DltFilter[]) {
         for (let f = 0; f < filters.length; ++f) {
@@ -212,17 +213,18 @@ class SingleReport implements NewMessageSink {
                 }
             }
 
-            // support "lazy" evaluation mainly for TL_...
-            // if datapoint.y is an object with an entry 'y' we replace that with the entry.
-            this.dataSets.forEach((dataSet) => {
-                dataSet.data.forEach(dp => {
-                    // lazy/late eval:
-                    if (dp.y !== null && typeof (dp.y) === 'object') { if (dp.y.y) { dp.y = dp.y.y; } }
-                });
-            });
-            // todo: this needs to support "chunking" (e.g. objects changed from prev. call/update)
+            // late phase. From now on all operations need to be able to be called multiple times on same data
 
-            console.log(` have ${this.dataSets.size} data sets`);
+            // support "lazy"/late evaluation for all but STATE_ (mainly for TL_...)
+            // if datapoint.y is an object with an entry 'y' we replace that with the entry.
+            this.lateEvalDPs.forEach((value, dp) => {
+                let newY = value.y;
+                if (newY !== undefined) {
+                    dp.y = newY;
+                }
+            });
+
+            console.log(`SingleReport.updateReport: have ${this.dataSets.size} data sets`);
             //dataSets.forEach((data, key) => { console.log(`  ${key} with ${data.data.length} entries and ${data.yLabels?.length} yLabels`); });
 
         }
@@ -377,6 +379,11 @@ class SingleReport implements NewMessageSink {
 
             const lcId = lifecycle.persistentId;
             const dataPoint = { x: time, y: value, lcId: lcId };
+            if (!insertPrevState && typeof dataPoint.y === 'object') {
+                // late eval is only supported for non STATE_... as otherwise the prev state logic becomes really complex!
+                this.lateEvalDPs.set(dataPoint, dataPoint.y);
+            }
+
             if (!dataSet) {
                 const { yAxis, group, yLabels, valuesMap } = this.getDataSetProperties(label);
 
