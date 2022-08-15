@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.52.1](https://github.com/mbehr1/dlt-logs/compare/v1.52.0...v1.52.1) (2022-08-15)
+
+
+### Performance Improvements
+
+* **report:** process only new messages ([273aa13](https://github.com/mbehr1/dlt-logs/commit/273aa1345f4c1272522ef044a892caceccb54a85))
+
 ## [1.52.0](https://github.com/mbehr1/dlt-logs/compare/v1.51.0...v1.52.0) (2022-08-11)
 
 
