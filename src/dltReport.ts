@@ -2,9 +2,6 @@
  * Copyright(C) Matthias Behr.
  */
 
-// todo before release:
-// [ ] implement onNewMessages and reduce msg load by keeping only the data points but not the processed msgs
-
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -74,6 +71,9 @@ class SingleReport implements NewMessageSink {
     reportObj = {}; // an object to store e.g. settings per report from a filter
     lateEvalDPs: Map<DataPoint, any> = new Map();
 
+    msgsProcessed: number = 0;
+    msgsPruned: number = 0;
+
     constructor(private dltReport: DltReport, private doc: ReportDocument, public filters: DltFilter[]) {
         for (let f = 0; f < filters.length; ++f) {
             const filter = filters[f];
@@ -107,35 +107,39 @@ class SingleReport implements NewMessageSink {
     }
 
     onNewMessages(nrNewMsgs: number) {
-        // todo
-        console.warn(`SingleReport.onNewMessages(${nrNewMsgs}) nyi! msgs.length=${this.msgs.length}`);
+        console.warn(`SingleReport.onNewMessages(${nrNewMsgs}) msgsProcessed=${this.msgsProcessed} msgsPruned=${this.msgsPruned} msgs.length=${this.msgs.length}`);
         try {
             try {
-                this.updateReport(); // todo... optimize
+                this.updateReport();
+                // and to empty the msgs that have been processed already
+                if (this.pruneMsgsAfterProcessing) {
+                    this.msgsPruned += this.msgs.length;
+                    this.msgs.length = 0;
+                }
+
             } catch (e) {
                 console.warn(`SingleReport.onNewMessages updateReport got e='${e}'`);
             }
-            this.dltReport.updateReport(); // todo adlt for now... (later on needs to be optimized to support streaming)
-            // and to empty the msgs that have been processed already
-            // todo if pruneMsgsAfterProcessing
+            this.dltReport.updateReport();
         } catch (e) {
             console.warn(`SingleReport.onNewMessages got e='${e}'`);
         }
     }
 
     updateReport() {
-        this.dataSets.clear(); // todo optimize!
         const msgs = this.msgs;
-        if (msgs.length) {
-            console.log(` matching ${this.filters.length} filter on ${msgs.length} msgs:`);
+        const minIdx = this.msgsProcessed - this.msgsPruned;
+        const maxIdx = msgs.length;
+        const msgsToProcess = (maxIdx - minIdx);
+        if (msgsToProcess > 0) {
+            //console.log(` matching ${this.filters.length} filter on ${msgsToProcess}/${msgs.length} msgs:`);
             /*console.log(`msg[0]=${JSON.stringify(msgs[0], (key, value) =>
                 typeof value === 'bigint'
                     ? value.toString()
                     : value
             )}`);*/
 
-
-            for (let i = 0; i < msgs.length; ++i) { // todo make async and report progress...
+            for (let i = minIdx; i < maxIdx; ++i) { // todo make async and report progress...
                 const msg = msgs[i];
                 if (msg.lifecycle !== undefined) {
                     for (let f = 0; f < this.filters.length; ++f) {
@@ -212,6 +216,7 @@ class SingleReport implements NewMessageSink {
                     }
                 }
             }
+            this.msgsProcessed += msgsToProcess;
 
             // late phase. From now on all operations need to be able to be called multiple times on same data
 
@@ -224,7 +229,7 @@ class SingleReport implements NewMessageSink {
                 }
             });
 
-            console.log(`SingleReport.updateReport: have ${this.dataSets.size} data sets`);
+            console.log(`SingleReport.updateReport: have ${this.dataSets.size} data sets, processed ${this.lateEvalDPs.size} late evaluations`);
             //dataSets.forEach((data, key) => { console.log(`  ${key} with ${data.data.length} entries and ${data.yLabels?.length} yLabels`); });
 
         }
