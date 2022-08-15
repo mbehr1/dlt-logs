@@ -108,10 +108,18 @@ class SingleReport implements NewMessageSink {
     onNewMessages(nrNewMsgs: number) {
         // todo
         console.warn(`SingleReport.onNewMessages(${nrNewMsgs}) nyi! msgs.length=${this.msgs.length}`);
-        this.updateReport(); // todo... optimize
-        this.dltReport.updateReport(); // todo adlt for now... (later on needs to be optimized to support streaming)
-        // and to empty the msgs that have been processed already
-        // todo if pruneMsgsAfterProcessing
+        try {
+            try {
+                this.updateReport(); // todo... optimize
+            } catch (e) {
+                console.warn(`SingleReport.onNewMessages updateReport got e='${e}'`);
+            }
+            this.dltReport.updateReport(); // todo adlt for now... (later on needs to be optimized to support streaming)
+            // and to empty the msgs that have been processed already
+            // todo if pruneMsgsAfterProcessing
+        } catch (e) {
+            console.warn(`SingleReport.onNewMessages got e='${e}'`);
+        }
     }
 
     updateReport() {
@@ -209,16 +217,8 @@ class SingleReport implements NewMessageSink {
             this.dataSets.forEach((dataSet) => {
                 dataSet.data.forEach(dp => {
                     // lazy/late eval:
-                    if (typeof (dp.y) === 'object') { if (dp.y.y) { dp.y = dp.y.y; } }
+                    if (dp.y !== null && typeof (dp.y) === 'object') { if (dp.y.y) { dp.y = dp.y.y; } }
                 });
-                // valueMap?
-                if (dataSet.valuesMap !== undefined) {
-                    const valuesMap = dataSet.valuesMap;
-                    dataSet.data.forEach((data) => {
-                        const newY = valuesMap.get(<string>data.y);
-                        if (newY) { data.y = newY; } // todo this conflicts with last state detection above!
-                    });
-                }
             });
             // todo: this needs to support "chunking" (e.g. objects changed from prev. call/update)
 
@@ -355,6 +355,8 @@ class SingleReport implements NewMessageSink {
      * 
      * Determines as well the `minDataPointTime` as the earliest time by any data point inserted.
      * 
+     * If the dataset contains a valuesMap the mapping is checked/applied.
+     * 
      * For STATE_ type values (insertPrevState) there are always two data points added to each lifecycle that contains values:
      *  - the prev. value at lifecycle end
      *  - a null value at lifecycle end
@@ -366,109 +368,130 @@ class SingleReport implements NewMessageSink {
      * 
      */
     insertDataPoint(lifecycle: DltLifecycleInfoMinIF, label: string, time: Date, value: number | string | any, insertPrevState = false, insertYLabels = true) {
-        let dataSet = this.dataSets.get(label);
+        try {
+            let dataSet = this.dataSets.get(label);
 
-        if ((this.minDataPointTime === undefined) || this.minDataPointTime.valueOf() > time.valueOf()) {
-            this.minDataPointTime = time;
-        }
-
-        const lcId = lifecycle.persistentId;
-        const dataPoint = { x: time, y: value, lcId: lcId };
-        if (!dataSet) {
-            const { yAxis, group, yLabels, valuesMap } = this.getDataSetProperties(label);
-            const data: DataPoint[] = [dataPoint];
-            if (insertPrevState) { // add the two ending data points:
-                data.push({ x: new Date(lifecycle.lifecycleEnd.valueOf() - 1), y: value, lcId: lcId, t_: DataPointType.PrevStateEnd });
-                data.push({ x: lifecycle.lifecycleEnd, y: null /*'_unus_lbl_'*/, lcId: lcId, t_: DataPointType.LifecycleEnd });
-            } else {
-                data.push({ x: lifecycle.lifecycleEnd, y: NaN, lcId: lcId, t_: DataPointType.LifecycleEnd }); // todo not quite might end at wrong lifecycle. rethink whether one dataset can come from multiple LCs
+            if ((this.minDataPointTime === undefined) || this.minDataPointTime.valueOf() > time.valueOf()) {
+                this.minDataPointTime = time;
             }
-            dataSet = { data: data, yAxis: yAxis, group: group, yLabels: yLabels, valuesMap: valuesMap };
-            this.dataSets.set(label, dataSet);
-        } else {
-            if (insertPrevState) {
-                const lcEndDP = dataSet.data.pop();
-                const prevValueDP = dataSet.data.pop();
-                if (lcEndDP && prevValueDP) {
-                // do we have a prev. state in same lifecycle?
-                    if (lcId === prevValueDP.lcId) { // same lifecycle
-                        // update lifecycle end as it might have changed
-                        if (lcEndDP.x !== lifecycle.lifecycleEnd) {
-                            lcEndDP.x = lifecycle.lifecycleEnd;
-                            prevValueDP.x = new Date(lcEndDP.x.valueOf() - 1);
-                        }
 
-                        // two cases: 
-                        // a) same value as prev value
-                        // b) different value as prev value
-                        if (prevValueDP.y === value) { // a) same value
-                            // simply insert new data point (could be without but we want to see single points)
-                            dataSet.data.push(dataPoint);
-                            dataSet.data.push(prevValueDP);
-                            dataSet.data.push(lcEndDP);
-                        } else { // b) different value
-                            const prevDP = dataSet.data.pop();
-                            if (prevDP) {
-                                dataSet.data.push(prevDP);
-                                // insert new prevDP
-                                const prevStateDP = { x: new Date(time.valueOf() - 1), y: prevDP.y, lcId: prevDP.lcId, t_: DataPointType.PrevStateEnd };
-                                if (prevStateDP.x > prevDP.x) {
-                                    dataSet.data.push(prevStateDP);
-                                }
-                            }
-                            dataSet.data.push(dataPoint);
-                            // update prevValueDP
-                            prevValueDP.y = value;
-                            dataSet.data.push(prevValueDP);
-                            dataSet.data.push(lcEndDP);
-                        }
-                    } else { // new lifecycle
-                        dataSet.data.push(prevValueDP);
-                        dataSet.data.push(lcEndDP);
-                        dataSet.data.push(dataPoint);
-                        // add the two ending data points for the new lifecycle:
-                        dataSet.data.push({ x: new Date(lifecycle.lifecycleEnd.valueOf() - 1), y: value, lcId: lcId, t_: DataPointType.PrevStateEnd });
-                        dataSet.data.push({ x: lifecycle.lifecycleEnd, y: null /*'_unus_lbl_'*/, lcId: lcId, t_: DataPointType.LifecycleEnd });
-                    }
-                } else { // should not happen. anyhow insert the data point
-                    dataSet.data.push(dataPoint);
-                }
-            } else {
-                // did we cross a lifecycle border?
-                // compare with last element: (we do know there is always one as otherwise we're in the uppdate !dataSet case)
-                let lcEndDP = dataSet.data.pop();
-                if (lcEndDP && lcEndDP.lcId !== dataPoint.lcId) { // new lifecycle
-                    dataSet.data.push(lcEndDP!);
-                    dataSet.data.push(dataPoint);
-                    dataSet.data.push({ x: lifecycle.lifecycleEnd, y: NaN, lcId: lcId, t_: DataPointType.LifecycleEnd }); // todo not quite might end at wrong lifecycle. rethink whether one dataset can come from multiple LCs
-                } else { // same lifecycle:
-                    dataSet.data.push(dataPoint);
-                    // update lifecycle end as it might have changed
-                    if (lcEndDP && lcEndDP.x !== lifecycle.lifecycleEnd) {
-                        lcEndDP.x = lifecycle.lifecycleEnd;
-                        dataSet.data.push(lcEndDP);
+            const lcId = lifecycle.persistentId;
+            const dataPoint = { x: time, y: value, lcId: lcId };
+            if (!dataSet) {
+                const { yAxis, group, yLabels, valuesMap } = this.getDataSetProperties(label);
+
+                if (valuesMap !== undefined) {
+                    const newY = valuesMap.get(<string>value);
+                    if (newY) {
+                        value = newY;
+                        dataPoint.y = value;
                     }
                 }
-            }
-        }
-        // yLabels?
-        if (typeof value === 'string' && insertYLabels) {
-            const label = `${value}`;
-            if (dataSet.yLabels === undefined) {
-                dataSet.yLabels = ['', label];
-                //console.log(`adding yLabel '${label}'`);
+
+                const data: DataPoint[] = [dataPoint];
+                if (insertPrevState) { // add the two ending data points:
+                    data.push({ x: new Date(lifecycle.lifecycleEnd.valueOf() - 1), y: value, lcId: lcId, t_: DataPointType.PrevStateEnd });
+                    data.push({ x: lifecycle.lifecycleEnd, y: null /*'_unus_lbl_'*/, lcId: lcId, t_: DataPointType.LifecycleEnd });
+                } else {
+                    data.push({ x: lifecycle.lifecycleEnd, y: NaN, lcId: lcId, t_: DataPointType.LifecycleEnd }); // todo not quite might end at wrong lifecycle. rethink whether one dataset can come from multiple LCs
+                }
+                dataSet = { data: data, yAxis: yAxis, group: group, yLabels: yLabels, valuesMap: valuesMap };
+                this.dataSets.set(label, dataSet);
             } else {
-                const yLabels = dataSet.yLabels;
                 if (dataSet.valuesMap !== undefined) {
-                    // add it only if the mapped value doesn't exist
-                    const newY = dataSet.valuesMap.get(label);
-                    if (!newY) {
-                        if (!yLabels.includes(value)) { yLabels.push(value); }
+                    const newY = dataSet.valuesMap.get(<string>value);
+                    if (newY) {
+                        value = newY;
+                        dataPoint.y = value;
+                    }
+                }
+
+                if (insertPrevState) {
+                    const lcEndDP = dataSet.data.pop();
+                    const prevValueDP = dataSet.data.pop();
+                    if (lcEndDP && prevValueDP) {
+                        // do we have a prev. state in same lifecycle?
+                        if (lcId === prevValueDP.lcId) { // same lifecycle
+                            // update lifecycle end as it might have changed
+                            if (lcEndDP.x !== lifecycle.lifecycleEnd) {
+                                lcEndDP.x = lifecycle.lifecycleEnd;
+                                prevValueDP.x = new Date(lcEndDP.x.valueOf() - 1);
+                            }
+
+                            // two cases: 
+                            // a) same value as prev value
+                            // b) different value as prev value
+                            if (prevValueDP.y === value) { // a) same value
+                                // simply insert new data point (could be without but we want to see single points)
+                                dataSet.data.push(dataPoint);
+                                dataSet.data.push(prevValueDP);
+                                dataSet.data.push(lcEndDP);
+                            } else { // b) different value
+                                const prevDP = dataSet.data.pop();
+                                if (prevDP) {
+                                    dataSet.data.push(prevDP);
+                                    // insert new prevDP
+                                    const prevStateDP = { x: new Date(time.valueOf() - 1), y: prevDP.y, lcId: prevDP.lcId, t_: DataPointType.PrevStateEnd };
+                                    if (prevStateDP.x > prevDP.x) {
+                                        dataSet.data.push(prevStateDP);
+                                    }
+                                }
+                                dataSet.data.push(dataPoint);
+                                // update prevValueDP
+                                prevValueDP.y = value;
+                                dataSet.data.push(prevValueDP);
+                                dataSet.data.push(lcEndDP);
+                            }
+                        } else { // new lifecycle
+                            dataSet.data.push(prevValueDP);
+                            dataSet.data.push(lcEndDP);
+                            dataSet.data.push(dataPoint);
+                            // add the two ending data points for the new lifecycle:
+                            dataSet.data.push({ x: new Date(lifecycle.lifecycleEnd.valueOf() - 1), y: value, lcId: lcId, t_: DataPointType.PrevStateEnd });
+                            dataSet.data.push({ x: lifecycle.lifecycleEnd, y: null /*'_unus_lbl_'*/, lcId: lcId, t_: DataPointType.LifecycleEnd });
+                        }
+                    } else { // should not happen. anyhow insert the data point
+                        dataSet.data.push(dataPoint);
                     }
                 } else {
-                    if (!yLabels.includes(label)) { yLabels.push(label); }
+                    // did we cross a lifecycle border?
+                    // compare with last element: (we do know there is always one as otherwise we're in the uppdate !dataSet case)
+                    let lcEndDP = dataSet.data.pop();
+                    if (lcEndDP && lcEndDP.lcId !== dataPoint.lcId) { // new lifecycle
+                        dataSet.data.push(lcEndDP!);
+                        dataSet.data.push(dataPoint);
+                        dataSet.data.push({ x: lifecycle.lifecycleEnd, y: NaN, lcId: lcId, t_: DataPointType.LifecycleEnd }); // todo not quite might end at wrong lifecycle. rethink whether one dataset can come from multiple LCs
+                    } else { // same lifecycle:
+                        dataSet.data.push(dataPoint);
+                        // update lifecycle end as it might have changed
+                        if (lcEndDP && lcEndDP.x !== lifecycle.lifecycleEnd) {
+                            lcEndDP.x = lifecycle.lifecycleEnd;
+                            dataSet.data.push(lcEndDP);
+                        }
+                    }
                 }
             }
+            // yLabels?
+            if (typeof value === 'string' && insertYLabels) {
+                const label = `${value}`;
+                if (dataSet.yLabels === undefined) {
+                    dataSet.yLabels = ['', label];
+                    //console.log(`adding yLabel '${label}'`);
+                } else {
+                    const yLabels = dataSet.yLabels;
+                    if (dataSet.valuesMap !== undefined) {
+                        // add it only if the mapped value doesn't exist
+                        const newY = dataSet.valuesMap.get(label);
+                        if (!newY) {
+                            if (!yLabels.includes(value)) { yLabels.push(value); }
+                        }
+                    } else {
+                        if (!yLabels.includes(label)) { yLabels.push(label); }
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn(`SingleReport.insertDataPoint got e='${e}'`);
         }
     }
 
