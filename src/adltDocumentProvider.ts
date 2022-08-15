@@ -1407,24 +1407,27 @@ export class AdltDocument implements vscode.Disposable {
                 const streamObj = JSON.parse(response.substring(11));
                 console.log(`adtl ok:stream`, JSON.stringify(streamObj));
 
-                let streamMsgs: AdltMsg[] = report.msgs as AdltMsg[]; // add to existing ones
-                report.disposables.push({
-                    dispose: () => {
-                        this.sendAndRecvAdltMsg(`stop ${streamObj.id}`).then(() => { });
-                        console.log(`onOpenReport reportToAdd onDispose stopped stream`);
-                    }
-                });
+                let singleReport = report.addFilter(filter);
+                if (singleReport !== undefined) {
+                    let streamMsgs: AdltMsg[] = singleReport.msgs as AdltMsg[];
+                    report.disposables.push({
+                        dispose: () => {
+                            this.sendAndRecvAdltMsg(`stop ${streamObj.id}`).then(() => { });
+                            console.log(`onOpenReport reportToAdd onDispose stopped stream`);
+                        }
+                    });
 
-                let curStreamMsgData = this.streamMsgs.get(streamObj.id);
-                let streamData = { msgs: streamMsgs, sink: report };
-                this.streamMsgs.set(streamObj.id, streamData);
-                if (curStreamMsgData && Array.isArray(curStreamMsgData)) {
-                    // process the data now:
-                    curStreamMsgData.forEach((msgs) => this.processBinDltMsgs(msgs, streamObj.id, streamData));
-                }                
-
-                report.addFilter(filter); // todo requery the msgs so that they include the new filter
-                return report;
+                    let curStreamMsgData = this.streamMsgs.get(streamObj.id);
+                    let streamData = { msgs: streamMsgs, sink: singleReport };
+                    this.streamMsgs.set(streamObj.id, streamData);
+                    if (curStreamMsgData && Array.isArray(curStreamMsgData)) {
+                        // process the data now:
+                        curStreamMsgData.forEach((msgs) => this.processBinDltMsgs(msgs, streamObj.id, streamData));
+                    }                
+                    return report;
+                } else {
+                    return undefined;
+                }
             });
         } else {
             // shall we query first the messages fitting to the filters or shall we 
@@ -1435,8 +1438,8 @@ export class AdltDocument implements vscode.Disposable {
                 console.log(`adlt.on startStream got response:'${response}'`);
                 const streamObj = JSON.parse(response.substring(11));
                 console.log(`adtl ok:stream`, JSON.stringify(streamObj));
-                let streamMsgs: AdltMsg[] = [];
-                let report = new DltReport(context, this, streamMsgs, (r: DltReport) => { // todo msgs
+                //let streamMsgs: AdltMsg[] = [];
+                let report = new DltReport(context, this, (r: DltReport) => { // todo msgs
                     console.log(`onOpenReport onDispose called... #reports=${this._reports.length}`);
                     const idx = this._reports.indexOf(r);
                     if (idx >= 0) {
@@ -1445,22 +1448,26 @@ export class AdltDocument implements vscode.Disposable {
                     this.sendAndRecvAdltMsg(`stop ${streamObj.id}`).then(() => { });
                     console.log(`onOpenReport onDispose done #reports=${this._reports.length}`);
                 });
+                let singleReport = report.addFilter(filter);
+                if (singleReport !== undefined) {
+                    let streamMsgs = singleReport.msgs as AdltMsg[];
+                    // here some data might be already there for that stream.
+                    // this can happen even though the wss data arrives sequentially but the processing
+                    // here for wss data is a direct call vs. an asyn .then()...
+                    let curStreamMsgData = this.streamMsgs.get(streamObj.id);
+                    let streamData = { msgs: streamMsgs, sink: singleReport };
+                    this.streamMsgs.set(streamObj.id, streamData);
+                    if (curStreamMsgData && Array.isArray(curStreamMsgData)) {
+                        // process the data now:
+                        curStreamMsgData.forEach((msgs) => this.processBinDltMsgs(msgs, streamObj.id, streamData));
+                    }
 
-                // here some data might be already there for that stream.
-                // this can happen even though the wss data arrives sequentially but the processing
-                // here for wss data is a direct call vs. an asyn .then()...
-                let curStreamMsgData = this.streamMsgs.get(streamObj.id);
-                let streamData = { msgs: streamMsgs, sink: report };
-                this.streamMsgs.set(streamObj.id, streamData);
-                if (curStreamMsgData && Array.isArray(curStreamMsgData)) {
-                    // process the data now:
-                    curStreamMsgData.forEach((msgs) => this.processBinDltMsgs(msgs, streamObj.id, streamData));
+                    this._reports.push(report); // todo implement Disposable for DltDocument as well so that closing a doc closes the report as well
+
+                    return report;
+                } else {
+                    return undefined;
                 }
-
-                this._reports.push(report); // todo implement Disposable for DltDocument as well so that closing a doc closes the report as well
-                report.addFilter(filter);
-                return report;
-
             });
         }
     }
