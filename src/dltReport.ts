@@ -52,7 +52,8 @@ interface DataSet {
     data: DataPoint[],
     yLabels?: string[],
     yAxis?: any,
-    group?: string
+    group?: string,
+    valuesMap?: Map<string, string>, // optional map of values from filter.reportOptions."valueMap"
 }
 
 /**
@@ -74,8 +75,37 @@ class SingleReport implements NewMessageSink {
     convFunctionCache = new Map<DltFilter, [Function | undefined, Object]>();
     reportObj = {}; // an object to store e.g. settings per report from a filter
 
+    constructor(private dltReport: DltReport, private doc: ReportDocument, public filters: DltFilter[]) {
+        for (let f = 0; f < filters.length; ++f) {
+            const filter = filters[f];
+            if (filter.reportOptions) {
+                try {
+                    if ('title' in filter.reportOptions) {
+                        let title = filter.reportOptions.title;
+                        if (typeof title === 'string') {
+                            this.reportTitles.push(title);
+                        } else if (typeof title === 'boolean') { // with boolean we do use the filter.name from configOptions (not the auto gen one)
+                            if (title === true && 'name' in filter.configOptions && typeof filter.configOptions.name === 'string') {
+                                this.reportTitles.push(filter.configOptions.name);
+                            }
+                        } else {
+                            console.warn(`dltReport: unsupported type for reportOptions.title. expect string or boolean got ${typeof title}`);
+                        }
+                    }
+                    if ('groupPrio' in filter.reportOptions) { // todo move to init phase
+                        const groupPrio = filter.reportOptions.groupPrio;
+                        Object.keys(groupPrio).forEach((groupName) => {
+                            this.dataSetsGroupPrios[groupName] = Number(groupPrio[groupName]);
+                            console.log(`dltReport groupPrios=${JSON.stringify(this.dataSetsGroupPrios)}`);
+                        });
+                    }
+                } catch (err) {
+                    console.log(`SingleReport(...) got error '${err}' processing reportOptions.`);
+                }
+            }
+        }
 
-    constructor(private dltReport: DltReport, private doc: ReportDocument, public filters: DltFilter[]) { }
+    }
 
     onNewMessages(nrNewMsgs: number) {
         // todo
@@ -178,141 +208,24 @@ class SingleReport implements NewMessageSink {
 
             // support "lazy" evaluation mainly for TL_...
             // if datapoint.y is an object with an entry 'y' we replace that with the entry.
-            this.dataSets.forEach((data) => { data.data.forEach(dp => { if (typeof (dp.y) === 'object') { if (dp.y.y) { dp.y = dp.y.y; } } }); });
+            this.dataSets.forEach((dataSet) => {
+                dataSet.data.forEach(dp => {
+                    // lazy/late eval:
+                    if (typeof (dp.y) === 'object') { if (dp.y.y) { dp.y = dp.y.y; } }
+                });
+                // valueMap?
+                if (dataSet.valuesMap !== undefined) {
+                    const valuesMap = dataSet.valuesMap;
+                    dataSet.data.forEach((data) => {
+                        const newY = valuesMap.get(<string>data.y);
+                        if (newY) { data.y = newY; }
+                    });
+                }
+            });
             // todo: this needs to support "chunking" (e.g. objects changed from prev. call/update)
 
             console.log(` have ${this.dataSets.size} data sets`);
             //dataSets.forEach((data, key) => { console.log(`  ${key} with ${data.data.length} entries and ${data.yLabels?.length} yLabels`); });
-
-            this.reportTitles.length = 0; // empty -> todo move to init phase
-            for (let f = 0; f < this.filters.length; ++f) {
-                const filter = this.filters[f];
-                if (filter.reportOptions) {
-                    try {
-                        if ('title' in filter.reportOptions) {
-                            let title = filter.reportOptions.title;
-                            if (typeof title === 'string') {
-                                this.reportTitles.push(title);
-                            } else if (typeof title === 'boolean') { // with boolean we do use the filter.name from configOptions (not the auto gen one)
-                                if (title === true && 'name' in filter.configOptions && typeof filter.configOptions.name === 'string') {
-                                    this.reportTitles.push(filter.configOptions.name);
-                                }
-                            } else {
-                                console.warn(`dltReport: unsupported type for reportOptions.title. expect string or boolean got ${typeof title}`);
-                            }
-                        }
-                        if ('valueMap' in filter.reportOptions) {
-                            /*
-                            For valueMap we do expect an object where the keys/properties match to the dataset name
-                            and the property values are arrays with objects having one key/value property. E.g.
-                            "valueMap":{
-                                "STATE_a": [ // STATE_a is the name of the capture group from the regex capturing the value
-                                    {"value1":"mapped value 1"},
-                                    {"value2":"mapped value 2"}
-                                ] // so a captured value "value" will be mapped to "mapped value 2".
-                                // the y-axis will have the entries (from top): 
-                                //  mapped value 1
-                                //  mapped value 2
-                                //
-                            }
-                            */
-                            const valueMap = filter.reportOptions.valueMap;
-                            Object.keys(valueMap).forEach((value) => {
-                                console.log(` got valueMap.${value} : ${JSON.stringify(valueMap[value], null, 2)}`);
-                                // do we have a dataSet with that label?
-                                const dataSet = this.dataSets.get(value);
-                                if (dataSet) {
-                                    const valueMapMap: Array<any> = valueMap[value];
-                                    console.log(`  got dataSet with matching label. Adjusting yLabels (name and order) and values`);
-                                    if (dataSet.yLabels) {
-                                        let newYLabels: string[] = [];
-                                        // we add all the defined ones and '' (in reverse order so that order in settings object is the same as in the report)
-                                        let mapValues = new Map<string, string>();
-                                        for (let i = 0; i < valueMapMap.length; ++i) {
-                                            const mapping = valueMapMap[i]; // e.g. {"1" : "high"}
-                                            const key = Object.keys(mapping)[0];
-                                            const val = mapping[key];
-                                            newYLabels.unshift(val);
-                                            mapValues.set(key, val);
-                                        }
-                                        newYLabels.unshift('');
-                                        // add the non-mapped labels as well:
-                                        dataSet.yLabels.forEach((value) => {
-                                            const newY = mapValues.get(value);
-                                            if (!newY) {
-                                                if (!newYLabels.includes(value)) { newYLabels.push(value); }
-                                            }
-                                        });
-                                        // now change all dataPoint values:
-                                        dataSet.data.forEach((data) => {
-                                            const newY = mapValues.get(<string>data.y);
-                                            if (newY) { data.y = newY; }
-                                        });
-                                        dataSet.yLabels = newYLabels;
-                                    } else {
-                                        console.log(`   dataSet got no yLabels?`);
-                                    }
-                                }
-                            });
-                        }
-                        if ('yAxes' in filter.reportOptions) {
-                            const yAxes = filter.reportOptions.yAxes;
-                            Object.keys(yAxes).forEach((dataSetName) => {
-                                console.log(` got yAxes.'${dataSetName}' : ${JSON.stringify(yAxes[dataSetName], null, 2)}`);
-                                const dataSet = this.dataSets.get(dataSetName);
-                                if (dataSet) {
-                                    dataSet.yAxis = migrateAxesV2V3(yAxes[dataSetName]);
-                                } else {
-                                    const regEx = new RegExp(dataSetName);
-                                    let found = false;
-                                    for (const [name, dataSet] of this.dataSets.entries()) {
-                                        if (name.match(regEx) && dataSet.yAxis === undefined) {
-                                            dataSet.yAxis = migrateAxesV2V3(yAxes[dataSetName]);
-                                            found = true;
-                                            console.log(`  set yAxis for '${name}' from regex '${dataSetName}'`);
-                                        }
-                                    }
-                                    if (!found) {
-                                        console.warn(`  no dataSet found for yAxis '${dataSetName}'`);
-                                    }
-                                }
-                            });
-                        }
-                        if ('group' in filter.reportOptions) {
-                            const group = filter.reportOptions.group;
-                            Object.keys(group).forEach((dataSetName) => {
-                                console.log(` got group.'${dataSetName}' : ${JSON.stringify(group[dataSetName], null, 2)}`);
-                                const dataSet = this.dataSets.get(dataSetName);
-                                if (dataSet) {
-                                    dataSet.group = group[dataSetName];
-                                } else {
-                                    const regEx = new RegExp(dataSetName);
-                                    let found = false;
-                                    for (const [name, dataSet] of this.dataSets.entries()) {
-                                        if (name.match(regEx) && dataSet.yAxis === undefined) {
-                                            dataSet.group = group[dataSetName];
-                                            found = true;
-                                            console.log(`  set group for '${name}' from regex '${dataSetName}'`);
-                                        }
-                                    }
-                                    if (!found) {
-                                        console.warn(`  no dataSet found for group '${dataSetName}'`);
-                                    }
-                                }
-                            });
-                        }
-                        if ('groupPrio' in filter.reportOptions) { // todo move to init phase
-                            const groupPrio = filter.reportOptions.groupPrio;
-                            Object.keys(groupPrio).forEach((groupName) => {
-                                this.dataSetsGroupPrios[groupName] = Number(groupPrio[groupName]);
-                                console.log(`dltReport groupPrios=${JSON.stringify(this.dataSetsGroupPrios)}`);
-                            });
-                        }
-                    } catch (err) {
-                        console.log(`got error '${err}' processing reportOptions.`);
-                    }
-                }
-            }
 
             this.dataSets.forEach((data, label) => {
                 let dataNeedsSorting = false;
@@ -366,6 +279,105 @@ class SingleReport implements NewMessageSink {
 
     }
 
+    getDataSetProperties(forDataSetName: string): { yAxis?: any, group?: string, yLabels?: string[], valuesMap?: Map<string, string> } {
+        let yAxis: any | undefined = undefined;
+        let groupName: string | undefined = undefined;
+        let yLabels: string[] | undefined = undefined;
+        let valuesMap: Map<string, string> | undefined;
+        for (let f = 0; f < this.filters.length; ++f) {
+            const filter = this.filters[f];
+            if (filter.reportOptions) {
+                try {
+                    if (yAxis === undefined && 'yAxes' in filter.reportOptions) {
+                        const yAxes = filter.reportOptions.yAxes;
+                        for (let dataSetName of Object.keys(yAxes)) {
+                            //console.log(` got yAxes.'${dataSetName}' : ${JSON.stringify(yAxes[dataSetName], null, 2)}`);
+                            if (dataSetName === forDataSetName) {
+                                yAxis = migrateAxesV2V3(yAxes[dataSetName]);
+                                break;
+                            } else {
+                                const regEx = new RegExp(dataSetName);
+                                if (regEx.test(forDataSetName)) {
+                                    yAxis = migrateAxesV2V3(yAxes[dataSetName]);
+                                    break;
+                                    //console.log(`  set yAxis for '${name}' from regex '${dataSetName}'`);
+                                }
+                            }
+                        }
+                    }
+                    if (groupName === undefined && 'group' in filter.reportOptions) {
+                        const group = filter.reportOptions.group;
+                        for (let dataSetName of Object.keys(group)) {
+                            //console.log(` got group.'${dataSetName}' : ${JSON.stringify(group[dataSetName], null, 2)}`);
+                            if (dataSetName === forDataSetName) {
+                                groupName = group[dataSetName]; // todo map to string? (or allow numbers?)
+                                break;
+                            } else {
+                                const regEx = new RegExp(dataSetName);
+                                if (forDataSetName.match(regEx)) {  // todo??? why that && dataSet.yAxis === undefined) {
+                                    groupName = group[dataSetName];
+                                    break;
+                                    //console.log(`  set group for '${name}' from regex '${dataSetName}'`);
+                                }
+                            }
+                        }
+                    }
+                    if (yLabels === undefined && 'valueMap' in filter.reportOptions) {
+                        /*
+                        For valueMap we do expect an object where the keys/properties match to the dataset name
+                        and the property values are arrays with objects having one key/value property. E.g.
+                        "valueMap":{
+                            "STATE_a": [ // STATE_a is the name of the capture group from the regex capturing the value
+                                {"value1":"mapped value 1"},
+                                {"value2":"mapped value 2"}
+                            ] // so a captured value "value" will be mapped to "mapped value 2".
+                            // the y-axis will have the entries (from top): 
+                            //  mapped value 1
+                            //  mapped value 2
+                            //
+                        }
+                        */
+                        const valueMap = filter.reportOptions.valueMap;
+                        for (let dataSetName of Object.keys(valueMap)) {
+                            console.log(` got valueMap.${dataSetName} : ${JSON.stringify(valueMap[dataSetName], null, 2)}`);
+                            // do we have a dataSet with that label?
+                            if (dataSetName === forDataSetName) {
+                                const valueMapMap: Array<any> = valueMap[dataSetName];
+                                //console.log(`  got dataSet with matching label. Adjusting yLabels (name and order) and values`);
+                                //if (dataSet.yLabels) { if set we do always apply it
+                                yLabels = [];
+                                // we add all the defined ones and '' (in reverse order so that order in settings object is the same as in the report)
+                                valuesMap = new Map<string, string>();
+                                for (let i = 0; i < valueMapMap.length; ++i) {
+                                    const mapping = valueMapMap[i]; // e.g. {"1" : "high"}
+                                    const key = Object.keys(mapping)[0];
+                                    const val = mapping[key];
+                                    yLabels.unshift(val);
+                                    valuesMap.set(key, val);
+                                }
+                                yLabels.unshift('');
+                                /*} else {
+                                    console.log(`   dataSet got no yLabels?`);
+                                }*/
+
+                            }
+                        }
+                    }
+
+                } catch (err) {
+                    console.log(`SingleReport.getDataSetProperties('${forDataSetName}') got error '${err}' processing reportOptions.`);
+                }
+            }
+            if (yAxis !== undefined && groupName !== undefined) { break; }
+        }
+        return {
+            yAxis: yAxis,
+            group: groupName,
+            yLabels: yLabels,
+            valuesMap: valuesMap,
+        };
+    }
+
     leftNeighbor(data: any[], x: Date, lcId: number): any | undefined {
         // we assume data is sorted and contains x:Date and y: any
         let i = 0;
@@ -381,7 +393,6 @@ class SingleReport implements NewMessageSink {
         }
     }
 
-
     insertDataPoint(lifecycle: DltLifecycleInfoMinIF, label: string, time: Date, value: number | string | any, insertPrevState = false, insertYLabels = true) {
         let dataSet = this.dataSets.get(label);
 
@@ -391,7 +402,8 @@ class SingleReport implements NewMessageSink {
 
         const dataPoint = { x: time, y: value, lcId: lifecycle.persistentId };
         if (!dataSet) {
-            dataSet = { data: [dataPoint] };
+            const { yAxis, group, yLabels, valuesMap } = this.getDataSetProperties(label);
+            dataSet = { data: [dataPoint], yAxis: yAxis, group: group, yLabels: yLabels, valuesMap: valuesMap };
             this.dataSets.set(label, dataSet);
             this.lastDataPoints.set(label, dataPoint);
         } else {
@@ -417,7 +429,15 @@ class SingleReport implements NewMessageSink {
                 //console.log(`adding yLabel '${label}'`);
             } else {
                 const yLabels = dataSet.yLabels;
-                if (!yLabels.includes(label)) { yLabels.push(label); /* console.log(`adding yLabel '${label}'`); */ }
+                if (dataSet.valuesMap !== undefined) {
+                    // add it only if the mapped value doesn't exist
+                    const newY = dataSet.valuesMap.get(label);
+                    if (!newY) {
+                        if (!yLabels.includes(value)) { yLabels.push(value); }
+                    }
+                } else {
+                    if (!yLabels.includes(label)) { yLabels.push(label); }
+                }
             }
         }
     }
