@@ -65,8 +65,6 @@ class SingleReport implements NewMessageSink {
     public msgs: Array<FilterableDltMsg> = [];
     public pruneMsgsAfterProcessing: boolean = true;
     public dataSets: Map<string, DataSet> = new Map<string, DataSet>();
-    // we keep the last data point by each "label"/data source name:
-    lastDataPoints: Map<string, DataPoint> = new Map<string, DataPoint>();
     public minDataPointTime?: Date;
 
     public warnings: string[] = [];
@@ -197,7 +195,7 @@ class SingleReport implements NewMessageSink {
                                     } else {
                                         const value: number = Number.parseFloat(matches[matches.length - 1]);
                                         // console.log(` event filter '${filter.name}' matched at index ${i} with value '${value}'`);
-                                        this.insertDataPoint(msg.lifecycle, `values_${f}`, time, value);
+                                        this.insertDataPoint(msg.lifecycle, `values_${f}`, time, value); // todo f needs a start idx if not changed later in DltReport to non duplicate names
                                     }
                                 }
                             }
@@ -218,7 +216,7 @@ class SingleReport implements NewMessageSink {
                     const valuesMap = dataSet.valuesMap;
                     dataSet.data.forEach((data) => {
                         const newY = valuesMap.get(<string>data.y);
-                        if (newY) { data.y = newY; }
+                        if (newY) { data.y = newY; } // todo this conflicts with last state detection above!
                     });
                 }
             });
@@ -227,54 +225,6 @@ class SingleReport implements NewMessageSink {
             console.log(` have ${this.dataSets.size} data sets`);
             //dataSets.forEach((data, key) => { console.log(`  ${key} with ${data.data.length} entries and ${data.yLabels?.length} yLabels`); });
 
-            this.dataSets.forEach((data, label) => {
-                let dataNeedsSorting = false;
-
-                // add some NaN data at the end of each lifecycle to get real gaps (and not interpolated line)
-                this.doc.lifecycles.forEach((lcInfos) => {
-                    lcInfos.forEach((lcInfo) => {
-                        //console.log(`checking lifecycle ${lcInfo.uniqueId}`);
-                        if (data.yLabels !== undefined) {
-                            // for STATE_ or TL_ we want a different behaviour.
-                            // we treat datapoints/events as state changes that persists
-                            // until there is a new state.
-                            // search the last value:
-                            const lastState = this.leftNeighbor(data.data, lcInfo.lifecycleEnd, lcInfo.persistentId);
-                            //console.log(`got lastState = ${lastState}`);
-                            if (lastState !== undefined) {
-                                data.data.push({ x: new Date(lcInfo.lifecycleEnd.valueOf() - 1), y: lastState, lcId: lcInfo.persistentId, t_: DataPointType.PrevStateEnd });
-                                data.data.push({ x: lcInfo.lifecycleEnd, y: null /*'_unus_lbl_'*/, lcId: lcInfo.persistentId, t_: DataPointType.LifecycleEnd });
-                                // need to sort already here as otherwise those data points are found...
-                                data.data.forEach((d, index) => d.idx_ = index);
-                                data.data.sort((a, b) => {
-                                    const valA = a.x.valueOf();
-                                    const valB = b.x.valueOf();
-                                    if (valA < valB) { return -1; }
-                                    if (valA > valB) { return 1; }
-                                    return a.idx_! - b.idx_!; // if same time keep order!
-                                });
-                                data.data.forEach((d) => delete d.idx_);
-                            }
-                        } else {
-                            data.data.push({ x: lcInfo.lifecycleEnd, y: NaN, lcId: lcInfo.persistentId, t_: DataPointType.LifecycleEnd }); // todo not quite might end at wrong lifecycle. rethink whether one dataset can come from multiple LCs
-                            dataNeedsSorting = true;
-                        }
-                    });
-                });
-                if (dataNeedsSorting) {
-                    // javascript sort is by definition not stable...
-                    // so we add the index first to prevent a .indexOf(a), .indexOf(b) search...
-                    data.data.forEach((d, index) => d.idx_ = index);
-                    data.data.sort((a, b) => {
-                        const valA = a.x.valueOf();
-                        const valB = b.x.valueOf();
-                        if (valA < valB) { return -1; }
-                        if (valA > valB) { return 1; }
-                        return a.idx_! - b.idx_!;
-                    });
-                    data.data.forEach((d) => delete d.idx_);
-                }
-            });
         }
 
     }
@@ -393,6 +343,28 @@ class SingleReport implements NewMessageSink {
         }
     }
 
+
+    /**
+     * append a new data point for the dataset associated with the label
+     * @param lifecycle lifecycle for the new data point
+     * @param label data set name
+     * @param time x-axis value = time
+     * @param value y-axis value
+     * @param insertPrevState used for STATE_ type values only (TL_ doesn't need it). default false
+     * @param insertYLabels shall y-axis labels be added for the value (if the value is typeof string). Not used for TL_. default true
+     * 
+     * Determines as well the `minDataPointTime` as the earliest time by any data point inserted.
+     * 
+     * For STATE_ type values (insertPrevState) there are always two data points added to each lifecycle that contains values:
+     *  - the prev. value at lifecycle end
+     *  - a null value at lifecycle end
+     * 
+     * to get "state" alike charts where the value is constant till the end of the lifecycle.
+     * 
+     * For all other type values (!insertPrevState): there is one data point added at lifecycle end with "NaN" value.
+     * This is to stop interpolation between values. 
+     * 
+     */
     insertDataPoint(lifecycle: DltLifecycleInfoMinIF, label: string, time: Date, value: number | string | any, insertPrevState = false, insertYLabels = true) {
         let dataSet = this.dataSets.get(label);
 
@@ -400,26 +372,84 @@ class SingleReport implements NewMessageSink {
             this.minDataPointTime = time;
         }
 
-        const dataPoint = { x: time, y: value, lcId: lifecycle.persistentId };
+        const lcId = lifecycle.persistentId;
+        const dataPoint = { x: time, y: value, lcId: lcId };
         if (!dataSet) {
             const { yAxis, group, yLabels, valuesMap } = this.getDataSetProperties(label);
-            dataSet = { data: [dataPoint], yAxis: yAxis, group: group, yLabels: yLabels, valuesMap: valuesMap };
+            const data: DataPoint[] = [dataPoint];
+            if (insertPrevState) { // add the two ending data points:
+                data.push({ x: new Date(lifecycle.lifecycleEnd.valueOf() - 1), y: value, lcId: lcId, t_: DataPointType.PrevStateEnd });
+                data.push({ x: lifecycle.lifecycleEnd, y: null /*'_unus_lbl_'*/, lcId: lcId, t_: DataPointType.LifecycleEnd });
+            } else {
+                data.push({ x: lifecycle.lifecycleEnd, y: NaN, lcId: lcId, t_: DataPointType.LifecycleEnd }); // todo not quite might end at wrong lifecycle. rethink whether one dataset can come from multiple LCs
+            }
+            dataSet = { data: data, yAxis: yAxis, group: group, yLabels: yLabels, valuesMap: valuesMap };
             this.dataSets.set(label, dataSet);
-            this.lastDataPoints.set(label, dataPoint);
         } else {
             if (insertPrevState) {
+                const lcEndDP = dataSet.data.pop();
+                const prevValueDP = dataSet.data.pop();
+                if (lcEndDP && prevValueDP) {
                 // do we have a prev. state in same lifecycle?
-                const lastDP = this.lastDataPoints.get(label);
-                if (lastDP) {
-                    const prevStateDP = { x: new Date(time.valueOf() - 1), y: lastDP.y, lcId: lastDP.lcId, t_: DataPointType.PrevStateEnd };
-                    if (prevStateDP.y !== dataPoint.y && dataPoint.lcId === prevStateDP.lcId && prevStateDP.x.valueOf() > lastDP.x.valueOf()) {
-                        // console.log(`inserting prev state datapoint with y=${prevStateDP.y}`);
-                        dataSet.data.push(prevStateDP);
+                    if (lcId === prevValueDP.lcId) { // same lifecycle
+                        // update lifecycle end as it might have changed
+                        if (lcEndDP.x !== lifecycle.lifecycleEnd) {
+                            lcEndDP.x = lifecycle.lifecycleEnd;
+                            prevValueDP.x = new Date(lcEndDP.x.valueOf() - 1);
+                        }
+
+                        // two cases: 
+                        // a) same value as prev value
+                        // b) different value as prev value
+                        if (prevValueDP.y === value) { // a) same value
+                            // simply insert new data point (could be without but we want to see single points)
+                            dataSet.data.push(dataPoint);
+                            dataSet.data.push(prevValueDP);
+                            dataSet.data.push(lcEndDP);
+                        } else { // b) different value
+                            const prevDP = dataSet.data.pop();
+                            if (prevDP) {
+                                dataSet.data.push(prevDP);
+                                // insert new prevDP
+                                const prevStateDP = { x: new Date(time.valueOf() - 1), y: prevDP.y, lcId: prevDP.lcId, t_: DataPointType.PrevStateEnd };
+                                if (prevStateDP.x > prevDP.x) {
+                                    dataSet.data.push(prevStateDP);
+                                }
+                            }
+                            dataSet.data.push(dataPoint);
+                            // update prevValueDP
+                            prevValueDP.y = value;
+                            dataSet.data.push(prevValueDP);
+                            dataSet.data.push(lcEndDP);
+                        }
+                    } else { // new lifecycle
+                        dataSet.data.push(prevValueDP);
+                        dataSet.data.push(lcEndDP);
+                        dataSet.data.push(dataPoint);
+                        // add the two ending data points for the new lifecycle:
+                        dataSet.data.push({ x: new Date(lifecycle.lifecycleEnd.valueOf() - 1), y: value, lcId: lcId, t_: DataPointType.PrevStateEnd });
+                        dataSet.data.push({ x: lifecycle.lifecycleEnd, y: null /*'_unus_lbl_'*/, lcId: lcId, t_: DataPointType.LifecycleEnd });
+                    }
+                } else { // should not happen. anyhow insert the data point
+                    dataSet.data.push(dataPoint);
+                }
+            } else {
+                // did we cross a lifecycle border?
+                // compare with last element: (we do know there is always one as otherwise we're in the uppdate !dataSet case)
+                let lcEndDP = dataSet.data.pop();
+                if (lcEndDP && lcEndDP.lcId !== dataPoint.lcId) { // new lifecycle
+                    dataSet.data.push(lcEndDP!);
+                    dataSet.data.push(dataPoint);
+                    dataSet.data.push({ x: lifecycle.lifecycleEnd, y: NaN, lcId: lcId, t_: DataPointType.LifecycleEnd }); // todo not quite might end at wrong lifecycle. rethink whether one dataset can come from multiple LCs
+                } else { // same lifecycle:
+                    dataSet.data.push(dataPoint);
+                    // update lifecycle end as it might have changed
+                    if (lcEndDP && lcEndDP.x !== lifecycle.lifecycleEnd) {
+                        lcEndDP.x = lifecycle.lifecycleEnd;
+                        dataSet.data.push(lcEndDP);
                     }
                 }
             }
-            dataSet.data.push(dataPoint);
-            this.lastDataPoints.set(label, dataPoint);
         }
         // yLabels?
         if (typeof value === 'string' && insertYLabels) {
@@ -449,7 +479,13 @@ class SingleReport implements NewMessageSink {
         }
     };
 
-
+    getLifecycleById(lcId: number): DltLifecycleInfoMinIF | undefined {
+        for (let [ecu, lcInfos] of this.doc.lifecycles) {
+            let lc = lcInfos.find((l) => l.persistentId === lcId);
+            if (lc !== undefined) { return lc; }
+        }
+        return undefined;
+    }
 }
 
 export class DltReport implements vscode.Disposable {
@@ -702,3 +738,16 @@ const migrateAxesV2V3 = function (axis: any): any {
     }
 };
 
+/**
+ * Compare two datapoints by x-axis / timestamp. If they have the same timestamp the .idx_ is used.
+ * @param a Datapoint
+ * @param b Datapoint
+ * @returns -1 if a is earlier, 1 if b is earlier, 0 if equal.
+ */
+const cmpDataPoints = function (a: DataPoint, b: DataPoint): number {
+    const valA = a.x.valueOf();
+    const valB = b.x.valueOf();
+    if (valA < valB) { return -1; }
+    if (valA > valB) { return 1; }
+    return a.idx_! - b.idx_!;
+};
