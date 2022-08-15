@@ -91,7 +91,7 @@ class SingleReport implements NewMessageSink {
                             console.warn(`dltReport: unsupported type for reportOptions.title. expect string or boolean got ${typeof title}`);
                         }
                     }
-                    if ('groupPrio' in filter.reportOptions) { // todo move to init phase
+                    if ('groupPrio' in filter.reportOptions) {
                         const groupPrio = filter.reportOptions.groupPrio;
                         Object.keys(groupPrio).forEach((groupName) => {
                             this.dataSetsGroupPrios[groupName] = Number(groupPrio[groupName]);
@@ -334,22 +334,6 @@ class SingleReport implements NewMessageSink {
             valuesMap: valuesMap,
         };
     }
-
-    leftNeighbor(data: any[], x: Date, lcId: number): any | undefined {
-        // we assume data is sorted and contains x:Date and y: any
-        let i = 0;
-        for (i = 0; i < data.length; ++i) {
-            if (data[i].x.valueOf() >= x.valueOf()) {
-                break;
-            }
-        }
-        if (i > 0 && data[i - 1].lcId === lcId) {
-            return data[i - 1].y;
-        } else {
-            return undefined;
-        }
-    }
-
 
     /**
      * append a new data point for the dataset associated with the label
@@ -729,8 +713,7 @@ export class DltReport implements vscode.Disposable {
         let datasetArray: any[] = [];
         this.singleReports.forEach((singleReport, index) => {
             singleReport.dataSets.forEach((data, label) => {
-
-                    // todo check if label exists already and add e.g :index ?
+                // todo check if label exists already and add e.g :index ? (seems not to harm)
                 datasetArray.push({ label: label, dataYLabels: data, type: label.startsWith('EVENT_') ? 'scatter' : 'line', yAxis: data.yAxis, group: data.group });
             });
         });
@@ -771,18 +754,4 @@ const migrateAxesV2V3 = function (axis: any): any {
     } else {
         return axis;
     }
-};
-
-/**
- * Compare two datapoints by x-axis / timestamp. If they have the same timestamp the .idx_ is used.
- * @param a Datapoint
- * @param b Datapoint
- * @returns -1 if a is earlier, 1 if b is earlier, 0 if equal.
- */
-const cmpDataPoints = function (a: DataPoint, b: DataPoint): number {
-    const valA = a.x.valueOf();
-    const valB = b.x.valueOf();
-    if (valA < valB) { return -1; }
-    if (valA > valB) { return 1; }
-    return a.idx_! - b.idx_!;
 };
