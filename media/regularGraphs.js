@@ -298,7 +298,7 @@ const selectedTimeAnnotations = [{
     borderDash: [2, 2],
     label: {
         content: 'selected',
-        enabled: true,
+        display: true,
         position: "start",
         backgroundColor: vscodeStyles.getPropertyValue('--vscode-editor-background'), // 'rgba(0,0,0,0)' todo or fully transparent?
         font: {

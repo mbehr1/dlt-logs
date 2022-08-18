@@ -880,9 +880,9 @@
 	"dependencies": {
 		"@vscode/codicons": "^0.0.31",
 		"@vscode/webview-ui-toolkit": "^1.0.0",
-		"chart.js": "^3.8.0",
+		"chart.js": "^3.9.1",
 		"chartjs-adapter-moment": "^1.0.0",
-		"chartjs-plugin-annotation": "^1.4.0",
+		"chartjs-plugin-annotation": "^2.0.0",
 		"chartjs-plugin-zoom": "^1.2.1",
 		"color-name": "^1.1.4",
 		"fast-xml-parser": "^3.19.0",
