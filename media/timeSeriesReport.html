@@ -369,7 +369,8 @@
 
         const lcInfoEcuColorsMap = new Map(); // map string (ecu) to color
         const lcInfoEcuColors = ['rgba(165, 214, 167, 0.3)', 'rgba(185,212,227,0.3)', 'rgba(100, 100, 100, 0.3)'];
-        const lcInfoEcuBorderDashes = [[2,3], [4,4], [3,3]];
+        const lcInfoEcuBorderDashes = [[6,10], [3,5], [3,3]];
+        const lcInfoEcuYLevels = [95,85,80,75,70];
         const updateLcInfosAnnotations = (lcInfos) => {
             // lcInfos is LCInfoForReport[]
             while (lcInfos.length > lcAnnotations.length){
@@ -385,14 +386,17 @@
                     lcAnnotation.xMax = lcInfo.endDate;
                     lcAnnotation.label.content = `${lcInfo.ecu} LC#${lcInfo.ecuLcNr}`;
                     // determine color:
-                    let {color, dash} = lcInfoEcuColorsMap.get(lcInfo.ecu)||{color:undefined, dash: undefined};
+                    let {color, dash, yLevel} = lcInfoEcuColorsMap.get(lcInfo.ecu)||{color:undefined, dash: undefined, yLevel: undefined};
                     if (color === undefined){
                         color = lcInfoEcuColors[lcInfoEcuColorsMap.size % lcInfoEcuColors.length];
                         dash = lcInfoEcuBorderDashes[lcInfoEcuColorsMap.size % lcInfoEcuBorderDashes.length];
-                        lcInfoEcuColorsMap.set(lcInfo.ecu, {color: color, dash: dash});
+                        yLevel = lcInfoEcuYLevels[lcInfoEcuColorsMap.size % lcInfoEcuYLevels.length];
+                        lcInfoEcuColorsMap.set(lcInfo.ecu, {color: color, dash: dash, yLevel: yLevel});
                     }
                     lcAnnotation.borderColor = color;
                     lcAnnotation.borderDash = dash;
+                    lcAnnotation.yMin = yLevel;// or for slightly ascending -1;
+                    lcAnnotation.yMax = yLevel; // +1;
                 }else{
                     lcAnnotation.xMin = null;
                 }

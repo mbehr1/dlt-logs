@@ -316,17 +316,18 @@ const selectedTimeAnnotations = [{
 const lcAnnotations = [{
     id: 'lc',
     xScaleID: 'x-axis-0',
+    yScaleID: 'y-lc',
     drawTime: 'beforeDatasetsDraw',
     type: 'line',
     borderColor: 'rgba(165, 214, 167, 0.2)', // will be set to different colors depending on ecu
-    borderWidth: 3,
+    borderWidth: 1,
     borderDash: [2, 2],
-    enter: ({ element }, event) => { element.label.options.color=vscodeStyles.getPropertyValue('--vscode-tab-activeForeground'); element.options.borderWidth = 5; return true; },
-    leave: ({ element }, event) => { element.options.borderWidth = 3; element.label.options.color=vscodeStyles.getPropertyValue('--vscode-tab-inactiveForeground'); return true; },
+    enter: ({ element }, event) => { element.label.options.color=vscodeStyles.getPropertyValue('--vscode-tab-activeForeground'); element.options.borderWidth = 3; return true; },
+    leave: ({ element }, event) => { element.options.borderWidth = 1; element.label.options.color=vscodeStyles.getPropertyValue('--vscode-tab-inactiveForeground'); return true; },
     label: {
         content: 'lifecycle',
-        display: true,
-        rotation: 'auto',
+        display: ({element})=>{ return element.width < 50 ? false : true; },
+        rotation: ({element})=>{ return element.width < 100 ? 90 : 0; },
         position: { x: 'center', y: 'start' },
         backgroundColor: vscodeStyles.getPropertyValue('--vscode-editor-background'), // 'rgba(0,0,0,0)' todo or fully transparent?
         font: {
@@ -338,15 +339,21 @@ const lcAnnotations = [{
     },
     arrowHeads: {
         start: {
-            display: true,
-            borderColor: 'rgba(165, 214, 167, 0.2)'
+            display: ({element})=>{ return element.width < 50 ? false : true; },
+            borderColor: 'rgba(165, 214, 167, 0.2)',
+            borderWidth: 2,
+            borderDash: []
         },
         end: {
-            display: true,
-            borderColor: 'rgba(165, 214, 167, 0.2)'
+            display: ({element})=>{ return element.width < 50 ? false : true; },
+            borderColor: 'rgba(165, 214, 167, 0.2)',
+            borderWidth: 2,
+            borderDash:[]
         }
     },
     xMin: null, // we use xMin and xMax
+    yMin: 95,
+    yMax: 95,
     tag_: 'lc' // I hope tag_ is unused by the plugin. 'msg' used for cur. selected msg(s) and 'tl' for selected timeline element
     // pinned_: Number>0|undefined ... will be set by editAnnotations Pin/UnpinBtn
 }];
@@ -411,6 +418,17 @@ const graphConfigTemplate = {
                 width: 100,
                 //afterSetDimensions: yAxisAfterSetDimensions,
                 //afterFit: axisAfterFit,
+            },
+            'y-lc':{ // y-axis for lifecycle annotations
+                id: 'y-lc',
+                display: false,
+                position: 'left',
+                title:{
+                    display: false,
+                    text: 'LCs'
+                },
+                min: 0,
+                max: 100, // percentage alike
             }
         },
         animation: { duration: 0, active: { duration: 0 }, resize: { duration: 0 } },
