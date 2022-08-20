@@ -207,7 +207,7 @@ const handlePanZoomComplete = ({ chart }) => {
     // apply to other graphs:
     graphs.forEach((graph, graphId) => {
         if (graph.chart !== chart) {
-            console.log(`handlePanZoomComplete syncing id:${graphId} min=${chart.scales['x-axis-0'].min} max=${chart.scales['x-axis-0'].max}`);
+            //console.log(`handlePanZoomComplete syncing id:${graphId} min=${chart.scales['x-axis-0'].min} max=${chart.scales['x-axis-0'].max}`);
             graphsSetStartEndDate(minDate, maxDate, graphId);
         }
     });
@@ -261,10 +261,10 @@ const axisAfterFit = (axis) => {
 };*/
 
 
-const graphsResetZoom = () => {
+const graphsResetZoom = (minTime) => {
     graphs.forEach((graph) => {
         // have to delete them as timelineChart zoom might have set them
-        graph.config.options.scales['x-axis-0'].min = undefined;
+        graph.config.options.scales['x-axis-0'].min = minTime !== undefined ? minTime : undefined;
         graph.config.options.scales['x-axis-0'].max = undefined;
         graph.chart.update();
         //graph.chart.resetZoom(); // this triggers a handlePanZoomComplete... that triggers graphsSetStartEndDate... seems not needed

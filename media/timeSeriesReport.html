@@ -406,6 +406,10 @@
             updateGraphs();
         }
 
+        let graphResetTime = {
+            minTime: undefined,
+        };
+
         window.addEventListener('message', event => {
             try {
                 const message = event.data;
@@ -515,23 +519,30 @@
             }
         });
 
-        let lcStartDate = [];
-
         window.toggleLifecycleStart = function (checkbox) {
-            console.log("toggleLifecycleStart checkbox " + lcStartDate.length, checkbox.checked);
+            console.log("toggleLifecycleStart checkbox " + checkbox.checked);
             // checkbox.checked contains the prev value
-            if (!checkbox.checked && lcStartDate.length > 0) { // we're currently not showing
-                graphsCommonXLabels.shift(); // remove minDataPointTime
+            if (!checkbox.checked ){ // we want to see the lc start:
+                graphResetTime.minTime = undefined;
+                graphs.forEach((graph) => {
+                        graph.config.options.scales['x-axis-0'].min = undefined;
+                });
+                
+            } else if (checkbox.checked) {
+                // hide the time until first msg:
+                if (minDataPointTime) {
+                    graphResetTime.minTime = minDataPointTime;
+                    graphs.forEach((graph) => {
+                        graph.config.options.scales['x-axis-0'].min = minDataPointTime;
+                    });
+                    // if the minDataPointTime is not yet within the labels add it:
+                    if (!graphsCommonXLabels.includes(minDataPointTime)){
+                        let lcStartDate = [];
+                        while (graphsCommonXLabels.length > 0 && graphsCommonXLabels[0].valueOf() <= minDataPointTime.valueOf()) { lcStartDate.push(graphsCommonXLabels.shift()); }
+                        graphsCommonXLabels.unshift(minDataPointTime);
                 for (let i = lcStartDate.length - 1; i >= 0; --i) {
                     graphsCommonXLabels.unshift(lcStartDate[i]);
                 }
-                lcStartDate = [];
-            } else if (checkbox.checked) {
-                // remove labels <= minDataPointTime:
-                if (minDataPointTime) {
-                    while (graphsCommonXLabels.length > 0 && graphsCommonXLabels[0].valueOf() <= minDataPointTime.valueOf()) { lcStartDate.push(graphsCommonXLabels.shift()); }
-                    if (lcStartDate.length > 0) {
-                        graphsCommonXLabels.unshift(minDataPointTime); // add minDataPointTime
                     }
                 }
             }
@@ -539,7 +550,7 @@
         }
 
         window.resetZoom = function () {
-            graphsResetZoom();
+            graphsResetZoom(graphResetTime.minTime);
         }
 
         window.toggleDragMode = function () {
