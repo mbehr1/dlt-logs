@@ -888,7 +888,7 @@
 		"fast-xml-parser": "^3.19.0",
 		"hammerjs": "^2.0.8",
 		"hw-chartjs-plugin-colorschemes": "0.5.4",
-		"moment": "^2.29.3",
+		"moment": "^2.29.4",
 		"semver": "^7.3.7",
 		"timelines-chart": "^2.11.5",
 		"uuid": "^8.3.2",
