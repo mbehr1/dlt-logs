@@ -313,6 +313,44 @@ const selectedTimeAnnotations = [{
     // pinned_: Number>0|undefined ... will be set by editAnnotations Pin/UnpinBtn
 }];
 
+const lcAnnotations = [{
+    id: 'lc',
+    xScaleID: 'x-axis-0',
+    drawTime: 'beforeDatasetsDraw',
+    type: 'line',
+    borderColor: 'rgba(165, 214, 167, 0.2)', // will be set to different colors depending on ecu
+    borderWidth: 3,
+    borderDash: [2, 2],
+    enter: ({ element }, event) => { element.label.options.color=vscodeStyles.getPropertyValue('--vscode-tab-activeForeground'); element.options.borderWidth = 5; return true; },
+    leave: ({ element }, event) => { element.options.borderWidth = 3; element.label.options.color=vscodeStyles.getPropertyValue('--vscode-tab-inactiveForeground'); return true; },
+    label: {
+        content: 'lifecycle',
+        display: true,
+        rotation: 'auto',
+        position: { x: 'center', y: 'start' },
+        backgroundColor: vscodeStyles.getPropertyValue('--vscode-editor-background'), // 'rgba(0,0,0,0)' todo or fully transparent?
+        font: {
+            size: 8, // todo could use font-size but then the yAdjust needs to take this into account as well
+            family: vscodeStyles.getPropertyValue('--vscode-editor-font-family'),
+        },
+        color: vscodeStyles.getPropertyValue('--vscode-tab-inactiveForeground'),
+        padding: 2
+    },
+    arrowHeads: {
+        start: {
+            display: true,
+            borderColor: 'rgba(165, 214, 167, 0.2)'
+        },
+        end: {
+            display: true,
+            borderColor: 'rgba(165, 214, 167, 0.2)'
+        }
+    },
+    xMin: null, // we use xMin and xMax
+    tag_: 'lc' // I hope tag_ is unused by the plugin. 'msg' used for cur. selected msg(s) and 'tl' for selected timeline element
+    // pinned_: Number>0|undefined ... will be set by editAnnotations Pin/UnpinBtn
+}];
+
 
 const graphsCommonXLabels = [];
 

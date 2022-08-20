@@ -367,6 +367,44 @@
             }
         };
 
+        const lcInfoEcuColorsMap = new Map(); // map string (ecu) to color
+        const lcInfoEcuColors = ['rgba(165, 214, 167, 0.3)', 'rgba(185,212,227,0.3)', 'rgba(100, 100, 100, 0.3)'];
+        const lcInfoEcuBorderDashes = [[2,3], [4,4], [3,3]];
+        const updateLcInfosAnnotations = (lcInfos) => {
+            // lcInfos is LCInfoForReport[]
+            while (lcInfos.length > lcAnnotations.length){
+                const newAnn = {...lcAnnotations[0], label: {...lcAnnotations[0].label }, xMin: null, id: lcAnnotations[0].id + `_${lcAnnotations.length+1}`, pinned_:undefined, desc_:undefined};
+                lcAnnotations.push(newAnn);
+            }
+            for (let i=0; i<lcAnnotations.length; ++i){
+                let lcAnnotation = lcAnnotations[i];
+                const hadSelectedTime = lcAnnotation.xMin !== null;
+                if (i < lcInfos.length){
+                    let lcInfo = lcInfos[i];
+                    lcAnnotation.xMin = lcInfo.isResume ? lcInfo.resumeDate : lcInfo.startDate;
+                    lcAnnotation.xMax = lcInfo.endDate;
+                    lcAnnotation.label.content = `${lcInfo.ecu} LC#${lcInfo.ecuLcNr}`;
+                    // determine color:
+                    let {color, dash} = lcInfoEcuColorsMap.get(lcInfo.ecu)||{color:undefined, dash: undefined};
+                    if (color === undefined){
+                        color = lcInfoEcuColors[lcInfoEcuColorsMap.size % lcInfoEcuColors.length];
+                        dash = lcInfoEcuBorderDashes[lcInfoEcuColorsMap.size % lcInfoEcuBorderDashes.length];
+                        lcInfoEcuColorsMap.set(lcInfo.ecu, {color: color, dash: dash});
+                    }
+                    lcAnnotation.borderColor = color;
+                    lcAnnotation.borderDash = dash;
+                }else{
+                    lcAnnotation.xMin = null;
+                }
+                const haveSelectedTime = lcAnnotation.xMin !== null;
+                if (haveSelectedTime && !hadSelectedTime){
+                    graphsCommonOptions.plugins.annotation.annotations[lcAnnotation.id] = lcAnnotation;
+                } else if (hadSelectedTime && !haveSelectedTime){
+                    delete graphsCommonOptions.plugins.annotation.annotations[lcAnnotation.id];
+                }
+            }
+        };
+
         const updateSelectedTimeAnnotations = (times, tag) => {
             const tagAnnotations = selectedTimeAnnotations.filter(t => (t.tag_ === tag && !t.pinned_));
             while (times.length > tagAnnotations.length){
@@ -491,6 +529,13 @@
                             updateGraphs();
                         }
                         break;
+                    case 'update lcInfos':
+                        try{
+                            updateLcInfosAnnotations(message.lcInfos,  'lcInfo');
+                        }catch(e){
+                            console.warn(`update lcInfos got e='${e}'`);
+                        }
+                        break;
                     case 'update labels':
                         // we must not change the array obj but modify it:
                         graphsCommonXLabels.length = 0;
@@ -540,9 +585,9 @@
                         let lcStartDate = [];
                         while (graphsCommonXLabels.length > 0 && graphsCommonXLabels[0].valueOf() <= minDataPointTime.valueOf()) { lcStartDate.push(graphsCommonXLabels.shift()); }
                         graphsCommonXLabels.unshift(minDataPointTime);
-                for (let i = lcStartDate.length - 1; i >= 0; --i) {
-                    graphsCommonXLabels.unshift(lcStartDate[i]);
-                }
+                        for (let i = lcStartDate.length - 1; i >= 0; --i) {
+                            graphsCommonXLabels.unshift(lcStartDate[i]);
+                        }
                     }
                 }
             }
