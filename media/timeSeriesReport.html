@@ -368,7 +368,7 @@
         };
 
         const lcInfoEcuColorsMap = new Map(); // map string (ecu) to color
-        const lcInfoEcuColors = ['rgba(165, 214, 167, 0.3)', 'rgba(185,212,227,0.3)', 'rgba(100, 100, 100, 0.3)'];
+        const lcInfoEcuColors = ['rgba(0,200,0,0.8)',  'rgba(126,176,203,1)', 'rgba(165, 214, 167, 0.8)','rgba(100, 100, 100, 0.8)'];
         const lcInfoEcuBorderDashes = [[6,10], [3,5], [3,3]];
         const lcInfoEcuYLevels = [95,85,80,75,70];
         const updateLcInfosAnnotations = (lcInfos) => {
@@ -397,6 +397,10 @@
                     lcAnnotation.borderDash = dash;
                     lcAnnotation.yMin = yLevel;// or for slightly ascending -1;
                     lcAnnotation.yMax = yLevel; // +1;
+                    // set gridXLabelColorMap
+                    // console.log(`setting grid color for ${lcAnnotation.xMin.valueOf()} and ${lcAnnotation.xMax.valueOf()} to ${color}`);
+                    gridXLabelColorMap.set(new Date(lcAnnotation.xMin).valueOf(), {color:color, dash: []});
+                    gridXLabelColorMap.set(new Date(lcAnnotation.xMax).valueOf(), {color:color, dash: dash});
                 }else{
                     lcAnnotation.xMin = null;
                 }
@@ -605,6 +609,7 @@
         window.toggleDragMode = function () {
             graphsToggleDragMode();
             // doesn't change zoom or any other data... timelineChartUpdate({config:config});
+            var zoomOptions = graphs.get('main').chart.options.plugins.zoom;
             document.getElementById('drag-switch').innerText = zoomOptions.zoom.drag.enabled ? "Disable drag mode" : "Enable drag mode";
         }
 

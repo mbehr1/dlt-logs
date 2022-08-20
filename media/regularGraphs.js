@@ -322,19 +322,19 @@ const lcAnnotations = [{
     borderColor: 'rgba(165, 214, 167, 0.2)', // will be set to different colors depending on ecu
     borderWidth: 1,
     borderDash: [2, 2],
-    enter: ({ element }, event) => { element.label.options.color=vscodeStyles.getPropertyValue('--vscode-tab-activeForeground'); element.options.borderWidth = 3; return true; },
-    leave: ({ element }, event) => { element.options.borderWidth = 1; element.label.options.color=vscodeStyles.getPropertyValue('--vscode-tab-inactiveForeground'); return true; },
+    enter: ({ element }, event) => { element.label.options.color=vscodeStyles.getPropertyValue('--vscode-editor-foreground'); element.options.borderWidth = 3; return true; },
+    leave: ({ element }, event) => { element.options.borderWidth = 1; element.label.options.color=vscodeStyles.getPropertyValue('--vscode-editorWidget-border'); return true; },
     label: {
         content: 'lifecycle',
         display: ({element})=>{ return element.width < 50 ? false : true; },
         rotation: ({element})=>{ return element.width < 100 ? 90 : 0; },
         position: { x: 'center', y: 'start' },
-        backgroundColor: vscodeStyles.getPropertyValue('--vscode-editor-background'), // 'rgba(0,0,0,0)' todo or fully transparent?
+        backgroundColor: ()=> vscodeStyles.getPropertyValue('--vscode-editor-background'), // if this is not a function on theme change it stays with old
         font: {
             size: 8, // todo could use font-size but then the yAdjust needs to take this into account as well
             family: vscodeStyles.getPropertyValue('--vscode-editor-font-family'),
         },
-        color: vscodeStyles.getPropertyValue('--vscode-tab-inactiveForeground'),
+        color: vscodeStyles.getPropertyValue('--vscode-editorWidget-border'),
         padding: 2
     },
     arrowHeads: {
@@ -360,6 +360,14 @@ const lcAnnotations = [{
 
 
 const graphsCommonXLabels = [];
+
+/**
+ * a map for the xLabels (=times that are shown as grid with a line. Currently used for lc dates)
+ * Mapping the timestamp as number from Date.valueOf() to objects with
+ *   color: color string,
+ *   dash: colorDash settings
+ */
+const gridXLabelColorMap = new Map();
 
 const graphConfigTemplate = {
     type: 'line',
@@ -392,7 +400,18 @@ const graphConfigTemplate = {
                 },
                 grid: {
                     display: true,
-                    color: 'rgba(0,200,0,0.5)'
+                    color: (ctx, options)=>{
+                        if (!('tick' in ctx)){ return 'rgba(0,200,0,0.5)';}
+                        //console.log(`resolving grid color for ${ctx.tick.value}`, ctx, options);
+                        const {color} = gridXLabelColorMap.get(ctx.tick.value) ||{color:'rgba(0,200,0,0.5)'};
+                        return color;
+                    },
+                    borderDash: (ctx, options)=>{
+                        if (!('tick' in ctx)){ return [];}
+                        //console.log(`resolving grid color for ${ctx.tick.value}`, ctx, options);
+                        const {dash} = gridXLabelColorMap.get(ctx.tick.value) ||{dash:[]};
+                        return dash;
+                    },
                 },
                 ticks: {
                     source: 'labels',
