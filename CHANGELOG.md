@@ -1,5 +1,18 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.53.0](https://github.com/mbehr1/dlt-logs/compare/v1.52.1...v1.53.0) (2022-08-21)
+
+
+### Features
+
+* **report:** show lc infos ([415fec0](https://github.com/mbehr1/dlt-logs/commit/415fec03203bb20b11729e394d66bde9b346e085))
+
+
+### Bug Fixes
+
+* **adlt:** update to v0.28.1 ([af8a7e0](https://github.com/mbehr1/dlt-logs/commit/af8a7e0b1e8ffd9d839ddf3d815e9ae1e1b0a8fb))
+* loop end condition for valueMap ([46ec33a](https://github.com/mbehr1/dlt-logs/commit/46ec33af03b46ecde9d3bd0d6a24f895ffd76dad))
+
 ## [1.52.1](https://github.com/mbehr1/dlt-logs/compare/v1.52.0...v1.52.1) (2022-08-15)
 
 
