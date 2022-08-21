@@ -456,6 +456,55 @@
             minTime: undefined,
         };
 
+        const autoScaleData = new Map(); // group id -> scale id -> yExtrema
+
+        function getBestFittingAutoScale(autoScaleMap, scales, min, max ){
+            // console.log(`auto-scale for yExtrema (${min}-${max}),  size=${autoScaleMap.size}...`);
+            if (autoScaleMap.size === 0){
+                const axis = 'y-axis-0';
+                // first one just sets the data:
+                autoScaleMap.set(axis, {min: min, max:max});
+                return axis;
+            }else{
+                // now we iterate through the existing scales:
+                for ([axis, extrema] of autoScaleMap){
+                    console.log(`auto-scale for yExtrema (${min}-${max}),  comparing with '${axis}' (${extrema.min}-${extrema.max})...`);
+                    const newMin = Math.min(min, extrema.min);
+                    const newMax = Math.max(max, extrema.max);
+                    const newDist = newMax - newMin;
+                    // we consider two aspects:
+                    // a) would a change of min/max of axis render the current content unreadable?
+                    if (min < extrema.min || max > extrema.max){
+                        // if we're here newDist is >0
+                        const oldDist = extrema.max - extrema.min;
+                        if (oldDist > 0 && oldDist/newDist < 0.1){
+                            console.log(`auto-scale for yExtrema (${min}-${max}),  would render '${axis}' non significant (${oldDist/newDist}<0.1)`);
+                            continue;
+                        }
+                    }
+                    // b) would the min-max values be significant inside the existing axis
+                    const ownDist = max-min;
+                    if (ownDist > 0 && newDist>0 && ownDist/newDist < 0.1){
+                            console.log(`auto-scale for yExtrema (${min}-${max}),  would be non significant (${ownDist/newDist}<0.1) inside '${axis}' `);
+                            continue;
+                    }
+
+                    // we can use this one:
+                    extrema.min = newMin;
+                    extrema.max = newMax;
+                    return axis;
+                }
+                // if we end here there is no fitting existing one (not considering the ones we do have no min/max info from)
+                // todo could check the other scales for min/max and see whether one is fitting
+                let newAxis = `y-as-${Object.keys(scales).length}`;
+                console.log(`auto-scale for yExtrema (${min}-${max}),  returning a new axis '${newAxis}' (${min}-${max})...`);
+                scales[newAxis] = {...scales['y-axis-0'], id: newAxis};
+                autoScaleMap.set(newAxis, {min: min, max: max});
+                return newAxis;
+            }
+            // return undefined or a y-scale id.
+        }
+
         window.addEventListener('message', event => {
             try {
                 const message = event.data;
@@ -509,7 +558,39 @@
                                             yAxis.labels.push(messageData.dataYLabels.yLabels[j]);
                                     }
                                 } else {
-                                    configDataset.yAxisID = messageData.yAxisID !== undefined ? messageData.yAxisID : 'y-axis-0';
+                                    if (messageData.yAxisID === undefined && messageData.yExtrema !== undefined){
+                                        const {min, max} = messageData.yExtrema;
+                                        // auto-determine a fitting scale based on yExtrema, fallback to 'y-axis-0'
+                                        let autoScaleDataGroup = autoScaleData.get(group);
+                                        if (autoScaleDataGroup === undefined){
+                                            autoScaleDataGroup = new Map();
+                                            autoScaleData.set(group, autoScaleDataGroup);
+                                        }
+                                        let axisId = getBestFittingAutoScale(autoScaleDataGroup, scales, min, max ) || 'y-axis-0';
+                                        console.log(`auto-scale for yExtrema (${min}-${max}) for group '${group}' = ${axisId}`);
+                                        configDataset.yAxisID = axisId;
+                                    }else{
+                                        const axis = messageData.yAxisID !== undefined ? messageData.yAxisID : 'y-axis-0';
+                                        if (messageData.yExtrema !== undefined){
+                                            // if yExtrema, update metrics for group/yAxisID
+                                            const {min, max} = messageData.yExtrema;
+                                            console.log(`auto-scale set yExtrema (${min}-${max}) for group '${group}' for yAxis ${messageData.yAxisID}`);
+                                            let autoScaleDataGroup = autoScaleData.get(group);
+                                            if (autoScaleDataGroup === undefined){
+                                                autoScaleDataGroup = new Map();
+                                                autoScaleData.set(group, autoScaleDataGroup);
+                                            }
+                                            const extrema = autoScaleDataGroup.get(axis);
+                                            if (extrema === undefined){
+                                                extrema={min: min, max: max};
+                                                autoScaleDataGroup.set(axis, extrema);
+                                            } else{
+                                                if (min < extrema.min){ extrema.min = min; } else
+                                                    if (max > extrema.max) { extrema.max = max; }
+                                            }
+                                        }
+                                        configDataset.yAxisID = axis;
+                                    }
                                     configDataset.lineTension = 0.4;
                                 }
                                 configDataset.data = messageData.dataYLabels.data;
