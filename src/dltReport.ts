@@ -337,7 +337,7 @@ class SingleReport implements NewMessageSink {
                     console.log(`SingleReport.getDataSetProperties('${forDataSetName}') got error '${err}' processing reportOptions.`);
                 }
             }
-            if (yAxis !== undefined && groupName !== undefined) { break; }
+            if (yAxis !== undefined && groupName !== undefined && yLabels !== undefined) { break; }
         }
         return {
             yAxis: yAxis,
