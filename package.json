@@ -878,26 +878,26 @@
 		"@vscode/test-electron": "^2.1.4"
 	},
 	"dependencies": {
-		"@vscode/codicons": "^0.0.31",
+		"@vscode/codicons": "^0.0.32",
 		"@vscode/webview-ui-toolkit": "^1.0.0",
-		"chart.js": "^3.8.0",
+		"chart.js": "^3.9.1",
 		"chartjs-adapter-moment": "^1.0.0",
-		"chartjs-plugin-annotation": "^1.4.0",
+		"chartjs-plugin-annotation": "^2.0.1",
 		"chartjs-plugin-zoom": "^1.2.1",
 		"color-name": "^1.1.4",
 		"fast-xml-parser": "^3.19.0",
 		"hammerjs": "^2.0.8",
 		"hw-chartjs-plugin-colorschemes": "0.5.4",
-		"moment": "^2.29.3",
+		"moment": "^2.29.4",
 		"semver": "^7.3.7",
 		"timelines-chart": "^2.11.5",
 		"uuid": "^8.3.2",
 		"@vscode/extension-telemetry": "^0.6.0",
 		"w3-css": "^4.1.0",
-		"ws": "^8.8.0"
+		"ws": "^8.8.1"
 	},
 	"optionalDependencies": {
-		"node-adlt": "0.28.0"
+		"node-adlt": "0.28.1"
 	},
 	"commitlint": {
 		"extends": [

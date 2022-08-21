@@ -36,6 +36,18 @@ export interface TreeviewAbleDocument {
     textDocument: vscode.TextDocument | undefined;
     treeNode: TreeViewNode;
 }
+/**
+ * Lifecycle infos that are passed over to the graphical report
+ */
+interface LCInfoForReport {
+    ecu: string,
+    ecuLcNr: number, // lifecycle number for that ecu as shown in the tree view
+    label: string, // the label as shown in the tree view
+    isResume: boolean,
+    startDate: Date,
+    resumeDate?: Date,
+    endDate: Date
+}
 
 interface DataPoint {
     x: Date,
@@ -325,7 +337,7 @@ class SingleReport implements NewMessageSink {
                     console.log(`SingleReport.getDataSetProperties('${forDataSetName}') got error '${err}' processing reportOptions.`);
                 }
             }
-            if (yAxis !== undefined && groupName !== undefined) { break; }
+            if (yAxis !== undefined && groupName !== undefined && yLabels !== undefined) { break; }
         }
         return {
             yAxis: yAxis,
@@ -653,14 +665,34 @@ export class DltReport implements vscode.Disposable {
         if (!this.panel) { return; }
         // console.log(`webview.enableScripts=${this.panel.webview.options.enableScripts}`);
 
+        let lcInfosForReport: LCInfoForReport[] = [];
         // determine the lifecycle labels so that we can use the grid to highlight lifecycle
         // start/end
         let lcDates: Date[] = [];
-        this.doc.lifecycles.forEach((lcInfos) => {
-            lcInfos.forEach((lcInfo) => {
-                lcDates.push(lcInfo.isResume ? lcInfo.lifecycleResume! : lcInfo.lifecycleStart);
-                lcDates.push(lcInfo.lifecycleEnd);
-            });
+        // sort by ecu with most msgs first (to reflect the background color encoding in logs view)
+        let sortedEcus: [string, number][] = [];
+        this.doc.lifecycles.forEach((lcInfo, ecu) => {
+            const nr = lcInfo.reduce((p, lcInfo) => p + lcInfo.nrMsgs, 0);
+            sortedEcus.push([ecu, nr]);
+        });
+        sortedEcus.sort((a, b) => { return b[1] - a[1]; });
+        sortedEcus.forEach(([ecu, nrMsgs]) => {
+            let lcInfos = this.doc.lifecycles.get(ecu);
+            if (lcInfos !== undefined) {
+                lcInfos.forEach((lcInfo, idx) => {
+                    lcDates.push(lcInfo.isResume ? lcInfo.lifecycleResume! : lcInfo.lifecycleStart);
+                    lcDates.push(lcInfo.lifecycleEnd);
+                    lcInfosForReport.push({
+                        ecu: lcInfo.ecu,
+                        ecuLcNr: lcInfo.ecuLcNr !== undefined ? lcInfo.ecuLcNr : (idx + 1),
+                        label: lcInfo.getTreeNodeLabel(),
+                        isResume: lcInfo.isResume || false,
+                        startDate: lcInfo.lifecycleStart,
+                        resumeDate: lcInfo.lifecycleResume,
+                        endDate: lcInfo.lifecycleEnd
+                    });
+                });    
+            }
         });
         // sort them by ascending time
         lcDates.sort((a, b) => {
@@ -718,6 +750,7 @@ export class DltReport implements vscode.Disposable {
             });
         });
         if (datasetArray.length > 0) {
+            this.postMsgOnceAlive({ command: "update lcInfos", lcInfos: lcInfosForReport });
             this.postMsgOnceAlive({ command: "update labels", labels: lcDates, minDataPointTime: minDataPointTime });
             this.postMsgOnceAlive({ command: "update", data: datasetArray, groupPrios: dataSetsGroupPrios });
         }

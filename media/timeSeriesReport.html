@@ -367,6 +367,52 @@
             }
         };
 
+        const lcInfoEcuColorsMap = new Map(); // map string (ecu) to color
+        const lcInfoEcuColors = ['rgba(0,200,0,0.8)',  'rgba(126,176,203,1)', 'rgba(165, 214, 167, 0.8)','rgba(100, 100, 100, 0.8)'];
+        const lcInfoEcuBorderDashes = [[6,10], [3,5], [3,3]];
+        const lcInfoEcuYLevels = [95,85,80,75,70];
+        const updateLcInfosAnnotations = (lcInfos) => {
+            // lcInfos is LCInfoForReport[]
+            while (lcInfos.length > lcAnnotations.length){
+                const newAnn = {...lcAnnotations[0], label: {...lcAnnotations[0].label }, xMin: null, id: lcAnnotations[0].id + `_${lcAnnotations.length+1}`, pinned_:undefined, desc_:undefined};
+                lcAnnotations.push(newAnn);
+            }
+            for (let i=0; i<lcAnnotations.length; ++i){
+                let lcAnnotation = lcAnnotations[i];
+                const hadSelectedTime = lcAnnotation.xMin !== null;
+                if (i < lcInfos.length){
+                    let lcInfo = lcInfos[i];
+                    lcAnnotation.xMin = lcInfo.isResume ? lcInfo.resumeDate : lcInfo.startDate;
+                    lcAnnotation.xMax = lcInfo.endDate;
+                    lcAnnotation.label.content = `${lcInfo.ecu} LC#${lcInfo.ecuLcNr}`;
+                    // determine color:
+                    let {color, dash, yLevel} = lcInfoEcuColorsMap.get(lcInfo.ecu)||{color:undefined, dash: undefined, yLevel: undefined};
+                    if (color === undefined){
+                        color = lcInfoEcuColors[lcInfoEcuColorsMap.size % lcInfoEcuColors.length];
+                        dash = lcInfoEcuBorderDashes[lcInfoEcuColorsMap.size % lcInfoEcuBorderDashes.length];
+                        yLevel = lcInfoEcuYLevels[lcInfoEcuColorsMap.size % lcInfoEcuYLevels.length];
+                        lcInfoEcuColorsMap.set(lcInfo.ecu, {color: color, dash: dash, yLevel: yLevel});
+                    }
+                    lcAnnotation.borderColor = color;
+                    lcAnnotation.borderDash = dash;
+                    lcAnnotation.yMin = yLevel;// or for slightly ascending -1;
+                    lcAnnotation.yMax = yLevel; // +1;
+                    // set gridXLabelColorMap
+                    // console.log(`setting grid color for ${lcAnnotation.xMin.valueOf()} and ${lcAnnotation.xMax.valueOf()} to ${color}`);
+                    gridXLabelColorMap.set(new Date(lcAnnotation.xMin).valueOf(), {color:color, dash: []});
+                    gridXLabelColorMap.set(new Date(lcAnnotation.xMax).valueOf(), {color:color, dash: dash});
+                }else{
+                    lcAnnotation.xMin = null;
+                }
+                const haveSelectedTime = lcAnnotation.xMin !== null;
+                if (haveSelectedTime && !hadSelectedTime){
+                    graphsCommonOptions.plugins.annotation.annotations[lcAnnotation.id] = lcAnnotation;
+                } else if (hadSelectedTime && !haveSelectedTime){
+                    delete graphsCommonOptions.plugins.annotation.annotations[lcAnnotation.id];
+                }
+            }
+        };
+
         const updateSelectedTimeAnnotations = (times, tag) => {
             const tagAnnotations = selectedTimeAnnotations.filter(t => (t.tag_ === tag && !t.pinned_));
             while (times.length > tagAnnotations.length){
@@ -405,6 +451,10 @@
             updateSelectedTimeAnnotations(times, 'tl');
             updateGraphs();
         }
+
+        let graphResetTime = {
+            minTime: undefined,
+        };
 
         window.addEventListener('message', event => {
             try {
@@ -487,6 +537,13 @@
                             updateGraphs();
                         }
                         break;
+                    case 'update lcInfos':
+                        try{
+                            updateLcInfosAnnotations(message.lcInfos,  'lcInfo');
+                        }catch(e){
+                            console.warn(`update lcInfos got e='${e}'`);
+                        }
+                        break;
                     case 'update labels':
                         // we must not change the array obj but modify it:
                         graphsCommonXLabels.length = 0;
@@ -515,23 +572,30 @@
             }
         });
 
-        let lcStartDate = [];
-
         window.toggleLifecycleStart = function (checkbox) {
-            console.log("toggleLifecycleStart checkbox " + lcStartDate.length, checkbox.checked);
+            console.log("toggleLifecycleStart checkbox " + checkbox.checked);
             // checkbox.checked contains the prev value
-            if (!checkbox.checked && lcStartDate.length > 0) { // we're currently not showing
-                graphsCommonXLabels.shift(); // remove minDataPointTime
-                for (let i = lcStartDate.length - 1; i >= 0; --i) {
-                    graphsCommonXLabels.unshift(lcStartDate[i]);
-                }
-                lcStartDate = [];
+            if (!checkbox.checked ){ // we want to see the lc start:
+                graphResetTime.minTime = undefined;
+                graphs.forEach((graph) => {
+                        graph.config.options.scales['x-axis-0'].min = undefined;
+                });
+                
             } else if (checkbox.checked) {
-                // remove labels <= minDataPointTime:
+                // hide the time until first msg:
                 if (minDataPointTime) {
-                    while (graphsCommonXLabels.length > 0 && graphsCommonXLabels[0].valueOf() <= minDataPointTime.valueOf()) { lcStartDate.push(graphsCommonXLabels.shift()); }
-                    if (lcStartDate.length > 0) {
-                        graphsCommonXLabels.unshift(minDataPointTime); // add minDataPointTime
+                    graphResetTime.minTime = minDataPointTime;
+                    graphs.forEach((graph) => {
+                        graph.config.options.scales['x-axis-0'].min = minDataPointTime;
+                    });
+                    // if the minDataPointTime is not yet within the labels add it:
+                    if (!graphsCommonXLabels.includes(minDataPointTime)){
+                        let lcStartDate = [];
+                        while (graphsCommonXLabels.length > 0 && graphsCommonXLabels[0].valueOf() <= minDataPointTime.valueOf()) { lcStartDate.push(graphsCommonXLabels.shift()); }
+                        graphsCommonXLabels.unshift(minDataPointTime);
+                        for (let i = lcStartDate.length - 1; i >= 0; --i) {
+                            graphsCommonXLabels.unshift(lcStartDate[i]);
+                        }
                     }
                 }
             }
@@ -539,12 +603,13 @@
         }
 
         window.resetZoom = function () {
-            graphsResetZoom();
+            graphsResetZoom(graphResetTime.minTime);
         }
 
         window.toggleDragMode = function () {
             graphsToggleDragMode();
             // doesn't change zoom or any other data... timelineChartUpdate({config:config});
+            var zoomOptions = graphs.get('main').chart.options.plugins.zoom;
             document.getElementById('drag-switch').innerText = zoomOptions.zoom.drag.enabled ? "Disable drag mode" : "Enable drag mode";
         }
 

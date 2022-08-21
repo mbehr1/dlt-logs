@@ -12,6 +12,7 @@ let _nextLcUniqueId = 1;
 
 export interface DltLifecycleInfoMinIF {
     ecu: string,
+    ecuLcNr?: number, // the number shown in the tree view
     persistentId: number,
     lifecycleStart: Date,
     isResume?: boolean, // is this a resumed lifecycle?

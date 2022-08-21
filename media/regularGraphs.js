@@ -207,7 +207,7 @@ const handlePanZoomComplete = ({ chart }) => {
     // apply to other graphs:
     graphs.forEach((graph, graphId) => {
         if (graph.chart !== chart) {
-            console.log(`handlePanZoomComplete syncing id:${graphId} min=${chart.scales['x-axis-0'].min} max=${chart.scales['x-axis-0'].max}`);
+            //console.log(`handlePanZoomComplete syncing id:${graphId} min=${chart.scales['x-axis-0'].min} max=${chart.scales['x-axis-0'].max}`);
             graphsSetStartEndDate(minDate, maxDate, graphId);
         }
     });
@@ -261,10 +261,10 @@ const axisAfterFit = (axis) => {
 };*/
 
 
-const graphsResetZoom = () => {
+const graphsResetZoom = (minTime) => {
     graphs.forEach((graph) => {
         // have to delete them as timelineChart zoom might have set them
-        graph.config.options.scales['x-axis-0'].min = undefined;
+        graph.config.options.scales['x-axis-0'].min = minTime !== undefined ? minTime : undefined;
         graph.config.options.scales['x-axis-0'].max = undefined;
         graph.chart.update();
         //graph.chart.resetZoom(); // this triggers a handlePanZoomComplete... that triggers graphsSetStartEndDate... seems not needed
@@ -298,7 +298,7 @@ const selectedTimeAnnotations = [{
     borderDash: [2, 2],
     label: {
         content: 'selected',
-        enabled: true,
+        display: true,
         position: "start",
         backgroundColor: vscodeStyles.getPropertyValue('--vscode-editor-background'), // 'rgba(0,0,0,0)' todo or fully transparent?
         font: {
@@ -313,8 +313,61 @@ const selectedTimeAnnotations = [{
     // pinned_: Number>0|undefined ... will be set by editAnnotations Pin/UnpinBtn
 }];
 
+const lcAnnotations = [{
+    id: 'lc',
+    xScaleID: 'x-axis-0',
+    yScaleID: 'y-lc',
+    drawTime: 'beforeDatasetsDraw',
+    type: 'line',
+    borderColor: 'rgba(165, 214, 167, 0.2)', // will be set to different colors depending on ecu
+    borderWidth: 1,
+    borderDash: [2, 2],
+    enter: ({ element }, event) => { element.label.options.color=vscodeStyles.getPropertyValue('--vscode-editor-foreground'); element.options.borderWidth = 3; return true; },
+    leave: ({ element }, event) => { element.options.borderWidth = 1; element.label.options.color=vscodeStyles.getPropertyValue('--vscode-editorWidget-border'); return true; },
+    label: {
+        content: 'lifecycle',
+        display: ({element})=>{ return element.width < 50 ? false : true; },
+        rotation: ({element})=>{ return element.width < 100 ? 90 : 0; },
+        position: { x: 'center', y: 'start' },
+        backgroundColor: ()=> vscodeStyles.getPropertyValue('--vscode-editor-background'), // if this is not a function on theme change it stays with old
+        font: {
+            size: 8, // todo could use font-size but then the yAdjust needs to take this into account as well
+            family: vscodeStyles.getPropertyValue('--vscode-editor-font-family'),
+        },
+        color: vscodeStyles.getPropertyValue('--vscode-editorWidget-border'),
+        padding: 2
+    },
+    arrowHeads: {
+        start: {
+            display: ({element})=>{ return element.width < 50 ? false : true; },
+            borderColor: 'rgba(165, 214, 167, 0.2)',
+            borderWidth: 2,
+            borderDash: []
+        },
+        end: {
+            display: ({element})=>{ return element.width < 50 ? false : true; },
+            borderColor: 'rgba(165, 214, 167, 0.2)',
+            borderWidth: 2,
+            borderDash:[]
+        }
+    },
+    xMin: null, // we use xMin and xMax
+    yMin: 95,
+    yMax: 95,
+    tag_: 'lc' // I hope tag_ is unused by the plugin. 'msg' used for cur. selected msg(s) and 'tl' for selected timeline element
+    // pinned_: Number>0|undefined ... will be set by editAnnotations Pin/UnpinBtn
+}];
+
 
 const graphsCommonXLabels = [];
+
+/**
+ * a map for the xLabels (=times that are shown as grid with a line. Currently used for lc dates)
+ * Mapping the timestamp as number from Date.valueOf() to objects with
+ *   color: color string,
+ *   dash: colorDash settings
+ */
+const gridXLabelColorMap = new Map();
 
 const graphConfigTemplate = {
     type: 'line',
@@ -347,7 +400,18 @@ const graphConfigTemplate = {
                 },
                 grid: {
                     display: true,
-                    color: 'rgba(0,200,0,0.5)'
+                    color: (ctx, options)=>{
+                        if (!('tick' in ctx)){ return 'rgba(0,200,0,0.5)';}
+                        //console.log(`resolving grid color for ${ctx.tick.value}`, ctx, options);
+                        const {color} = gridXLabelColorMap.get(ctx.tick.value) ||{color:'rgba(0,200,0,0.5)'};
+                        return color;
+                    },
+                    borderDash: (ctx, options)=>{
+                        if (!('tick' in ctx)){ return [];}
+                        //console.log(`resolving grid color for ${ctx.tick.value}`, ctx, options);
+                        const {dash} = gridXLabelColorMap.get(ctx.tick.value) ||{dash:[]};
+                        return dash;
+                    },
                 },
                 ticks: {
                     source: 'labels',
@@ -373,6 +437,17 @@ const graphConfigTemplate = {
                 width: 100,
                 //afterSetDimensions: yAxisAfterSetDimensions,
                 //afterFit: axisAfterFit,
+            },
+            'y-lc':{ // y-axis for lifecycle annotations
+                id: 'y-lc',
+                display: false,
+                position: 'left',
+                title:{
+                    display: false,
+                    text: 'LCs'
+                },
+                min: 0,
+                max: 100, // percentage alike
             }
         },
         animation: { duration: 0, active: { duration: 0 }, resize: { duration: 0 } },
