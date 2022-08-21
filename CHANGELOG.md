@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.54.0](https://github.com/mbehr1/dlt-logs/compare/v1.53.0...v1.54.0) (2022-08-21)
+
+
+### Features
+
+* **report:** auto-scale generation for non specified yaxis ([9b8cd95](https://github.com/mbehr1/dlt-logs/commit/9b8cd956adb37eef11060e88d8ea6fb6de0e4aed))
+
 ## [1.53.0](https://github.com/mbehr1/dlt-logs/compare/v1.52.1...v1.53.0) (2022-08-21)
 
 
