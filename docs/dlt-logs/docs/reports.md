@@ -132,7 +132,7 @@ return { 'STATE_foo': Number.parseInt(matches[1])};
 ```
 :::
 
-Grid lines for lifecycle start/ends are automatically added. 
+Grid lines for lifecycle start/ends are automatically added. The lifecycle starts are using a solid line and the ends are drawn with a dashed line. Different colors are used per ECU (green for the ECU with the most messages, blueish for the 2nd ECU, grey for 3rd).
 
 ### Mapping values to names
 
