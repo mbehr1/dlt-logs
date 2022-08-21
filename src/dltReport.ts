@@ -57,8 +57,14 @@ interface DataPoint {
     idx_?: number
 }
 
+interface DataExtrema {
+    min: number,
+    max: number,
+}
+
 interface DataSet {
     data: DataPoint[],
+    yExtrema?: DataExtrema, // only available if DataPoint.y is a number (so not for string or objects/late eval.)
     yLabels?: string[],
     yAxis?: any,
     group?: string,
@@ -403,7 +409,7 @@ class SingleReport implements NewMessageSink {
                 } else {
                     data.push({ x: lifecycle.lifecycleEnd, y: NaN, lcId: lcId, t_: DataPointType.LifecycleEnd }); // todo not quite might end at wrong lifecycle. rethink whether one dataset can come from multiple LCs
                 }
-                dataSet = { data: data, yAxis: yAxis, group: group, yLabels: yLabels, valuesMap: valuesMap };
+                dataSet = { data: data, yAxis: yAxis, group: group, yLabels: yLabels, valuesMap: valuesMap, yExtrema: typeof value === 'number' && valuesMap === undefined ? { min: value, max: value } : undefined };
                 this.dataSets.set(label, dataSet);
             } else {
                 if (dataSet.valuesMap !== undefined) {
@@ -411,6 +417,13 @@ class SingleReport implements NewMessageSink {
                     if (newY) {
                         value = newY;
                         dataPoint.y = value;
+                    }
+                } else if (typeof value === 'number') {
+                    // update yExtrema only for numbers and datasets without valuesMap
+                    const yExtrema = dataSet.yExtrema;
+                    if (yExtrema) {
+                        if (value < yExtrema.min) { yExtrema.min = value; } else
+                            if (value > yExtrema.max) { yExtrema.max = value; }
                     }
                 }
 
@@ -746,7 +759,7 @@ export class DltReport implements vscode.Disposable {
         this.singleReports.forEach((singleReport, index) => {
             singleReport.dataSets.forEach((data, label) => {
                 // todo check if label exists already and add e.g :index ? (seems not to harm)
-                datasetArray.push({ label: label, dataYLabels: data, type: label.startsWith('EVENT_') ? 'scatter' : 'line', yAxis: data.yAxis, group: data.group });
+                datasetArray.push({ label: label, dataYLabels: data, type: label.startsWith('EVENT_') ? 'scatter' : 'line', yAxis: data.yAxis, group: data.group, yExtrema: data.yExtrema });
             });
         });
         if (datasetArray.length > 0) {
