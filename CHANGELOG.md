@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.54.1](https://github.com/mbehr1/dlt-logs/compare/v1.54.0...v1.54.1) (2022-08-22)
+
+
+### Bug Fixes
+
+* **report:** assignment to const variable ([af8f301](https://github.com/mbehr1/dlt-logs/commit/af8f30118f9c2824f041041447b5380e77f0b771))
+
 ## [1.54.0](https://github.com/mbehr1/dlt-logs/compare/v1.53.0...v1.54.0) (2022-08-21)
 
 
