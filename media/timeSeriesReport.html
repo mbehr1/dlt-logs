@@ -580,7 +580,7 @@
                                                 autoScaleDataGroup = new Map();
                                                 autoScaleData.set(group, autoScaleDataGroup);
                                             }
-                                            const extrema = autoScaleDataGroup.get(axis);
+                                            let extrema = autoScaleDataGroup.get(axis);
                                             if (extrema === undefined){
                                                 extrema={min: min, max: max};
                                                 autoScaleDataGroup.set(axis, extrema);
