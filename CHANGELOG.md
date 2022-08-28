@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.54.2](https://github.com/mbehr1/dlt-logs/compare/v1.54.1...v1.54.2) (2022-08-28)
+
+
+### Bug Fixes
+
+* close spawned process on extension deactivation ([3d10564](https://github.com/mbehr1/dlt-logs/commit/3d10564b92c037395fee8c55ca385b667b1d4e3d))
+
 ## [1.54.1](https://github.com/mbehr1/dlt-logs/compare/v1.54.0...v1.54.1) (2022-08-22)
 
 
