@@ -188,6 +188,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// register our document provider that knows how to handle "dlt-logs"
 	let adltProvider = new ADltDocumentProvider(context, _dltLifecycleTreeView, _treeRootNodes, _onDidChangeTreeData, checkActiveRestQueryDocChanged, _onDidChangeStatus, columns, reporter);
+	context.subscriptions.push(adltProvider);
 	context.subscriptions.push(vscode.workspace.registerFileSystemProvider(adltScheme, adltProvider, { isReadonly: false, isCaseSensitive: true }));
 
 	const openADltFunction = async () => {
