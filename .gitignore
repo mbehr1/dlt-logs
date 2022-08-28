@@ -2,3 +2,8 @@ out
 node_modules
 .vscode-test/
 *.vsix
+.wdio-vscode-service/
+test/trace/
+test/**/*.map
+test/**/*.js
+test/screenshots/

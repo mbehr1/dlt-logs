@@ -31,6 +31,25 @@
 				"${workspaceFolder}/out/test/**/*.js"
 			],
 			"preLaunchTask": "${defaultBuildTask}"
+		},
+		{
+			"name": "run wdio select spec",
+			"type": "node",
+			"request": "launch",
+			"args": [
+				"${workspaceFolder}/test/wdio.conf.ts",
+				"--spec",
+				"${file}"
+			],
+			"cwd": "${workspaceFolder}",
+			"autoAttachChildProcesses": true,
+			"program": "${workspaceRoot}/node_modules/@wdio/cli/bin/wdio.js",
+			"console": "integratedTerminal",
+			"skipFiles": [
+				"${workspaceFolder}/node_modules/**/*.js",
+				"${workspaceFolder}/lib/**/*.js",
+				"<node_internals>/**/*.js"
+			]
 		}
 	]
 }
