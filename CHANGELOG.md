@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.54.3](https://github.com/mbehr1/dlt-logs/compare/v1.54.2...v1.54.3) (2022-09-07)
+
+
+### Bug Fixes
+
+* **adlt:** fix someip event report ([63d9ba9](https://github.com/mbehr1/dlt-logs/commit/63d9ba9afad00b0fbee540fc06e96ac7cbe158a0))
+
 ## [1.54.2](https://github.com/mbehr1/dlt-logs/compare/v1.54.1...v1.54.2) (2022-08-28)
 
 
