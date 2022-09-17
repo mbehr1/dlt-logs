@@ -10,3 +10,5 @@ vsc-extension-quickstart.md
 **/*.ts
 images/**
 docs/**
+.wdio-vscode-service/**
+test/**

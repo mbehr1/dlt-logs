@@ -22,6 +22,24 @@ and you can install your own generated package (dlt-logs-...vsix).
 After testing your changes locally you can simply create a PR the usual github way.
 Please use branch name "feature/..." or "feat/..." for features and "fix/..." for fixes.
 
+## Run end-to-end tests:
+
+There is a set of end-to-end tests that you can run via:
+
+```
+npm run e2etests
+```
+
+in case of failures there are some screenshots of the failed test in
+```
+test/screenshots
+```
+
+The tests are defined in
+```
+test/specs
+```
+
 ## CI setup
 
 I describe the setup here that is used to build and release versions.
