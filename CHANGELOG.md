@@ -1,5 +1,13 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.55.0](https://github.com/mbehr1/dlt-logs/compare/v1.54.3...v1.55.0) (2022-09-18)
+
+
+### Features
+
+* **report:** add quick report feature ([55d7936](https://github.com/mbehr1/dlt-logs/commit/55d7936cf5c971761d875a5d0d7cd4af34d47a6b))
+* **report:** extend quick report to selections ([1aea2bf](https://github.com/mbehr1/dlt-logs/commit/1aea2bf287e768ca54cdb6b058dedf3181372269))
+
 ## [1.54.3](https://github.com/mbehr1/dlt-logs/compare/v1.54.2...v1.54.3) (2022-09-07)
 
 
