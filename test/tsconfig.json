@@ -12,7 +12,7 @@
             "expect-webdriverio",
             "wdio-vscode-service"
         ],
-        "target": "es2019"
+        "target": "es2021"
     },
     "include": [
         "./**/*.ts"

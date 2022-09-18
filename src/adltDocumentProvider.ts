@@ -44,6 +44,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { AdltPlugin } from './adltPlugin';
 import { assert } from 'console';
 import { fileURLToPath } from 'node:url';
+import { generateRegex } from './generateRegex';
 
 //import { adltPath } from 'node-adlt';
 // with optionalDependency we use require to catch errors
@@ -1562,10 +1563,25 @@ export class AdltDocument implements vscode.Disposable {
             `| ctid | ${msg.ctid}${ctidDesc} |\n`);
         mdString.appendMarkdown(`\n\n-- -\n\n`);
 
-        const args = [{ uri: this.uri }, { mstp: msg.mstp, ecu: msg.ecu, apid: msg.apid, ctid: msg.ctid, payload: msg.payloadString }];
+        const args = [{ uri: this.uri.toString() }, { mstp: msg.mstp, ecu: msg.ecu, apid: msg.apid, ctid: msg.ctid, payload: msg.payloadString }];
         const addCommandUri = vscode.Uri.parse(`command:dlt-logs.addFilter?${encodeURIComponent(JSON.stringify(args))}`);
 
-        mdString.appendMarkdown(`[$(filter) add filter...](${addCommandUri})`);
+        mdString.appendMarkdown(`[$(filter) add filter... ](${addCommandUri})`);
+
+        // can we create a report from that log line?
+        try {
+            const regexs = generateRegex([msg.payloadString]);
+            if (regexs.length === 1 && regexs[0].source.includes('(?<')) {
+                const args = [{ uri: this.uri.toString() }, { type: 3, mstp: msg.mstp, apid: msg.apid, ctid: msg.ctid, payloadRegex: regexs[0].source }];
+                const addCommandUri = vscode.Uri.parse(`command:dlt-logs.openReport?${encodeURIComponent(JSON.stringify(args))}`);
+                mdString.appendMarkdown(`[$(graph) open quick report... ](${addCommandUri})`);
+                mdString.appendMarkdown(`[$(globe) open regex101.com with quick report...](https://regex101.com/?flavor=javascript&regex=${encodeURIComponent(args[1].payloadRegex || '')}&testString=${encodeURIComponent(msg.payloadString)})`);
+                /*mdString.appendMarkdown(`\n\n-- -\n\n`);
+                mdString.appendCodeblock('/' + args[1].payloadRegex + '/', 'javascript');*/
+            }
+        } catch (e) {
+            console.error(`hover generateRegex got error='${e}'`);
+        }
         mdString.isTrusted = true;
 
         return new vscode.Hover(mdString);
