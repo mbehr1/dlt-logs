@@ -1570,12 +1570,29 @@ export class AdltDocument implements vscode.Disposable {
 
         // can we create a report from that log line?
         try {
-            const regexs = generateRegex([msg.payloadString]);
+            // do we have multiple selected lines?
+            const selections = this.textEditors.length > 0 ? this.textEditors[0].selections : [];
+            const payloads = [msg.payloadString];
+            // limit to 10.000 selections for now (todo make full async?)
+            // and max 100 different payloads
+            selections.slice(0, 10000).forEach((selection) => {
+                if (selection.isSingleLine) {
+                    let selMsg = this.msgByLine(selection.start.line);
+                    // todo think whether filter on ctid/apid is necessary for selections
+                    if (selMsg && selMsg.ctid === msg.ctid && selMsg.apid === msg.apid) {
+                        let payload = selMsg.payloadString;
+                        if (payloads.length < 100 && !payloads.includes(payload)) { payloads.push(payload); }
+                    }
+                }
+            });
+
+            const regexs = generateRegex(payloads);
+            console.log(`AdltDocument.provideHover regexs='${regexs.map((v) => '/' + v.source + '/').join(',')}'`);
             if (regexs.length === 1 && regexs[0].source.includes('(?<')) {
                 const args = [{ uri: this.uri.toString() }, { type: 3, mstp: msg.mstp, apid: msg.apid, ctid: msg.ctid, payloadRegex: regexs[0].source }];
                 const addCommandUri = vscode.Uri.parse(`command:dlt-logs.openReport?${encodeURIComponent(JSON.stringify(args))}`);
                 mdString.appendMarkdown(`[$(graph) open quick report... ](${addCommandUri})`);
-                mdString.appendMarkdown(`[$(globe) open regex101.com with quick report...](https://regex101.com/?flavor=javascript&regex=${encodeURIComponent(args[1].payloadRegex || '')}&testString=${encodeURIComponent(msg.payloadString)})`);
+                mdString.appendMarkdown(`[$(globe) open regex101.com with quick report...](https://regex101.com/?flavor=javascript&regex=${encodeURIComponent(args[1].payloadRegex || '')}&testString=${encodeURIComponent(payloads.join('\n'))})`);
                 /*mdString.appendMarkdown(`\n\n-- -\n\n`);
                 mdString.appendCodeblock('/' + args[1].payloadRegex + '/', 'javascript');*/
             }
