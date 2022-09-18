@@ -44,6 +44,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { AdltPlugin } from './adltPlugin';
 import { assert } from 'console';
 import { fileURLToPath } from 'node:url';
+import { generateRegex } from './generateRegex';
 
 //import { adltPath } from 'node-adlt';
 // with optionalDependency we use require to catch errors
@@ -1562,10 +1563,42 @@ export class AdltDocument implements vscode.Disposable {
             `| ctid | ${msg.ctid}${ctidDesc} |\n`);
         mdString.appendMarkdown(`\n\n-- -\n\n`);
 
-        const args = [{ uri: this.uri }, { mstp: msg.mstp, ecu: msg.ecu, apid: msg.apid, ctid: msg.ctid, payload: msg.payloadString }];
+        const args = [{ uri: this.uri.toString() }, { mstp: msg.mstp, ecu: msg.ecu, apid: msg.apid, ctid: msg.ctid, payload: msg.payloadString }];
         const addCommandUri = vscode.Uri.parse(`command:dlt-logs.addFilter?${encodeURIComponent(JSON.stringify(args))}`);
 
-        mdString.appendMarkdown(`[$(filter) add filter...](${addCommandUri})`);
+        mdString.appendMarkdown(`[$(filter) add filter... ](${addCommandUri})`);
+
+        // can we create a report from that log line?
+        try {
+            // do we have multiple selected lines?
+            const selections = this.textEditors.length > 0 ? this.textEditors[0].selections : [];
+            const payloads = [msg.payloadString];
+            // limit to 10.000 selections for now (todo make full async?)
+            // and max 100 different payloads
+            selections.slice(0, 10000).forEach((selection) => {
+                if (selection.isSingleLine) {
+                    let selMsg = this.msgByLine(selection.start.line);
+                    // todo think whether filter on ctid/apid is necessary for selections
+                    if (selMsg && selMsg.ctid === msg.ctid && selMsg.apid === msg.apid) {
+                        let payload = selMsg.payloadString;
+                        if (payloads.length < 100 && !payloads.includes(payload)) { payloads.push(payload); }
+                    }
+                }
+            });
+
+            const regexs = generateRegex(payloads);
+            console.log(`AdltDocument.provideHover regexs='${regexs.map((v) => '/' + v.source + '/').join(',')}'`);
+            if (regexs.length === 1 && regexs[0].source.includes('(?<')) {
+                const args = [{ uri: this.uri.toString() }, { type: 3, mstp: msg.mstp, apid: msg.apid, ctid: msg.ctid, payloadRegex: regexs[0].source }];
+                const addCommandUri = vscode.Uri.parse(`command:dlt-logs.openReport?${encodeURIComponent(JSON.stringify(args))}`);
+                mdString.appendMarkdown(`[$(graph) open quick report... ](${addCommandUri})`);
+                mdString.appendMarkdown(`[$(globe) open regex101.com with quick report...](https://regex101.com/?flavor=javascript&regex=${encodeURIComponent(args[1].payloadRegex || '')}&testString=${encodeURIComponent(payloads.join('\n'))})`);
+                /*mdString.appendMarkdown(`\n\n-- -\n\n`);
+                mdString.appendCodeblock('/' + args[1].payloadRegex + '/', 'javascript');*/
+            }
+        } catch (e) {
+            console.error(`hover generateRegex got error='${e}'`);
+        }
         mdString.isTrusted = true;
 
         return new vscode.Hover(mdString);

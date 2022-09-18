@@ -329,7 +329,7 @@ export function activate(context: vscode.ExtensionContext) {
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand("dlt-logs.addFilter", async (...args) => {
-		args.forEach(a => { console.log(` arg='${JSON.stringify(a)}'`); });
+		args.forEach(a => { console.log(` dlt-logs.addFilter arg='${JSON.stringify(a)}'`); });
 		if (args.length < 2) { return; }
 		// first arg should contain uri
 		const uri = args[0].uri;
@@ -398,18 +398,33 @@ export function activate(context: vscode.ExtensionContext) {
 	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand('dlt-logs.openReport', async (...args: any[]) => {
-		const filterNode = <FilterNode>args[0];
-		const parentUri = filterNode.parent?.uri;
-		if (parentUri) {
-			const doc = dltProvider._documents.get(parentUri.toString());
+		// we can be called with two types of args:
+		// filterNode or
+		// like addFilter: {uri: ...} and { filterFrag }
+		let label: string;
+		let filter: DltFilter;
+		let uri: vscode.Uri | null | undefined;
+
+		if (args[0] instanceof FilterNode) {
+			const filterNode = <FilterNode>args[0];
+			label = filterNode.label;
+			filter = filterNode.filter;
+			uri = filterNode.parent?.uri;
+		} else {
+			filter = new DltFilter(args[1]);
+			label = filter.name;
+			uri = args[0].uri;
+		}
+		if (uri) {
+			const doc = dltProvider._documents.get(uri.toString());
 			if (doc) {
-				console.log(`openReport(${filterNode.label}) called for doc=${parentUri}`);
-				doc.onOpenReport(context, filterNode.filter);
+				console.log(`openReport(${label}) called for doc=${uri}`);
+				doc.onOpenReport(context, filter);
 			} else {
-				const doc = adltProvider._documents.get(parentUri.toString());
+				const doc = adltProvider._documents.get(uri.toString());
 				if (doc) {
-					console.log(`openReport(${filterNode.label}) called for adlt doc=${parentUri}`);
-					doc.onOpenReport(context, filterNode.filter);
+					console.log(`openReport(${label}) called for adlt doc=${uri}`);
+					doc.onOpenReport(context, filter);
 				}
 			}
 		}
