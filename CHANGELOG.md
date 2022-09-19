@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.55.4](https://github.com/mbehr1/dlt-logs/compare/v1.55.3...v1.55.4) (2022-09-19)
+
+
+### Bug Fixes
+
+* **report:** quick report regex ([c776ed4](https://github.com/mbehr1/dlt-logs/commit/c776ed43c99a688da02437a2b44abeda39740ad5))
+
 ## [1.55.3](https://github.com/mbehr1/dlt-logs/compare/v1.55.2...v1.55.3) (2022-09-19)
 
 
