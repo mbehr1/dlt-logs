@@ -25,6 +25,14 @@ describe('generate regex', () => {
         expect(r[0].exec('foo -42.1 bar')).to.be.an('array').that.includes('-42.1');
     });
 
+    it('should handle single strings and add regex on numbers at start and with = or : in front', () => {
+        const testStr = '42.1 bar=5 or:7.0';
+        const r = generateRegex([testStr]);
+        expect(r.length).to.equal(1);
+        expect(r[0].test(testStr)).to.be.true;
+        expect(r[0].exec(testStr)).to.be.an('array').that.includes.members(['42.1', '5', '7.0']);
+    });
+
     it('should handle single strings and add regex on two numbers', () => {
         const r = generateRegex(['foo 42.1 -4711bar']);
         expect(r.length).to.equal(1);
@@ -99,6 +107,58 @@ describe('generate regex', () => {
         expect(r[0].test('start one two end')).to.be.true;
         expect(r[1].test('start three end')).to.be.true;
         expect(r[1].test('start2 three end')).to.be.false;
+    });
+
+    it('should handle multiple strings and add regex capturing multi word differences with same len', () => {
+        const r = generateRegex(['start oneone twotwo end', 'start oneoneAtwotwo end']);
+        // we'd prefer this to be just 1?
+        // but currently its not like that but returns two regexs (one wrong)
+        expect(r.length).to.equal(2);
+        expect(r[0]).to.eql(/^start (?<STATE_1>\w+) (?<STATE_2>\w+) end$/);
+        expect(r[1]).to.eql(/^start (?<STATE_1>\w+) (?<STATE_2>\w+)$/);
+        expect(r[0].test('start one two end')).to.be.true;
+        expect(r[1].test('start three end')).to.be.true;
+        expect(r[1].test('start2 three end')).to.be.false;
+    });
+
+    it('should handle multiple strings and add regex capturing multi word differences with diff types', () => {
+        // todo interims test for regExWordFind to avoid replacing the replNumber...
+        // put into smaller test case!
+        const r2 = /(?<!##)(\w+)(?!§§)/;
+        expect(r2.test('foo bar')).to.be.true;
+        expect('##NR§§bar'.replace(r2, 'Q'), '## matches!').to.eql('##NR§§Q');
+
+        const r = generateRegex(['start o-- twotwo end', 'start 1.5-oneone t end']);
+        expect(r.length).to.equal(2); // this test can be changed! it's more to understand current behaviour
+        expect(r[0], "1st").to.eql(/^start (?<STATE_1>\w+)-- (?<STATE_2>\w+) (?<STATE_3>\w+)$/);
+        expect(r[1], "2nd").to.eql(/^start (?<NR_1>-?\d+(?:\.\d+)?)-(?<STATE_1>\w+) (?<STATE_2>\w+) (?<STATE_3>\w+)$/);
+        expect(r[0].test('start o-- twotwo end'), 'first test failing').to.be.true;
+        expect(r[1].test('start 1.5-oneone t end'), '2nd test failing').to.be.true;
+    });
+
+
+
+    it('should handle log from adlt-someip plugin', () => {
+        // currently only fields with = or : in front of the nr gets passed
+        // parsing json via regex is not really possible (except for a few cases)
+        // and it makes no real sense as json provides more context infos
+        // here some numbers (0345, 0083) are as well hex numbers but this is not visible...
+        const testStr = '* (0000:0345) IOEnvironment(0083).changed_temperatureLevels_field{"temperatureLevels":[{"sensorID":"CPU_TEMP","value":0,"isValid":0},{"sensorID":"BOARD_TEMP","value":0,"isValid":0},{"sensorID":"OPTICAL_DRIVE_TEMP","value":0,"isValid":0},{"sensorID":"SOC_TEMP","value":43415,"isValid":1},{"sensorID":"UFS_TEMP","value":46075,"isValid":1},{"sensorID":"INTERNAL_AMBIENT_TEMP","value":43576,"isValid":1},{"sensorID":"EXTERNAL_AMBIENT_TEMP","value":0,"isValid":0},{"sensorID":"PADI_BACKLIGHT_TEMP","value":0,"isValid":0},{"sensorID":"SOC_INTERNAL_MAXIMUM_TEMP","value":47300,"isValid":1}]}[OK]';
+        const r = generateRegex([testStr]);
+        expect(r.length).to.equal(1);
+        expect(r[0].test(testStr)).to.be.true;
+        expect(r[0].exec(testStr)).to.be.an('array').that.has.length(20);
+    });
+
+    it('should handle multiple logs from adlt-someip plugin', () => {
+        // doesn't make a lot of sense but shouldn't fail...
+        const testStr = '* (0000:0345) IOEnvironment(0083).changed_temperatureLevels_field{"temperatureLevels":[{"sensorID":"CPU_TEMP","value":0,"isValid":0},{"sensorID":"BOARD_TEMP","value":0,"isValid":0},{"sensorID":"OPTICAL_DRIVE_TEMP","value":0,"isValid":0},{"sensorID":"SOC_TEMP","value":43415,"isValid":1},{"sensorID":"UFS_TEMP","value":46075,"isValid":1},{"sensorID":"INTERNAL_AMBIENT_TEMP","value":43576,"isValid":1},{"sensorID":"EXTERNAL_AMBIENT_TEMP","value":0,"isValid":0},{"sensorID":"PADI_BACKLIGHT_TEMP","value":0,"isValid":0},{"sensorID":"SOC_INTERNAL_MAXIMUM_TEMP","value":47300,"isValid":1}]}[OK]';
+        const testStr2 = '* (0001:0346) IOEnvironment(0084).changed_temperatureLevels_field{"temperatureLevels":[{"sensorID":"CPU_TEMP","value":0,"isValid":0},{"sensorID":"BOARD_TEMP","value":0,"isValid":0},{"sensorID":"OPTICAL_DRIVE_TEMP","value":0,"isValid":0},{"sensorID":"SOC_TEMP","value":43415,"isValid":1},{"sensorID":"UFS_TEMP","value":46075,"isValid":1},{"sensorID":"INTERNAL_AMBIENT_TEMP","value":43576,"isValid":1},{"sensorID":"EXTERNAL_AMBIENT_TEMP","value":0,"isValid":0},{"sensorID":"PADI_BACKLIGHT_TEMP","value":0,"isValid":0},{"sensorID":"SOC_INTERNAL_MAXIMUM_TEMP","value":47300,"isValid":0}]}[OK]';
+        const r = generateRegex([testStr, testStr2]);
+        expect(r.length).to.equal(1);
+        expect(r[0].test(testStr)).to.be.true;
+        expect(r[0].test(testStr2)).to.be.true;
+        expect(r[0].exec(testStr)).to.be.an('array').that.has.length(23);
     });
 
 });

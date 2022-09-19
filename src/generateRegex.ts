@@ -27,16 +27,17 @@ export function generateRegex(toMatchArr: string[]): RegExp[] {
     if (toMatchArr.length === 0) { return []; }
 
     // step 1: replace all numbers with special chars
-    const replNumber = '##NR##'; // TODO search string for non existance and add more chars until not exist
+    const replNumber = '##NR§§'; // TODO search string for non existance and add more chars until not exist
     // must not contain parts that will be escaped!
     // same for
-    const replWord = '##W##';
+    const replWord = '##W§§';
+    // see below for neg. lookback/ahead!
 
     // todo add support for hex numbers
-    const regExNrFind = /(?<=^| )-?\d+(\.\d+)?/g; // nr at start of text or after a space ' '
+    const regExNrFind = /(?<=^|[ \:\=])-?\d+(\.\d+)?/g; // nr at start of text or after a space ' '
     const regExNrInsert = /(?<NR__>-?\d+(?:\.\d+)?)/;
 
-    const regExWordFind = /(\w+)/;
+    const regExWordFind = /(?<!##)(\w+)(?!§§)/; // todo make neg lookback/ahead dynamic
     const regExWordInsert = /(?<W__>\w+)/;
 
     // use a copy and dont modify orig strings
@@ -52,23 +53,23 @@ export function generateRegex(toMatchArr: string[]): RegExp[] {
         let minStrLength = toMatchArrCopy.reduce((prev, cur) => Math.min(prev, cur.length), toMatchArrCopy[0].length);
         while (startIndex < minStrLength) {
             let prefix = longestCommonPrefix(startIndex, toMatchArrCopy);
-            console.log(`prefix(startIndex=${startIndex}, minStrLength=${minStrLength})='${prefix}'`);
+            //console.log(`prefix(startIndex=${startIndex}, minStrLength=${minStrLength})='${prefix}'`);
             // as we want word boundaries have a prefix end at a ' ' (or end of string)
             let prefixLen = prefix.length;
             if (prefixLen + startIndex >= minStrLength) { break; }
             if (prefix.includes(' ')) {
                 prefix = prefix.slice(0, prefix.lastIndexOf(' ') + 1);
-                console.log(`prefix(startIndex=${startIndex}, minStrLength=${minStrLength}) using '${prefix}'`);
+                //console.log(`prefix(startIndex=${startIndex}, minStrLength=${minStrLength}) using '${prefix}'`);
                 prefixLen = prefix.length;
             } else {
                 const idxReplNumber = prefix.lastIndexOf(replNumber);
                 prefixLen = idxReplNumber < 0 ? 0 : idxReplNumber + replNumber.length;
-                console.log(`prefix(startIndex=${startIndex}, minStrLength=${minStrLength}) ignoring '${prefix}' using '${prefix.slice(0, prefixLen)}'`);
+                //console.log(`prefix(startIndex=${startIndex}, minStrLength=${minStrLength}) ignoring '${prefix}' using '${prefix.slice(0, prefixLen)}'`);
             }
             // use that prefix and a word regex
             toMatchArrCopy = toMatchArrCopy.map((toMatch) => toMatch.slice(0, startIndex + prefixLen) +
                 toMatch.slice(startIndex + prefixLen).replace(regExWordFind, replWord));
-            console.log(`prefix(startIndex=${startIndex}, minStrLength=${minStrLength}) replaced '${toMatchArrCopy}'`);
+            //console.log(`prefix(startIndex=${startIndex}, minStrLength=${minStrLength}) replaced '${toMatchArrCopy}'`);
 
             // determine new start index
             startIndex = startIndex + prefixLen + replWord.length;
