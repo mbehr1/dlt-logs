@@ -405,7 +405,7 @@ export function activate(context: vscode.ExtensionContext) {
 		let filter: DltFilter;
 		let uri: vscode.Uri | null | undefined;
 
-		if (args[0] instanceof FilterNode) {
+		if (args[0] !== undefined && ((args[0] instanceof FilterNode) || ('filter' in args[0] && 'parent' in args[0]))) {
 			const filterNode = <FilterNode>args[0];
 			label = filterNode.label;
 			filter = filterNode.filter;
