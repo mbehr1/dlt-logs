@@ -406,14 +406,16 @@ export function activate(context: vscode.ExtensionContext) {
 		let uri: vscode.Uri | null | undefined;
 
 		if (args[0] !== undefined && ((args[0] instanceof FilterNode) || ('filter' in args[0] && 'parent' in args[0]))) {
+			console.log(`dlt-logs.openReport using single arg')`);
 			const filterNode = <FilterNode>args[0];
 			label = filterNode.label;
 			filter = filterNode.filter;
 			uri = filterNode.parent?.uri;
 		} else {
+			console.log(`dlt-logs.openReport using two args')`);
 			filter = new DltFilter(args[1]);
 			label = filter.name;
-			uri = args[0].uri;
+			uri = vscode.Uri.parse(args[0].uri);
 		}
 		if (uri) {
 			const doc = dltProvider._documents.get(uri.toString());
@@ -425,7 +427,9 @@ export function activate(context: vscode.ExtensionContext) {
 				if (doc) {
 					console.log(`openReport(${label}) called for adlt doc=${uri}`);
 					doc.onOpenReport(context, filter);
-				}
+				} else {
+                    console.warn(`dlt-logs.openReport didn't found uri '${uri.toString()}' in '${Array.from(adltProvider._documents.keys()).join(' , ')}'`);
+                }
 			}
 		}
 	}));
