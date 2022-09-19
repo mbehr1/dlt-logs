@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.55.3](https://github.com/mbehr1/dlt-logs/compare/v1.55.2...v1.55.3) (2022-09-19)
+
+
+### Bug Fixes
+
+* addFilter did not work on win ([205ea3a](https://github.com/mbehr1/dlt-logs/commit/205ea3a6ada3c4b12347ffa4d7dfa46775ee9ef3))
+
 ## [1.55.2](https://github.com/mbehr1/dlt-logs/compare/v1.55.1...v1.55.2) (2022-09-19)
 
 
