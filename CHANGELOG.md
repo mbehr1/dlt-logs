@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.55.1](https://github.com/mbehr1/dlt-logs/compare/v1.55.0...v1.55.1) (2022-09-19)
+
+
+### Bug Fixes
+
+* openReport from someip plugin ([76faa70](https://github.com/mbehr1/dlt-logs/commit/76faa70138c9bfa8334e7d18880233cabd5d0a9c))
+
 ## [1.55.0](https://github.com/mbehr1/dlt-logs/compare/v1.54.3...v1.55.0) (2022-09-18)
 
 
