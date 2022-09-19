@@ -332,7 +332,7 @@ export function activate(context: vscode.ExtensionContext) {
 		args.forEach(a => { console.log(` dlt-logs.addFilter arg='${JSON.stringify(a)}'`); });
 		if (args.length < 2) { return; }
 		// first arg should contain uri
-		const uri = args[0].uri;
+		const uri = typeof args[0].uri === 'string' ? vscode.Uri.parse(args[0].uri) : args[0].uri;
 		if (uri) {
 			let { doc, provider } = getDocAndProviderFor(uri.toString());
 			if (doc) {
