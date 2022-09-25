@@ -1592,7 +1592,7 @@ export class AdltDocument implements vscode.Disposable {
                 const args = [{ uri: this.uri.toString() }, { type: 3, mstp: msg.mstp, apid: msg.apid, ctid: msg.ctid, payloadRegex: regexs[0].source }];
                 const addCommandUri = vscode.Uri.parse(`command:dlt-logs.openReport?${encodeURIComponent(JSON.stringify(args))}`);
                 mdString.appendMarkdown(`[$(graph) open quick report... ](${addCommandUri})`);
-                mdString.appendMarkdown(`[$(globe) open regex101.com with quick report...](https://regex101.com/?flavor=javascript&regex=${encodeURIComponent(args[1].payloadRegex || '')}&testString=${encodeURIComponent(payloads.join('\n'))})`);
+                mdString.appendMarkdown(`[$(globe) open regex101.com with quick report...](https://regex101.com/?flavor=javascript&regex=${encodeURIComponent(args[1].payloadRegex || '')}&testString=${encodeURIComponent(payloads.slice(0, 20).join('\n'))})`);
                 /*mdString.appendMarkdown(`\n\n-- -\n\n`);
                 mdString.appendCodeblock('/' + args[1].payloadRegex + '/', 'javascript');*/
             }
