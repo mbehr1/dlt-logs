@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.55.5](https://github.com/mbehr1/dlt-logs/compare/v1.55.4...v1.55.5) (2022-09-25)
+
+
+### Bug Fixes
+
+* quickreport limit test strings to 20 for regex101 ([8eaf106](https://github.com/mbehr1/dlt-logs/commit/8eaf106039d9a275dbc36e68b4b395584441d8fe))
+
 ## [1.55.4](https://github.com/mbehr1/dlt-logs/compare/v1.55.3...v1.55.4) (2022-09-19)
 
 
