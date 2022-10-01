@@ -236,7 +236,7 @@ export function decodeAdltUri(uri: vscode.Uri): string[] {
                     // this is not a bug:
                     console.log(`adlt got encoded allFiles not matching first file`, allFileNames, fileNames[0]);
                 }
-                console.log(`adlt got encoded fileNames=`, fileNames);
+                // console.log(`adlt got encoded fileNames=`, fileNames);
                 if (!fileNames.length) {
                     throw Error(`AdltDocument wrongly encoded uri ${uri.toString()}. No filenames.`);
                 }
@@ -899,7 +899,7 @@ export class AdltDocument implements vscode.Disposable {
                 }
             }
             if (did_modify_apidInfos) {
-                console.log(`adlt.processEacInfo${eacInfo.length}) did_modify_apidInfos`);
+                // console.log(`adlt.processEacInfo${eacInfo.length}) did_modify_apidInfos`);
                 // update apidsNodes...
                 for (let [ecu, ecuApidsNode] of this.apidsNodes) {
                     let apidInfo = this.ecuApidInfosMap.get(ecu);
@@ -996,7 +996,7 @@ export class AdltDocument implements vscode.Disposable {
 
                 this.streamMsgs.set(streamObj.id, streamData!);
                 this.streamMsgs.delete(oldStreamId);
-                console.warn(`adlt.changeWindow streamMsgs #${this.streamMsgs.size}`);
+                // console.warn(`adlt.changeWindow streamMsgs #${this.streamMsgs.size}`);
                 if (curStreamMsgData && Array.isArray(curStreamMsgData)) {
                     // process the data now:
                     curStreamMsgData.forEach((msgs) => this.processBinDltMsgs(msgs, streamObj.id, streamData as StreamMsgData));
@@ -1203,7 +1203,7 @@ export class AdltDocument implements vscode.Disposable {
         if (triggerAboveLine <= (this._maxNrMsgs * 0.2)) {
             // can we scroll to the top?
             if (this._skipMsgs > 0) {
-                console.log(`adlt.notifyVisibleRange(visible: [${triggerAboveLine}-${triggerBelowLine}]) current: [${this._skipMsgs}-${this._skipMsgs + this._maxNrMsgs}) triggerAbove`);
+                //console.log(`adlt.notifyVisibleRange(visible: [${triggerAboveLine}-${triggerBelowLine}]) current: [${this._skipMsgs}-${this._skipMsgs + this._maxNrMsgs}) triggerAbove`);
 
                 if (this.textEditors && this.textEditors.length > 0) {
                     this.textEditors.forEach((editor) => {
@@ -1438,7 +1438,7 @@ export class AdltDocument implements vscode.Disposable {
             this.sendAndRecvAdltMsg(`stream {"window":[0,1000000], "binary":true, "filters":[${filterStr}]}`).then((response) => {
                 console.log(`adlt.on startStream got response:'${response}'`);
                 const streamObj = JSON.parse(response.substring(11));
-                console.log(`adtl ok:stream`, JSON.stringify(streamObj));
+                // console.log(`adtl ok:stream`, JSON.stringify(streamObj));
                 //let streamMsgs: AdltMsg[] = [];
                 let report = new DltReport(context, this, (r: DltReport) => { // todo msgs
                     console.log(`onOpenReport onDispose called... #reports=${this._reports.length}`);

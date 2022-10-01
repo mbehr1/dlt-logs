@@ -570,7 +570,7 @@ export class DltReport implements vscode.Disposable {
         });
 
         this.panel.webview.onDidReceiveMessage((e) => {
-            console.log(`report.onDidReceiveMessage e=${e.message}`, e);
+            // console.log(`report.onDidReceiveMessage e=${e.message}`, e);
             this._gotAliveFromPanel = true;
             // any messages to post?
             if (this._msgsToPost.length) {
@@ -578,7 +578,7 @@ export class DltReport implements vscode.Disposable {
                 while (msg = this._msgsToPost.shift()) { // fifo order.
                     const msgCmd = msg.command;
                     this.panel?.webview.postMessage(msg).then((onFulFilled) => {
-                        console.log(`webview.postMessage(${msgCmd}) queued ${onFulFilled}`);
+                       // console.log(`webview.postMessage(${msgCmd}) queued ${onFulFilled}`);
                     });
                 }
             }
