@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.56.0](https://github.com/mbehr1/dlt-logs/compare/v1.55.6...v1.56.0) (2022-10-03)
+
+
+### Features
+
+* add drag for tree view filter nodes ([d8b4b30](https://github.com/mbehr1/dlt-logs/commit/d8b4b30b6cfff4cb6ee570aebf1acad8fc6223e5))
+
 ## [1.55.6](https://github.com/mbehr1/dlt-logs/compare/v1.55.5...v1.55.6) (2022-10-01)
 
 
