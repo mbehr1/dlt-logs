@@ -41,7 +41,7 @@ import { TreeViewNode, FilterNode, LifecycleRootNode, LifecycleNode, EcuNode, Fi
 import * as remote_types from './remote_types';
 import { DltDocument, ColumnConfig } from './dltDocument';
 import { v4 as uuidv4 } from 'uuid';
-import { AdltPlugin } from './adltPlugin';
+import { AdltPlugin, AdltPluginChildNode } from './adltPlugin';
 import { assert } from 'console';
 import { fileURLToPath } from 'node:url';
 import { generateRegex } from './generateRegex';
@@ -2300,6 +2300,35 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
         } catch (e) {
             console.warn(`adlt.onDrop got e='${e}'`);
         }
+    }
+
+    public onDrag(nodes: readonly TreeViewNode[], dataTransfer: vscode.DataTransfer, token: vscode.CancellationToken) {
+        console.info(`adlt.onDrag (nodes=${nodes.map((n) => n.label || '<no label>').join(',')})`);
+        // 'application/vnd.dlt-logs+json'
+        // return a json object with "filterFrags":[{frag1},{frag2},...] one frag for each node that reflects a filter
+        const jsonObj = { filterFrags: [] as any[] };
+        for (let node of nodes) {
+            if (node instanceof AdltPluginChildNode) {
+                let filters = node.filter;
+                filters.forEach((f) => jsonObj.filterFrags.push(f.asConfiguration()));
+            } else if (node instanceof FilterNode) {
+                // we do remove the enabled:false... as we treat this temporary
+                // todo keep id?
+                jsonObj.filterFrags.push({ ...node.filter.asConfiguration(), enabled: undefined });
+            } else if (node instanceof FilterRootNode) {
+                // iterate over all active children:
+                for (let child of node.children) {
+                    if (child.filter.enabled) {
+                        jsonObj.filterFrags.push(child.filter.asConfiguration());
+                    }
+                }
+            } else {
+                console.log(`adlt.onDrag: unhandled node=${node.label}`);
+            }
+        }
+        // todo if filterFrags is empty, still set?
+        console.info(`adlt.onDrag setting '${JSON.stringify(jsonObj)}' as 'application/vnd.dlt-logs+json')`);
+        dataTransfer.set('application/vnd.dlt-logs+json', new vscode.DataTransferItem(jsonObj));
     }
 
     public onDidClose(doc: ReportDocument) { // doc has been removed already from this._documents!

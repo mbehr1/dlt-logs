@@ -81,7 +81,7 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 		},
 		dragAndDropController: {
-			dragMimeTypes: [], // ['text/uri-list'],
+			dragMimeTypes: ['application/vnd.dlt-logs+json'], // ['text/uri-list'],
 			dropMimeTypes: ['text/uri-list'],
 			async handleDrop(target: TreeViewNode | undefined, sources: vscode.DataTransfer, token: vscode.CancellationToken): Promise<void> {
 				let srcs: string[] = [];
@@ -97,7 +97,12 @@ export function activate(context: vscode.ExtensionContext) {
 				// for now we do pass all to the adltProvide
 				// but we might filter for .asc,... here already
 				return adltProvider.onDrop(target, sources, token);
-			}
+			},
+			handleDrag(source, dataTransfer, token): void | Thenable<void> {
+				console.log(`adlt.handleDrag #source=${source.length}...`);
+				// add json frags for filters to dataTransfer
+				return adltProvider.onDrag(source, dataTransfer, token);
+			},
 		}
 	});
 
