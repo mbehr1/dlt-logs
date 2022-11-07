@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.56.1](https://github.com/mbehr1/dlt-logs/compare/v1.56.0...v1.56.1) (2022-11-07)
+
+
+### Bug Fixes
+
+* quickPick doesn't allow entries ([da6cd0b](https://github.com/mbehr1/dlt-logs/commit/da6cd0b1c598506e12b1a4064e77e2eda85eb604))
+
 ## [1.56.0](https://github.com/mbehr1/dlt-logs/compare/v1.55.6...v1.56.0) (2022-10-03)
 
 
