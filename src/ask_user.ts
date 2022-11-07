@@ -92,9 +92,13 @@ export async function askSingleTime(refTime: Date, maxTime: Date | undefined): P
     };
 
     const timeUpdateHintOrError = (v: string, time: Date | undefined, hintOrErrorText?: string, error: boolean = false) => {
-        timeRestrictPIs[0].name = v;
-        timeRestrictPIs[0].description = `${hintOrErrorText !== undefined ? `${error ? 'Error: ' : ''}${hintOrErrorText} ` : ''}${time !== undefined ? time.toLocaleString() : ''}`;
-        timeRestrictMoreItemsEvent.fire(timeRestrictPIs);
+        const newDesc = `${hintOrErrorText !== undefined ? `${error ? 'Error: ' : ''}${hintOrErrorText} ` : ''}${time !== undefined ? time.toLocaleString() : ''}`;
+        // we must send the same value only once to avoid endless updates!
+        if (timeRestrictPIs[0].name !== v || timeRestrictPIs[0].description !== newDesc) {
+            timeRestrictPIs[0].name = v;
+            timeRestrictPIs[0].description = newDesc;
+            timeRestrictMoreItemsEvent.fire(timeRestrictPIs);
+        }
     };
 
     const timeOnValue = (v: string) => {

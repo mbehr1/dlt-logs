@@ -60,6 +60,10 @@ export class QuickInputHelper {
                         ignoreNextAccept = false;
                         return;
                     }
+                    if (isValid !== undefined && !isValid(quickPick.value)) {
+                        console.log(`show onDidAccept() ignoring as value('${quickPick.value}') not valid!`);
+                        return;
+                    }
                     if (true || quickPick.canSelectMany) { // only via quickInputButton
                         quickPick.busy = true;
                         console.log(`show onDidAccept() got selectedItems.length=${quickPick.selectedItems.length} and value='${quickPick.value}'`);
@@ -79,7 +83,8 @@ export class QuickInputHelper {
                 disposables.push(quickPick.onDidChangeValue((value) => {
                     //console.log(`show onDidChangeValue() got value='${value}'`);
                     if (isValid !== undefined) {
-                        quickPick.enabled = isValid(value);
+                        // disables any input... quickPick.enabled = isValid(value);
+                        isValid(value); // triggers update of quickPicks
                     }
                 }));
 
@@ -104,6 +109,10 @@ export class QuickInputHelper {
                     } else
                         if (button instanceof QuickButton) {
                             console.log(`show onDidTrigger() QuickButton #selItems=${quickPick.selectedItems.length} value='${quickPick.value}'`);
+                            if (isValid !== undefined && !isValid(quickPick.value)) {
+                                console.log(`show onDidTrigger() ignoring as value('${quickPick.value}') not valid!`);
+                                return;
+                            }
                             quickPick.busy = true;
                             quickPick.enabled = false;
                             resolve(quickPick.selectedItems.length ? quickPick.selectedItems : quickPick.value);
