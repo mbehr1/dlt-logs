@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.56.2](https://github.com/mbehr1/dlt-logs/compare/v1.56.1...v1.56.2) (2022-11-12)
+
+
+### Bug Fixes
+
+* toggle sort order needs to clear lifecycle infos ([607d40f](https://github.com/mbehr1/dlt-logs/commit/607d40f5673e1920ff56ac92466428a5176a7e60)), closes [#115](https://github.com/mbehr1/dlt-logs/issues/115)
+
 ## [1.56.1](https://github.com/mbehr1/dlt-logs/compare/v1.56.0...v1.56.1) (2022-11-07)
 
 
