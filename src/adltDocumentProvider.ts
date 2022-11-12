@@ -1346,7 +1346,10 @@ export class AdltDocument implements vscode.Disposable {
         console.log(`ADltDocument.toggleSortOrder() sortOrderByTime=${this._sortOrderByTime}`);
         this.stopStream();
         // a change of sort order needs a new file open!
-        this.closeAdltFiles().then(() => this.openAdltFiles()).catch((reason) => {
+        this.closeAdltFiles().then(() => {
+            this.clearLifecycleInfos();
+            this.openAdltFiles();
+        }).catch((reason) => {
             console.warn(`ADltDocument.toggleSortOrder() closeAdltFiles failed with '${reason}'`);
         });
     }
@@ -1637,6 +1640,14 @@ export class AdltDocument implements vscode.Disposable {
         this.checkActiveRestQueryDocChanged();
     }
 
+    clearLifecycleInfos() {
+        console.log(`adlt.clearLifecycleInfos()...`);
+        this.lifecycles.clear();
+        this.lifecyclesByPersistentId.clear();
+        this.lifecycleTreeNode.children.length = 0;
+        this._treeEventEmitter.fire(this.lifecycleTreeNode);
+    }
+
     /**
      * process lifecycles updates
      * we expect only updated lifecycles since last openFile
@@ -1671,7 +1682,7 @@ export class AdltDocument implements vscode.Disposable {
         for (let lc of lifecycles) {
             let lcInfo = this.lifecyclesByPersistentId.get(lc.id);
             if (lcInfo !== undefined) {
-                // todo update
+                // update
                 (lcInfo as AdltLifecycleInfo).update(lc, this._treeEventEmitter);
             } else { // new one
                 let ecu = char4U32LeToString(lc.ecu);
