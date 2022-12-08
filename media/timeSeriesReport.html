@@ -468,7 +468,7 @@
             }else{
                 // now we iterate through the existing scales:
                 for ([axis, extrema] of autoScaleMap){
-                    console.log(`auto-scale for yExtrema (${min}-${max}),  comparing with '${axis}' (${extrema.min}-${extrema.max})...`);
+                    // console.log(`auto-scale for yExtrema (${min}-${max}),  comparing with '${axis}' (${extrema.min}-${extrema.max})...`);
                     const newMin = Math.min(min, extrema.min);
                     const newMax = Math.max(max, extrema.max);
                     const newDist = newMax - newMin;
@@ -478,14 +478,14 @@
                         // if we're here newDist is >0
                         const oldDist = extrema.max - extrema.min;
                         if (oldDist > 0 && oldDist/newDist < 0.1){
-                            console.log(`auto-scale for yExtrema (${min}-${max}),  would render '${axis}' non significant (${oldDist/newDist}<0.1)`);
+                            // console.log(`auto-scale for yExtrema (${min}-${max}),  would render '${axis}' non significant (${oldDist/newDist}<0.1)`);
                             continue;
                         }
                     }
                     // b) would the min-max values be significant inside the existing axis
                     const ownDist = max-min;
                     if (ownDist > 0 && newDist>0 && ownDist/newDist < 0.1){
-                            console.log(`auto-scale for yExtrema (${min}-${max}),  would be non significant (${ownDist/newDist}<0.1) inside '${axis}' `);
+                            // console.log(`auto-scale for yExtrema (${min}-${max}),  would be non significant (${ownDist/newDist}<0.1) inside '${axis}' `);
                             continue;
                     }
 
