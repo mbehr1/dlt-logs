@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.56.3](https://github.com/mbehr1/dlt-logs/compare/v1.56.2...v1.56.3) (2022-12-08)
+
+
+### Bug Fixes
+
+* **adlt:** update to v0.28.3 for buffered lc fix ([08b612b](https://github.com/mbehr1/dlt-logs/commit/08b612b5d6bcd83baa4b170001e10f6a588d4e61))
+
 ## [1.56.2](https://github.com/mbehr1/dlt-logs/compare/v1.56.1...v1.56.2) (2022-11-12)
 
 
