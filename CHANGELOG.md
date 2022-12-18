@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.57.2](https://github.com/mbehr1/dlt-logs/compare/v1.57.1...v1.57.2) (2022-12-18)
+
+
+### Bug Fixes
+
+* readme.md use badges from shields.io ([d56b047](https://github.com/mbehr1/dlt-logs/commit/d56b04755c42346439a46a7e069859330b1c8643))
+
 ## [1.57.1](https://github.com/mbehr1/dlt-logs/compare/v1.57.0...v1.57.1) (2022-12-18)
 
 
