@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.57.0](https://github.com/mbehr1/dlt-logs/compare/v1.56.4...v1.57.0) (2022-12-18)
+
+
+### Features
+
+* **adlt:** package v0.29.0 adlt ([fb76776](https://github.com/mbehr1/dlt-logs/commit/fb767761cc046fff646f4d51827caa82bbbe27ed))
+
 ## [1.56.4](https://github.com/mbehr1/dlt-logs/compare/v1.56.3...v1.56.4) (2022-12-08)
 
 
