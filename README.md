@@ -1,12 +1,14 @@
 # dlt-logs README
 
+[![Visual Studio Marketplace Version](https://img.shields.io/visual-studio-marketplace/v/mbehr1.dlt-logs)](https://marketplace.visualstudio.com/items?itemName=mbehr1.dlt-logs)
+
 This Visual Studio Code(tm) extension adds support to open DLT (diagnostic log and trace, see [GENIVI](https://at.projects.genivi.org/wiki/display/PROJ/Diagnostic+Log+and+Trace) or [AUTOSAR](https://www.autosar.org/fileadmin/user_upload/standards/foundation/1-0/AUTOSAR_PRS_DiagnosticLogAndTraceProtocol.pdf)) files.
 
 ![main view](https://github.com/mbehr1/dlt-logs/raw/master/images/dlt-logs-main1.png)
 
-**Note:** It works well with [![Version](https://vsmarketplacebadge.apphb.com/version/mbehr1.smart-log.svg)](https://marketplace.visualstudio.com/items?itemName=mbehr1.smart-log) **smart-log** extension and supports the "time-sync" feature. (todo picture/animation...)
+**Note:** It works well with [![Version](https://img.shields.io/visual-studio-marketplace/v/mbehr1.smart-log)](https://marketplace.visualstudio.com/items?itemName=mbehr1.smart-log) **smart-log** extension and supports the "time-sync" feature. (todo picture/animation...)
 
-**Note:** It works well with [![Version](https://vsmarketplacebadge.apphb.com/version/mbehr1.fishbone.svg)](https://marketplace.visualstudio.com/items?itemName=mbehr1.fishbone) **fishbone** extension and provides a rest query and filter API that can be used for badges and "apply filter". (todo picture/animation...)
+**Note:** It works well with [![Version](https://img.shields.io/visual-studio-marketplace/v/mbehr1.fishbone)](https://marketplace.visualstudio.com/items?itemName=mbehr1.fishbone) **fishbone** extension and provides a rest query and filter API that can be used for badges and "apply filter". (todo picture/animation...)
 
 A more detailed documentation is available here: [Docs](https://mbehr1.github.io/dlt-logs/). 
 
