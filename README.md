@@ -1,7 +1,5 @@
 # dlt-logs README
 
-[![Version](https://vsmarketplacebadge.apphb.com/version/mbehr1.dlt-logs.svg)](https://marketplace.visualstudio.com/items?itemName=mbehr1.dlt-logs)
-
 This Visual Studio Code(tm) extension adds support to open DLT (diagnostic log and trace, see [GENIVI](https://at.projects.genivi.org/wiki/display/PROJ/Diagnostic+Log+and+Trace) or [AUTOSAR](https://www.autosar.org/fileadmin/user_upload/standards/foundation/1-0/AUTOSAR_PRS_DiagnosticLogAndTraceProtocol.pdf)) files.
 
 ![main view](https://github.com/mbehr1/dlt-logs/raw/master/images/dlt-logs-main1.png)
