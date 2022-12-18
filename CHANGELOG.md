@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.57.1](https://github.com/mbehr1/dlt-logs/compare/v1.57.0...v1.57.1) (2022-12-18)
+
+
+### Bug Fixes
+
+* remove version badge from readme ([8e2e3d8](https://github.com/mbehr1/dlt-logs/commit/8e2e3d8d45585db903fd8874d83e1b0033159cdc))
+
 ## [1.57.0](https://github.com/mbehr1/dlt-logs/compare/v1.56.4...v1.57.0) (2022-12-18)
 
 
