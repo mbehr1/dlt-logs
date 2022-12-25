@@ -218,7 +218,8 @@ export class AdltPluginChildNode implements TreeViewNode {
         let parent: TreeViewNode | null = this.parent;
         do {
             if ('_doc' in parent) {
-                return [parent['_doc'], parent['name']];
+                let adltPar = parent as unknown as AdltPlugin;
+                return [adltPar['_doc'] as AdltDocument, adltPar['name'] as string];
             } else {
                 parent = parent.parent;
             }
