@@ -860,39 +860,39 @@
 		"@semantic-release/changelog": "^6.0.1",
 		"@semantic-release/exec": "^6.0.3",
 		"@semantic-release/git": "^10.0.1",
-		"@types/chai": "^4.3.3",
-		"@types/glob": "^7.2.0",
+		"@types/chai": "^4.3.4",
+		"@types/glob": "^8.0.0",
 		"@types/mocha": "^9.1.1",
 		"@types/node": "^16.11.7",
-		"@types/semver": "^7.3.10",
+		"@types/semver": "^7.3.13",
 		"@types/uuid": "^8.3.0",
 		"@types/vscode": "1.67.0",
 		"@types/ws": "^8.5.3",
-		"@typescript-eslint/eslint-plugin": "^5.28.0",
-		"@typescript-eslint/parser": "^5.28.0",
+		"@typescript-eslint/eslint-plugin": "^5.47.0",
+		"@typescript-eslint/parser": "^5.47.0",
 		"@vscode/test-electron": "^2.1.5",
 		"@wdio/cli": "^7.23.0",
 		"@wdio/local-runner": "^7.23.0",
 		"@wdio/mocha-framework": "^7.23.0",
 		"@wdio/spec-reporter": "^7.23.0",
-		"chai": "^4.3.6",
+		"chai": "^4.3.7",
 		"chai-image": "^3.0.0",
-		"eslint": "^8.18.0",
+		"eslint": "^8.30.0",
 		"glob": "^8.0.3",
-		"husky": "^8.0.1",
-		"mocha": "^10.0.0",
+		"husky": "^8.0.2",
+		"mocha": "^10.2.0",
 		"semantic-release": "^19.0.3",
 		"ts-node": "^10.9.1",
-		"typescript": "^4.8.2",
+		"typescript": "^4.9.4",
 		"vsce": "^2.9.1",
 		"wdio-vscode-service": "^4.0.7"
 	},
 	"dependencies": {
 		"@vscode/codicons": "^0.0.32",
 		"@vscode/extension-telemetry": "^0.6.0",
-		"@vscode/webview-ui-toolkit": "^1.0.0",
+		"@vscode/webview-ui-toolkit": "^1.2.1",
 		"chart.js": "^3.9.1",
-		"chartjs-adapter-moment": "^1.0.0",
+		"chartjs-adapter-moment": "^1.0.1",
 		"chartjs-plugin-annotation": "^2.0.1",
 		"chartjs-plugin-zoom": "^1.2.1",
 		"color-name": "^1.1.4",
@@ -901,13 +901,13 @@
 		"hw-chartjs-plugin-colorschemes": "0.5.4",
 		"moment": "^2.29.4",
 		"semver": "^7.3.7",
-		"timelines-chart": "^2.11.5",
-		"uuid": "^8.3.2",
+		"timelines-chart": "^2.11.8",
+		"uuid": "^9.0.0",
 		"w3-css": "^4.1.0",
-		"ws": "^8.8.1"
+		"ws": "^8.11.0"
 	},
 	"optionalDependencies": {
-		"node-adlt": "0.29.0"
+		"node-adlt": "0.30.0"
 	},
 	"commitlint": {
 		"extends": [
@@ -959,5 +959,11 @@
 			]
 		],
 		"preset": "conventionalcommits"
+	},
+	"__metadata": {
+		"id": "ed571ed6-c34f-444a-bf6e-22415895c92b",
+		"publisherDisplayName": "Matthias Behr",
+		"publisherId": "621ef6d2-fdf3-492a-b37e-5dd9a17cb88f",
+		"isPreReleaseVersion": false
 	}
 }

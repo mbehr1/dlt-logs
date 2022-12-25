@@ -1,0 +1,67 @@
+name: build_pr
+on:
+  pull_request:
+    branches: [master]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            platform: win32
+            arch: x64
+            npm_config_arch: x64
+          #- os: windows-latest
+          #  platform: win32
+          #  arch: ia32
+          #  npm_config_arch: ia32
+          # - os: windows-latest
+          #  platform: win32
+          #  arch: arm64
+          #  npm_config_arch: arm
+          - os: ubuntu-latest
+            platform: linux
+            arch: x64
+            npm_config_arch: x64
+          - os: ubuntu-latest
+            platform: linux
+            arch: arm64
+            npm_config_arch: arm64
+          # - os: ubuntu-latest
+          #  platform: linux
+          #  arch: armhf
+          #  npm_config_arch: arm
+          - os: ubuntu-latest
+            platform: alpine
+            arch: x64
+            npm_config_arch: x64
+          - os: macos-latest
+            platform: darwin
+            arch: x64
+            npm_config_arch: x64
+          - os: macos-latest
+            platform: darwin
+            arch: arm64
+            npm_config_arch: arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16
+      - run: npm --version
+      #- run: npm i -g npm@8.5.1
+      #- run: npm --version
+      - run: npm install
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          npm_config_arch: ${{ matrix.npm_config_arch }}
+      - run: npx vsce --version
+      - shell: pwsh
+        run: echo "target=${{ matrix.platform }}-${{ matrix.arch }}" >> $env:GITHUB_ENV
+      - run: npx vsce package --out dlt-logs-${{env.target}}-PR${{github.event.number}}.vsix --target ${{ env.target }}
+      - uses: actions/upload-artifact@v3
+        with:
+          name: dlt-logs-vsix-${{ env.target }}
+          path: "*.vsix"
