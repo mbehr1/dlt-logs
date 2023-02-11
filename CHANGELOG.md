@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.58.1](https://github.com/mbehr1/dlt-logs/compare/v1.58.0...v1.58.1) (2023-02-11)
+
+
+### Bug Fixes
+
+* can plugin busmappings ([1e43923](https://github.com/mbehr1/dlt-logs/commit/1e43923db7098164c07096428b116f0ddf5e0f79))
+
 ## [1.58.0](https://github.com/mbehr1/dlt-logs/compare/v1.57.2...v1.58.0) (2022-12-25)
 
 
