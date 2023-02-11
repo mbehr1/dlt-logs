@@ -452,7 +452,7 @@ const graphConfigTemplate = {
                 max: 100, // percentage alike
             }
         },
-        animation: { duration: 0, active: { duration: 0 }, resize: { duration: 0 } },
+        animation: false,
         plugins: {
             title: { display: false, text: 'report', color: vscodeStyles.getPropertyValue('--vscode-editor-foreground') },
             tooltip: {
