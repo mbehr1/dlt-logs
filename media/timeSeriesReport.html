@@ -6,7 +6,7 @@
     <script type="module" src="${{scripts}}/@vscode/webview-ui-toolkit/dist/toolkit.min.js"></script>
 
     <script src="${{scripts}}/moment/min/moment.min.js"></script>
-    <script src="${{scripts}}/chart.js/dist/chart.min.js"></script>
+    <script src="${{scripts}}/chart.js/dist/chart.umd.js"></script>
     <script src="${{scripts}}/hw-chartjs-plugin-colorschemes/dist/chartjs-plugin-colorschemes.min.js"></script>
     <script src="${{scripts}}/chartjs-adapter-moment/dist/chartjs-adapter-moment.min.js"></script>
     <script src="${{scripts}}/hammerjs/hammer.min.js"></script>
@@ -248,7 +248,7 @@
                     };
                 }
                 const canvasPosition = Chart.helpers.getRelativePosition(evt, chart);
-                const dataX = chart.scales['x-axis-0'].getValueForPixel(canvasPosition.x);
+                const dataX = chart.scales['x'].getValueForPixel(canvasPosition.x);
                 vscode.postMessage({ message: 'clicked', dataPoint: {x:dataX} }); // todo return full value, e.g. ... see intersect
                 timelineChartUpdate({selectedTime:new Date(dataX)});
             } catch (err) {
@@ -262,7 +262,7 @@
             if (startDate === undefined || endDate === undefined){
                 window.resetZoom();
             }else{
-                //console.log(`handleTimelineChartZoom ${startDate}/${startDate.valueOf()}-${endDate}, cur=${chart.scales['x-axis-0'].min }-${chart.scales['x-axis-0'].max}`);
+                //console.log(`handleTimelineChartZoom ${startDate}/${startDate.valueOf()}-${endDate}, cur=${chart.scales['x'].min }-${chart.scales['x'].max}`);
                 graphsSetStartEndDate(startDate, endDate);
             }
             }catch(e){
@@ -272,6 +272,7 @@
 
         window.onload = function () {
             try{
+                //console.error('Chart.defaults=', Chart.defaults);
                 Chart.defaults.font = { weight: vscodeStyles.getPropertyValue('--vscode-editor-font-weight'), size: vscodeStyles.getPropertyValue('--vscode-editor-font-size'), family: vscodeStyles.getPropertyValue('--vscode-editor-font-family'), };
                 Chart.defaults.datasets.line.spanGaps = false;
                 Chart.defaults.borderColor=vscodeStyles.getPropertyValue('--vscode-editorWidget-border');
@@ -659,7 +660,7 @@
             if (!checkbox.checked ){ // we want to see the lc start:
                 graphResetTime.minTime = undefined;
                 graphs.forEach((graph) => {
-                        graph.config.options.scales['x-axis-0'].min = undefined;
+                        graph.config.options.scales['x'].min = undefined;
                 });
                 
             } else if (checkbox.checked) {
@@ -667,7 +668,7 @@
                 if (minDataPointTime) {
                     graphResetTime.minTime = minDataPointTime;
                     graphs.forEach((graph) => {
-                        graph.config.options.scales['x-axis-0'].min = minDataPointTime;
+                        graph.config.options.scales['x'].min = minDataPointTime;
                     });
                     // if the minDataPointTime is not yet within the labels add it:
                     if (!graphsCommonXLabels.includes(minDataPointTime)){

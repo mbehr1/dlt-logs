@@ -54,8 +54,8 @@ const addNewGraph = (element, existing, graphId) => {
             display: true,
             position: 'chartArea',
         };
-        config.options.scales['x-axis-0'].title.display = false;
-        config.options.scales['x-axis-0'].ticks.display = false;
+        config.options.scales['x'].title.display = false;
+        config.options.scales['x'].ticks.display = false;
         config.options.plugins.title.display = true;
         config.options.plugins.title.text = graphId;
         config.options.plugins.title.position = 'left';
@@ -66,7 +66,7 @@ const addNewGraph = (element, existing, graphId) => {
         if (graphs.size === 1) {
             const mainGraph = graphs.get('main');
             if (mainGraph) {
-                mainGraph.config.options.scales['x-axis-0'].title.display = false;
+                mainGraph.config.options.scales['x'].title.display = false;
                 /*mainGraph.config.options.plugins.title.display = true;
                 mainGraph.config.options.plugins.title.text = graphId;
                 mainGraph.config.options.plugins.title.position = 'left';
@@ -182,8 +182,8 @@ const graphsSetStartEndDate = (startDate, endDate, graphId) => {
     if (graphId) {
         const graph = graphs.get(graphId);
         if (graph) {
-            graph.config.options.scales['x-axis-0'].min = startDate.valueOf();
-            graph.config.options.scales['x-axis-0'].max = endDate.valueOf();
+            graph.config.options.scales['x'].min = startDate.valueOf();
+            graph.config.options.scales['x'].max = endDate.valueOf();
             graph.chart.update();
         }
     } else {
@@ -201,13 +201,13 @@ const graphsUpdateTitle = (graphId, titles) => {
 
 const handlePanZoomComplete = ({ chart }) => {
     //console.log(`handlePanZoomComplete`, chart);
-    const minDate = new Date(chart.scales['x-axis-0'].min);
-    const maxDate = new Date(chart.scales['x-axis-0'].max);
+    const minDate = new Date(chart.scales['x'].min);
+    const maxDate = new Date(chart.scales['x'].max);
 
     // apply to other graphs:
     graphs.forEach((graph, graphId) => {
         if (graph.chart !== chart) {
-            //console.log(`handlePanZoomComplete syncing id:${graphId} min=${chart.scales['x-axis-0'].min} max=${chart.scales['x-axis-0'].max}`);
+            //console.log(`handlePanZoomComplete syncing id:${graphId} min=${chart.scales['x'].min} max=${chart.scales['x'].max}`);
             graphsSetStartEndDate(minDate, maxDate, graphId);
         }
     });
@@ -264,16 +264,16 @@ const axisAfterFit = (axis) => {
 const graphsResetZoom = (minTime) => {
     graphs.forEach((graph) => {
         // have to delete them as timelineChart zoom might have set them
-        graph.config.options.scales['x-axis-0'].min = minTime !== undefined ? minTime : undefined;
-        graph.config.options.scales['x-axis-0'].max = undefined;
+        graph.config.options.scales['x'].min = minTime !== undefined ? minTime : undefined;
+        graph.config.options.scales['x'].max = undefined;
         graph.chart.update();
         //graph.chart.resetZoom(); // this triggers a handlePanZoomComplete... that triggers graphsSetStartEndDate... seems not needed
     });
 
     // use from 1st/main graph, we assume this is always there
     const { chart } = graphs.get('main');
-    const minDate = new Date(chart.scales['x-axis-0'].min);
-    const maxDate = new Date(chart.scales['x-axis-0'].max);
+    const minDate = new Date(chart.scales['x'].min);
+    const maxDate = new Date(chart.scales['x'].max);
     timelineChartUpdate({ zoomX: [minDate, maxDate] });
 };
 
@@ -292,7 +292,7 @@ const selectedTimeAnnotations = [{
     drawTime: 'beforeDatasetsDraw',
     type: 'line',
     mode: 'vertical',
-    scaleID: 'x-axis-0',
+    scaleID: 'x',
     borderColor: 'green',
     borderWidth: 1,
     borderDash: [2, 2],
@@ -315,7 +315,7 @@ const selectedTimeAnnotations = [{
 
 const lcAnnotations = [{
     id: 'lc',
-    xScaleID: 'x-axis-0',
+    xScaleID: 'x',
     yScaleID: 'y-lc',
     drawTime: 'beforeDatasetsDraw',
     type: 'line',
@@ -384,9 +384,9 @@ const graphConfigTemplate = {
                 right: 0,
             }
         },
-        indexAxis: 'x-axis-0',
+        indexAxis: 'x',
         scales: {
-            'x-axis-0': {
+            'x': {
                 type: 'time',
                 parsing: false, // we provide timestamps directly
                 time: {
@@ -398,6 +398,14 @@ const graphConfigTemplate = {
                     display: true,
                     text: 'time'
                 },
+                border:{
+                    dash: (ctx, options)=>{
+                        if (!('tick' in ctx)){ return [];}
+                        //console.log(`resolving grid color for ${ctx.tick.value}`, ctx, options);
+                        const {dash} = gridXLabelColorMap.get(ctx.tick.value) ||{dash:[]};
+                        return dash;
+                    },
+                },
                 grid: {
                     display: true,
                     color: (ctx, options)=>{
@@ -405,12 +413,6 @@ const graphConfigTemplate = {
                         //console.log(`resolving grid color for ${ctx.tick.value}`, ctx, options);
                         const {color} = gridXLabelColorMap.get(ctx.tick.value) ||{color:'rgba(0,200,0,0.5)'};
                         return color;
-                    },
-                    borderDash: (ctx, options)=>{
-                        if (!('tick' in ctx)){ return [];}
-                        //console.log(`resolving grid color for ${ctx.tick.value}`, ctx, options);
-                        const {dash} = gridXLabelColorMap.get(ctx.tick.value) ||{dash:[]};
-                        return dash;
                     },
                 },
                 ticks: {
