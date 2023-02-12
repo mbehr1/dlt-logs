@@ -243,11 +243,11 @@ See [Changelog](./CHANGELOG.md)
 
 This project leverages the following third party content.
 
-momentjs.com (2.29.3)
+momentjs.com (2.29)
  - License: MIT
  - Source: https://momentjs.com
 
-chartjs.org (3.8.0)
+chartjs.org (4.2)
  - License: MIT https://github.com/chartjs/Chart.js/blob/master/LICENSE.md
  - Source: https://github.com/chartjs/Chart.js
 
@@ -255,19 +255,19 @@ hw-chartjs-plugin-colorschemes
   - License: MIT https://github.com/MaximBelov/chartjs-plugin-colorschemes/blob/master/LICENSE.md
   - Source: https://github.com/MaximBelov/chartjs-plugin-colorschemes
 
-chartjs-plugin-zoom (1.2.1)
+chartjs-plugin-zoom (2.0)
   - License: MIT https://github.com/chartjs/chartjs-plugin-zoom/blob/master/LICENSE.md
   - Source: https://github.com/chartjs/chartjs-plugin-zoom
 
-chartjs-plugin-annotation (1.4.0)
+chartjs-plugin-annotation (2.1)
   - License: MIT https://github.com/chartjs/chartjs-plugin-annotation/blob/master/LICENSE.md
   - Source: https://github.com/chartjs/chartjs-plugin-annotation
 
-hammer.js (2.0.8)
+hammer.js (2.0)
   - License: MIT https://github.com/hammerjs/hammer.js/blob/master/LICENSE.md
   - Source: https://github.com/hammerjs/hammer.js
 
-color-name (1.1.4)
+color-name (2.0)
  - Licence: MIT https://github.com/colorjs/color-name/blob/master/LICENSE
  - Source: https://github.com/colorjs/color-name
 
