@@ -50,7 +50,7 @@ interface LCInfoForReport {
 }
 
 interface DataPoint {
-    x: Date,
+    x: number, // time in ms (was Date before)
     y: string | number | any,
     lcId: number,
     t_?: DataPointType,
@@ -80,7 +80,7 @@ class SingleReport implements NewMessageSink {
     public msgs: Array<FilterableDltMsg> = [];
     public pruneMsgsAfterProcessing: boolean = true;
     public dataSets: Map<string, DataSet> = new Map<string, DataSet>();
-    public minDataPointTime?: Date;
+    public minDataPointTime?: number; // in ms
 
     public warnings: string[] = [];
     public reportTitles: string[] = [];
@@ -379,13 +379,14 @@ class SingleReport implements NewMessageSink {
     insertDataPoint(lifecycle: DltLifecycleInfoMinIF, label: string, time: Date, value: number | string | any, insertPrevState = false, insertYLabels = true) {
         try {
             let dataSet = this.dataSets.get(label);
+            const timeInMs = time.valueOf();
 
-            if ((this.minDataPointTime === undefined) || this.minDataPointTime.valueOf() > time.valueOf()) {
-                this.minDataPointTime = time;
+            if ((this.minDataPointTime === undefined) || this.minDataPointTime > timeInMs) {
+                this.minDataPointTime = timeInMs;
             }
 
             const lcId = lifecycle.persistentId;
-            const dataPoint = { x: time, y: value, lcId: lcId };
+            const dataPoint = { x: timeInMs, y: value, lcId: lcId };
             if (!insertPrevState && typeof dataPoint.y === 'object') {
                 // late eval is only supported for non STATE_... as otherwise the prev state logic becomes really complex!
                 this.lateEvalDPs.set(dataPoint, dataPoint.y);
@@ -404,10 +405,10 @@ class SingleReport implements NewMessageSink {
 
                 const data: DataPoint[] = [dataPoint];
                 if (insertPrevState) { // add the two ending data points:
-                    data.push({ x: new Date(lifecycle.lifecycleEnd.valueOf() - 1), y: value, lcId: lcId, t_: DataPointType.PrevStateEnd });
-                    data.push({ x: lifecycle.lifecycleEnd, y: null /*'_unus_lbl_'*/, lcId: lcId, t_: DataPointType.LifecycleEnd });
+                    data.push({ x: lifecycle.lifecycleEnd.valueOf() - 1, y: value, lcId: lcId, t_: DataPointType.PrevStateEnd });
+                    data.push({ x: lifecycle.lifecycleEnd.valueOf(), y: null /*'_unus_lbl_'*/, lcId: lcId, t_: DataPointType.LifecycleEnd });
                 } else {
-                    data.push({ x: lifecycle.lifecycleEnd, y: NaN, lcId: lcId, t_: DataPointType.LifecycleEnd }); // todo not quite might end at wrong lifecycle. rethink whether one dataset can come from multiple LCs
+                    data.push({ x: lifecycle.lifecycleEnd.valueOf(), y: NaN, lcId: lcId, t_: DataPointType.LifecycleEnd }); // todo not quite might end at wrong lifecycle. rethink whether one dataset can come from multiple LCs
                 }
                 dataSet = { data: data, yAxis: yAxis, group: group, yLabels: yLabels, valuesMap: valuesMap, yExtrema: typeof value === 'number' && valuesMap === undefined ? { min: value, max: value } : undefined };
                 this.dataSets.set(label, dataSet);
@@ -434,9 +435,9 @@ class SingleReport implements NewMessageSink {
                         // do we have a prev. state in same lifecycle?
                         if (lcId === prevValueDP.lcId) { // same lifecycle
                             // update lifecycle end as it might have changed
-                            if (lcEndDP.x !== lifecycle.lifecycleEnd) {
-                                lcEndDP.x = lifecycle.lifecycleEnd;
-                                prevValueDP.x = new Date(lcEndDP.x.valueOf() - 1);
+                            if (lcEndDP.x !== lifecycle.lifecycleEnd.valueOf()) {
+                                lcEndDP.x = lifecycle.lifecycleEnd.valueOf();
+                                prevValueDP.x = lcEndDP.x - 1;
                             }
 
                             // two cases: 
@@ -452,7 +453,7 @@ class SingleReport implements NewMessageSink {
                                 if (prevDP) {
                                     dataSet.data.push(prevDP);
                                     // insert new prevDP
-                                    const prevStateDP = { x: new Date(time.valueOf() - 1), y: prevDP.y, lcId: prevDP.lcId, t_: DataPointType.PrevStateEnd };
+                                    const prevStateDP = { x: timeInMs - 1, y: prevDP.y, lcId: prevDP.lcId, t_: DataPointType.PrevStateEnd };
                                     if (prevStateDP.x > prevDP.x) {
                                         dataSet.data.push(prevStateDP);
                                     }
@@ -468,8 +469,8 @@ class SingleReport implements NewMessageSink {
                             dataSet.data.push(lcEndDP);
                             dataSet.data.push(dataPoint);
                             // add the two ending data points for the new lifecycle:
-                            dataSet.data.push({ x: new Date(lifecycle.lifecycleEnd.valueOf() - 1), y: value, lcId: lcId, t_: DataPointType.PrevStateEnd });
-                            dataSet.data.push({ x: lifecycle.lifecycleEnd, y: null /*'_unus_lbl_'*/, lcId: lcId, t_: DataPointType.LifecycleEnd });
+                            dataSet.data.push({ x: lifecycle.lifecycleEnd.valueOf() - 1, y: value, lcId: lcId, t_: DataPointType.PrevStateEnd });
+                            dataSet.data.push({ x: lifecycle.lifecycleEnd.valueOf(), y: null /*'_unus_lbl_'*/, lcId: lcId, t_: DataPointType.LifecycleEnd });
                         }
                     } else { // should not happen. anyhow insert the data point
                         dataSet.data.push(dataPoint);
@@ -479,14 +480,14 @@ class SingleReport implements NewMessageSink {
                     // compare with last element: (we do know there is always one as otherwise we're in the uppdate !dataSet case)
                     let lcEndDP = dataSet.data.pop();
                     if (lcEndDP && lcEndDP.lcId !== dataPoint.lcId) { // new lifecycle
-                        dataSet.data.push(lcEndDP!);
+                        dataSet.data.push(lcEndDP);
                         dataSet.data.push(dataPoint);
-                        dataSet.data.push({ x: lifecycle.lifecycleEnd, y: NaN, lcId: lcId, t_: DataPointType.LifecycleEnd }); // todo not quite might end at wrong lifecycle. rethink whether one dataset can come from multiple LCs
+                        dataSet.data.push({ x: lifecycle.lifecycleEnd.valueOf(), y: NaN, lcId: lcId, t_: DataPointType.LifecycleEnd }); // todo not quite might end at wrong lifecycle. rethink whether one dataset can come from multiple LCs
                     } else { // same lifecycle:
                         dataSet.data.push(dataPoint);
                         // update lifecycle end as it might have changed
-                        if (lcEndDP && lcEndDP.x !== lifecycle.lifecycleEnd) {
-                            lcEndDP.x = lifecycle.lifecycleEnd;
+                        if (lcEndDP !== undefined) {
+                            lcEndDP.x = lifecycle.lifecycleEnd.valueOf();
                             dataSet.data.push(lcEndDP);
                         }
                     }
@@ -722,7 +723,7 @@ export class DltReport implements vscode.Disposable {
 
         let dataSetsGroupPrios: any = {};
 
-        let minDataPointTime: Date | undefined = undefined;
+        let minDataPointTime: number | undefined = undefined;
 
 
         // warnings that will be made visible for the customer as part of the report:
@@ -741,7 +742,7 @@ export class DltReport implements vscode.Disposable {
             this._reportTitles.push(...singleReport.reportTitles);
             warnings.push(...singleReport.warnings);
             if (minDataPointTime === undefined ||
-                (singleReport.minDataPointTime !== undefined && (minDataPointTime.valueOf() > singleReport.minDataPointTime.valueOf()))) {
+                (singleReport.minDataPointTime !== undefined && (minDataPointTime > singleReport.minDataPointTime))) {
                 minDataPointTime = singleReport.minDataPointTime;
             }
             //dataSetsGroupPrios = { ...dataSetsGroupPrios, ...singleReport.dataSetsGroupPrios };
