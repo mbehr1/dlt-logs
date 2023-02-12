@@ -530,14 +530,17 @@
                             const graphData = graph.config.data;
                             const scales = graph.config.options.scales;
                             if (d >= graphData.datasets.length) {
+                                const dataType = ('type' in messageData) ? messageData.type : 'line';
                                 graphData.datasets.push({ // todo check for multiple yLabels
-                                    type: ('type' in messageData) ? messageData.type : 'line',
+                                    type: dataType,
                                     label: messageData.label,
                                     data: messageData.dataYLabels.data,
                                     fill: false,
+                                    parsing: (dataType === 'line') ? false: true,
                                     borderWidth: 1,
                                     pointRadius: 2,
-                                    yAxisID: messageData.yAxisID
+                                    yAxisID: messageData.yAxisID,
+                                    indexAxis: 'x',
                                 });
                             }
 
@@ -595,6 +598,10 @@
                                     configDataset.lineTension = 0.4;
                                 }
                                 configDataset.data = messageData.dataYLabels.data;
+                                if (!configDataset.parsing) { 
+                                    // todo move to extension part directly (time as number in milliseconds)
+                                    configDataset.data.forEach((d)=>d.x = Date.parse(d.x))
+                                }
                             }
                             d += 1;
                             nrDatasetsByGroup.set(group, d);
