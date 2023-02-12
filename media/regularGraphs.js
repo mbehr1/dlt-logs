@@ -385,6 +385,7 @@ const graphConfigTemplate = {
             }
         },
         indexAxis: 'x',
+        parsing: false, // needed for decimation, we dont want implicit parsing anyhow
         scales: {
             'x': {
                 type: 'time',

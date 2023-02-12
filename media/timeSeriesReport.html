@@ -536,7 +536,7 @@
                                     label: messageData.label,
                                     data: messageData.dataYLabels.data,
                                     fill: false,
-                                    parsing: (dataType === 'line') ? false: true,
+                                    parsing: false,
                                     borderWidth: 1,
                                     pointRadius: 2,
                                     yAxisID: messageData.yAxisID,
@@ -598,10 +598,8 @@
                                     configDataset.lineTension = 0.4;
                                 }
                                 configDataset.data = messageData.dataYLabels.data;
-                                if (!configDataset.parsing) { 
                                     // todo move to extension part directly (time as number in milliseconds)
                                     configDataset.data.forEach((d)=>d.x = Date.parse(d.x))
-                                }
                             }
                             d += 1;
                             nrDatasetsByGroup.set(group, d);
