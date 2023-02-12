@@ -42,7 +42,7 @@ const addNewGraph = (element, existing, graphId) => {
             layout: { ...graphConfigTemplate.options.layout, padding: { ...graphConfigTemplate.options.layout.padding } },
             aspectRatio: graphs.size > 0 ? 5 : undefined,
             // toggleDrawMode currently relies on plugins.zoom being the same object!
-            plugins: { ...graphConfigTemplate.options.plugins, title: { ...graphConfigTemplate.options.plugins.title }, legend: { ...graphConfigTemplate.options.plugins.legend } },
+            plugins: { ...graphConfigTemplate.options.plugins, decimation:{...graphConfigTemplate.options.plugins.decimation}, title: { ...graphConfigTemplate.options.plugins.title }, legend: { ...graphConfigTemplate.options.plugins.legend } },
         },
         data: {
             xLabels: graphsCommonXLabels,
@@ -492,6 +492,12 @@ const graphConfigTemplate = {
                     }
 
                 }
+            },
+            decimation:{
+                enabled: true,
+                algorithm:'min-max', // we want min-max, not lttb
+                // samples: 10, only for lttb
+                // threshold: 4, // 4 to force it during testing
             },
             colorschemes: {
                 scheme: 'tableau.Tableau20'

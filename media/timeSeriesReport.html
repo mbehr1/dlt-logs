@@ -597,9 +597,13 @@
                                     }
                                     configDataset.lineTension = 0.4;
                                 }
+                                if (configDataset._data !== undefined){
+                                    console.warn(`configDataset._data (decimation data) exists!`);
+                                    // todo investigate whether updates of data to an existing decimation active works!
+                                }
                                 configDataset.data = messageData.dataYLabels.data;
-                                    // todo move to extension part directly (time as number in milliseconds)
-                                    configDataset.data.forEach((d)=>d.x = Date.parse(d.x))
+                                // todo move to extension part directly (time as number in milliseconds)
+                                configDataset.data.forEach((d)=>d.x = Date.parse(d.x))
                             }
                             d += 1;
                             nrDatasetsByGroup.set(group, d);
