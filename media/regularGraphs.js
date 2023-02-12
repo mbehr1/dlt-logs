@@ -466,17 +466,28 @@ const graphConfigTemplate = {
                 bodyFont: { size: 10, family: vscodeStyles.getPropertyValue('--vscode-editor-font-family'), },
                 usePointStyle: true,
                 position: 'nearest',
-                mode: 'nearest',
+                mode: 'point', // we want multiple labels to be shown
                 callbacks: {
-                    title: (items) => {
+                    title: (items) => { // should return the time formatted for all items hovered
                         if (items.length > 0) {
-                            const item = items[0];
-                            return item.formattedValue; // weird that's the time/x-axis value
+                            const itemFirst = items[0];
+                            const titleFirst = itemFirst.label || 'no title/label';
+                            if (items.length===1){
+                                return titleFirst;
+                            }else{
+                                const itemLast = items[items.length-1];
+                                const titleLast = itemLast.label || 'no title/label';
+                                if (titleFirst === titleLast){
+                                    return titleFirst;
+                                }else{
+                                    return titleFirst+'...'+titleLast;
+                                }
+                            }
                         }
                         return "";
                     },
-                    label: (item) => {
-                        return (item.dataset.label || 'no dataset label') + ': ' + (item.label || 'no item label');
+                    label: (item) => { // the lower part per item. Should contain: label name and label value (e.g. thread cpu load: 15)
+                        return (item.dataset.label || 'no dataset label') + ': ' + (item.formattedValue || 'no item formatted value');
                     }
 
                 }
