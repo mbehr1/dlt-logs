@@ -571,14 +571,14 @@
                                             autoScaleData.set(group, autoScaleDataGroup);
                                         }
                                         let axisId = getBestFittingAutoScale(autoScaleDataGroup, scales, min, max ) || 'y-axis-0';
-                                        console.log(`auto-scale for yExtrema (${min}-${max}) for group '${group}' = ${axisId}`);
+                                        // console.log(`auto-scale for yExtrema (${min}-${max}) for group '${group}' = ${axisId}`);
                                         configDataset.yAxisID = axisId;
                                     }else{
                                         const axis = messageData.yAxisID !== undefined ? messageData.yAxisID : 'y-axis-0';
                                         if (messageData.yExtrema !== undefined){
                                             // if yExtrema, update metrics for group/yAxisID
                                             const {min, max} = messageData.yExtrema;
-                                            console.log(`auto-scale set yExtrema (${min}-${max}) for group '${group}' for yAxis ${messageData.yAxisID}`);
+                                            // console.log(`auto-scale set yExtrema (${min}-${max}) for group '${group}' for yAxis ${messageData.yAxisID}`);
                                             let autoScaleDataGroup = autoScaleData.get(group);
                                             if (autoScaleDataGroup === undefined){
                                                 autoScaleDataGroup = new Map();
