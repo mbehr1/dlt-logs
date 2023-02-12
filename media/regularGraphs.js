@@ -179,6 +179,7 @@ const updateGraphs = (graphId) => {
 };
 
 const graphsSetStartEndDate = (startDate, endDate, graphId) => {
+    // startDate, endDate can be Date or number (in ms)
     if (graphId) {
         const graph = graphs.get(graphId);
         if (graph) {

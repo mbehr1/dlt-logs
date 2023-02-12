@@ -22,25 +22,29 @@ const MARKER_FINISH = '|';
 const MARKER_PERSIST = '$';
 
 const handleZoom = (dates, lines) => {
-    if (!dates) {  // e.g. on resetZoom button from timeline
-        if (onZoomCallback) {
-            onZoomCallback(undefined, undefined);
+    try{
+        if (!dates) {  // e.g. on resetZoom button from timeline
+            if (onZoomCallback) {
+                onZoomCallback(undefined, undefined);
+            }
+            return;
         }
-        return;
-    }
-    const [startDate, endDate] = dates;
-    const [startY, endY] = lines || [-1, -1];
-    console.log(`handleZoom ${startDate}-${endDate}, ${startY}-${endY}`);
-    if (onZoomCallback) {
-        onZoomCallback(startDate, endDate);
-    }
-    lastZoomX = [startDate, endDate];
+        const [startDate, endDate] = dates;
+        const [startY, endY] = lines || [-1, -1];
+        console.log(`handleZoom ${typeof startDate} ${startDate.valueOf()}:${startDate}-${endDate}, ${startY}-${endY}`);
+        if (onZoomCallback) {
+            onZoomCallback(startDate, endDate);
+        }
+        lastZoomX = [startDate, endDate];
 
-    // thin out again to reveal more precise data e.g. on zooming in
-    const timelineDataWasUpdated = thinAllLines();
-    if (timelineDataWasUpdated) {
-        timelineChart.data(timelineData);
-        timelineChart.zoomX(lastZoomX);
+        // thin out again to reveal more precise data e.g. on zooming in
+        const timelineDataWasUpdated = thinAllLines();
+        if (timelineDataWasUpdated) {
+            timelineChart.data(timelineData);
+            timelineChart.zoomX(lastZoomX);
+        }
+    }catch(e){
+        console.warn(`timeLinesChart.handleZoom(timeLineData=${Array.isArray(timelineData)} ${timelineData ? timelineData.length : -1}) got err=${e}`);
     }
 };
 
@@ -250,11 +254,11 @@ const arrayRemoveIf = (array, pred) => {
 const reduceOverlapping = (array) => {
     if (!array.length) { return array; }
     array.sort(function (a, b) {
-        if (a.timeRange[0].valueOf() < b.timeRange[0].valueOf()) { return -1; }
-        if (a.timeRange[0].valueOf() > b.timeRange[0].valueOf()) { return 1; }
+        if (a.timeRange[0] < b.timeRange[0]) { return -1; }
+        if (a.timeRange[0] > b.timeRange[0]) { return 1; }
         // equal start, sort by end:
-        if (a.timeRange[1].valueOf() < b.timeRange[1].valueOf()) { return -1; }
-        if (a.timeRange[1].valueOf() > b.timeRange[1].valueOf()) { return 1; }
+        if (a.timeRange[1] < b.timeRange[1]) { return -1; }
+        if (a.timeRange[1] > b.timeRange[1]) { return 1; }
         return 0;
     });
     var rarray = [];
@@ -262,30 +266,30 @@ const reduceOverlapping = (array) => {
     let prevVal = undefined;
 
     const nextMinStartTime = (array, minTime) => {
-        const elem = array.find(e => e.timeRange[0].valueOf() > minTime);
-        if (elem) { return elem.timeRange[0].valueOf(); }
+        const elem = array.find(e => e.timeRange[0] > minTime);
+        if (elem) { return elem.timeRange[0]; }
         return undefined;
     };
     const minEndTime = (array, startTime) => {
         // find the min end time from elems with startTime <= startTime
-        const indexOfNextStartTime = array.findIndex(e => e.timeRange[0].valueOf() > startTime);
+        const indexOfNextStartTime = array.findIndex(e => e.timeRange[0] > startTime);
         if (indexOfNextStartTime >= 0) {
-            let minTime = array[0].timeRange[1].valueOf();
+            let minTime = array[0].timeRange[1];
             for (let i = 0; i < indexOfNextStartTime; ++i) {
                 const e = array[i];
-                if (e.timeRange[1].valueOf() < minTime) { minTime = e.timeRange[1].valueOf(); }
+                if (e.timeRange[1] < minTime) { minTime = e.timeRange[1]; }
             }
             return minTime;
         } else {
             // they are sorted be endtime?
-            let minTime = array[0].timeRange[1].valueOf();
-            array.forEach((e) => { if (e.timeRange[1].valueOf() < minTime) { minTime = e.timeRange[1].valueOf(); } });
+            let minTime = array[0].timeRange[1];
+            array.forEach((e) => { if (e.timeRange[1] < minTime) { minTime = e.timeRange[1]; } });
             return minTime;
         }
     };
 
 
-    let startTime = array[0].timeRange[0].valueOf();
+    let startTime = array[0].timeRange[0];
     while (array.length) {
         //console.log(`collapse: array[0]=${array[0].timeRange[0].valueOf()}-${array[0].timeRange[1].valueOf()} startTime=${startTime}`);
         // determine next startTime > startTime
@@ -301,7 +305,7 @@ const reduceOverlapping = (array) => {
             break;
         }
         // find all items that fall into that range:
-        const indexOfFirstOutSideTmp = array.findIndex(e => e.timeRange[0].valueOf() > endTime);
+        const indexOfFirstOutSideTmp = array.findIndex(e => e.timeRange[0] > endTime);
         const indexOfFirstOutSide = indexOfFirstOutSideTmp < 0 ? array.length : indexOfFirstOutSideTmp;
         // determine common values...
         let newLabelVal = array[0].labelVal;
@@ -325,8 +329,8 @@ const reduceOverlapping = (array) => {
 
         // create item with startTime/endTime
         prevVal = copyVal(array[0]);
-        prevVal.timeRange[0] = new Date(startTime);
-        prevVal.timeRange[1] = new Date(endTime);
+        prevVal.timeRange[0] = startTime;
+        prevVal.timeRange[1] = endTime;
         prevVal.val.v = newLabelVal;
         prevVal.val.t = undefined; //`indexOfFirstOutSide=${indexOfFirstOutSide}`;
         prevVal.val.c = newColor;
@@ -338,10 +342,10 @@ const reduceOverlapping = (array) => {
         // todo find a faster way to abort search... this one is at least O(n)! (but called often)
         // might better revert sort order from the array and access last elem instead of first...
         const arrLenBefore = array.length;
-        arrayRemoveIf(array, e => e.timeRange[1].valueOf() <= endTime);
+        arrayRemoveIf(array, e => e.timeRange[1] <= endTime);
         let removed = arrLenBefore - array.length;
         if (array.length > 0) {
-            const firstElemStart = array[0].timeRange[0].valueOf();
+            const firstElemStart = array[0].timeRange[0];
             const oldStart = startTime;
             startTime = firstElemStart > endTime ? firstElemStart : (endTime + 1);
             if (!removed && oldStart === startTime) {
@@ -475,7 +479,7 @@ const addTimeLineData = (groupName, labelName, valueName, time, options) => {
         const valueTooltip = valueParts[1]; // works for isFinished as well -> ''
         const valueColor = valueParts[2]; // could be undef.
         label.data.push({
-            timeRange: [time, isFinished ? new Date(time.valueOf() + 1) : new Date(time.valueOf() + 864_000_000)], // we can use a really long value (here 10d) as the end is determined by last LC end
+            timeRange: [time, isFinished ? (time + 1) : (time + 864_000_000)], // we can use a really long value (here 10d) as the end is determined by last LC end
             val: { g: groupName, l: labelName, v: labelVal, c: valueColor, t: valueTooltip?.length ? valueTooltip : undefined },
             labelVal: labelVal,
             isFinished: isFinished,
@@ -537,15 +541,15 @@ const thinLine = (line, timeArr) => {
     let origFirst = -1;
     let origLast = origAmount - 1;
     if (timeArr !== undefined) {
-        const startTimeVal = timeArr[0].valueOf();
-        const endTimeVal = timeArr[1].valueOf();
+        const startTimeVal = timeArr[0];
+        const endTimeVal = timeArr[1];
         // update first/last/amount based on the timeArr
         for (let i = 0; i < origAmount && origLast === (origAmount - 1); ++i) {
             const dp = origData[i];
-            if (origFirst === -1 && dp.timeRange[1].valueOf() > startTimeVal) {
+            if (origFirst === -1 && dp.timeRange[1] > startTimeVal) {
                 origFirst = i; // i has its end > startTime
             }
-            if (dp.timeRange[0].valueOf() > endTimeVal) {
+            if (dp.timeRange[0] > endTimeVal) {
                 origLast = i - 1; // i has its start > endTime, so is out
             }
         }
@@ -645,10 +649,10 @@ const timelineChartUpdate = (options) => {
                     // but could use 2 for DataPointType.LifecycleEnd...
                     if (data.t_ === 2) {
                         const isLastLc = j === dataset.dataYLabels.data.length - 1; // we treat the last LC differently as its the end of the report as well.
-                        addTimeLineData(groupName, labelName, null, new Date(data.x), { lcEnd: !isLastLc });
+                        addTimeLineData(groupName, labelName, null, data.x, { lcEnd: !isLastLc });
                     } else {
                         const val = data.y; // empty value '' will be treated like null -> can be used to end prev. one.
-                        addTimeLineData(groupName, labelName, val, new Date(data.x));
+                        addTimeLineData(groupName, labelName, val, data.x);
                     }
                 }
             }
