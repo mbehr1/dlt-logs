@@ -6,7 +6,7 @@
     <script type="module" src="${{scripts}}/@vscode/webview-ui-toolkit/dist/toolkit.min.js"></script>
 
     <script src="${{scripts}}/moment/min/moment.min.js"></script>
-    <script src="${{scripts}}/chart.js/dist/chart.min.js"></script>
+    <script src="${{scripts}}/chart.js/dist/chart.umd.js"></script>
     <script src="${{scripts}}/hw-chartjs-plugin-colorschemes/dist/chartjs-plugin-colorschemes.min.js"></script>
     <script src="${{scripts}}/chartjs-adapter-moment/dist/chartjs-adapter-moment.min.js"></script>
     <script src="${{scripts}}/hammerjs/hammer.min.js"></script>
@@ -248,7 +248,7 @@
                     };
                 }
                 const canvasPosition = Chart.helpers.getRelativePosition(evt, chart);
-                const dataX = chart.scales['x-axis-0'].getValueForPixel(canvasPosition.x);
+                const dataX = chart.scales['x'].getValueForPixel(canvasPosition.x);
                 vscode.postMessage({ message: 'clicked', dataPoint: {x:dataX} }); // todo return full value, e.g. ... see intersect
                 timelineChartUpdate({selectedTime:new Date(dataX)});
             } catch (err) {
@@ -262,7 +262,7 @@
             if (startDate === undefined || endDate === undefined){
                 window.resetZoom();
             }else{
-                //console.log(`handleTimelineChartZoom ${startDate}/${startDate.valueOf()}-${endDate}, cur=${chart.scales['x-axis-0'].min }-${chart.scales['x-axis-0'].max}`);
+                //console.log(`handleTimelineChartZoom ${startDate}/${startDate.valueOf()}-${endDate}, cur=${chart.scales['x'].min }-${chart.scales['x'].max}`);
                 graphsSetStartEndDate(startDate, endDate);
             }
             }catch(e){
@@ -272,6 +272,7 @@
 
         window.onload = function () {
             try{
+                //console.error('Chart.defaults=', Chart.defaults);
                 Chart.defaults.font = { weight: vscodeStyles.getPropertyValue('--vscode-editor-font-weight'), size: vscodeStyles.getPropertyValue('--vscode-editor-font-size'), family: vscodeStyles.getPropertyValue('--vscode-editor-font-family'), };
                 Chart.defaults.datasets.line.spanGaps = false;
                 Chart.defaults.borderColor=vscodeStyles.getPropertyValue('--vscode-editorWidget-border');
@@ -414,6 +415,7 @@
         };
 
         const updateSelectedTimeAnnotations = (times, tag) => {
+            // times can be an array of Date[] (or of number[] ??? )
             const tagAnnotations = selectedTimeAnnotations.filter(t => (t.tag_ === tag && !t.pinned_));
             while (times.length > tagAnnotations.length){
                 // clone the first element but change a few attributes:
@@ -529,14 +531,17 @@
                             const graphData = graph.config.data;
                             const scales = graph.config.options.scales;
                             if (d >= graphData.datasets.length) {
+                                const dataType = ('type' in messageData) ? messageData.type : 'line';
                                 graphData.datasets.push({ // todo check for multiple yLabels
-                                    type: ('type' in messageData) ? messageData.type : 'line',
+                                    type: dataType,
                                     label: messageData.label,
                                     data: messageData.dataYLabels.data,
                                     fill: false,
+                                    parsing: false,
                                     borderWidth: 1,
                                     pointRadius: 2,
-                                    yAxisID: messageData.yAxisID
+                                    yAxisID: messageData.yAxisID,
+                                    indexAxis: 'x',
                                 });
                             }
 
@@ -567,14 +572,14 @@
                                             autoScaleData.set(group, autoScaleDataGroup);
                                         }
                                         let axisId = getBestFittingAutoScale(autoScaleDataGroup, scales, min, max ) || 'y-axis-0';
-                                        console.log(`auto-scale for yExtrema (${min}-${max}) for group '${group}' = ${axisId}`);
+                                        // console.log(`auto-scale for yExtrema (${min}-${max}) for group '${group}' = ${axisId}`);
                                         configDataset.yAxisID = axisId;
                                     }else{
                                         const axis = messageData.yAxisID !== undefined ? messageData.yAxisID : 'y-axis-0';
                                         if (messageData.yExtrema !== undefined){
                                             // if yExtrema, update metrics for group/yAxisID
                                             const {min, max} = messageData.yExtrema;
-                                            console.log(`auto-scale set yExtrema (${min}-${max}) for group '${group}' for yAxis ${messageData.yAxisID}`);
+                                            // console.log(`auto-scale set yExtrema (${min}-${max}) for group '${group}' for yAxis ${messageData.yAxisID}`);
                                             let autoScaleDataGroup = autoScaleData.get(group);
                                             if (autoScaleDataGroup === undefined){
                                                 autoScaleDataGroup = new Map();
@@ -592,6 +597,10 @@
                                         configDataset.yAxisID = axis;
                                     }
                                     configDataset.lineTension = 0.4;
+                                }
+                                if (configDataset._data !== undefined){
+                                    console.warn(`configDataset._data (decimation data) exists!`);
+                                    // todo investigate whether updates of data to an existing decimation active works!
                                 }
                                 configDataset.data = messageData.dataYLabels.data;
                             }
@@ -659,21 +668,22 @@
             if (!checkbox.checked ){ // we want to see the lc start:
                 graphResetTime.minTime = undefined;
                 graphs.forEach((graph) => {
-                        graph.config.options.scales['x-axis-0'].min = undefined;
+                        graph.config.options.scales['x'].min = undefined;
                 });
                 
             } else if (checkbox.checked) {
                 // hide the time until first msg:
-                if (minDataPointTime) {
+                if (minDataPointTime !== undefined) {
                     graphResetTime.minTime = minDataPointTime;
                     graphs.forEach((graph) => {
-                        graph.config.options.scales['x-axis-0'].min = minDataPointTime;
+                        graph.config.options.scales['x'].min = minDataPointTime;
                     });
                     // if the minDataPointTime is not yet within the labels add it:
-                    if (!graphsCommonXLabels.includes(minDataPointTime)){
+                    const minDataPointTimeAsDate = new Date(minDataPointTime);
+                    if (!graphsCommonXLabels.includes(minDataPointTimeAsDate)){
                         let lcStartDate = [];
-                        while (graphsCommonXLabels.length > 0 && graphsCommonXLabels[0].valueOf() <= minDataPointTime.valueOf()) { lcStartDate.push(graphsCommonXLabels.shift()); }
-                        graphsCommonXLabels.unshift(minDataPointTime);
+                        while (graphsCommonXLabels.length > 0 && graphsCommonXLabels[0].valueOf() <= minDataPointTime) { lcStartDate.push(graphsCommonXLabels.shift()); }
+                        graphsCommonXLabels.unshift(minDataPointTimeAsDate);
                         for (let i = lcStartDate.length - 1; i >= 0; --i) {
                             graphsCommonXLabels.unshift(lcStartDate[i]);
                         }

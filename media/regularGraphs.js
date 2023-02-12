@@ -42,7 +42,7 @@ const addNewGraph = (element, existing, graphId) => {
             layout: { ...graphConfigTemplate.options.layout, padding: { ...graphConfigTemplate.options.layout.padding } },
             aspectRatio: graphs.size > 0 ? 5 : undefined,
             // toggleDrawMode currently relies on plugins.zoom being the same object!
-            plugins: { ...graphConfigTemplate.options.plugins, title: { ...graphConfigTemplate.options.plugins.title }, legend: { ...graphConfigTemplate.options.plugins.legend } },
+            plugins: { ...graphConfigTemplate.options.plugins, decimation:{...graphConfigTemplate.options.plugins.decimation}, title: { ...graphConfigTemplate.options.plugins.title }, legend: { ...graphConfigTemplate.options.plugins.legend } },
         },
         data: {
             xLabels: graphsCommonXLabels,
@@ -54,8 +54,8 @@ const addNewGraph = (element, existing, graphId) => {
             display: true,
             position: 'chartArea',
         };
-        config.options.scales['x-axis-0'].title.display = false;
-        config.options.scales['x-axis-0'].ticks.display = false;
+        config.options.scales['x'].title.display = false;
+        config.options.scales['x'].ticks.display = false;
         config.options.plugins.title.display = true;
         config.options.plugins.title.text = graphId;
         config.options.plugins.title.position = 'left';
@@ -66,7 +66,7 @@ const addNewGraph = (element, existing, graphId) => {
         if (graphs.size === 1) {
             const mainGraph = graphs.get('main');
             if (mainGraph) {
-                mainGraph.config.options.scales['x-axis-0'].title.display = false;
+                mainGraph.config.options.scales['x'].title.display = false;
                 /*mainGraph.config.options.plugins.title.display = true;
                 mainGraph.config.options.plugins.title.text = graphId;
                 mainGraph.config.options.plugins.title.position = 'left';
@@ -179,11 +179,12 @@ const updateGraphs = (graphId) => {
 };
 
 const graphsSetStartEndDate = (startDate, endDate, graphId) => {
+    // startDate, endDate can be Date or number (in ms)
     if (graphId) {
         const graph = graphs.get(graphId);
         if (graph) {
-            graph.config.options.scales['x-axis-0'].min = startDate.valueOf();
-            graph.config.options.scales['x-axis-0'].max = endDate.valueOf();
+            graph.config.options.scales['x'].min = startDate.valueOf();
+            graph.config.options.scales['x'].max = endDate.valueOf();
             graph.chart.update();
         }
     } else {
@@ -201,13 +202,13 @@ const graphsUpdateTitle = (graphId, titles) => {
 
 const handlePanZoomComplete = ({ chart }) => {
     //console.log(`handlePanZoomComplete`, chart);
-    const minDate = new Date(chart.scales['x-axis-0'].min);
-    const maxDate = new Date(chart.scales['x-axis-0'].max);
+    const minDate = new Date(chart.scales['x'].min);
+    const maxDate = new Date(chart.scales['x'].max);
 
     // apply to other graphs:
     graphs.forEach((graph, graphId) => {
         if (graph.chart !== chart) {
-            //console.log(`handlePanZoomComplete syncing id:${graphId} min=${chart.scales['x-axis-0'].min} max=${chart.scales['x-axis-0'].max}`);
+            //console.log(`handlePanZoomComplete syncing id:${graphId} min=${chart.scales['x'].min} max=${chart.scales['x'].max}`);
             graphsSetStartEndDate(minDate, maxDate, graphId);
         }
     });
@@ -264,16 +265,16 @@ const axisAfterFit = (axis) => {
 const graphsResetZoom = (minTime) => {
     graphs.forEach((graph) => {
         // have to delete them as timelineChart zoom might have set them
-        graph.config.options.scales['x-axis-0'].min = minTime !== undefined ? minTime : undefined;
-        graph.config.options.scales['x-axis-0'].max = undefined;
+        graph.config.options.scales['x'].min = minTime !== undefined ? minTime : undefined;
+        graph.config.options.scales['x'].max = undefined;
         graph.chart.update();
         //graph.chart.resetZoom(); // this triggers a handlePanZoomComplete... that triggers graphsSetStartEndDate... seems not needed
     });
 
     // use from 1st/main graph, we assume this is always there
     const { chart } = graphs.get('main');
-    const minDate = new Date(chart.scales['x-axis-0'].min);
-    const maxDate = new Date(chart.scales['x-axis-0'].max);
+    const minDate = new Date(chart.scales['x'].min);
+    const maxDate = new Date(chart.scales['x'].max);
     timelineChartUpdate({ zoomX: [minDate, maxDate] });
 };
 
@@ -292,7 +293,7 @@ const selectedTimeAnnotations = [{
     drawTime: 'beforeDatasetsDraw',
     type: 'line',
     mode: 'vertical',
-    scaleID: 'x-axis-0',
+    scaleID: 'x',
     borderColor: 'green',
     borderWidth: 1,
     borderDash: [2, 2],
@@ -315,7 +316,7 @@ const selectedTimeAnnotations = [{
 
 const lcAnnotations = [{
     id: 'lc',
-    xScaleID: 'x-axis-0',
+    xScaleID: 'x',
     yScaleID: 'y-lc',
     drawTime: 'beforeDatasetsDraw',
     type: 'line',
@@ -384,9 +385,10 @@ const graphConfigTemplate = {
                 right: 0,
             }
         },
-        indexAxis: 'x-axis-0',
+        indexAxis: 'x',
+        parsing: false, // needed for decimation, we dont want implicit parsing anyhow
         scales: {
-            'x-axis-0': {
+            'x': {
                 type: 'time',
                 parsing: false, // we provide timestamps directly
                 time: {
@@ -398,6 +400,14 @@ const graphConfigTemplate = {
                     display: true,
                     text: 'time'
                 },
+                border:{
+                    dash: (ctx, options)=>{
+                        if (!('tick' in ctx)){ return [];}
+                        //console.log(`resolving grid color for ${ctx.tick.value}`, ctx, options);
+                        const {dash} = gridXLabelColorMap.get(ctx.tick.value) ||{dash:[]};
+                        return dash;
+                    },
+                },
                 grid: {
                     display: true,
                     color: (ctx, options)=>{
@@ -405,12 +415,6 @@ const graphConfigTemplate = {
                         //console.log(`resolving grid color for ${ctx.tick.value}`, ctx, options);
                         const {color} = gridXLabelColorMap.get(ctx.tick.value) ||{color:'rgba(0,200,0,0.5)'};
                         return color;
-                    },
-                    borderDash: (ctx, options)=>{
-                        if (!('tick' in ctx)){ return [];}
-                        //console.log(`resolving grid color for ${ctx.tick.value}`, ctx, options);
-                        const {dash} = gridXLabelColorMap.get(ctx.tick.value) ||{dash:[]};
-                        return dash;
                     },
                 },
                 ticks: {
@@ -450,7 +454,7 @@ const graphConfigTemplate = {
                 max: 100, // percentage alike
             }
         },
-        animation: { duration: 0, active: { duration: 0 }, resize: { duration: 0 } },
+        animation: false,
         plugins: {
             title: { display: false, text: 'report', color: vscodeStyles.getPropertyValue('--vscode-editor-foreground') },
             tooltip: {
@@ -464,20 +468,37 @@ const graphConfigTemplate = {
                 bodyFont: { size: 10, family: vscodeStyles.getPropertyValue('--vscode-editor-font-family'), },
                 usePointStyle: true,
                 position: 'nearest',
-                mode: 'nearest',
+                mode: 'point', // we want multiple labels to be shown
                 callbacks: {
-                    title: (items) => {
+                    title: (items) => { // should return the time formatted for all items hovered
                         if (items.length > 0) {
-                            const item = items[0];
-                            return item.formattedValue; // weird that's the time/x-axis value
+                            const itemFirst = items[0];
+                            const titleFirst = itemFirst.label || 'no title/label';
+                            if (items.length===1){
+                                return titleFirst;
+                            }else{
+                                const itemLast = items[items.length-1];
+                                const titleLast = itemLast.label || 'no title/label';
+                                if (titleFirst === titleLast){
+                                    return titleFirst;
+                                }else{
+                                    return titleFirst+'...'+titleLast;
+                                }
+                            }
                         }
                         return "";
                     },
-                    label: (item) => {
-                        return (item.dataset.label || 'no dataset label') + ': ' + (item.label || 'no item label');
+                    label: (item) => { // the lower part per item. Should contain: label name and label value (e.g. thread cpu load: 15)
+                        return (item.dataset.label || 'no dataset label') + ': ' + (item.formattedValue || 'no item formatted value');
                     }
 
                 }
+            },
+            decimation:{
+                enabled: true,
+                algorithm:'min-max', // we want min-max, not lttb
+                // samples: 10, only for lttb
+                // threshold: 4, // 4 to force it during testing
             },
             colorschemes: {
                 scheme: 'tableau.Tableau20'
