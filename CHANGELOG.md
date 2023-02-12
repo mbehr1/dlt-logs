@@ -1,5 +1,23 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.58.2](https://github.com/mbehr1/dlt-logs/compare/v1.58.1...v1.58.2) (2023-02-12)
+
+
+### Bug Fixes
+
+* adjust tooltips to new chartjs ([5d4842b](https://github.com/mbehr1/dlt-logs/commit/5d4842b66cb864b6e20024134b70674848a4855d))
+
+
+### Performance Improvements
+
+* disable parsing for all chartjs charts ([f757476](https://github.com/mbehr1/dlt-logs/commit/f757476584911238316e148eabae566293188bf1))
+* **report:** disable animations ([20db1f4](https://github.com/mbehr1/dlt-logs/commit/20db1f47f890c568cc6254bb6dd98e2393fa7fd0))
+* **report:** disable auto-scale logs ([27d7c52](https://github.com/mbehr1/dlt-logs/commit/27d7c52d312430da73417c2216caf5cdc1f2ec66))
+* **report:** first step to disable parsing for lines ([c3ab92a](https://github.com/mbehr1/dlt-logs/commit/c3ab92aafb049806bd17f481fc588cd2c1686c1a))
+* **report:** provide times as number ([e350348](https://github.com/mbehr1/dlt-logs/commit/e350348e7e1f23798144077fb8de9d64817deadd))
+* **report:** provide x-axis/time as number ([708dc0a](https://github.com/mbehr1/dlt-logs/commit/708dc0a4e00889980b6a6031cb72475363d5d13c))
+* **reports:** use mix-max decimation for chartjs reports ([bb0c043](https://github.com/mbehr1/dlt-logs/commit/bb0c0432b96122874eb69f4007d8b078d77e9889))
+
 ## [1.58.1](https://github.com/mbehr1/dlt-logs/compare/v1.58.0...v1.58.1) (2023-02-11)
 
 
