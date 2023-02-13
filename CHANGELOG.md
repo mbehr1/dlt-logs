@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.58.3](https://github.com/mbehr1/dlt-logs/compare/v1.58.2...v1.58.3) (2023-02-13)
+
+
+### Bug Fixes
+
+* **report:** hotfix to reenable zoom on resize ([69471e9](https://github.com/mbehr1/dlt-logs/commit/69471e9872cac949fd238d0a3f5818f5cccac68f))
+
 ## [1.58.2](https://github.com/mbehr1/dlt-logs/compare/v1.58.1...v1.58.2) (2023-02-12)
 
 
