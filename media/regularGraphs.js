@@ -379,6 +379,7 @@ const graphConfigTemplate = {
     },
     options: {
         responsive: true,
+        maintainAspectRatio: true,
         layout: {
             padding: {
                 left: 0,

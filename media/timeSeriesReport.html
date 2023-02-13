@@ -132,7 +132,12 @@
     <div id="message">
         <textarea id="report_filenames" rows="1" cols="120" readonly>dlt-logs report ok: unknown</textarea>
         <pre id="report_warnings" hidden></pre>
-        <div id="stacked-reports">
+        <div id="stacked-reports" style="position: relative; height:auto; width:auto">
+            <!-- hotfix to avoid https://github.com/chartjs/Chart.js/issues/11139 Needs to be removed once fixed
+                this adds a 20px gap on top of first chart and thus screws the e2etests but it's better than 
+                the bug which prevents zooming single charts on resize
+            -->
+            <canvas id="not_used" style="width:0; height:0;"></canvas>
         </div>
     </div>
     <br>
