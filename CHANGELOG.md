@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.59.0](https://github.com/mbehr1/dlt-logs/compare/v1.58.5...v1.59.0) (2023-03-02)
+
+
+### Features
+
+* apply config changes for filters instantly ([b30d08b](https://github.com/mbehr1/dlt-logs/commit/b30d08bab168dc94736de4e80d55b3865e462e4e))
+
 ## [1.58.5](https://github.com/mbehr1/dlt-logs/compare/v1.58.4...v1.58.5) (2023-03-02)
 
 
