@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.58.5](https://github.com/mbehr1/dlt-logs/compare/v1.58.4...v1.58.5) (2023-03-02)
+
+
+### Bug Fixes
+
+* add filter colors loading ([7fce37b](https://github.com/mbehr1/dlt-logs/commit/7fce37b2d3270e1c0483b91ec3bde27c5a4aebbb))
+
 ## [1.58.4](https://github.com/mbehr1/dlt-logs/compare/v1.58.3...v1.58.4) (2023-03-01)
 
 
