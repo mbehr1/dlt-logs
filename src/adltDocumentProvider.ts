@@ -529,10 +529,25 @@ export class AdltDocument implements vscode.Disposable {
     }
 
     /**
+     * callback to handle any configuration change dynamically
+     * 
+     * will be called on each configuration change.
+     * @param event 
+     */
+    onDidChangeConfiguration(event: vscode.ConfigurationChangeEvent) {
+        if (event.affectsConfiguration('dlt-logs.filters')) {
+            this.onDidChangeConfigFilters();
+            this.triggerApplyFilter();
+        }
+        // todo add for plugins, decorations, maxNumberLogs, columns?
+    }
+
+    /**
      * read or reread config changes for filters
      * Will be called from constructor and on each config change for dlt-logs.filters
      */
     onDidChangeConfigFilters() {
+        console.log(`dlt-logs.AdltDocument.onDidChangeConfigFilters()...`);
         const filterSection = "dlt-logs.filters";
         let filterObjs = vscode.workspace.getConfiguration().get<Array<object>>(filterSection);
 
@@ -2100,7 +2115,7 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
                     }
                 }
 
-                // todo move to ext? this._documents.forEach(doc => doc.onDidChangeConfiguration(e));
+                this._documents.forEach(doc => doc.onDidChangeConfiguration(e));
             }
         }));
 
