@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.59.1](https://github.com/mbehr1/dlt-logs/compare/v1.59.0...v1.59.1) (2023-03-04)
+
+
+### Bug Fixes
+
+* **report:** tooltips for scatter/events ([d2a40f6](https://github.com/mbehr1/dlt-logs/commit/d2a40f6c1b6facf4fc174a627b830e50f7bdb0e3))
+
 ## [1.59.0](https://github.com/mbehr1/dlt-logs/compare/v1.58.5...v1.59.0) (2023-03-02)
 
 
