@@ -472,14 +472,16 @@ const graphConfigTemplate = {
                 mode: 'point', // we want multiple labels to be shown
                 callbacks: {
                     title: (items) => { // should return the time formatted for all items hovered
+                        // console.warn(`title() called for`, items);
                         if (items.length > 0) {
                             const itemFirst = items[0];
-                            const titleFirst = itemFirst.label || 'no title/label';
+                            // weirdly type scatter have no label but a formattedValue with (time, value)
+                            const titleFirst = itemFirst.label || (itemFirst.formattedValue.startsWith('(') ? itemFirst.formattedValue.slice(1, itemFirst.formattedValue.indexOf(',')).trim() : 'no title/label');
                             if (items.length===1){
                                 return titleFirst;
                             }else{
                                 const itemLast = items[items.length-1];
-                                const titleLast = itemLast.label || 'no title/label';
+                                const titleLast = itemLast.label || (itemLast.formattedValue.startsWith('(') ? itemLast.formattedValue.slice(1, itemLast.formattedValue.indexOf(',')).trim() : 'no title/label');
                                 if (titleFirst === titleLast){
                                     return titleFirst;
                                 }else{
@@ -490,7 +492,8 @@ const graphConfigTemplate = {
                         return "";
                     },
                     label: (item) => { // the lower part per item. Should contain: label name and label value (e.g. thread cpu load: 15)
-                        return (item.dataset.label || 'no dataset label') + ': ' + (item.formattedValue || 'no item formatted value');
+                        // console.warn(`label() called for`, item);
+                        return (item.dataset.label || 'no dataset label') + ': ' + (item.formattedValue.startsWith('(') ? item.formattedValue.slice(item.formattedValue.indexOf(',') + 1, item.formattedValue.length - 1).trim() : (item.formattedValue || 'no item formatted value'));
                     }
 
                 }
