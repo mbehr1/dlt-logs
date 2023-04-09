@@ -5,10 +5,16 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as JSON5 from 'json5';
 import { DltLifecycleInfoMinIF } from './dltLifecycle';
 import { DltFilter } from './dltFilter';
 import { FilterableDltMsg } from './dltParser';
 import { TreeViewNode } from './dltTreeViewNodes';
+
+// make JSON5 available for conversionFunction by adding to globalThis
+if (!((globalThis as any).JSON5)) {
+    (globalThis as any).JSON5 = JSON5;
+}
 
 enum DataPointType {
     Default = 0, // can be used but better to not set t_ then at all
