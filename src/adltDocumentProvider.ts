@@ -45,6 +45,7 @@ import { AdltPlugin, AdltPluginChildNode } from './adltPlugin';
 import { assert } from 'console';
 import { fileURLToPath } from 'node:url';
 import { generateRegex } from './generateRegex';
+import * as JSON5 from 'json5';
 
 //import { adltPath } from 'node-adlt';
 // with optionalDependency we use require to catch errors
@@ -1814,7 +1815,7 @@ export class AdltDocument implements vscode.Disposable {
                         break;
                     case 'report': {
                         try {
-                            const reportFilters = JSON.parse(commandParams);
+                            const reportFilters = JSON5.parse(commandParams);
                             console.log(`report filters=`, reportFilters);
                             if (Array.isArray(reportFilters) && reportFilters.length > 0) {
                                 const filters: DltFilter[] = [];
@@ -1842,7 +1843,7 @@ export class AdltDocument implements vscode.Disposable {
                         break;
                     case 'query': {
                         try {
-                            const queryFilters = JSON.parse(commandParams);
+                            const queryFilters = JSON5.parse(commandParams);
                             console.log(`filters=`, queryFilters);
                             if (Array.isArray(queryFilters) && queryFilters.length > 0) {
                                 let addLifecycles = false;
@@ -1903,7 +1904,7 @@ export class AdltDocument implements vscode.Disposable {
                         break;
                     case 'add': { // todo add support for persistent storage!
                         try {
-                            const filterAttribs = JSON.parse(commandParams);
+                            const filterAttribs = JSON5.parse(commandParams);
                             console.log(`filterAttribs=`, filterAttribs);
 
                             const filter = new DltFilter(filterAttribs, false); // don't allow edit for now as we keep them temp.
@@ -1918,7 +1919,7 @@ export class AdltDocument implements vscode.Disposable {
                         break;
                     case 'delete': {
                         try {
-                            const filterAttribs = JSON.parse(commandParams);
+                            const filterAttribs = JSON5.parse(commandParams);
                             console.log(`filterAttribs=`, filterAttribs);
 
                             if (Object.keys(filterAttribs).length > 0) {
@@ -1955,7 +1956,7 @@ export class AdltDocument implements vscode.Disposable {
                         break;
                     case 'patch': {
                         try {
-                            const patchAttribs = JSON.parse(commandParams);
+                            const patchAttribs = JSON5.parse(commandParams);
                             const filterAttribs = patchAttribs.id;
                             const newAttribs = patchAttribs.attributes;
                             console.log(`patch filterAttribs=`, filterAttribs);

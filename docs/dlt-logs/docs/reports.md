@@ -246,6 +246,10 @@ if (lastLc !== params.msg.lifecycle) {
 ```
 :::
 
+:::tip
+The conversionFunction can use `JSON5.parse(...)` to parse JSON5 strings e.g. with hex-formatted numbers.
+:::
+
 todo ... add liveeditor to convert a function into the json string repr.
 
 ### Setting report title

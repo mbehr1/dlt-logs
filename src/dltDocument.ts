@@ -6,6 +6,7 @@ import * as vscode from 'vscode';
 import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as JSON5 from 'json5';
 import * as util from './util';
 import { DltParser, DltMsg, MSTP, MTIN_LOG, MTIN_CTRL, MTIN_CTRL_strs, MTIN_LOG_strs, MTIN_TRACE_strs, MTIN_NW_strs, ViewableDltMsg } from './dltParser';
 import { DltLifecycleInfo } from './dltLifecycle';
@@ -1997,7 +1998,7 @@ export class DltDocument {
                         break;
                     case 'report': {
                         try {
-                            const reportFilters = JSON.parse(commandParams);
+                            const reportFilters = JSON5.parse(commandParams);
                             console.log(`report filters=`, reportFilters);
                             if (Array.isArray(reportFilters) && reportFilters.length > 0) {
                                 const filters: DltFilter[] = [];
@@ -2025,7 +2026,7 @@ export class DltDocument {
                         break;
                     case 'query': {
                         try {
-                            const queryFilters = JSON.parse(commandParams);
+                            const queryFilters = JSON5.parse(commandParams);
                             console.log(`filters=`, queryFilters);
                             if (Array.isArray(queryFilters) && queryFilters.length > 0) {
                                 let addLifecycles = false;
@@ -2084,7 +2085,7 @@ export class DltDocument {
                         break;
                     case 'add': { // todo add support for persistent storage!
                         try {
-                            const filterAttribs = JSON.parse(commandParams);
+                            const filterAttribs = JSON5.parse(commandParams);
                             console.log(`filterAttribs=`, filterAttribs);
 
                             const filter = new DltFilter(filterAttribs, false); // don't allow edit for now as we keep them temp.
@@ -2099,7 +2100,7 @@ export class DltDocument {
                         break;
                     case 'delete': {
                         try {
-                            const filterAttribs = JSON.parse(commandParams);
+                            const filterAttribs = JSON5.parse(commandParams);
                             console.log(`filterAttribs=`, filterAttribs);
 
                             if (Object.keys(filterAttribs).length > 0) {
@@ -2136,7 +2137,7 @@ export class DltDocument {
                         break;
                     case 'patch': {
                         try {
-                            const patchAttribs = JSON.parse(commandParams);
+                            const patchAttribs = JSON5.parse(commandParams);
                             const filterAttribs = patchAttribs.id;
                             const newAttribs = patchAttribs.attributes;
                             console.log(`patch filterAttribs=`, filterAttribs);
