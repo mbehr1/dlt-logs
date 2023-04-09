@@ -1,5 +1,13 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.60.0](https://github.com/mbehr1/dlt-logs/compare/v1.59.1...v1.60.0) (2023-04-09)
+
+
+### Features
+
+* support json5 in restQuery ([48d67de](https://github.com/mbehr1/dlt-logs/commit/48d67dedabee5cccfa77b6c7b8d03a256a8bd7b7))
+* support JSON5.parse in conversionFunction ([c637f72](https://github.com/mbehr1/dlt-logs/commit/c637f722953b73f3cd48e429bd4b19590a54d2f0))
+
 ## [1.59.1](https://github.com/mbehr1/dlt-logs/compare/v1.59.0...v1.59.1) (2023-03-04)
 
 
