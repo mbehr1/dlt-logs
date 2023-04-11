@@ -52,7 +52,7 @@ jobs:
             npm_config_arch: arm64
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           ref: ${{ inputs.tagname }}
       - uses: actions/setup-node@v3
@@ -77,7 +77,7 @@ jobs:
     needs: build
     if: success()
     steps:
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v3
       - run: npx vsce publish --packagePath $(find . -iname *.vsix)
         env:
           VSCE_PAT: ${{ secrets.VSCE_TOKEN }}
