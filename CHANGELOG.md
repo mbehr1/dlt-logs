@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.61.1](https://github.com/mbehr1/dlt-logs/compare/v1.61.0...v1.61.1) (2023-04-11)
+
+
+### Bug Fixes
+
+* can plugin missing frames ([c2890f5](https://github.com/mbehr1/dlt-logs/commit/c2890f58684d30af2ff63635ea67a165e8cb7118))
+
 ## [1.61.0](https://github.com/mbehr1/dlt-logs/compare/v1.60.0...v1.61.0) (2023-04-11)
 
 
