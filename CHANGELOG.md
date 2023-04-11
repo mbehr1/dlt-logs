@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.61.0](https://github.com/mbehr1/dlt-logs/compare/v1.60.0...v1.61.0) (2023-04-11)
+
+
+### Features
+
+* update adlt/someip plugin ([575b0ca](https://github.com/mbehr1/dlt-logs/commit/575b0ca331251f2e0179245920a19c159b8cca6b))
+
 ## [1.60.0](https://github.com/mbehr1/dlt-logs/compare/v1.59.1...v1.60.0) (2023-04-09)
 
 
