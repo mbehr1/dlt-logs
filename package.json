@@ -954,7 +954,7 @@
 			[
 				"@semantic-release/exec",
 				{
-					"publishCmd": "echo ::set-output name=nextVer::v${nextRelease.version}"
+					"publishCmd": "echo \"nextVer=v${nextRelease.version}\" >> $GITHUB_OUTPUT"
 				}
 			]
 		],
