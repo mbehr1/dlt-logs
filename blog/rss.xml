@@ -11,7 +11,7 @@
         <item>
             <title><![CDATA[Welcome]]></title>
             <link>https://mbehr1.github.io/dlt-logs/blog/welcome</link>
-            <guid>welcome</guid>
+            <guid>https://mbehr1.github.io/dlt-logs/blog/welcome</guid>
             <pubDate>Sat, 10 Oct 2020 00:00:00 GMT</pubDate>
             <description><![CDATA[I'll use this blog to announce new features or doc updates to my Visual Studio Code extension "dlt-logs" or to announce other related extensions.]]></description>
             <content:encoded><![CDATA[<p>I'll use this blog to announce new features or doc updates to my Visual Studio Code extension "dlt-logs" or to announce other related extensions.
