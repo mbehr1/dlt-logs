@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.61.2](https://github.com/mbehr1/dlt-logs/compare/v1.61.1...v1.61.2) (2023-04-12)
+
+
+### Bug Fixes
+
+* update dependencies ([5659640](https://github.com/mbehr1/dlt-logs/commit/5659640e80ac66666da5998f58da179b3632c0fb))
+
 ## [1.61.1](https://github.com/mbehr1/dlt-logs/compare/v1.61.0...v1.61.1) (2023-04-11)
 
 
