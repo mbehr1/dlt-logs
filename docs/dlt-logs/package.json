@@ -11,16 +11,13 @@
     "serve": "docusaurus serve"
   },
   "dependencies": {
-    "@docusaurus/core": "2.0.0-rc.1",
-    "@docusaurus/plugin-google-gtag": "^2.0.0-rc.1",
-    "@docusaurus/preset-classic": "2.0.0-rc.1",
-    "@mdx-js/react": "^1.6.21",
+    "@algolia/client-search": "^4.17.0",
+    "@docusaurus/core": "^2.4.0",
+    "@docusaurus/preset-classic": "^2.4.0",
+    "@mdx-js/react": "^1.6.22",
     "clsx": "^1.1.1",
-    "react": "^16.8.4",
-    "react-dom": "^16.8.4"
-  },
-  "resolutions": {
-    "@docusaurus/preset-classic/**/trim": "^0.0.3"
+    "react": "^17.0.2",
+    "react-dom": "^17.0.2"
   },
   "browserslist": {
     "production": [
@@ -35,8 +32,6 @@
     ]
   },
   "devDependencies": {
-    "@babel/plugin-proposal-class-properties": "^7.12.1",
-    "@babel/plugin-syntax-class-properties": "^7.12.1",
     "@types/react": "^17.0.5"
   }
 }

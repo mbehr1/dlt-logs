@@ -7,7 +7,6 @@ module.exports = {
   favicon: 'img/favicon.ico',
   organizationName: 'mbehr1', // Usually your GitHub org/user name.
   projectName: 'dlt-logs', // Usually your repo name.
-  // plugins: ['@docusaurus/plugin-google-gtag'],
   themeConfig: {
     navbar: {
       title: 'DLT-Logs',
