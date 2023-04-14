@@ -336,8 +336,8 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.commands.registerCommand("dlt-logs.addFilter", async (...args) => {
 		args.forEach(a => { console.log(` dlt-logs.addFilter arg='${JSON.stringify(a)}'`); });
 		if (args.length < 2) { return; }
-		// first arg should contain uri
-		const uri = typeof args[0].uri === 'string' ? vscode.Uri.parse(args[0].uri) : args[0].uri;
+		// first arg should contain uri or preferrably base64Uri
+		const uri = 'base64Uri' in args[0] ? vscode.Uri.parse(Buffer.from(args[0].base64Uri, 'base64').toString('utf8')) : (typeof args[0].uri === 'string' ? vscode.Uri.parse(args[0].uri) : args[0].uri);
 		if (uri) {
 			let { doc, provider } = getDocAndProviderFor(uri.toString());
 			if (doc) {
@@ -417,10 +417,10 @@ export function activate(context: vscode.ExtensionContext) {
 			filter = filterNode.filter;
 			uri = filterNode.parent?.uri;
 		} else {
-			console.log(`dlt-logs.openReport using two args')`);
+			console.log(`dlt-logs.openReport using two args: '${JSON.stringify(args[0])}' and '${JSON.stringify(args[1])}')`);
 			filter = new DltFilter(args[1]);
 			label = filter.name;
-			uri = vscode.Uri.parse(args[0].uri);
+			uri = vscode.Uri.parse('base64Uri' in args[0] ? Buffer.from(args[0].base64Uri, 'base64').toString('utf8') : args[0].uri);
 		}
 		if (uri) {
 			const doc = dltProvider._documents.get(uri.toString());

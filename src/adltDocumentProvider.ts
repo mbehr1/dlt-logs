@@ -1582,7 +1582,7 @@ export class AdltDocument implements vscode.Disposable {
             `| ctid | ${msg.ctid}${ctidDesc} |\n`);
         mdString.appendMarkdown(`\n\n-- -\n\n`);
 
-        const args = [{ uri: this.uri.toString() }, { mstp: msg.mstp, ecu: msg.ecu, apid: msg.apid, ctid: msg.ctid, payload: msg.payloadString }];
+        const args = [{ uri: this.uri.toString(), base64Uri: Buffer.from(this.uri.toString()).toString('base64') }, { mstp: msg.mstp, ecu: msg.ecu, apid: msg.apid, ctid: msg.ctid, payload: msg.payloadString }];
         const addCommandUri = vscode.Uri.parse(`command:dlt-logs.addFilter?${encodeURIComponent(JSON.stringify(args))}`);
 
         mdString.appendMarkdown(`[$(filter) add filter... ](${addCommandUri})`);
@@ -1608,8 +1608,11 @@ export class AdltDocument implements vscode.Disposable {
             const regexs = generateRegex(payloads);
             console.log(`AdltDocument.provideHover regexs='${regexs.map((v) => '/' + v.source + '/').join(',')}'`);
             if (regexs.length === 1 && regexs[0].source.includes('(?<')) {
-                const args = [{ uri: this.uri.toString() }, { type: 3, mstp: msg.mstp, apid: msg.apid, ctid: msg.ctid, payloadRegex: regexs[0].source }];
+                // added encoding of the uri using base64 but the same problem can happen with payloadRegex as well...
+                // filed https://github.com/microsoft/vscode/issues/179962 to have it fixed/analysed within vscode.
+                const args = [{ uri: this.uri.toString(), base64Uri: Buffer.from(this.uri.toString()).toString('base64') }, { type: 3, mstp: msg.mstp, apid: msg.apid, ctid: msg.ctid, payloadRegex: regexs[0].source }];
                 const addCommandUri = vscode.Uri.parse(`command:dlt-logs.openReport?${encodeURIComponent(JSON.stringify(args))}`);
+                // console.warn(`quick report openReport with command uri:'${addCommandUri}' for doc uri:'${this.uri.toString()}'`);
                 mdString.appendMarkdown(`[$(graph) open quick report... ](${addCommandUri})`);
                 mdString.appendMarkdown(`[$(globe) open regex101.com with quick report...](https://regex101.com/?flavor=javascript&regex=${encodeURIComponent(args[1].payloadRegex || '')}&testString=${encodeURIComponent(payloads.slice(0, 20).join('\n'))})`);
                 /*mdString.appendMarkdown(`\n\n-- -\n\n`);
