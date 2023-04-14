@@ -784,17 +784,17 @@
 			"editor/title": [
 				{
 					"command": "dlt-logs.goToTime",
-					"when": "resourceLangId == dlt-log",
+					"when": "resourceLangId == dlt-log || resourceLangId == can-asc",
 					"group": "navigation@1"
 				},
 				{
 					"command": "dlt-logs.toggleSortOrder",
-					"when": "resourceLangId == dlt-log",
+					"when": "resourceLangId == dlt-log || resourceLangId == can-asc",
 					"group": "navigation@2"
 				},
 				{
 					"command": "dlt-logs.configureColumns",
-					"when": "resourceLangId == dlt-log",
+					"when": "resourceLangId == dlt-log || resourceLangId == can-asc",
 					"group": "navigation@3"
 				},
 				{
