@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.61.4](https://github.com/mbehr1/dlt-logs/compare/v1.61.3...v1.61.4) (2023-04-14)
+
+
+### Bug Fixes
+
+* quick report/add filter with multiple files ([d7e3892](https://github.com/mbehr1/dlt-logs/commit/d7e38922bc5e88763d1223f1245448e284aaa061))
+
 ## [1.61.3](https://github.com/mbehr1/dlt-logs/compare/v1.61.2...v1.61.3) (2023-04-14)
 
 
