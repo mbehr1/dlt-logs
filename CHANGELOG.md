@@ -1,5 +1,13 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.61.3](https://github.com/mbehr1/dlt-logs/compare/v1.61.2...v1.61.3) (2023-04-14)
+
+
+### Bug Fixes
+
+* add editor title buttons for can-asc as well ([b3a7882](https://github.com/mbehr1/dlt-logs/commit/b3a7882a2d341ce90cc8de3e2ac7e8cef5f574cf))
+* use adlt 0.32.2 with CAN decoding fixes ([99cff7e](https://github.com/mbehr1/dlt-logs/commit/99cff7ed07fd00138442b44f9185aaad2289e19f))
+
 ## [1.61.2](https://github.com/mbehr1/dlt-logs/compare/v1.61.1...v1.61.2) (2023-04-12)
 
 
