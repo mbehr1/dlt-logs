@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.62.0](https://github.com/mbehr1/dlt-logs/compare/v1.61.4...v1.62.0) (2023-04-16)
+
+
+### Features
+
+* adlt with can report enums ([4a00c10](https://github.com/mbehr1/dlt-logs/commit/4a00c100816d0c5a82c26042a20918c506842929))
+
 ## [1.61.4](https://github.com/mbehr1/dlt-logs/compare/v1.61.3...v1.61.4) (2023-04-14)
 
 
