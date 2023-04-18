@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.62.1](https://github.com/mbehr1/dlt-logs/compare/v1.62.0...v1.62.1) (2023-04-18)
+
+
+### Bug Fixes
+
+* **CAN:** upgrade adlt version with CAN endianess fix ([18bd81a](https://github.com/mbehr1/dlt-logs/commit/18bd81a938a18381c4b1032f53a507365a07868b))
+
 ## [1.62.0](https://github.com/mbehr1/dlt-logs/compare/v1.61.4...v1.62.0) (2023-04-16)
 
 
