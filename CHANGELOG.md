@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.62.2](https://github.com/mbehr1/dlt-logs/compare/v1.62.1...v1.62.2) (2023-04-19)
+
+
+### Bug Fixes
+
+* adlt upd to fix canfd busmappings ([4d0bd8a](https://github.com/mbehr1/dlt-logs/commit/4d0bd8aaf5c44f80b432f341af65b4f39f6a6b6d))
+
 ## [1.62.1](https://github.com/mbehr1/dlt-logs/compare/v1.62.0...v1.62.1) (2023-04-18)
 
 
