@@ -1,5 +1,17 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.63.0](https://github.com/mbehr1/dlt-logs/compare/v1.62.2...v1.63.0) (2023-04-23)
+
+
+### Features
+
+* open time-wise overlapping files ([2d301b1](https://github.com/mbehr1/dlt-logs/commit/2d301b1904f91a2cf6fcf9c5b60bb75c802e81c1))
+
+
+### Bug Fixes
+
+* **report:** labels for value 0 ([ea18740](https://github.com/mbehr1/dlt-logs/commit/ea187403964fc9f480ad97dae233926a99535c22))
+
 ## [1.62.2](https://github.com/mbehr1/dlt-logs/compare/v1.62.1...v1.62.2) (2023-04-19)
 
 
