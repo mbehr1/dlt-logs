@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.64.0](https://github.com/mbehr1/dlt-logs/compare/v1.63.0...v1.64.0) (2023-04-24)
+
+
+### Features
+
+* sort filetransfers by name as well ([cbcc480](https://github.com/mbehr1/dlt-logs/commit/cbcc4801a2b7e6525ee12b9b4641bde45cf166ef))
+
 ## [1.63.0](https://github.com/mbehr1/dlt-logs/compare/v1.62.2...v1.63.0) (2023-04-23)
 
 
