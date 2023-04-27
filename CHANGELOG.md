@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.64.1](https://github.com/mbehr1/dlt-logs/compare/v1.64.0...v1.64.1) (2023-04-27)
+
+
+### Bug Fixes
+
+* **can:** adlt update to support multiplexer ([99e0b01](https://github.com/mbehr1/dlt-logs/commit/99e0b01f831733666b8bf40dac5b822805dfdd42))
+
 ## [1.64.0](https://github.com/mbehr1/dlt-logs/compare/v1.63.0...v1.64.0) (2023-04-24)
 
 
