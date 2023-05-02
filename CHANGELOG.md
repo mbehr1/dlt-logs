@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.64.2](https://github.com/mbehr1/dlt-logs/compare/v1.64.1...v1.64.2) (2023-05-02)
+
+
+### Bug Fixes
+
+* **can:** multiple can files did wrongly overlap ([670b9d1](https://github.com/mbehr1/dlt-logs/commit/670b9d1470cff07c9a21fb064cc31510a2189823))
+
 ## [1.64.1](https://github.com/mbehr1/dlt-logs/compare/v1.64.0...v1.64.1) (2023-04-27)
 
 
