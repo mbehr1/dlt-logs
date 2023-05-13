@@ -1,11 +1,64 @@
-main {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: flex-start;
+html {
     height: 100%;
+    width: 100%;
+    margin: 0px;
+    padding: 0px;
 }
 
-main>* {
-    margin: 1rem 0;
+body {
+    height: 100%;
+    width: calc(100% - 8px);
+    margin: 0px 0px;
+    padding: 0px 4px;
+}
+
+#root {
+    height: 100%;
+    width: 100%;
+    display: flex;
+    flex-flow: column;
+}
+
+.monaco-custom-toggle {
+    margin-left: 2px;
+    float: left;
+    cursor: pointer;
+    overflow: hidden;
+    width: 20px;
+    height: 20px;
+    border-radius: 3px;
+    border: 1px solid transparent;
+    padding: 1px;
+    box-sizing: border-box;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.monaco-custom-toggle:hover {
+    background-color: var(--vscode-inputOption-hoverBackground);
+}
+
+.monaco-custom-toggle[aria-checked=true] {
+    color: var(--vscode-inputOption-activeForeground);
+    border-color: var(--vscode-inputOption-activeBorder);
+    background-color: var(--vscode-inputOption-activeBackground);
+}
+
+pre {
+    margin: 0;
+    font-family: var(--vscode-editor-font-family);
+    font-size: var(--vscode-editor-font-size);
+    font-weight: var(--vscode-editor-font-weight);
+}
+
+.sitem {
+    display: flex;
+    align-items: center;
+        white-space: nowrap;
+        height: inherit;
+        cursor: pointer;
+}
+
+.sitem:hover {
+    background-color: var(--vscode-inputOption-hoverBackground);
 }

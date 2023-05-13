@@ -32,7 +32,8 @@
 		"onCommand:dlt-logs.dltOpenFile",
 		"onCommand:dlt-logs.dltOpenAdltFile",
 		"onCommand:dlt-logs.dltExportFile",
-		"onCommand:dlt-logs.adltTerminal"
+		"onCommand:dlt-logs.adltTerminal",
+		"onView:mbehr1DltLogsSearch"
 	],
 	"capabilities": {
 		"virtualWorkspaces": false,
@@ -656,6 +657,11 @@
 				"icon": "$(history)"
 			},
 			{
+				"command": "dlt-logs.search",
+				"title": "search dlt logs",
+				"icon": "$(search-fuzzy)"
+			},
+			{
 				"command": "dlt-logs.addFilter",
 				"title": "add filter..."
 			},
@@ -783,25 +789,30 @@
 			],
 			"editor/title": [
 				{
-					"command": "dlt-logs.goToTime",
+					"command": "dlt-logs.search",
 					"when": "resourceLangId == dlt-log || resourceLangId == can-asc",
 					"group": "navigation@1"
 				},
 				{
-					"command": "dlt-logs.toggleSortOrder",
+					"command": "dlt-logs.goToTime",
 					"when": "resourceLangId == dlt-log || resourceLangId == can-asc",
 					"group": "navigation@2"
 				},
 				{
-					"command": "dlt-logs.configureColumns",
+					"command": "dlt-logs.toggleSortOrder",
 					"when": "resourceLangId == dlt-log || resourceLangId == can-asc",
 					"group": "navigation@3"
+				},
+				{
+					"command": "dlt-logs.configureColumns",
+					"when": "resourceLangId == dlt-log || resourceLangId == can-asc",
+					"group": "navigation@4"
 				},
 				{
 					"command": "dlt-logs.toggleTimeSync",
 					"alt": "dlt-logs.sendTimeSyncEvents",
 					"when": "editorLangId == dlt-log",
-					"group": "navigation@4"
+					"group": "navigation@5"
 				}
 			]
 		},
@@ -812,13 +823,28 @@
 					"title": "Logs (smart-/dlt-logs)",
 					"icon": "./media/logs.svg"
 				}
+			],
+			"panel": [
+				{
+					"id": "mbehr1DltLogsSearch",
+					"title": "DLT-Logs search",
+					"icon": "./media/logs.svg"
+				}
 			]
 		},
 		"views": {
+			"mbehr1DltLogsSearch": [
+				{
+					"type": "webview",
+					"id": "mbehr1DltLogsSearch",
+					"name": "DLT-Logs search",
+					"icon": "./media/logs.svg"
+				}
+			],
 			"mbehr1Logs": [
 				{
 					"id": "dltLifecycleExplorer",
-					"name": "DLT Logs Explorer"
+					"name": "DLT-Logs Explorer"
 				}
 			]
 		},
@@ -845,6 +871,9 @@
 		]
 	},
 	"scripts": {
+		"install:all": "npm install && cd webviews/search && npm install",
+		"start:webview:search": "cd webviews/search && npm run start",
+		"build:webview:search": "cd webviews/search && npm run build",
 		"prepare": "husky install",
 		"vscode:prepublish": "npm run compile",
 		"compile": "tsc -p ./",
@@ -888,7 +917,7 @@
 		"wdio-vscode-service": "^4.0.7"
 	},
 	"dependencies": {
-		"@vscode/codicons": "^0.0.32",
+		"@vscode/codicons": "^0.0.33",
 		"@vscode/extension-telemetry": "^0.6.2",
 		"@vscode/webview-ui-toolkit": "^1.2.2",
 		"chart.js": "^4.2.1",

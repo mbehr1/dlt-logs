@@ -251,6 +251,11 @@ export function decodeAdltUri(uri: vscode.Uri): string[] {
     return fileNames;
 }
 
+interface DecorationsInfo {
+    decType: vscode.TextEditorDecorationType,
+    decOptions: any, // the options used to create the type
+}
+
 export class AdltDocument implements vscode.Disposable {
     private _fileNames: string[]; // the real local file names
     private realStat: fs.Stats;
@@ -272,13 +277,15 @@ export class AdltDocument implements vscode.Disposable {
     decorations = new Map<vscode.TextEditorDecorationType, vscode.DecorationOptions[]>();
 
     // config options for decorations
-    private decWarning?: vscode.TextEditorDecorationType;
+    private decWarning?: DecorationsInfo;
     private mdWarning = new vscode.MarkdownString("$(warning) LOG_WARN", true);
-    private decError?: vscode.TextEditorDecorationType;
+    private decError?: DecorationsInfo;
     private mdError = new vscode.MarkdownString("$(error) LOG_ERROR", true);
-    private decFatal?: vscode.TextEditorDecorationType;
+    private decFatal?: DecorationsInfo;
     private mdFatal = new vscode.MarkdownString("$(error) LOG_FATAL", true);
-    private _decorationTypes = new Map<string, vscode.TextEditorDecorationType>(); // map with id and settings. init from config in parseDecorationsConfigs
+
+    private _decorationTypes = new Map<string, DecorationsInfo>(); // map with id and settings. init from config in parseDecorationsConfigs
+    // decorationOptionsMapByType = new Map<vscode.TextEditorDecorationType
 
     // textEditors showing this document. Is updated from AdltDocumentProvider
     textEditors: Array<vscode.TextEditor> = [];
@@ -744,7 +751,7 @@ export class AdltDocument implements vscode.Disposable {
                         let decOpt = <vscode.DecorationRenderOptions>conf.renderOptions;
                         decOpt.isWholeLine = true;
                         let decType = vscode.window.createTextEditorDecorationType(decOpt);
-                        this._decorationTypes.set(conf.id, decType);
+                        this._decorationTypes.set(conf.id, { decType, decOptions: { ...decOpt } });
                     }
                 } catch (error) {
                     console.log(`dlt-logs.parseDecorationsConfig error:${error}`);
@@ -759,7 +766,7 @@ export class AdltDocument implements vscode.Disposable {
     }
 
     private _decorationsHoverTexts = new Map<string, vscode.MarkdownString>();
-    getDecorationFor(filter: DltFilter): [vscode.TextEditorDecorationType, vscode.MarkdownString] | undefined {
+    getDecorationFor(filter: DltFilter): [DecorationsInfo, vscode.MarkdownString] | undefined {
         // for filter we use decorationId or filterColour:
         let filterName = `MARKER_${filter.id}`;
 
@@ -777,7 +784,8 @@ export class AdltDocument implements vscode.Disposable {
             let dec = this._decorationTypes.get(decFilterName);
             if (dec) { return [dec, mdHoverText]; }
             // create this decoration:
-            dec = vscode.window.createTextEditorDecorationType({ borderColor: filter.filterColour, borderWidth: "1px", borderStyle: "dotted", overviewRulerColor: filter.filterColour, overviewRulerLane: 2, isWholeLine: true });
+            const decOptions = { borderColor: filter.filterColour, borderWidth: "1px", borderStyle: "dotted", overviewRulerColor: filter.filterColour, overviewRulerLane: 2, isWholeLine: true };
+            dec = { decType: vscode.window.createTextEditorDecorationType(decOptions), decOptions };
             this._decorationTypes.set(decFilterName, dec);
             return [dec, mdHoverText];
         } else if (typeof filter.filterColour === 'object') {
@@ -785,7 +793,8 @@ export class AdltDocument implements vscode.Disposable {
             let dec = this._decorationTypes.get(filterName); // we use filter name here as well as decoration key
             if (dec) { return [dec, mdHoverText]; } else {
                 // create
-                dec = vscode.window.createTextEditorDecorationType({ isWholeLine: true, ...filter.filterColour });
+                const decOptions = { isWholeLine: true, ...filter.filterColour };
+                dec = { decType: vscode.window.createTextEditorDecorationType(decOptions), decOptions };
                 this._decorationTypes.set(filterName, dec);
                 return [dec, mdHoverText];
             }
@@ -1091,36 +1100,15 @@ export class AdltDocument implements vscode.Disposable {
                                     if (lastLc) { endOfLcs.set(lastLc, i - 1); }
                                     lastLc = lc;
                                 }
-                                let decs: [vscode.TextEditorDecorationType, vscode.MarkdownString][] = [];
 
-                                if (msg.mstp === MSTP.TYPE_LOG) {
-                                    if (doc.decWarning && msg.mtin === MTIN_LOG.LOG_WARN) {
-                                        decs.push([doc.decWarning, doc.mdWarning]);
-                                    } else if (doc.decError && msg.mtin === MTIN_LOG.LOG_ERROR) {
-                                        decs.push([doc.decError, doc.mdError]);
-                                    } else if (doc.decFatal && msg.mtin === MTIN_LOG.LOG_FATAL) {
-                                        decs.push([doc.decFatal, doc.mdFatal]);
-                                    }
-                                }
-                                if (decFilters.length > 0) {
-                                    for (let d = 0; d < decFilters.length; ++d) {
-                                        let decFilter = decFilters[d];
-                                        if (decFilter.matches(msg)) {
-                                            const decType = doc.getDecorationFor(decFilter);
-                                            if (decType) {
-                                                decs.push([decType[0], decType[1]]);
-                                                break;
-                                            }
-                                        }
-                                    }
-                                }
+                                const decs = doc.getDecorationsTypeAndHoverMDForMsg(msg, decFilters);
 
                                 if (decs.length) {
                                     for (let dec of decs) {
-                                        let options = doc.decorations.get(dec[0]);
+                                        let options = doc.decorations.get(dec[0].decType);
                                         if (!options) {
                                             options = [];
-                                            doc.decorations.set(dec[0], options);
+                                            doc.decorations.set(dec[0].decType, options);
                                         }
                                         options.push({ range: new vscode.Range(i, 0, i, 21), hoverMessage: dec[1] });
                                     }
@@ -1198,6 +1186,34 @@ export class AdltDocument implements vscode.Disposable {
             });
         });
     }
+
+    getDecorationsTypeAndHoverMDForMsg(msg: FilterableDltMsg, decFilters: DltFilter[]) {
+        let decs: [DecorationsInfo, vscode.MarkdownString][] = [];
+
+        if (msg.mstp === MSTP.TYPE_LOG) {
+            if (this.decWarning && msg.mtin === MTIN_LOG.LOG_WARN) {
+                decs.push([this.decWarning, this.mdWarning]);
+            } else if (this.decError && msg.mtin === MTIN_LOG.LOG_ERROR) {
+                decs.push([this.decError, this.mdError]);
+            } else if (this.decFatal && msg.mtin === MTIN_LOG.LOG_FATAL) {
+                decs.push([this.decFatal, this.mdFatal]);
+            }
+        }
+        if (decFilters.length > 0) {
+            for (let d = 0; d < decFilters.length; ++d) {
+                let decFilter = decFilters[d];
+                if (decFilter.matches(msg)) {
+                    const decType = this.getDecorationFor(decFilter);
+                    if (decType) {
+                        decs.push([decType[0], decType[1]]);
+                        break;
+                    }
+                }
+            }
+        }
+        return decs;
+    }
+
 
     // window support:
     notifyVisibleRange(range: vscode.Range) {
@@ -1421,7 +1437,7 @@ export class AdltDocument implements vscode.Disposable {
                 }
             }
             let filters = Array.isArray(filter) ? filter : [filter];
-            let filterStr = filters.filter(f => f.enabled).map(f => JSON.stringify(f.asConfiguration())).join(',');
+            let filterStr = filters.filter(f => f.enabled).map(f => JSON.stringify({ ...f.asConfiguration(), enabled: true })).join(',');
             this.sendAndRecvAdltMsg(`stream {"window":[0,1000000], "binary":true, "filters":[${filterStr}]}`).then((response) => {
                 console.log(`adlt.on startStream got response:'${response}'`);
                 const streamObj = JSON.parse(response.substring(11));
@@ -1453,7 +1469,7 @@ export class AdltDocument implements vscode.Disposable {
             // shall we query first the messages fitting to the filters or shall we 
             // open the report first and add the messages then?
             let filters = Array.isArray(filter) ? filter : [filter];
-            let filterStr = filters.filter(f => f.enabled).map(f => JSON.stringify(f.asConfiguration())).join(',');
+            let filterStr = filters.filter(f => f.enabled).map(f => JSON.stringify({ ...f.asConfiguration(), enabled: true })).join(',');
             this.sendAndRecvAdltMsg(`stream {"window":[0,1000000], "binary":true, "filters":[${filterStr}]}`).then((response) => {
                 console.log(`adlt.on startStream got response:'${response}'`);
                 const streamObj = JSON.parse(response.substring(11));
@@ -1714,7 +1730,7 @@ export class AdltDocument implements vscode.Disposable {
                     this.lifecycles.set(ecu, lcInfos);
                     let lcDecorationTypes: [vscode.TextEditorDecorationType | undefined, vscode.TextEditorDecorationType | undefined] | undefined = undefined;
                     if (decorateEcu !== undefined && decorateEcu === ecu) {
-                        lcDecorationTypes = [this._decorationTypes.get("lifecycleEven"), this._decorationTypes.get("lifecycleOdd")];
+                        lcDecorationTypes = [this._decorationTypes.get("lifecycleEven")?.decType, this._decorationTypes.get("lifecycleOdd")?.decType];
                     }
                     ecuNode = { id: util.createUniqueId(), label: `ECU: ${ecu}`, swVersions: [], lcDecorationTypes, parent: this.lifecycleTreeNode, children: [], uri: this.uri, tooltip: undefined };
                     // get and or insert apidNode:
@@ -2026,7 +2042,7 @@ export class AdltDocument implements vscode.Disposable {
             const matchingMsgs: AdltMsg[] = [];
             // sort the filters here into the enabled pos and neg:
             try {
-                let filterStr = filters.filter(f => f.enabled).map(f => JSON.stringify(f.asConfiguration())).join(',');
+                let filterStr = filters.filter(f => f.enabled).map(f => JSON.stringify({ ...f.asConfiguration(), enabled: true })).join(',');
                 this.sendAndRecvAdltMsg(`query {"window":[0,${maxMsgsToReturn}], "filters":[${filterStr}]}`).then((response) => {
                     console.log(`adlt.getMatchingMessages startQuery got response:'${response}'`);
                     const streamObj = JSON.parse(response.substring(10));

@@ -1,5 +1,7 @@
 import type { WebviewApi } from "vscode-webview";
 
+type msgListener = (msg: any) => void;
+
 /**
  * A utility wrapper around the acquireVsCodeApi() function, which enables
  * message passing and state management between the webview and extension
@@ -18,6 +20,61 @@ class VSCodeAPIWrapper {
         if (typeof acquireVsCodeApi === "function") {
             this.vsCodeApi = acquireVsCodeApi();
         }
+
+        window.addEventListener('message', event => {
+            const message = event.data; // The JSON data our extension sent
+
+            switch (message.type) {
+                case 'sAr':
+                    receivedResponse(message);
+                    break;
+                default:
+                    const listeners = this.msgListeners.get(message.type);
+                    if (listeners) {
+                        for (const l of listeners) {
+                            l(message);
+                        }
+                    } else {
+                        console.warn(`SearchPanel.event message.type=${message.type} not handled`, message);
+                    }
+                    break;
+            }
+        });
+    }
+
+
+    private msgListeners: Map<string, msgListener[]> = new Map();
+
+    public addMessageListener(type: string, fn: msgListener) {
+        const curListeners = this.msgListeners.get(type);
+        if (curListeners) {
+            // already contained?
+            if (!curListeners.includes(fn)) {
+                curListeners.push(fn);
+                console.info(`VSCodeApiWrapper.addMessageListeners listener for type '${type}' added.`);
+            } else {
+                console.warn(`VSCodeApiWrapper.addMessageListeners duplicated request for type '${type}' ignored!`);
+            }
+        } else {
+            this.msgListeners.set(type, [fn]);
+            console.info(`VSCodeApiWrapper.addMessageListeners listener for type '${type}' set.`);
+        }
+    }
+
+    public removeMessageListener(type: string, fn: msgListener) {
+        const curListeners = this.msgListeners.get(type);
+        if (curListeners) {
+            // contained?
+            const idx = curListeners.findIndex(fn);
+            if (idx >= 0) {
+                curListeners.splice(idx, 1);
+                console.info(`VSCodeApiWrapper.removeMessageListeners listener for type '${type}' removed.`);
+            } else {
+                console.warn(`VSCodeApiWrapper.removeMessageListeners fn not found for type '${type}'!`);
+            }
+        } else {
+            console.warn(`VSCodeApiWrapper.removeMessageListeners no listeners for type '${type}'!`);
+        }
     }
 
     /**
@@ -33,6 +90,7 @@ class VSCodeAPIWrapper {
             this.vsCodeApi.postMessage(message);
         } else {
             console.log(message);
+            window.postMessage({ type: 'sAr', id: 'id' in (message as any) ? (message as any).id : 0, res: null });
         }
     }
 
@@ -76,3 +134,29 @@ class VSCodeAPIWrapper {
 
 // Exports class singleton to prevent multiple invocations of acquireVsCodeApi.
 export const vscode = new VSCodeAPIWrapper();
+
+let lastReqId = 0;
+let reqCallbacks = new Map();
+
+export function sendAndReceiveMsg(req: { cmd: string, data: any }): Promise<any> {
+    const reqId = ++lastReqId;
+    const prom = new Promise(resolve => {
+        //console.log(`added reqId=${reqId} to callbacks`);
+        reqCallbacks.set(reqId, (response: any) => { resolve(response); })
+    });
+    vscode.postMessage({ type: 'sAr', req: req, id: reqId });
+    return prom;
+}
+
+function receivedResponse(response: any) {
+    try {
+        //console.log('receivedResponse id:' + response.id);
+        const cb = reqCallbacks.get(response.id);
+        if (cb) {
+            reqCallbacks.delete(response.id);
+            cb(response.res);
+        }
+    } catch (err) {
+        console.log('receivedResponse err:' + err, JSON.stringify(response));
+    }
+}

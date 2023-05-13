@@ -21,6 +21,7 @@ import * as util from './util';
 import * as path from 'path';
 import { DltLifecycleInfo, DltLifecycleInfoMinIF } from './dltLifecycle';
 import { askSingleTime } from './ask_user';
+import { SearchPanelProvider } from './panels/SearchPanel';
 
 // import { DltLogCustomReadonlyEditorProvider } from './dltCustomEditorProvider';
 
@@ -253,6 +254,15 @@ export function activate(context: vscode.ExtensionContext) {
 		// only after the extension has been loaded. So using this command loads the extension.
 		vscode.window.createTerminal({ name: `adlt terminal`, message: `use e.g. 'adlt -h' to see help for adlt` }).show();
 	}));
+
+	/* todo use this as a good way to output warnings/status messages...
+	const outputChannel = vscode.window.createOutputChannel('dlt-logs', 'dlt-logs');
+	outputChannel.appendLine('foo');
+	outputChannel.replace('bar');
+	outputChannel.show(true);*/
+
+	// register SearchPanel provider
+	const searchPanelProvider = new SearchPanelProvider(context, adltProvider, onDidChangeActiveRestQueryDoc);
 
 	// on change of active text editor update calculated decorations:
 	context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(async (activeTextEditor: vscode.TextEditor | undefined) => {
