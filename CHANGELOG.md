@@ -1,5 +1,19 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.65.0](https://github.com/mbehr1/dlt-logs/compare/v1.64.2...v1.65.0) (2023-05-14)
+
+
+### Features
+
+* include search webview ([02dfc62](https://github.com/mbehr1/dlt-logs/commit/02dfc62fdf898bd1f64ee18fd41b723038fb65bd))
+* **nonverbose:** hexdump only if non printable chars ([13838ae](https://github.com/mbehr1/dlt-logs/commit/13838ae20d853abc0dc2b4b99af6b418b48b0a94)), closes [#154](https://github.com/mbehr1/dlt-logs/issues/154)
+* **search:** add search panel/window ([7f6ae1e](https://github.com/mbehr1/dlt-logs/commit/7f6ae1efdadf11c4e98c45ac72ad36273d5efa62)), closes [#153](https://github.com/mbehr1/dlt-logs/issues/153)
+
+
+### Bug Fixes
+
+* **search:** use window mechanism ([890f6c9](https://github.com/mbehr1/dlt-logs/commit/890f6c99cb04e2a2fe4a0436eb9769c12ea9f579))
+
 ## [1.64.2](https://github.com/mbehr1/dlt-logs/compare/v1.64.1...v1.64.2) (2023-05-02)
 
 
