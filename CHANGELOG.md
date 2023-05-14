@@ -1,5 +1,13 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.65.1](https://github.com/mbehr1/dlt-logs/compare/v1.65.0...v1.65.1) (2023-05-14)
+
+
+### Bug Fixes
+
+* **search:** dispose StreamLoader on dispose ([3ab9bed](https://github.com/mbehr1/dlt-logs/commit/3ab9bed54b15f199f0cc14ae1558b67aa415d970))
+* **search:** fix data wrongly updated ([0ee6d1c](https://github.com/mbehr1/dlt-logs/commit/0ee6d1cb8fdb525b7b56a94083673eb6b28d9532))
+
 ## [1.65.0](https://github.com/mbehr1/dlt-logs/compare/v1.64.2...v1.65.0) (2023-05-14)
 
 
