@@ -169,7 +169,7 @@ export class SearchPanelProvider implements WebviewViewProvider {
                         }
                         console.log(`SearchPanel: sAr cmd:${JSON.stringify(req)}`);
                         // need to send a response for that id:
-                        let res = null;
+                        let res: { err: string } | undefined = undefined;
                         switch (req.cmd) {
                             case 'search':
                                 {
