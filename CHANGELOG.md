@@ -1,5 +1,13 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.65.2](https://github.com/mbehr1/dlt-logs/compare/v1.65.1...v1.65.2) (2023-05-14)
+
+
+### Bug Fixes
+
+* **search:** impl non case sensitive search ([9e18c67](https://github.com/mbehr1/dlt-logs/commit/9e18c67f65761b06a046807c8be5cd66294ba947))
+* **search:** search panel doesn't open on first press ([ad48844](https://github.com/mbehr1/dlt-logs/commit/ad48844443d2259237226811b74b566e886bdc76))
+
 ## [1.65.1](https://github.com/mbehr1/dlt-logs/compare/v1.65.0...v1.65.1) (2023-05-14)
 
 
