@@ -2238,7 +2238,7 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
                 } else if (ev.selections.length > 1) {
                     // console.warn(`DltDocumentProvider.onDidChangeTextEditorSelection have ${ev.selections.length} selections`);
                     // we add all selections:
-                    const times = [];
+                    const times: Date[] = [];
                     for (let i = 0; i < ev.selections.length; ++i) {
                         const selection = ev.selections[i];
                         if (selection.isSingleLine) {

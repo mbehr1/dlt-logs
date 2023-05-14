@@ -81,6 +81,11 @@ export class SearchPanelProvider implements WebviewViewProvider {
      */
     public dispose() {
         console.log(`SearchPanel.dispose()...`);
+        if (this.curStreamLoader) {
+            this.curStreamLoader.dispose();
+            this.curStreamLoader = undefined;
+        }
+
         // Dispose of all disposables (i.e. commands) for the current webview panel
         while (this._disposables.length) {
             const disposable = this._disposables.pop();
@@ -164,7 +169,7 @@ export class SearchPanelProvider implements WebviewViewProvider {
                         }
                         console.log(`SearchPanel: sAr cmd:${JSON.stringify(req)}`);
                         // need to send a response for that id:
-                        let res = null;
+                        let res: { err: string } | undefined = undefined;
                         switch (req.cmd) {
                             case 'search':
                                 {

@@ -11,6 +11,7 @@
  * [?] persist toggle buttons (regex,...) (weird, seems to be already even though no WebviewPanelSerializer is used)
  * [x] implement window logic (and get est. number from load result) (est. number not yet, see below, lookahead impl)
 ------ MVP / first release possible --- 
+ * [ ] search panel doesn't open on press on search icon if terminal/panel area is not shown yet (win)
  * [ ] update search results if useFilter is active and the filters in the doc are changed
  * [ ] impl case-sensitive search for both regular and regex search
  * [ ] persist last searchStrings and offer as drop-down
@@ -32,6 +33,7 @@
  */
 
 import { sendAndReceiveMsg, vscode } from "./utilities/vscode";
+import React from "react";
 import { ChangeEvent, Component, MouseEventHandler, useEffect, useRef, useState } from "react";
 import { VSCodeButton, VSCodeTextField } from "@vscode/webview-ui-toolkit/react";
 import { FixedSizeList, ListChildComponentProps } from 'react-window';
@@ -88,13 +90,11 @@ function addRows(consRows: ConsecutiveRows[], toAdd: ConsecutiveRows): number {
     }
 }
 
-const vscodeStyles = window.getComputedStyle(document.body);
-
 const isLightTheme = document.body.classList.contains('vscode-light'); // else 'vscode-dark', 'vscode-high-contrast' we assume dark
 
 // we could assign a click handler to every single sitem element but lets use just one function:
 document.addEventListener('click', (e) => {
-    let et = e.target;
+    const et = e.target;
     if (et instanceof Element) {
         //console.log(`document.onClick className=${et.className} ${et.classList}`);
         let textContent: string | null | undefined;
@@ -102,12 +102,12 @@ document.addEventListener('click', (e) => {
 
         if (et.classList.contains('sitem')) {
             textContent = et.children.item(0)?.textContent;
-            timeInMs = et.getAttribute('data-time')
+            timeInMs = et.getAttribute('data-time');
         }
         if (et.className === '' && et.parentElement?.classList.contains('sitem')) {
             //console.log(`document.onClick parent`, et);
             textContent = et.parentElement.innerText;
-            timeInMs = et.parentElement.getAttribute('data-time')
+            timeInMs = et.parentElement.getAttribute('data-time');
         }
         if (textContent) {
             const textContentTrimmed = textContent.trimStart();
@@ -124,7 +124,7 @@ type ToggleProps = {
     title: string,
     active: boolean,
     onClick?: MouseEventHandler<HTMLElement>
-}
+};
 
 // <div title="Match Whole Word (⌥⌘W)" class="monaco-custom-toggle codicon codicon-whole-word" tabindex="0" role="checkbox" aria-checked="false" aria-label="Match Whole Word (⌥⌘W)" aria-disabled="false" style="color: inherit;"></div>
 // <div title="Use Regular Expression (⌥⌘R)" class="monaco-custom-toggle codicon codicon-regex checked" tabindex="0" role="checkbox" aria-checked="true" aria-label="Use Regular Expression (⌥⌘R)" aria-disabled="false" style="color: var(--vscode-inputOption-activeForeground); border-color: var(--vscode-inputOption-activeBorder); background-color: var(--vscode-inputOption-activeBackground);"></div>
@@ -133,14 +133,14 @@ type ToggleProps = {
 const Toggle = (props: ToggleProps) => {
     const { icon, active } = props;
     // todo tabindex?
-    return <div onClick={props.onClick} title={props.title} className={`monaco-custom-toggle codicon codicon-${icon}${active ? ' checked' : ''}`} role="checkbox" aria-checked={active} aria-disabled={false} aria-label={props.title} />
-}
+    return (<div onClick={props.onClick} title={props.title} className={`monaco-custom-toggle codicon codicon-${icon}${active ? ' checked' : ''}`} role="checkbox" aria-checked={active} aria-disabled={false} aria-label={props.title} />);
+};
 
 const getCodicon = (name: string, disabled?: boolean) => {
     // uses the same logic from https://github.com/microsoft/vscode/blob/dc897c6c4fa6e9eecc98c70e4931dbdc16a4027c/src/vs/base/browser/ui/codicons/codicon/codicon-modifiers.css#L16
     // not officially documented. add e2e test to check that it keeps on working todo!
 
-    return <span className={`codicon codicon-${name}${disabled ? ' codicon-modifier-disabled' : ''}`}></span>
+    return (<span className={`codicon codicon-${name}${disabled ? ' codicon-modifier-disabled' : ''}`}></span>);
 };
 
 const persistedState: PersistedState = { useRegex: true, useCaseSensitive: true, useFilter: true, searchString: '', ...vscode.getState() || {} };
@@ -166,17 +166,17 @@ function App() {
         persistedState.useFilter = useFilter;
         persistedState.searchString = searchString;
         vscode.setState(persistedState);
-    }, [useRegex, useCaseSensitive, useFilter, searchString])
+    }, [useRegex, useCaseSensitive, useFilter, searchString]);
 
     useEffect(() => {
         // reset search results and related items
         setItemCount(0);
-        setData([]);
+        setData(d => { console.log(`search useEffect setData(d.length=${d.length})->[]`); return []; });
         setLoadPending(false);
-        if (activeDoc) {
+        if (activeDoc && searchString.length > 0) {
             sendAndReceiveMsg({ cmd: 'search', data: { searchString, useRegex, useCaseSensitive, useFilter } }).then((res: any) => {
                 if (Array.isArray(res)) {
-                    const msgs = res;
+                    // const msgs = res;
                     // we don't know the length here yet...
                     // setItemCount(1); // will be set later
                     /*setItemCount(msgs.length);
@@ -197,7 +197,7 @@ function App() {
                 setActiveDoc(msg.docUri);
                 // todo: reset searchString or keep current one?
             }
-        }
+        };
         vscode.addMessageListener('docUpdate', updateDocCb);
 
         const focusCb = (msg: any) => {
@@ -206,7 +206,7 @@ function App() {
                 (inputReference.current as any).focus();
             }
 
-        }
+        };
         vscode.addMessageListener('focus', focusCb);
 
         const itemCountCb = (msg: any) => {
@@ -214,17 +214,17 @@ function App() {
             if ('itemCount' in msg) {
                 setItemCount(msg.itemCount);
             }
-        }
+        };
         vscode.addMessageListener('itemCount', itemCountCb);
 
         // send a first hello/ping:
         vscode.postMessage({ type: 'hello', req: {} }); // no msgId needed
 
-        return () => { vscode.removeMessageListener('itemCount', itemCountCb); vscode.removeMessageListener('focus', focusCb); vscode.removeMessageListener('docUpdate', updateDocCb); }
+        return () => { vscode.removeMessageListener('itemCount', itemCountCb); vscode.removeMessageListener('focus', focusCb); vscode.removeMessageListener('docUpdate', updateDocCb); };
     }, []);
 
     const loadMoreItems = (startIndex: number, stopIndex: number): Promise<void> => {
-        console.log(`loadMoreItems(${startIndex}-${stopIndex})... data.length=${data.length}`);
+        //console.log(`loadMoreItems(${startIndex}-${stopIndex})...`);
         setLoadPending(true);
         return new Promise<void>((resolve, reject) => {
             sendAndReceiveMsg({ cmd: 'load', data: { startIdx: startIndex, stopIdx: stopIndex } }).then((res: any) => {
@@ -233,17 +233,20 @@ function App() {
                     const totalNrMsgs = res.totalNrMsgs;
                     setItemCount(totalNrMsgs);
                     if (msgs.length > 0) {
-                        const curData = data.slice();
-                        const addedIdx = addRows(curData, { startIdx: startIndex, rows: msgs });
-                        if (curData.length > 50) { // todo constant! use a lot higher value, this one only for testing
-                            // prune one with highest distance from the added one:
-                            if (addedIdx < curData.length / 2) {
-                                curData.pop();
-                            } else {
-                                curData.shift();
+                        setData(d => {
+                            const curData = d.slice();
+                            const addedIdx = addRows(curData, { startIdx: startIndex, rows: msgs });
+                            if (curData.length > 50) { // todo constant! use a lot higher value, this one only for testing
+                                // prune one with highest distance from the added one:
+                                if (addedIdx < curData.length / 2) {
+                                    curData.pop();
+                                } else {
+                                    curData.shift();
+                                }
                             }
-                        }
-                        setData(curData);
+                            //console.log(`search loadMoreItems setData(d.length=${d.length})->#${curData.length}`);
+                            return curData;
+                        });
                     }
                 } else {
                     console.warn(`loadMoreItems(${startIndex}-${stopIndex})... unexpected res=${JSON.stringify(res)}`);
@@ -251,7 +254,7 @@ function App() {
                 setLoadPending(false);
                 resolve();
             });
-        })
+        });
     };
 
     // todo this might lead to the that "denied" data not being loaded or better only on next scroll
@@ -266,7 +269,7 @@ function App() {
             }
         }
         return false;
-    }
+    };
 
     const getItem = (index: number): Msg | undefined => {
         //console.log(`isItemLoaded(${index})...`);
@@ -277,7 +280,7 @@ function App() {
             }
         }
         return undefined;
-    }
+    };
 
     const renderListRow = (props: ListChildComponentProps) => {
         const { index, style } = props;
@@ -338,13 +341,13 @@ function App() {
                 </div >
             );
         } else {
-            return <div className="sitem" style={style}><pre>{`${index} ...`}</pre></div>
+            return (<div className="sitem" style={style}><pre>{`${index} ...`}</pre></div>);
         }
-    }
+    };
 
     return (
         <div style={{ display: 'flex', flexFlow: 'column', width: '100%', /*border: '1px solid gray',*/ height: '100%' }} >
-            <VSCodeTextField ref={inputReference} id="inputSearch" placeholder="enter search" initialValue={searchString} onInput={(v) => { const iv = v as ChangeEvent<HTMLInputElement>; setSearchString(iv.target.value) }}>
+            <VSCodeTextField ref={inputReference} id="inputSearch" placeholder="enter search" initialValue={searchString} onInput={(v) => { const iv = v as ChangeEvent<HTMLInputElement>; setSearchString(iv.target.value); }}>
                     <span slot="start" className="codicon codicon-search" ></span>
                 <section slot="end" style={{ position: "absolute", top: "2px" /* weird monaco has 3px */, right: "2px" }}>
                     <Toggle icon="filter" active={useFilter} title="Use current document filter" onClick={() => setUseFilter(d => !d)} />
