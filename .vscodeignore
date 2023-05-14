@@ -5,6 +5,7 @@ src/**
 .gitignore
 vsc-extension-quickstart.md
 **/tsconfig.json
+**/vite.config.ts
 **/.eslintrc.json
 **/*.map
 **/*.ts
@@ -12,3 +13,12 @@ images/**
 docs/**
 .wdio-vscode-service/**
 test/**
+# ignore all webview files except the build directory
+webviews/search/src/**
+webviews/search/public/**
+webviews/search/index.html
+webviews/search/README.md
+webviews/search/package.json
+webviews/search/package-lock.json
+webviews/search/node_modules/**
+

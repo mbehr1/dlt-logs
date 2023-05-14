@@ -56,7 +56,7 @@ jobs:
       - run: npm --version
       #- run: npm i -g npm@8.5.1
       #- run: npm --version
-      - run: npm install
+      - run: npm run install:all
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           npm_config_arch: ${{ matrix.npm_config_arch }}
