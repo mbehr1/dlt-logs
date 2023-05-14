@@ -68,7 +68,7 @@ export class DltFilter {
         // todo: check if id represents a valid uuid?
         if (!('id' in this.configOptions)) {
             this.configOptions.id = uuidv4();
-            console.log(`DltFilter.constructor created id=${this.configOptions.id}`);
+            //console.log(`DltFilter.constructor created id=${this.configOptions.id}`);
         }
 
         this.reInitFromConfiguration();
