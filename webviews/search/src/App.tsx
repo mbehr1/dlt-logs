@@ -13,7 +13,7 @@
 ------ MVP / first release possible --- 
  * [x] search panel doesn't open on press on search icon if terminal/panel area is not shown yet
  * [ ] update search results if useFilter is active and the filters in the doc are changed
- * [ ] impl case-sensitive search for both regular and regex search
+ * [x] impl case-sensitive search for both regular and regex search
  * [ ] persist last searchStrings and offer as drop-down
  * [ ] search command should put focus to input box
  * [ ] verify regex strings
@@ -351,7 +351,7 @@ function App() {
                     <span slot="start" className="codicon codicon-search" ></span>
                 <section slot="end" style={{ position: "absolute", top: "2px" /* weird monaco has 3px */, right: "2px" }}>
                     <Toggle icon="filter" active={useFilter} title="Use current document filter" onClick={() => setUseFilter(d => !d)} />
-                    <Toggle icon="case-sensitive" active={useCaseSensitive} title="Use case sensitive" onClick={() => { console.log(`non case sensitive nyi!`); setUseCaseSensitive(true); }} />
+                    <Toggle icon="case-sensitive" active={useCaseSensitive} title="Use case sensitive" onClick={() => { setUseCaseSensitive(d => !d); }} />
                         {false && <VSCodeButton appearance="icon" aria-label="Match Whole Word">
                         {getCodicon('whole-word')}
                         </VSCodeButton>}

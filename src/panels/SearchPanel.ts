@@ -198,7 +198,7 @@ export class SearchPanelProvider implements WebviewViewProvider {
                                         res = undefined;
                                         // todo impl useCaseSensitive...
                                         const doc = this._activeDoc;
-                                        const searchFilter = new DltFilter({ 'type': DltFilterType.NEGATIVE, not: true, payloadRegex: searchReq.useRegex ? searchReq.searchString : undefined, payload: searchReq.useRegex ? undefined : searchReq.searchString }, false);
+                                        const searchFilter = new DltFilter({ 'type': DltFilterType.NEGATIVE, not: true, ignoreCasePayload: searchReq.useCaseSensitive ? undefined : true, payloadRegex: searchReq.useRegex ? searchReq.searchString : undefined, payload: searchReq.useRegex ? undefined : searchReq.searchString }, false);
                                         const filters = (searchReq.useFilter ? [...doc.allFilters.filter(f => (f.type === DltFilterType.POSITIVE || f.type === DltFilterType.NEGATIVE) && f.enabled), searchFilter] : [searchFilter]);
                                         //console.log(`SearchPanel filters=${JSON.stringify(filters.map(f => f.asConfiguration()))}`); <- reports enabled possibly wrong
                                         try {
