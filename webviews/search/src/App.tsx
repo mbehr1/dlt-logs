@@ -11,7 +11,7 @@
  * [?] persist toggle buttons (regex,...) (weird, seems to be already even though no WebviewPanelSerializer is used)
  * [x] implement window logic (and get est. number from load result) (est. number not yet, see below, lookahead impl)
 ------ MVP / first release possible --- 
- * [ ] search panel doesn't open on press on search icon if terminal/panel area is not shown yet (win)
+ * [x] search panel doesn't open on press on search icon if terminal/panel area is not shown yet
  * [ ] update search results if useFilter is active and the filters in the doc are changed
  * [ ] impl case-sensitive search for both regular and regex search
  * [ ] persist last searchStrings and offer as drop-down

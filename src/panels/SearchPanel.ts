@@ -69,11 +69,23 @@ export class SearchPanelProvider implements WebviewViewProvider {
         });
     }
 
-    public commandSearch(textEditor: TextEditor, edit: TextEditorEdit, ...args: any[]) {
+    public async commandSearch(textEditor: TextEditor, edit: TextEditorEdit, ...args: any[]) {
         console.log(`SearchPanel.commandSearch(#args=${args.length})...`);
-        // for now simply reveal the panel
-        this._view?.show(false);
-        this._view?.webview.postMessage({ type: 'focus' });
+        if (!this._view) {
+            await commands.executeCommand('workbench.view.extension.mbehr1DltLogsSearch');
+            // dirty hack:
+            setTimeout(() => {
+                if (this._view) {
+                    this._view.webview.postMessage({ type: 'focus' });
+                } else {
+                    console.warn(`SearchPanel.commandSearch after 1s no view...`);
+                }
+            }, 1000);
+        } else {
+            // for now simply reveal the panel
+            this._view.show(false);
+            this._view.webview.postMessage({ type: 'focus' });
+        }
     }
 
     /**
