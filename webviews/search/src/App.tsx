@@ -9,14 +9,15 @@
  * [x] impl first reveal behaviour (when to show the search) (added search command/icon)
  * [x] proper toggle button (active/non-active)
  * [?] persist toggle buttons (regex,...) (weird, seems to be already even though no WebviewPanelSerializer is used)
- * [ ] implement window logic (and get est. number from load result) 
+ * [x] implement window logic (and get est. number from load result) (est. number not yet, see below, lookahead impl)
+------ MVP / first release possible --- 
  * [ ] update search results if useFilter is active and the filters in the doc are changed
  * [ ] impl case-sensitive search for both regular and regex search
------- MVP / first release possible ---
  * [ ] persist last searchStrings and offer as drop-down
  * [ ] search command should put focus to input box
  * [ ] verify regex strings
  * [ ] auto search on type or only on enter key / after timeout,...?
+ * [ ] better status of "logs matching". check with adlt stream status
  * [ ] shortcut for search window? (alt/option+f?)
  * [ ] impl "match whole word" button (logic: space/starts with and ends/space after?)
  * [ ] check theme changes / support reload on theme change (isLightTheme doesn't get updated)
@@ -72,15 +73,18 @@ interface ConsecutiveRows {
  * Add rows to the ConsecutiveRows[] in a sorted manner by startIdx
  * @param consRows existing array of ConesectiveRows that will be modified
  * @param toAdd entry to add
+ * @returns index where the item was added
  */
-function addRows(consRows: ConsecutiveRows[], toAdd: ConsecutiveRows): void {
+function addRows(consRows: ConsecutiveRows[], toAdd: ConsecutiveRows): number {
     const idx = consRows.findIndex((rows) => rows.startIdx > toAdd.startIdx);
     if (idx >= 0) {
         // insert before the idx:
         consRows.splice(idx, 0, toAdd);
+        return idx;
     } else { // no existing item has a startIdx<=toAdd
         // add to the end
         consRows.push(toAdd);
+        return consRows.length - 1;
     }
 }
 
@@ -139,7 +143,7 @@ const getCodicon = (name: string, disabled?: boolean) => {
     return <span className={`codicon codicon-${name}${disabled ? ' codicon-modifier-disabled' : ''}`}></span>
 };
 
-const persistedState: PersistedState = { useRegex: true, useCaseSensitive: false, useFilter: true, searchString: '', ...vscode.getState() || {} };
+const persistedState: PersistedState = { useRegex: true, useCaseSensitive: true, useFilter: true, searchString: '', ...vscode.getState() || {} };
 
 function App() {
     const inputReference = useRef<Component>(null);
@@ -173,8 +177,10 @@ function App() {
             sendAndReceiveMsg({ cmd: 'search', data: { searchString, useRegex, useCaseSensitive, useFilter } }).then((res: any) => {
                 if (Array.isArray(res)) {
                     const msgs = res;
-                    setItemCount(msgs.length);
-                    setData([{ startIdx: 0, rows: msgs }]);
+                    // we don't know the length here yet...
+                    // setItemCount(1); // will be set later
+                    /*setItemCount(msgs.length);
+                    setData([{ startIdx: 0, rows: msgs }]);*/
                     loadMoreItems(0, 50); // todo this seems needed to avoid list with 1 item ... loading how to reset? InfiniteLoader?
                 }
                 else {
@@ -203,10 +209,18 @@ function App() {
         }
         vscode.addMessageListener('focus', focusCb);
 
+        const itemCountCb = (msg: any) => {
+            console.log(`itemCountCb. msg=${JSON.stringify(msg)}`);
+            if ('itemCount' in msg) {
+                setItemCount(msg.itemCount);
+            }
+        }
+        vscode.addMessageListener('itemCount', itemCountCb);
+
         // send a first hello/ping:
         vscode.postMessage({ type: 'hello', req: {} }); // no msgId needed
 
-        return () => { vscode.removeMessageListener('focus', focusCb); vscode.removeMessageListener('docUpdate', updateDocCb); }
+        return () => { vscode.removeMessageListener('itemCount', itemCountCb); vscode.removeMessageListener('focus', focusCb); vscode.removeMessageListener('docUpdate', updateDocCb); }
     }, []);
 
     const loadMoreItems = (startIndex: number, stopIndex: number): Promise<void> => {
@@ -214,13 +228,26 @@ function App() {
         setLoadPending(true);
         return new Promise<void>((resolve, reject) => {
             sendAndReceiveMsg({ cmd: 'load', data: { startIdx: startIndex, stopIdx: stopIndex } }).then((res: any) => {
-                /*setData(d => {
-                    const newd = d.slice();
-                    addRows(newd, { startIdx: startIndex, rows: (Array((stopIndex + 1) - startIndex) as boolean[]).fill(false, 0) });
-                    // we cannot assume that items are loaded sequentially
-                    // e.g. with move of the scrollbar items can be skipped...
-                    return newd;
-                });*/
+                if (res && Array.isArray(res.msgs)) {
+                    const msgs = res.msgs;
+                    const totalNrMsgs = res.totalNrMsgs;
+                    setItemCount(totalNrMsgs);
+                    if (msgs.length > 0) {
+                        const curData = data.slice();
+                        const addedIdx = addRows(curData, { startIdx: startIndex, rows: msgs });
+                        if (curData.length > 50) { // todo constant! use a lot higher value, this one only for testing
+                            // prune one with highest distance from the added one:
+                            if (addedIdx < curData.length / 2) {
+                                curData.pop();
+                            } else {
+                                curData.shift();
+                            }
+                        }
+                        setData(curData);
+                    }
+                } else {
+                    console.warn(`loadMoreItems(${startIndex}-${stopIndex})... unexpected res=${JSON.stringify(res)}`);
+                }
                 setLoadPending(false);
                 resolve();
             });
@@ -321,7 +348,7 @@ function App() {
                     <span slot="start" className="codicon codicon-search" ></span>
                 <section slot="end" style={{ position: "absolute", top: "2px" /* weird monaco has 3px */, right: "2px" }}>
                     <Toggle icon="filter" active={useFilter} title="Use current document filter" onClick={() => setUseFilter(d => !d)} />
-                    <Toggle icon="case-sensitive" active={useCaseSensitive} title="Use case sensitive" onClick={() => setUseCaseSensitive(d => !d)} />
+                    <Toggle icon="case-sensitive" active={useCaseSensitive} title="Use case sensitive" onClick={() => { console.log(`non case sensitive nyi!`); setUseCaseSensitive(true); }} />
                         {false && <VSCodeButton appearance="icon" aria-label="Match Whole Word">
                         {getCodicon('whole-word')}
                         </VSCodeButton>}

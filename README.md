@@ -21,6 +21,8 @@ A more detailed documentation is available here: [Docs](https://mbehr1.github.io
   - sorts DLT messages automatically by the monotonic timestamp (and first by lifecycles)
   - an adlt binary is provided with the extension and the path to it is available in VS code terminals or via command "New terminal with adlt in path".
 
+- Provides a "DLT-Logs search" panel view that searches in the payload of the full file.
+
 - Alternative/deprecated/previous (<= v1.49.0) solution is to use "Open DLT file via deprecated NodeJS implementation..."  (Mac: &#8679;&#8984;P "Open DLT file via deprecated NodeJS implementation...", Linux/Win: Ctrl+Shift+P "Open DLT file via deprecated NodeJS implementation..." ) command that uses a NodeJS / v8 engine based implementation and is limited by v8 engine memory. (Tested with ~1500MB files). With files of approx 2GB you get out of memory problems. A "load time filter assistant..." helps you in reducing number of messages while opening files >512MB.
 
 **If you experience any issues with the new adlt based implementation compared to the previous NodeJS implementation please open an [issue](https://github.com/mbehr1/dlt-logs/issues). I'll take care with high priority!**

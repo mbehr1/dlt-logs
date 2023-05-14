@@ -208,7 +208,7 @@ class AdltMsg implements ViewableDltMsg {
     };
 }
 
-interface StreamMsgData {
+export interface StreamMsgData {
     msgs: AdltMsg[],
     sink: NewMessageSink
 };
@@ -2076,7 +2076,65 @@ export class AdltDocument implements vscode.Disposable {
         return p;
     }
 
+    /**
+     * start a stream of messages for a provided set of filters
+     * @param filters - filters to apply
+     * @param initialWindow - initial window. usually 0- e.g.1000
+     * @param streamData contains the msgs and the sink with the `onNewMessages` and `onDone` callback
+     * @returns the streamId. Must be used in a call to 
+     * 
+     * ```stopMsgsStream(streamId)```
+     * 
+     * to stop the stream!
+     * Must be handed over to changeMsgsStreamWindow to change the window. Afterwards the newly returned streamId must be used!
+     */
+    startMsgsStream(filters: DltFilter[], initialWindow: [number, number], streamData: StreamMsgData): Promise<number> {
+        return new Promise<number>((resolve, reject) => {
+            try {
+                let filterStr = filters.filter(f => f.enabled).map(f => JSON.stringify({ ...f.asConfiguration(), enabled: true })).join(',');
+                this.sendAndRecvAdltMsg(`stream {"window":[${initialWindow[0]},${initialWindow[1]}],"binary":true,"filters": [${filterStr}]}`).then((response) => {
+                    console.log(`adlt.streamMessages start stream got response:'${response}'`);
+                    const streamObj = JSON.parse(response.substring(11)); // todo parse any better!
+                    console.log(`adtl.streamMessages streamObj`, JSON.stringify(streamObj));
+                    let curStreamMsgData = this.streamMsgs.get(streamObj.id);
+                    this.streamMsgs.set(streamObj.id, streamData);
+                    if (curStreamMsgData && Array.isArray(curStreamMsgData)) {
+                        // process the data now:
+                        curStreamMsgData.forEach((msgs) => this.processBinDltMsgs(msgs, streamObj.id, streamData));
+                    }
+                    resolve(streamObj.id);
+                }).catch(reason => reject(reason));
+            } catch (e) {
+                reject(e);
+            }
+        });
+    }
 
+    stopMsgsStream(streamId: number): Promise<string> {
+        this.streamMsgs.delete(streamId);
+        return this.sendAndRecvAdltMsg(`stop ${streamId}`);
+    }
+
+    changeMsgsStreamWindow(streamId: number, newWindow: [number, number]): Promise<number> {
+        return new Promise<number>((resolve, reject) => {
+            let streamData = this.streamMsgs.get(streamId);
+            if (!streamData) {
+                reject('invalid streamId? no streamData found');
+            } else {
+                this.sendAndRecvAdltMsg(`stream_change_window ${streamId} ${newWindow[0]},${newWindow[1]}`).then((response) => {
+                    const streamObj = JSON.parse(response.slice(response.indexOf("=") + 1));
+                    console.log(`adlt.changeMsgsStreamWindow on stream_change_window streamObj: ${JSON.stringify(streamObj)}`);
+                    let curStreamMsgData = this.streamMsgs.get(streamObj.id);
+                    this.streamMsgs.set(streamObj.id, streamData!);
+                    this.streamMsgs.delete(streamId);
+                    if (curStreamMsgData && Array.isArray(curStreamMsgData)) {
+                        curStreamMsgData.forEach((msgs) => this.processBinDltMsgs(msgs, streamObj.id, streamData as StreamMsgData));
+                    }
+                    resolve(streamObj.id);
+                }).catch(e => reject(e));
+            }
+        });
+    }
 
     stat(): vscode.FileStat {
         //console.warn(`dlt-logs.AdltDocumentProvider.stat()...`);
