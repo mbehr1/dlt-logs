@@ -69,11 +69,23 @@ export class SearchPanelProvider implements WebviewViewProvider {
         });
     }
 
-    public commandSearch(textEditor: TextEditor, edit: TextEditorEdit, ...args: any[]) {
+    public async commandSearch(textEditor: TextEditor, edit: TextEditorEdit, ...args: any[]) {
         console.log(`SearchPanel.commandSearch(#args=${args.length})...`);
-        // for now simply reveal the panel
-        this._view?.show(false);
-        this._view?.webview.postMessage({ type: 'focus' });
+        if (!this._view) {
+            await commands.executeCommand('workbench.view.extension.mbehr1DltLogsSearch');
+            // dirty hack:
+            setTimeout(() => {
+                if (this._view) {
+                    this._view.webview.postMessage({ type: 'focus' });
+                } else {
+                    console.warn(`SearchPanel.commandSearch after 1s no view...`);
+                }
+            }, 1000);
+        } else {
+            // for now simply reveal the panel
+            this._view.show(false);
+            this._view.webview.postMessage({ type: 'focus' });
+        }
     }
 
     /**
@@ -186,7 +198,7 @@ export class SearchPanelProvider implements WebviewViewProvider {
                                         res = undefined;
                                         // todo impl useCaseSensitive...
                                         const doc = this._activeDoc;
-                                        const searchFilter = new DltFilter({ 'type': DltFilterType.NEGATIVE, not: true, payloadRegex: searchReq.useRegex ? searchReq.searchString : undefined, payload: searchReq.useRegex ? undefined : searchReq.searchString }, false);
+                                        const searchFilter = new DltFilter({ 'type': DltFilterType.NEGATIVE, not: true, ignoreCasePayload: searchReq.useCaseSensitive ? undefined : true, payloadRegex: searchReq.useRegex ? searchReq.searchString : undefined, payload: searchReq.useRegex ? undefined : searchReq.searchString }, false);
                                         const filters = (searchReq.useFilter ? [...doc.allFilters.filter(f => (f.type === DltFilterType.POSITIVE || f.type === DltFilterType.NEGATIVE) && f.enabled), searchFilter] : [searchFilter]);
                                         //console.log(`SearchPanel filters=${JSON.stringify(filters.map(f => f.asConfiguration()))}`); <- reports enabled possibly wrong
                                         try {
