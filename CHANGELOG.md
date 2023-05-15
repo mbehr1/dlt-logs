@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.65.3](https://github.com/mbehr1/dlt-logs/compare/v1.65.2...v1.65.3) (2023-05-15)
+
+
+### Bug Fixes
+
+* **search:** ignore prev search results and add debounce ([14a97eb](https://github.com/mbehr1/dlt-logs/commit/14a97eb430e208dec3970a70a82387ccb96a9b0b))
+
 ## [1.65.2](https://github.com/mbehr1/dlt-logs/compare/v1.65.1...v1.65.2) (2023-05-14)
 
 
