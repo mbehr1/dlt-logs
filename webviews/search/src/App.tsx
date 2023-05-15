@@ -17,7 +17,9 @@
  * [ ] persist last searchStrings and offer as drop-down
  * [ ] search command should put focus to input box
  * [ ] verify regex strings
- * [ ] auto search on type or only on enter key / after timeout,...?
+ * [x] optimize time/queries while typing: delay request until typing stops for 0.7 secs (done using useDebounceCallback for search string)
+ * [ ] optimize time/queries while typing: add id to requests to ignore data from prev. requests(?) (reject prev. data updates but not yet for itemCount)
+ * [ ] auto search on type or only on enter key / after timeout,...? (added debounce with flush on enter, lets see whether this good or whether autosearch should be disabled)
  * [ ] better status of "logs matching". check with adlt stream status
  * [ ] shortcut for search window? (alt/option+f?)
  * [ ] impl "match whole word" button (logic: space/starts with and ends/space after?)
@@ -34,11 +36,12 @@
 
 import { sendAndReceiveMsg, vscode } from "./utilities/vscode";
 import React from "react";
-import { ChangeEvent, Component, MouseEventHandler, useEffect, useRef, useState } from "react";
+import { ChangeEvent, Component, MouseEventHandler, useEffect, useRef, useState, useCallback } from "react";
 import { VSCodeButton, VSCodeTextField } from "@vscode/webview-ui-toolkit/react";
 import { FixedSizeList, ListChildComponentProps } from 'react-window';
 import AutoSizer from "react-virtualized-auto-sizer";
 import InfiniteLoader from "react-window-infinite-loader";
+import { useDebouncedCallback } from 'use-debounce';
 import "./App.css";
 
 // persisted state data (in vscode.set/getState...)
@@ -159,7 +162,48 @@ function App() {
     const [data, setData] = useState([] as ConsecutiveRows[]);
     const [loadPending, setLoadPending] = useState(false);
 
-    // persist state on changes: (todo should we debounce a bit?)
+    const debouncedSetSearchString = useDebouncedCallback(
+        (value) => { setSearchString(value); },
+        700 // 700ms delay till automatic search
+    );
+
+
+    const loadMoreItems = useCallback((startIndex: number, stopIndex: number): Promise<void> => {
+        //console.log(`loadMoreItems(${startIndex}-${stopIndex})...`);
+        setLoadPending(true);
+        return new Promise<void>((resolve, reject) => {
+            sendAndReceiveMsg({ cmd: 'load', data: { startIdx: startIndex, stopIdx: stopIndex } }).then((res: any) => {
+                if (res && Array.isArray(res.msgs)) {
+                    const msgs = res.msgs;
+                    const totalNrMsgs = res.totalNrMsgs;
+                    setItemCount(totalNrMsgs);
+                    if (msgs.length > 0) {
+                        setData(d => {
+                            const curData = d.slice();
+                            const addedIdx = addRows(curData, { startIdx: startIndex, rows: msgs });
+                            if (curData.length > 50) { // todo constant! use a lot higher value, this one only for testing
+                                // prune one with highest distance from the added one:
+                                if (addedIdx < curData.length / 2) {
+                                    curData.pop();
+                                } else {
+                                    curData.shift();
+                                }
+                            }
+                            //console.log(`search loadMoreItems setData(d.length=${d.length})->#${curData.length}`);
+                            return curData;
+                        });
+                    }
+                } else {
+                    console.warn(`loadMoreItems(${startIndex}-${stopIndex})... unexpected res=${JSON.stringify(res)}`);
+                }
+                setLoadPending(false);
+                resolve();
+            });
+        });
+    }, []);
+
+
+    // persist state on changes: (todo should we debounce a bit? use debouncedSetSearchString.isPending() .flush()?
     useEffect(() => {
         persistedState.useRegex = useRegex;
         persistedState.useCaseSensitive = useCaseSensitive;
@@ -169,26 +213,32 @@ function App() {
     }, [useRegex, useCaseSensitive, useFilter, searchString]);
 
     useEffect(() => {
+        let active = true;    
         // reset search results and related items
         setItemCount(0);
         setData(d => { console.log(`search useEffect setData(d.length=${d.length})->[]`); return []; });
         setLoadPending(false);
-        if (activeDoc && searchString.length > 0) {
+        if (activeDoc && !debouncedSetSearchString.isPending() && searchString.length > 0) {
             sendAndReceiveMsg({ cmd: 'search', data: { searchString, useRegex, useCaseSensitive, useFilter } }).then((res: any) => {
-                if (Array.isArray(res)) {
-                    // const msgs = res;
-                    // we don't know the length here yet...
-                    // setItemCount(1); // will be set later
-                    /*setItemCount(msgs.length);
-                    setData([{ startIdx: 0, rows: msgs }]);*/
-                    loadMoreItems(0, 50); // todo this seems needed to avoid list with 1 item ... loading how to reset? InfiniteLoader?
-                }
-                else {
-                    console.log(`search res=${JSON.stringify(res)}`);
+                if (active) {
+                    if (Array.isArray(res)) {
+                        // const msgs = res;
+                        // we don't know the length here yet...
+                        // setItemCount(1); // will be set later
+                        /*setItemCount(msgs.length);
+                        setData([{ startIdx: 0, rows: msgs }]);*/
+                        loadMoreItems(0, 50); // todo this seems needed to avoid list with 1 item ... loading how to reset? InfiniteLoader?
+                    }
+                    else {
+                        console.log(`search res=${JSON.stringify(res)}`);
+                    }
+                } else {
+                    //console.warn(`search useEffect ignored result due to !active!`);
                 }
             });
         }
-    }, [useFilter, useCaseSensitive, useRegex, searchString, activeDoc]);
+        return () => { active = false; };
+    }, [useFilter, useCaseSensitive, useRegex, searchString, activeDoc, loadMoreItems]);
 
     useEffect(() => {
         const updateDocCb = (msg: any) => {
@@ -223,39 +273,6 @@ function App() {
         return () => { vscode.removeMessageListener('itemCount', itemCountCb); vscode.removeMessageListener('focus', focusCb); vscode.removeMessageListener('docUpdate', updateDocCb); };
     }, []);
 
-    const loadMoreItems = (startIndex: number, stopIndex: number): Promise<void> => {
-        //console.log(`loadMoreItems(${startIndex}-${stopIndex})...`);
-        setLoadPending(true);
-        return new Promise<void>((resolve, reject) => {
-            sendAndReceiveMsg({ cmd: 'load', data: { startIdx: startIndex, stopIdx: stopIndex } }).then((res: any) => {
-                if (res && Array.isArray(res.msgs)) {
-                    const msgs = res.msgs;
-                    const totalNrMsgs = res.totalNrMsgs;
-                    setItemCount(totalNrMsgs);
-                    if (msgs.length > 0) {
-                        setData(d => {
-                            const curData = d.slice();
-                            const addedIdx = addRows(curData, { startIdx: startIndex, rows: msgs });
-                            if (curData.length > 50) { // todo constant! use a lot higher value, this one only for testing
-                                // prune one with highest distance from the added one:
-                                if (addedIdx < curData.length / 2) {
-                                    curData.pop();
-                                } else {
-                                    curData.shift();
-                                }
-                            }
-                            //console.log(`search loadMoreItems setData(d.length=${d.length})->#${curData.length}`);
-                            return curData;
-                        });
-                    }
-                } else {
-                    console.warn(`loadMoreItems(${startIndex}-${stopIndex})... unexpected res=${JSON.stringify(res)}`);
-                }
-                setLoadPending(false);
-                resolve();
-            });
-        });
-    };
 
     // todo this might lead to the that "denied" data not being loaded or better only on next scroll
     const singleLoadMoreItems = loadPending ? () => { } : loadMoreItems;
@@ -347,7 +364,9 @@ function App() {
 
     return (
         <div style={{ display: 'flex', flexFlow: 'column', width: '100%', /*border: '1px solid gray',*/ height: '100%' }} >
-            <VSCodeTextField ref={inputReference} id="inputSearch" placeholder="enter search" initialValue={searchString} onInput={(v) => { const iv = v as ChangeEvent<HTMLInputElement>; setSearchString(iv.target.value); }}>
+            <VSCodeTextField ref={inputReference} id="inputSearch" placeholder="enter search"
+                initialValue={searchString} onInput={(v) => { const iv = v as ChangeEvent<HTMLInputElement>; const str = iv.target.value; debouncedSetSearchString(str); if (str.length === 0) { debouncedSetSearchString.flush(); } }}
+                onKeyDown={(e) => { if (e.key === 'Enter') { debouncedSetSearchString.flush(); } }}>
                     <span slot="start" className="codicon codicon-search" ></span>
                 <section slot="end" style={{ position: "absolute", top: "2px" /* weird monaco has 3px */, right: "2px" }}>
                     <Toggle icon="filter" active={useFilter} title="Use current document filter" onClick={() => setUseFilter(d => !d)} />
