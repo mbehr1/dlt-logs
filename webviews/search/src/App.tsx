@@ -14,7 +14,7 @@
  * [x] search panel doesn't open on press on search icon if terminal/panel area is not shown yet
  * [ ] update search results if useFilter is active and the filters in the doc are changed
  * [x] impl case-sensitive search for both regular and regex search
- * [ ] persist last searchStrings and offer as drop-down
+ * [x] persist last searchStrings and offer as drop-down (last 50, icon and key down, delete key to del entries)
  * [ ] search command should put focus to input box
  * [ ] verify regex strings
  * [x] optimize time/queries while typing: delay request until typing stops for 0.7 secs (done using useDebounceCallback for search string)
@@ -37,7 +37,7 @@
 import { sendAndReceiveMsg, vscode } from "./utilities/vscode";
 import React from "react";
 import { ChangeEvent, Component, MouseEventHandler, useEffect, useRef, useState, useCallback } from "react";
-import { VSCodeButton, VSCodeTextField } from "@vscode/webview-ui-toolkit/react";
+import { VSCodeButton, VSCodeDropdown, VSCodeOption, VSCodeTextField } from "@vscode/webview-ui-toolkit/react";
 import { FixedSizeList, ListChildComponentProps } from 'react-window';
 import AutoSizer from "react-virtualized-auto-sizer";
 import InfiniteLoader from "react-window-infinite-loader";
@@ -51,6 +51,7 @@ interface PersistedState {
     useCaseSensitive: boolean,
     useFilter: boolean,
     searchString: string,
+    lastUsedSearchStrings: string[],
 }
 
 // needs to be in sync with SearchPanel.ts map ...
@@ -146,7 +147,8 @@ const getCodicon = (name: string, disabled?: boolean) => {
     return (<span className={`codicon codicon-${name}${disabled ? ' codicon-modifier-disabled' : ''}`}></span>);
 };
 
-const persistedState: PersistedState = { useRegex: true, useCaseSensitive: true, useFilter: true, searchString: '', ...vscode.getState() || {} };
+const persistedState: PersistedState = { useRegex: true, useCaseSensitive: true, useFilter: true, searchString: '', lastUsedSearchStrings: [], ...vscode.getState() || {} };
+const MAX_LAST_USED_LIST_ITEMS = 50; // we persist max 50 last used search strings
 
 function App() {
     const inputReference = useRef<Component>(null);
@@ -155,12 +157,14 @@ function App() {
     const [useCaseSensitive, setUseCaseSensitive] = useState(persistedState.useCaseSensitive);
     const [useFilter, setUseFilter] = useState(persistedState.useFilter);
     const [searchString, setSearchString] = useState(persistedState.searchString);
+    const [lastUsedList, setLastUsedList] = useState(persistedState.lastUsedSearchStrings);
 
     // non-persisted state:
     const [activeDoc, setActiveDoc] = useState<string | null>(null);
     const [itemCount, setItemCount] = useState(0);
     const [data, setData] = useState([] as ConsecutiveRows[]);
     const [loadPending, setLoadPending] = useState(false);
+    const [searchDropDownOpen, setSearchDropDownOpen] = useState(false);
 
     const debouncedSetSearchString = useDebouncedCallback(
         (value) => { setSearchString(value); },
@@ -209,8 +213,9 @@ function App() {
         persistedState.useCaseSensitive = useCaseSensitive;
         persistedState.useFilter = useFilter;
         persistedState.searchString = searchString;
+        persistedState.lastUsedSearchStrings = lastUsedList.slice(0, MAX_LAST_USED_LIST_ITEMS);
         vscode.setState(persistedState);
-    }, [useRegex, useCaseSensitive, useFilter, searchString]);
+    }, [useRegex, useCaseSensitive, useFilter, searchString, lastUsedList]);
 
     useEffect(() => {
         let active = true;    
@@ -228,6 +233,19 @@ function App() {
                         /*setItemCount(msgs.length);
                         setData([{ startIdx: 0, rows: msgs }]);*/
                         loadMoreItems(0, 50); // todo this seems needed to avoid list with 1 item ... loading how to reset? InfiniteLoader?
+                        setLastUsedList(l => {
+                            const curIdx = l.indexOf(searchString);
+                            if (curIdx === 0) { return l; } // no update needed
+                            // remove if duplicate else remove last if list too long
+                            const newL = l.slice();
+                            if (curIdx > 0) {
+                                newL.splice(curIdx, 1);
+                            } else {
+                                if (newL.length > MAX_LAST_USED_LIST_ITEMS) { newL.pop(); }
+                            }
+                            newL.unshift(searchString); // add to front
+                            return newL;
+                        });
                     }
                     else {
                         console.log(`search res=${JSON.stringify(res)}`);
@@ -364,11 +382,21 @@ function App() {
 
     return (
         <div style={{ display: 'flex', flexFlow: 'column', width: '100%', /*border: '1px solid gray',*/ height: '100%' }} >
-            <VSCodeTextField ref={inputReference} id="inputSearch" placeholder="enter search"
+            {!searchDropDownOpen && <VSCodeTextField ref={inputReference} id="inputSearch" placeholder="enter search" autoFocus
                 initialValue={searchString} onInput={(v) => { const iv = v as ChangeEvent<HTMLInputElement>; const str = iv.target.value; debouncedSetSearchString(str); if (str.length === 0) { debouncedSetSearchString.flush(); } }}
-                onKeyDown={(e) => { if (e.key === 'Enter') { debouncedSetSearchString.flush(); } }}>
-                    <span slot="start" className="codicon codicon-search" ></span>
+                onKeyDown={(e) => {
+                    switch (e.key) {
+                        case 'ArrowDown':
+                            setSearchDropDownOpen(true);
+                        // fallthrough
+                        case 'Enter':
+                            debouncedSetSearchString.flush();
+                            break;
+                    }
+                }}>
+                <span slot="start" className="codicon codicon-search" ></span>
                 <section slot="end" style={{ position: "absolute", top: "2px" /* weird monaco has 3px */, right: "2px" }}>
+                    <span style={{ margin: '2px 4px' }} className="codicon codicon-chevron-down" onClick={() => setSearchDropDownOpen(d => !d)} />
                     <Toggle icon="filter" active={useFilter} title="Use current document filter" onClick={() => setUseFilter(d => !d)} />
                     <Toggle icon="case-sensitive" active={useCaseSensitive} title="Use case sensitive" onClick={() => { setUseCaseSensitive(d => !d); }} />
                         {false && <VSCodeButton appearance="icon" aria-label="Match Whole Word">
@@ -376,7 +404,36 @@ function App() {
                         </VSCodeButton>}
                     <Toggle icon="regex" active={useRegex} title="Use Regular Expression" onClick={() => setUseRegex(d => !d)} />
                     </section>
-                </VSCodeTextField>
+            </VSCodeTextField>}
+            {searchDropDownOpen && <VSCodeDropdown id="searchDropDown" open={true} onChange={(e) => {
+                //console.log(`search dropdown onChange`, e);
+                if (e.target && 'value' in e.target) { setSearchString(e.target.value as string); }
+                setSearchDropDownOpen(false);
+                window.postMessage({ type: 'focus' });
+            }} onKeyDown={(e) => {
+                switch (e.key) {
+                    case 'Delete': // delete the current entry from the list
+                        if (e.target && 'value' in e.target) {
+                            const toDel = e.target.value as string;
+                            //console.log(`search dropdown onKeyDown Delete: '${toDel}'`);
+                            setLastUsedList(l => {
+                                const idx = l.indexOf(toDel);
+                                if (idx >= 0) {
+                                    const newL = l.slice();
+                                    newL.splice(idx, 1);
+                                    return newL;
+                                } else {
+                                    return l;
+                                }
+                            });
+                            e.preventDefault();
+                        }
+                        break;
+                }
+            }}>
+                {!lastUsedList.includes(searchString) && <VSCodeOption>{searchString}</VSCodeOption>}
+                {lastUsedList.map(l => <VSCodeOption>{l}</VSCodeOption>)}
+            </VSCodeDropdown>}
             <div style={{ flexGrow: 1 }}>
                 <AutoSizer disableHeight={false}>
                         {({ height, width }) => (
