@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.66.0](https://github.com/mbehr1/dlt-logs/compare/v1.65.3...v1.66.0) (2023-05-16)
+
+
+### Features
+
+* **search:** add last used search dropdown ([b306380](https://github.com/mbehr1/dlt-logs/commit/b306380f234b9dcb8ada5c2c4987eb48393c4430))
+
 ## [1.65.3](https://github.com/mbehr1/dlt-logs/compare/v1.65.2...v1.65.3) (2023-05-15)
 
 
