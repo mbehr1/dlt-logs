@@ -25,6 +25,7 @@ enum DataPointType {
 export interface NewMessageSink {
     onNewMessages?: (nrNewMsgs: number) => void;
     onDone?: () => void;
+    onStreamInfo?: (nrStreamMsgs: number, nrMsgsProcessed: number, nrMsgsTotal: number) => void;
 };
 
 export interface ReportDocument {

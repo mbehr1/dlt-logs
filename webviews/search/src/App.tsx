@@ -20,7 +20,7 @@
  * [x] optimize time/queries while typing: delay request until typing stops for 0.7 secs (done using useDebounceCallback for search string)
  * [ ] optimize time/queries while typing: add id to requests to ignore data from prev. requests(?) (reject prev. data updates but not yet for itemCount)
  * [ ] auto search on type or only on enter key / after timeout,...? (added debounce with flush on enter, lets see whether this good or whether autosearch should be disabled)
- * [ ] better status of "logs matching". check with adlt stream status
+ * [x] better status of "logs matching". check with adlt stream status (via StreamInfo)
  * [ ] shortcut for search window? (alt/option+f?)
  * [ ] impl "match whole word" button (logic: space/starts with and ends/space after?)
  * [ ] check theme changes / support reload on theme change (isLightTheme doesn't get updated)
@@ -73,6 +73,12 @@ interface Msg {
 interface ConsecutiveRows {
     startIdx: number;
     rows: Msg[];
+}
+
+interface StreamInfo {
+    nrStreamMsgs: number,
+    nrMsgsProcessed: number,
+    nrMsgsTotal: number
 }
 
 /**
@@ -161,7 +167,7 @@ function App() {
 
     // non-persisted state:
     const [activeDoc, setActiveDoc] = useState<string | null>(null);
-    const [itemCount, setItemCount] = useState(0);
+    const [streamInfo, setStreamInfo] = useState({ nrStreamMsgs: 0, nrMsgsProcessed: 0, nrMsgsTotal: 0 } as StreamInfo);
     const [data, setData] = useState([] as ConsecutiveRows[]);
     const [loadPending, setLoadPending] = useState(false);
     const [searchDropDownOpen, setSearchDropDownOpen] = useState(false);
@@ -179,8 +185,6 @@ function App() {
             sendAndReceiveMsg({ cmd: 'load', data: { startIdx: startIndex, stopIdx: stopIndex } }).then((res: any) => {
                 if (res && Array.isArray(res.msgs)) {
                     const msgs = res.msgs;
-                    const totalNrMsgs = res.totalNrMsgs;
-                    setItemCount(totalNrMsgs);
                     if (msgs.length > 0) {
                         setData(d => {
                             const curData = d.slice();
@@ -220,19 +224,14 @@ function App() {
     useEffect(() => {
         let active = true;    
         // reset search results and related items
-        setItemCount(0);
+        setStreamInfo({ nrStreamMsgs: 0, nrMsgsProcessed: 0, nrMsgsTotal: 0 });
         setData(d => { console.log(`search useEffect setData(d.length=${d.length})->[]`); return []; });
         setLoadPending(false);
         if (activeDoc && !debouncedSetSearchString.isPending() && searchString.length > 0) {
             sendAndReceiveMsg({ cmd: 'search', data: { searchString, useRegex, useCaseSensitive, useFilter } }).then((res: any) => {
                 if (active) {
                     if (Array.isArray(res)) {
-                        // const msgs = res;
-                        // we don't know the length here yet...
-                        // setItemCount(1); // will be set later
-                        /*setItemCount(msgs.length);
-                        setData([{ startIdx: 0, rows: msgs }]);*/
-                        loadMoreItems(0, 50); // todo this seems needed to avoid list with 1 item ... loading how to reset? InfiniteLoader?
+                        loadMoreItems(0, 50); // todo this seems needed to avoid list with 1 item ... loading how to reset? InfiniteLoader? on itemCountCb?
                         setLastUsedList(l => {
                             const curIdx = l.indexOf(searchString);
                             if (curIdx === 0) { return l; } // no update needed
@@ -277,18 +276,18 @@ function App() {
         };
         vscode.addMessageListener('focus', focusCb);
 
-        const itemCountCb = (msg: any) => {
-            console.log(`itemCountCb. msg=${JSON.stringify(msg)}`);
-            if ('itemCount' in msg) {
-                setItemCount(msg.itemCount);
+        const streamInfoCb = (msg: any) => {
+            console.log(`streamInfoCb. msg=${JSON.stringify(msg)}`);
+            if ('streamInfo' in msg) {
+                setStreamInfo(d => { return { ...d, ...msg.streamInfo }; });
             }
         };
-        vscode.addMessageListener('itemCount', itemCountCb);
+        vscode.addMessageListener('streamInfo', streamInfoCb);
 
         // send a first hello/ping:
         vscode.postMessage({ type: 'hello', req: {} }); // no msgId needed
 
-        return () => { vscode.removeMessageListener('itemCount', itemCountCb); vscode.removeMessageListener('focus', focusCb); vscode.removeMessageListener('docUpdate', updateDocCb); };
+        return () => { vscode.removeMessageListener('streamInfo', streamInfoCb); vscode.removeMessageListener('focus', focusCb); vscode.removeMessageListener('docUpdate', updateDocCb); };
     }, []);
 
 
@@ -438,11 +437,12 @@ function App() {
                 <AutoSizer disableHeight={false}>
                         {({ height, width }) => (
                         <InfiniteLoader
+                            minimumBatchSize={20}
                             isItemLoaded={isItemLoaded}
-                            itemCount={itemCount}
+                            itemCount={streamInfo.nrStreamMsgs}
                             loadMoreItems={singleLoadMoreItems}>
                             {({ onItemsRendered, ref }) => (
-                                <FixedSizeList height={height || 400} width={width || 200} itemSize={18} itemCount={itemCount} overscanCount={20} ref={ref} onItemsRendered={onItemsRendered}>
+                                <FixedSizeList height={height || 400} width={width || 200} itemSize={18} itemCount={streamInfo.nrStreamMsgs} overscanCount={40} ref={ref} onItemsRendered={onItemsRendered}>
                                     {renderListRow}
                                 </FixedSizeList>
                             )}
@@ -450,7 +450,10 @@ function App() {
                         )}
                 </AutoSizer>
                 </div>
-            <div style={{ padding: "4px 2px 2px 4px" }}>{itemCount > 0 ? `${itemCount} logs matching` : 'no logs'}</div>
+            <div style={{ padding: "4px 2px 2px 4px" }}>
+                <span>{streamInfo.nrStreamMsgs > 0 ? `${streamInfo.nrStreamMsgs.toLocaleString()} out of ${streamInfo.nrMsgsTotal.toLocaleString()} logs matching` : `no logs matching out of ${streamInfo.nrMsgsTotal.toLocaleString()}`}</span>
+                {(streamInfo.nrMsgsProcessed != streamInfo.nrMsgsTotal) && <progress style={{ position: "absolute", bottom: "2px", right: "1rem" }} value={streamInfo.nrMsgsProcessed} max={streamInfo.nrMsgsTotal} />}
+            </div>
         </div>
     );
 }
