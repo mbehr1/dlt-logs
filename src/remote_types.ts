@@ -6,7 +6,8 @@ export type BinType =
   | { tag: 'Lifecycles'; value: Array<BinLifecycle> }
   | { tag: 'DltMsgs'; value: [number, Array<BinDltMsg>] }
   | { tag: 'EacInfo'; value: Array<BinEcuStats> }
-  | { tag: 'PluginState'; value: Array<string> }; 
+  | { tag: 'PluginState'; value: Array<string> }
+  | { tag: 'StreamInfo'; value: BinStreamInfo }; 
 
 export module BinType {
   export const FileInfo = (value: BinFileInfo): BinType => ({ tag: 'FileInfo', value });
@@ -14,6 +15,7 @@ export module BinType {
   export const DltMsgs = (value: [number, Array<BinDltMsg>]): BinType => ({ tag: 'DltMsgs', value });
   export const EacInfo = (value: Array<BinEcuStats>): BinType => ({ tag: 'EacInfo', value });
   export const PluginState = (value: Array<string>): BinType => ({ tag: 'PluginState', value });
+  export const StreamInfo = (value: BinStreamInfo): BinType => ({ tag: 'StreamInfo', value });
 }
 
 export function writeBinType(value: BinType, sinkOrBuf?: SinkOrBuf): Sink {
@@ -43,6 +45,11 @@ export function writeBinType(value: BinType, sinkOrBuf?: SinkOrBuf): Sink {
       writeU32(4, sink);
       const val5 = value as { value: Array<string> };
       writeSeq(writeString)(val5.value, sink);
+      break;
+    case 'StreamInfo':
+      writeU32(5, sink);
+      const val6 = value as { value: BinStreamInfo };
+      writeBinStreamInfo(val6.value, sink);
       break; 
     default:
       throw new Error(`'${(value as any).tag}' is invalid tag for enum 'BinType'`);
@@ -73,7 +80,11 @@ export function readBinType(sinkOrBuf: SinkOrBuf): BinType {
       );
     case 4:
       return BinType.PluginState(
-        readSeq(readString)(sink),
+        readSeq(readString)(sink), 
+      );
+    case 5:
+      return BinType.StreamInfo(
+        readBinStreamInfo(sink),
       );
     default:
       throw new Error(`'${value}' is invalid value for enum 'BinType'`);
@@ -100,7 +111,7 @@ export function writeBinLifecycle(value: BinLifecycle, sinkOrBuf?: SinkOrBuf): S
   writeU32(value.nr_msgs, sink);
   writeU64(value.start_time, sink);
   writeU64(value.end_time, sink);
-  writeOption(writeString)(value.sw_version, sink); 
+  writeOption(writeString)(value.sw_version, sink);
   writeOption(writeU64)(value.resume_time, sink); 
   return sink;
 }
@@ -113,7 +124,7 @@ export function readBinLifecycle(sinkOrBuf: SinkOrBuf): BinLifecycle {
     nr_msgs: readU32(sink),
     start_time: readU64(sink),
     end_time: readU64(sink),
-    sw_version: readOption(readString)(sink), 
+    sw_version: readOption(readString)(sink),
     resume_time: readOption(readU64)(sink), 
   };
 }
@@ -251,6 +262,32 @@ export function readBinCtidInfo(sinkOrBuf: SinkOrBuf): BinCtidInfo {
     ctid: readU32(sink),
     nr_msgs: readU32(sink),
     desc: readOption(readString)(sink), 
+  };
+}
+
+export interface BinStreamInfo {
+  stream_id: number;
+  nr_stream_msgs: number;
+  nr_file_msgs_processed: number;
+  nr_file_msgs_total: number;
+}
+
+export function writeBinStreamInfo(value: BinStreamInfo, sinkOrBuf?: SinkOrBuf): Sink {
+  const sink = Sink.create(sinkOrBuf);
+  writeU32(value.stream_id, sink);
+  writeU32(value.nr_stream_msgs, sink);
+  writeU32(value.nr_file_msgs_processed, sink);
+  writeU32(value.nr_file_msgs_total, sink);
+  return sink;
+}
+
+export function readBinStreamInfo(sinkOrBuf: SinkOrBuf): BinStreamInfo {
+  const sink = Sink.create(sinkOrBuf);
+  return {
+    stream_id: readU32(sink),
+    nr_stream_msgs: readU32(sink),
+    nr_file_msgs_processed: readU32(sink),
+    nr_file_msgs_total: readU32(sink),
   };
 }
 
