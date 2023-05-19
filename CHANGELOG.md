@@ -1,5 +1,17 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.67.0](https://github.com/mbehr1/dlt-logs/compare/v1.66.0...v1.67.0) (2023-05-19)
+
+
+### Features
+
+* **search:** show correct number of search results ([c33bef6](https://github.com/mbehr1/dlt-logs/commit/c33bef6b5b5dd7b971e6876d0d4f589792a493c8))
+
+
+### Bug Fixes
+
+* **search:** avoid empty lines waiting for slight scroll ([be49ed3](https://github.com/mbehr1/dlt-logs/commit/be49ed36666552fae2ff299e03ce570179a11813))
+
 ## [1.66.0](https://github.com/mbehr1/dlt-logs/compare/v1.65.3...v1.66.0) (2023-05-16)
 
 
