@@ -78,7 +78,7 @@ jobs:
     if: success()
     steps:
       - uses: actions/download-artifact@v3
-      - run: npx @vscode/vsce publish --skip-duplicate --packagePath $(find . -iname *.vsix)
+      - run: npx @vscode/vsce publish --packagePath $(find . -iname *.vsix)
         env:
           VSCE_PAT: ${{ secrets.VSCE_TOKEN }}
       - run: echo $(find . -iname *.vsix)
