@@ -168,6 +168,7 @@ function App() {
     const [lastUsedList, setLastUsedList] = useState(persistedState.lastUsedSearchStrings);
 
     // non-persisted state:
+    const [errorText, setErrorText] = useState<string | null>(null);
     const [activeDoc, setActiveDoc] = useState<string | null>(null);
     const [streamInfo, setStreamInfo] = useState({ nrStreamMsgs: 0, nrMsgsProcessed: 0, nrMsgsTotal: 0 } as StreamInfo);
     const [data, setData] = useState([] as ConsecutiveRows[]);
@@ -227,6 +228,7 @@ function App() {
         // reset search results and related items
         setStreamInfo({ nrStreamMsgs: 0, nrMsgsProcessed: 0, nrMsgsTotal: 0 });
         setData(d => []);
+        setErrorText(null);
         if (activeDoc && !debouncedSetSearchString.isPending() && searchString.length > 0) {
             sendAndReceiveMsg({ cmd: 'search', data: { searchString, useRegex, useCaseSensitive, useFilter } }).then((res: any) => {
                 if (active) {
@@ -256,6 +258,9 @@ function App() {
                     }
                     else {
                         console.log(`search res=${JSON.stringify(res)}`);
+                        if ('err' in res) {
+                            setErrorText('' + res.err);
+                        }
                     }
                 } else {
                     //console.warn(`search useEffect ignored result due to !active!`);
@@ -441,6 +446,7 @@ function App() {
                 {!lastUsedList.includes(searchString) && <VSCodeOption>{searchString}</VSCodeOption>}
                 {lastUsedList.map(l => <VSCodeOption>{l}</VSCodeOption>)}
             </VSCodeDropdown>}
+            {errorText !== null && <div className="inputValidation" >{errorText}</div>}
             <div style={{ flexGrow: 1 }}>
                 <AutoSizer disableHeight={false}>
                         {({ height, width }) => (

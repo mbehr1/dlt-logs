@@ -196,12 +196,11 @@ export class SearchPanelProvider implements WebviewViewProvider {
                                             this.curStreamLoader = undefined;
                                         }
                                         res = undefined;
-                                        // todo impl useCaseSensitive...
-                                        const doc = this._activeDoc;
-                                        const searchFilter = new DltFilter({ 'type': DltFilterType.NEGATIVE, not: true, ignoreCasePayload: searchReq.useCaseSensitive ? undefined : true, payloadRegex: searchReq.useRegex ? searchReq.searchString : undefined, payload: searchReq.useRegex ? undefined : searchReq.searchString }, false);
-                                        const filters = (searchReq.useFilter ? [...doc.allFilters.filter(f => (f.type === DltFilterType.POSITIVE || f.type === DltFilterType.NEGATIVE) && f.enabled), searchFilter] : [searchFilter]);
                                         //console.log(`SearchPanel filters=${JSON.stringify(filters.map(f => f.asConfiguration()))}`); <- reports enabled possibly wrong
                                         try {
+                                        const doc = this._activeDoc;
+                                        const searchFilter = new DltFilter({ 'type': DltFilterType.NEGATIVE, not: true, ignoreCasePayload: searchReq.useCaseSensitive ? undefined : true, payloadRegex: searchReq.useRegex ? searchReq.searchString : undefined, payload: searchReq.useRegex ? undefined : searchReq.searchString }, false);
+                                            const filters = (searchReq.useFilter ? [...doc.allFilters.filter(f => (f.type === DltFilterType.POSITIVE || f.type === DltFilterType.NEGATIVE) && f.enabled), searchFilter] : [searchFilter]);
                                             this.curStreamLoader = new DocStreamLoader(doc, filters, () => {
                                                 // console.warn(`SearchPanel: sAr cmd search got new DocStreamLoader`);
                                                 webview.postMessage({
