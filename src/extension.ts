@@ -277,7 +277,7 @@ export function activate(context: vscode.ExtensionContext) {
 				_onDidChangeTreeData.fire(doc.treeNode);
 				//console.warn(`dlt-logs.onDidChangeActiveTextEditor revealing ${doc?.treeNode.id}:${doc?.treeNode.label}`);
 				try {
-					_dltLifecycleTreeView.reveal(doc.treeNode, { select: false, focus: true, expand: true }).then(() => {
+					_dltLifecycleTreeView.reveal(doc.treeNode, { select: false, focus: false, expand: true }).then(() => {
 						//console.warn(`dlt-logs.onDidChangeActiveTextEditor did reveal ${doc?.treeNode.id}`);
 					});
 				} catch (err) {
