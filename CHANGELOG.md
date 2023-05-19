@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.67.1](https://github.com/mbehr1/dlt-logs/compare/v1.67.0...v1.67.1) (2023-05-19)
+
+
+### Bug Fixes
+
+* reduce console.logs for adlt ([1cbfd96](https://github.com/mbehr1/dlt-logs/commit/1cbfd962dbfb078745ef3a11b2d1b6ac860ec9d0))
+
 ## [1.67.0](https://github.com/mbehr1/dlt-logs/compare/v1.66.0...v1.67.0) (2023-05-19)
 
 
