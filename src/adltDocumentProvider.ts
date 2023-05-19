@@ -1021,7 +1021,7 @@ export class AdltDocument implements vscode.Disposable {
             this.visibleMsgs = undefined;
             this.visibleLcs = undefined;;
             return this.sendAndRecvAdltMsg(`stop ${oldStreamId}`).then((text) => {
-                console.log(`adlt on stop resp: ${text}`);
+                // console.log(`adlt on stop resp: ${text}`);
                 // todo verify streamId?
                 this.streamId = 0;
             });
@@ -1036,7 +1036,7 @@ export class AdltDocument implements vscode.Disposable {
             return this.sendAndRecvAdltMsg(`stream_change_window ${oldStreamId} ${this._skipMsgs},${this._skipMsgs + this._maxNrMsgs}`).then((response) => {
                 //console.log(`adlt.changeWindow on stream_change_window resp: ${response}`); // e.g. ok stream_change_window <old_id>={"id":..., "windows":[]}
                 const streamObj = JSON.parse(response.slice(response.indexOf("=") + 1));
-                console.log(`adlt.changeWindow on stream_change_window streamObj: ${JSON.stringify(streamObj)}`);
+                // console.log(`adlt.changeWindow on stream_change_window streamObj: ${JSON.stringify(streamObj)}`);
                 let curStreamMsgData = this.streamMsgs.get(streamObj.id);
 
                 this.streamId = streamObj.id;
@@ -1066,12 +1066,12 @@ export class AdltDocument implements vscode.Disposable {
         // start stream:
         let filterStr = this.allFilters.filter(f => (f.type === DltFilterType.POSITIVE || f.type === DltFilterType.NEGATIVE) && f.enabled).map(f => JSON.stringify({ ...f.asConfiguration(), enabled: true })).join(','); // enabled is not updated/stored in config. so have to overwrite here
         let decFilters = this.allFilters.filter(f => (f.type === DltFilterType.MARKER || ((f.type === DltFilterType.POSITIVE) && (f.decorationId !== undefined || f.filterColour !== undefined))) && f.enabled);
-        console.log(`adlt.startStream have ${decFilters.length} decoration filters: ${decFilters.map((f) => f.name).join(',')}`);
+        // console.log(`adlt.startStream have ${decFilters.length} decoration filters: ${decFilters.map((f) => f.name).join(',')}`);
         // todo optimize the window so that the start can do a binary search!
         this.sendAndRecvAdltMsg(`stream {"window":[${this._skipMsgs},${this._skipMsgs + this._maxNrMsgs}], "binary":true, "filters":[${filterStr}]}`).then((response) => {
-            console.log(`adlt.on startStream got response:'${response}'`);
+            // console.log(`adlt.on startStream got response:'${response}'`);
             const streamObj = JSON.parse(response.substring(11));
-            console.log(`adlt ok:stream`, JSON.stringify(streamObj));
+            // console.log(`adlt ok:stream`, JSON.stringify(streamObj));
             this.streamId = streamObj.id;
             this.text = "";
             this.visibleMsgs = [];
@@ -1199,7 +1199,7 @@ export class AdltDocument implements vscode.Disposable {
     }
 
     clearDecorations() {
-        console.log(`adlt.clearDecorations()...`);
+        // console.log(`adlt.clearDecorations()...`);
         this.textEditors.forEach((editor) => {
             this.decorations.forEach((value, key) => {
                 value.length = 0; // seems a way to clear all elements
@@ -1209,7 +1209,7 @@ export class AdltDocument implements vscode.Disposable {
     }
 
     updateDecorations() {
-        console.log(`adlt.updateDecorations()...`);
+        // console.log(`adlt.updateDecorations()...`);
         this.textEditors.forEach((editor) => {
             this.decorations.forEach((value, key) => {
                 editor.setDecorations(key, value);
@@ -1286,7 +1286,7 @@ export class AdltDocument implements vscode.Disposable {
             // can we load more msgs?
             const msgs = this.visibleMsgs;
             if (msgs && this._maxNrMsgs === msgs.length) { // we assume more msgs are there (might be none) (todo test that case)
-                console.log(`adlt.notifyVisibleRange(visible: [${triggerAboveLine}-${triggerBelowLine}]) current: [${this._skipMsgs}-${this._skipMsgs + this._maxNrMsgs}) triggerBelow`);
+                // console.log(`adlt.notifyVisibleRange(visible: [${triggerAboveLine}-${triggerBelowLine}]) current: [${this._skipMsgs}-${this._skipMsgs + this._maxNrMsgs}) triggerBelow`);
                 if (this.textEditors.length > 0) {
                     this.textEditors.forEach((editor) => {
                         const shiftByLines = -this._maxNrMsgs * 0.5;
@@ -1370,10 +1370,10 @@ export class AdltDocument implements vscode.Disposable {
      * apply filter operation that is longlasting.
      */
     triggerApplyFilter() {
-        console.log(`adlt.triggerApplyFilter() called for '${this.uri.toString().slice(0, 100)}'`);
+        // console.log(`adlt.triggerApplyFilter() called for '${this.uri.toString().slice(0, 100)}'`);
         if (this.debouncedApplyFilterTimeout) { clearTimeout(this.debouncedApplyFilterTimeout); }
         this.debouncedApplyFilterTimeout = setTimeout(() => {
-            console.log(`adlt.triggerApplyFilter after debounce for '${this.uri.toString().slice(0, 100)}'`);
+            // console.log(`adlt.triggerApplyFilter after debounce for '${this.uri.toString().slice(0, 100)}'`);
             if (this._applyFilterRunning) {
                 console.warn(`adlt.triggerApplyFilter currently running, Retriggering.`);
                 this.triggerApplyFilter();
@@ -1444,14 +1444,14 @@ export class AdltDocument implements vscode.Disposable {
      */
     onTreeViewDidChangeSelection(event: vscode.TreeViewSelectionChangeEvent<TreeViewNode>) {
         if (event.selection.length && event.selection[0].uri && event.selection[0].uri.fragment.length) {
-            console.log(`adlt.onTreeViewDidChangeSelection(${event.selection.length} ${event.selection[0].uri} fragment='${event.selection[0].uri ? event.selection[0].uri.fragment : ''}')`);
+            // console.log(`adlt.onTreeViewDidChangeSelection(${event.selection.length} ${event.selection[0].uri} fragment='${event.selection[0].uri ? event.selection[0].uri.fragment : ''}')`);
             const index = +(event.selection[0].uri.fragment);
             this.revealDate(new Date(index));
         }
     }
 
     onOpenReport(context: vscode.ExtensionContext, filter: DltFilter | DltFilter[], newReport: boolean = false, reportToAdd: DltReport | undefined = undefined) {
-        console.log(`onOpenReport called...`);
+        // console.log(`onOpenReport called...`);
 
         if (!newReport && (this._reports.length > 0 || reportToAdd !== undefined)) {
             // we do add to the report that was last active or to the provided one
@@ -1469,9 +1469,9 @@ export class AdltDocument implements vscode.Disposable {
             let filters = Array.isArray(filter) ? filter : [filter];
             let filterStr = filters.filter(f => f.enabled).map(f => JSON.stringify({ ...f.asConfiguration(), enabled: true })).join(',');
             this.sendAndRecvAdltMsg(`stream {"window":[0,1000000], "binary":true, "filters":[${filterStr}]}`).then((response) => {
-                console.log(`adlt.on startStream got response:'${response}'`);
+                // console.log(`adlt.on startStream got response:'${response}'`);
                 const streamObj = JSON.parse(response.substring(11));
-                console.log(`adtl ok:stream`, JSON.stringify(streamObj));
+                // console.log(`adtl ok:stream`, JSON.stringify(streamObj));
 
                 let singleReport = report.addFilter(filter);
                 if (singleReport !== undefined) {
@@ -1501,7 +1501,7 @@ export class AdltDocument implements vscode.Disposable {
             let filters = Array.isArray(filter) ? filter : [filter];
             let filterStr = filters.filter(f => f.enabled).map(f => JSON.stringify({ ...f.asConfiguration(), enabled: true })).join(',');
             this.sendAndRecvAdltMsg(`stream {"window":[0,1000000], "binary":true, "filters":[${filterStr}]}`).then((response) => {
-                console.log(`adlt.on startStream got response:'${response}'`);
+                // console.log(`adlt.on startStream got response:'${response}'`);
                 const streamObj = JSON.parse(response.substring(11));
                 // console.log(`adtl ok:stream`, JSON.stringify(streamObj));
                 //let streamMsgs: AdltMsg[] = [];
@@ -1554,14 +1554,14 @@ export class AdltDocument implements vscode.Disposable {
         // and return the new line
         if (this.streamId > 0) {
             return this.sendAndRecvAdltMsg(`stream_binary_search ${this.streamId} time_ms=${date.valueOf()}`).then((response) => {
-                console.log(`adlt on seach_stream resp: ${response}`);
+                console.log(`adlt on search_stream resp: ${response}`);
                 const responseObj = JSON.parse(response.substring(response.indexOf('=') + 1));
                 //console.warn(`adlt on seach_stream resp: ${JSON.stringify(responseObj)}`);
                 let index = responseObj.filtered_msg_index;
                 if (index !== undefined) {
 
                     if (index < this._skipMsgs || index >= this._skipMsgs + (this.visibleMsgs?.length || 0)) {
-                        console.log(`adlt on seach_stream ${index} not in range: ${this._skipMsgs}..${this._skipMsgs + (this.visibleMsgs?.length || 0)}`);
+                        console.log(`adlt on search_stream ${index} not in range: ${this._skipMsgs}..${this._skipMsgs + (this.visibleMsgs?.length || 0)}`);
                         // we want it so that the new line is skipMsgs..25%..line..75%.
                         let offset = Math.min(Math.round(this._maxNrMsgs * 0.25), index);
                         this._skipMsgs = index - offset;
@@ -1571,7 +1571,7 @@ export class AdltDocument implements vscode.Disposable {
                         return offset; // this is the new one
                     } else {
                         // visible (might still be in the upper or lower bound where a scroll will happen.... )
-                        console.log(`adlt on seach_stream ${index} in range: ${this._skipMsgs}..${this._skipMsgs + (this.visibleMsgs?.length || 0)} -> ${index - this._skipMsgs}`);
+                        console.log(`adlt on search_stream ${index} in range: ${this._skipMsgs}..${this._skipMsgs + (this.visibleMsgs?.length || 0)} -> ${index - this._skipMsgs}`);
                         return index - this._skipMsgs;
                     }
                 } else {
@@ -1821,7 +1821,7 @@ export class AdltDocument implements vscode.Disposable {
                 const eqIdx = commandStr.indexOf('=');
                 const command = commandStr.slice(0, eqIdx);
                 const commandParams = decodeURIComponent(commandStr.slice(eqIdx + 1));
-                console.log(`restQueryDocsFilters: executing command = '${command}' with params='${commandParams}'`);
+                // console.log(`restQueryDocsFilters: executing command = '${command}' with params='${commandParams}'`);
 
                 switch (command) {
                     case 'enableAll':
@@ -1865,7 +1865,7 @@ export class AdltDocument implements vscode.Disposable {
                     case 'report': {
                         try {
                             const reportFilters = JSON5.parse(commandParams);
-                            console.log(`report filters=`, reportFilters);
+                            // console.log(`report filters=`, reportFilters);
                             if (Array.isArray(reportFilters) && reportFilters.length > 0) {
                                 const filters: DltFilter[] = [];
                                 for (let i = 0; i < reportFilters.length; ++i) {
@@ -1893,7 +1893,7 @@ export class AdltDocument implements vscode.Disposable {
                     case 'query': {
                         try {
                             const queryFilters = JSON5.parse(commandParams);
-                            console.log(`filters=`, queryFilters);
+                            // console.log(`filters=`, queryFilters);
                             if (Array.isArray(queryFilters) && queryFilters.length > 0) {
                                 let addLifecycles = false;
                                 let maxNrMsgs = 1000; // default to 1000 msgs to report as result
@@ -1913,7 +1913,7 @@ export class AdltDocument implements vscode.Disposable {
                                 // now get the matching message:
                                 if (filters.length > 0) {
                                     const matches = await this.getMatchingMessages(filters, maxNrMsgs);
-                                    console.log(`adlt.restQueryDocsFilters got matches.length=${matches.length}`);
+                                    // console.log(`adlt.restQueryDocsFilters got matches.length=${matches.length}`);
                                     //const matches: util.RestObject[] = [];
                                     retObj.data = util.createRestArray(matches, (obj: object, i: number) => { const msg = obj as FilterableDltMsg; return msg.asRestObject(i); });
                                     if (addLifecycles) {
@@ -1954,7 +1954,7 @@ export class AdltDocument implements vscode.Disposable {
                     case 'add': { // todo add support for persistent storage!
                         try {
                             const filterAttribs = JSON5.parse(commandParams);
-                            console.log(`filterAttribs=`, filterAttribs);
+                            // console.log(`filterAttribs=`, filterAttribs);
 
                             const filter = new DltFilter(filterAttribs, false); // don't allow edit for now as we keep them temp.
                             this.onFilterAdd(filter, false);
@@ -1969,7 +1969,7 @@ export class AdltDocument implements vscode.Disposable {
                     case 'delete': {
                         try {
                             const filterAttribs = JSON5.parse(commandParams);
-                            console.log(`filterAttribs=`, filterAttribs);
+                            // console.log(`filterAttribs=`, filterAttribs);
 
                             if (Object.keys(filterAttribs).length > 0) {
                                 // all filters that match all criteria will be deleted:
@@ -2008,8 +2008,8 @@ export class AdltDocument implements vscode.Disposable {
                             const patchAttribs = JSON5.parse(commandParams);
                             const filterAttribs = patchAttribs.id;
                             const newAttribs = patchAttribs.attributes;
-                            console.log(`patch filterAttribs=`, filterAttribs);
-                            console.log(`patch newAttribs=`, newAttribs);
+                            //console.log(`patch filterAttribs=`, filterAttribs);
+                            // console.log(`patch newAttribs=`, newAttribs);
 
                             if (Object.keys(filterAttribs).length > 0 && Object.keys(newAttribs).length > 0) {
                                 // all filters that match all criteria will be deleted:
@@ -2074,9 +2074,9 @@ export class AdltDocument implements vscode.Disposable {
             try {
                 let filterStr = filters.filter(f => f.enabled).map(f => JSON.stringify({ ...f.asConfiguration(), enabled: true })).join(',');
                 this.sendAndRecvAdltMsg(`query {"window":[0,${maxMsgsToReturn}], "filters":[${filterStr}]}`).then((response) => {
-                    console.log(`adlt.getMatchingMessages startQuery got response:'${response}'`);
+                    // console.log(`adlt.getMatchingMessages startQuery got response:'${response}'`);
                     const streamObj = JSON.parse(response.substring(10));
-                    console.log(`adtl.getMatchingMessages streamObj`, JSON.stringify(streamObj));
+                    // console.log(`adtl.getMatchingMessages streamObj`, JSON.stringify(streamObj));
 
                     let sink: NewMessageSink = {
                         onDone() {
@@ -2123,9 +2123,9 @@ export class AdltDocument implements vscode.Disposable {
             try {
                 let filterStr = filters.filter(f => f.enabled).map(f => JSON.stringify({ ...f.asConfiguration(), enabled: true })).join(',');
                 this.sendAndRecvAdltMsg(`stream {"window":[${initialWindow[0]},${initialWindow[1]}],"binary":true,"filters": [${filterStr}]}`).then((response) => {
-                    console.log(`adlt.streamMessages start stream got response:'${response}'`);
+                    // console.log(`adlt.streamMessages start stream got response:'${response}'`);
                     const streamObj = JSON.parse(response.substring(11)); // todo parse any better!
-                    console.log(`adtl.streamMessages streamObj`, JSON.stringify(streamObj));
+                    // console.log(`adtl.streamMessages streamObj`, JSON.stringify(streamObj));
                     let curStreamMsgData = this.streamMsgs.get(streamObj.id);
                     this.streamMsgs.set(streamObj.id, streamData);
                     if (curStreamMsgData && Array.isArray(curStreamMsgData)) {
@@ -2192,7 +2192,7 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
 
     constructor(context: vscode.ExtensionContext, private _dltLifecycleTreeView: vscode.TreeView<TreeViewNode>, private _treeRootNodes: TreeViewNode[], private _onDidChangeTreeData: vscode.EventEmitter<TreeViewNode | null>,
         private checkActiveRestQueryDocChanged: () => boolean, private _onDidChangeStatus: vscode.EventEmitter<vscode.Uri | undefined>, private _columns: ColumnConfig[], private _reporter?: TelemetryReporter) {
-        console.log(`dlt-logs.AdltDocumentProvider()...`);
+        // console.log(`dlt-logs.AdltDocumentProvider()...`);
         if (!semver.validRange(MIN_ADLT_VERSION_SEMVER_RANGE)) {
             throw Error(`MIN_ADLT_VERSION_SEMVER_RANGE is not valied!`);
         }
@@ -2594,7 +2594,7 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
             let fileNames = decodeAdltUri(uri);
             if (fileNames.length > 0) {
                 const realStat = fs.statSync(fileNames[0]);
-                console.log(`adlt-logs.stat(uri=${uri.toString().slice(0, 100)})... isDirectory=${realStat.isDirectory()}}`);
+                // console.log(`adlt-logs.stat(uri=${uri.toString().slice(0, 100)})... isDirectory=${realStat.isDirectory()}}`);
                 if (realStat.isFile() && (true /* todo dlt extension */)) {
                     try {
                         let port = this.getAdltProcessAndPort();
@@ -2626,7 +2626,7 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
 
     readFile(uri: vscode.Uri): Uint8Array {
         let doc = this._documents.get(uri.toString());
-        console.log(`adlt-logs.readFile(uri=${uri.toString().slice(0, 100)})...`);
+        // console.log(`adlt-logs.readFile(uri=${uri.toString().slice(0, 100)})...`);
         if (!doc) {
             const port = this.getAdltProcessAndPort();
             doc = new AdltDocument(port, uri, this._onDidChangeFile, this._onDidChangeTreeData, this._treeRootNodes, this._onDidChangeStatus, this.checkActiveRestQueryDocChanged, this._columns, this._reporter);
@@ -2636,9 +2636,9 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
     }
 
     watch(uri: vscode.Uri): vscode.Disposable {
-        console.log(`adlt-logs.watch(uri=${uri.toString().slice(0, 100)}...`);
+        // console.log(`adlt-logs.watch(uri=${uri.toString().slice(0, 100)}...`);
         return new vscode.Disposable(() => {
-            console.log(`adlt-logs.watch.Dispose ${uri}`);
+            // console.log(`adlt-logs.watch.Dispose ${uri}`);
             // const fileUri = uri.with({ scheme: 'file' });
             let doc = this._documents.get(uri.toString());
             if (doc) {
@@ -2651,7 +2651,7 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider,
     }
 
     readDirectory(uri: vscode.Uri): [string, vscode.FileType][] {
-        console.log(`adlt-logs.readDirectory(uri=${uri.toString().slice(0, 100)}...`);
+        // console.log(`adlt-logs.readDirectory(uri=${uri.toString().slice(0, 100)}...`);
         let entries: [string, vscode.FileType][] = [];
         // list all dirs and dlt files:
         let dirPath = uri.with({ query: "" }).fsPath; // for multiple files we take the first one as reference
