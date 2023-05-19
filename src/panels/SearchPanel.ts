@@ -179,7 +179,7 @@ export class SearchPanelProvider implements WebviewViewProvider {
                         if (msgId < this.lastMsgId) {
                             console.error(`SearchPanel: msgId ${msgId} < last ${this.lastMsgId}`);
                         }
-                        console.log(`SearchPanel: sAr cmd:${JSON.stringify(req)}`);
+                        // console.log(`SearchPanel: sAr cmd:${JSON.stringify(req)}`);
                         // need to send a response for that id:
                         let res: { err: string } | undefined = undefined;
                         switch (req.cmd) {
@@ -357,7 +357,7 @@ class DocStreamLoader {
             console.info(`SearchPanel DocStreamLoader requestNewWindow([${newWindow[0]}-${newWindow[1]}))[${this.curWindow[0]}-${this.curWindow[1]})`);
             this.streamIdUpdatePending = true;
             this.doc.changeMsgsStreamWindow(this.streamId, newWindow).then(streamId => {
-                console.info(`SearchPanel DocStreamLoader requestNewWindow([${newWindow[0]}-${newWindow[1]})) got new streamId=${streamId}`);
+                //console.info(`SearchPanel DocStreamLoader requestNewWindow([${newWindow[0]}-${newWindow[1]})) got new streamId=${streamId}`);
                 this.streamId = streamId;
                 this.streamIdUpdatePending = false;
             });
@@ -383,14 +383,53 @@ class DocStreamLoader {
                 i -= 1;
             }
         }
-        if (this.queuedRequests.length > 1) { // we might have the prev one, but should never have more than one
-            console.warn(`SearchPanel DocStreamLoader sink.onNewMessages(${nrNewMsgs}) queuedRequests >1!`);
+        if (this.queuedRequests.length > 0) {
+            // console.warn(`SearchPanel DocStreamLoader sink.onNewMessages(${nrNewMsgs}) queuedRequests ${this.queuedRequests.length} > 0!`);
+            // as the prev requestNewWindow might have been ignored, see whether we do need to retry here:
+            // we do this only for the first in the queue:
+            const [startIdx, maxNrMsgs, resolve, reject] = this.queuedRequests[0];
+            const inWindow = startIdx >= this.curWindow[0] && startIdx < this.curWindow[1];
+            if (!inWindow) {
+                console.log(`SearchPanel DocStreamLoader sink.onNewMessages(${nrNewMsgs}) queuedRequests ${this.queuedRequests.length} > 0: requesting new window with ${startIdx} ${maxNrMsgs}`);
+                this.tryRequestNewWindow(startIdx, maxNrMsgs, true);
+            }
         }
     }
 
     private sinkOnStreamInfo(nrStreamMsgs: number, nrMsgsProcessed: number, nrMsgsTotal: number) {
-        console.info(`SearchPanel DocStreamLoader sink.onStreamInfo(${nrStreamMsgs},${nrMsgsProcessed}, ${nrMsgsTotal} )...`);
+        // console.info(`SearchPanel DocStreamLoader sink.onStreamInfo(${nrStreamMsgs},${nrMsgsProcessed}, ${nrMsgsTotal} )...`);
         if (this.onStreamInfoChange) { this.onStreamInfoChange(nrStreamMsgs, nrMsgsProcessed, nrMsgsTotal); }
+    }
+
+    /**
+     * try to request a new window.
+     * 
+     * This might fail if an update is currently pending.
+     * A request is only triggered if:
+     * - currently no streamIdUpdatePending and
+     * - ignoreCurMsgs set or streamData contain already msgs.
+     * 
+     * This is to avoid constantly triggering a window change without waiting for the onNewMsgs callback/data. 
+     * @param startIdx 
+     * @param maxNumberOfMsgs 
+     * @param ignoreCurMsgs 
+     */
+    private tryRequestNewWindow(startIdx: number, maxNumberOfMsgs: number, ignoreCurMsgs?: boolean) {
+        if (!this.streamIdUpdatePending && (ignoreCurMsgs || this.streamData.msgs.length > 0)) {
+            // calc new window position: (for now simply [startIdx..)
+            let newWindow: [number, number];
+            if (startIdx >= this.curWindow[1]) {
+                newWindow = [startIdx, startIdx + DocStreamLoader.windowSize];
+            } else {
+                // before current window, avoid overlapping loading but ensure all wanted are contained:
+                const endIdxWanted = startIdx + maxNumberOfMsgs;
+                const newStartIdx = Math.max(0, endIdxWanted - DocStreamLoader.windowSize);
+                newWindow = [newStartIdx, newStartIdx + DocStreamLoader.windowSize];
+            }
+
+            // console.log(`SearchPanel DocStreamLoader.getMsgs(${startIdx}, #${maxNumberOfMsgs}) !inWindow [${this.curWindow[0]}-${this.curWindow[1]}). Changing window to [${newWindow[0]}-${newWindow[1]})`);
+            this.requestNewWindow(newWindow);
+        }
     }
 
     /**
@@ -416,19 +455,7 @@ class DocStreamLoader {
                 });
             }
         } else { // need to request that window first
-            // calc new window position: (for now simply [startIdx..)
-            let newWindow: [number, number];
-            if (startIdx >= this.curWindow[1]) {
-                newWindow = [startIdx, startIdx + DocStreamLoader.windowSize];
-            } else {
-                // before current window, avoid overlapping loading but ensure all wanted are contained:
-                const endIdxWanted = startIdx + maxNumberOfMsgs;
-                const newStartIdx = Math.max(0, endIdxWanted - DocStreamLoader.windowSize);
-                newWindow = [newStartIdx, newStartIdx + DocStreamLoader.windowSize];
-            }
-
-            console.log(`SearchPanel DocStreamLoader.getMsgs(${startIdx}, #${maxNumberOfMsgs}) !inWindow [${this.curWindow[0]}-${this.curWindow[1]}). Changing window to [${newWindow[0]}-${newWindow[1]})`);
-            this.requestNewWindow(newWindow);
+            this.tryRequestNewWindow(startIdx, maxNumberOfMsgs);
             // queue request
             return new Promise<FilterableDltMsg[]>((resolve, reject) => {
                 this.queuedRequests.push([startIdx, maxNumberOfMsgs, resolve, reject]);

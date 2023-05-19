@@ -157,7 +157,9 @@ const persistedState: PersistedState = { useRegex: true, useCaseSensitive: true,
 const MAX_LAST_USED_LIST_ITEMS = 50; // we persist max 50 last used search strings
 
 function App() {
+    // console.log(`search app (render)...`);
     const inputReference = useRef<Component>(null);
+    const infiniteLoaderRef = useRef<null | InfiniteLoader>(null);
 
     const [useRegex, setUseRegex] = useState(persistedState.useRegex);
     const [useCaseSensitive, setUseCaseSensitive] = useState(persistedState.useCaseSensitive);
@@ -169,7 +171,7 @@ function App() {
     const [activeDoc, setActiveDoc] = useState<string | null>(null);
     const [streamInfo, setStreamInfo] = useState({ nrStreamMsgs: 0, nrMsgsProcessed: 0, nrMsgsTotal: 0 } as StreamInfo);
     const [data, setData] = useState([] as ConsecutiveRows[]);
-    const [loadPending, setLoadPending] = useState(false);
+    const [lastLoad, setLastLoad] = useState<[number, number] | undefined>(undefined);
     const [searchDropDownOpen, setSearchDropDownOpen] = useState(false);
 
     const debouncedSetSearchString = useDebouncedCallback(
@@ -178,9 +180,9 @@ function App() {
     );
 
 
-    const loadMoreItems = useCallback((startIndex: number, stopIndex: number): Promise<void> => {
-        //console.log(`loadMoreItems(${startIndex}-${stopIndex})...`);
-        setLoadPending(true);
+    const loadMoreItems = useCallback((startIndex: number, stopIndex: number, noLastLoadStoring?: boolean): Promise<void> => {
+        // console.log(`search loadMoreItems(${startIndex}-${stopIndex})...`);
+        if (!noLastLoadStoring) { setLastLoad([startIndex, stopIndex]); }
         return new Promise<void>((resolve, reject) => {
             sendAndReceiveMsg({ cmd: 'load', data: { startIdx: startIndex, stopIdx: stopIndex } }).then((res: any) => {
                 if (res && Array.isArray(res.msgs)) {
@@ -204,7 +206,6 @@ function App() {
                 } else {
                     console.warn(`loadMoreItems(${startIndex}-${stopIndex})... unexpected res=${JSON.stringify(res)}`);
                 }
-                setLoadPending(false);
                 resolve();
             });
         });
@@ -225,13 +226,20 @@ function App() {
         let active = true;    
         // reset search results and related items
         setStreamInfo({ nrStreamMsgs: 0, nrMsgsProcessed: 0, nrMsgsTotal: 0 });
-        setData(d => { console.log(`search useEffect setData(d.length=${d.length})->[]`); return []; });
-        setLoadPending(false);
+        setData(d => []);
         if (activeDoc && !debouncedSetSearchString.isPending() && searchString.length > 0) {
             sendAndReceiveMsg({ cmd: 'search', data: { searchString, useRegex, useCaseSensitive, useFilter } }).then((res: any) => {
                 if (active) {
                     if (Array.isArray(res)) {
-                        loadMoreItems(0, 50); // todo this seems needed to avoid list with 1 item ... loading how to reset? InfiniteLoader? on itemCountCb?
+                        if (infiniteLoaderRef.current) {
+                            //console.log(`search lastRenderedStartIndex=${(infiniteLoaderRef.current as any)._lastRenderedStartIndex} ${(infiniteLoaderRef.current as any)._lastRenderedStopIndex}`);
+                            infiniteLoaderRef.current?.resetloadMoreItemsCache(true);
+                        }
+                        loadMoreItems(0, 100, true); // todo this seems needed to avoid list with item ... loading how to reset? InfiniteLoader? on itemCountCb? (resetloadMoreItemsCache doesn't seem to be enough)
+                        if (lastLoad !== undefined && (lastLoad[1] > 100)) {
+                            // see https://github.com/bvaughn/react-virtualized/blob/master/docs/InfiniteLoader.md#memoization-and-rowcount-changes
+                            loadMoreItems(lastLoad[0], lastLoad[1], true);
+                        }
                         setLastUsedList(l => {
                             const curIdx = l.indexOf(searchString);
                             if (curIdx === 0) { return l; } // no update needed
@@ -259,7 +267,7 @@ function App() {
 
     useEffect(() => {
         const updateDocCb = (msg: any) => {
-            console.log(`updateDocCb. msg=${JSON.stringify(msg)}`);
+            console.log(`search updateDocCb. msg=${JSON.stringify(msg)}`);
             if ('docUri' in msg) {
                 setActiveDoc(msg.docUri);
                 // todo: reset searchString or keep current one?
@@ -268,7 +276,7 @@ function App() {
         vscode.addMessageListener('docUpdate', updateDocCb);
 
         const focusCb = (msg: any) => {
-            console.log(`focusCb. msg=${JSON.stringify(msg)}`);
+            console.log(`search focusCb. msg=${JSON.stringify(msg)}`);
             if (inputReference.current) {
                 (inputReference.current as any).focus();
             }
@@ -277,7 +285,7 @@ function App() {
         vscode.addMessageListener('focus', focusCb);
 
         const streamInfoCb = (msg: any) => {
-            console.log(`streamInfoCb. msg=${JSON.stringify(msg)}`);
+            console.log(`search streamInfoCb. msg=${JSON.stringify(msg)}`);
             if ('streamInfo' in msg) {
                 setStreamInfo(d => { return { ...d, ...msg.streamInfo }; });
             }
@@ -292,7 +300,7 @@ function App() {
 
 
     // todo this might lead to the that "denied" data not being loaded or better only on next scroll
-    const singleLoadMoreItems = loadPending ? () => { } : loadMoreItems;
+    // const singleLoadMoreItems = loadPending ? (startIndex: number, stopIndex: number) => { console.log(`search ignored load [${startIndex}-${stopIndex})`); } : loadMoreItems;
 
     const isItemLoaded = (index: number): boolean => {
         //console.log(`isItemLoaded(${index})...`);
@@ -436,11 +444,11 @@ function App() {
             <div style={{ flexGrow: 1 }}>
                 <AutoSizer disableHeight={false}>
                         {({ height, width }) => (
-                        <InfiniteLoader
+                        <InfiniteLoader ref={infiniteLoaderRef}
                             minimumBatchSize={20}
                             isItemLoaded={isItemLoaded}
                             itemCount={streamInfo.nrStreamMsgs}
-                            loadMoreItems={singleLoadMoreItems}>
+                            loadMoreItems={loadMoreItems}>
                             {({ onItemsRendered, ref }) => (
                                 <FixedSizeList height={height || 400} width={width || 200} itemSize={18} itemCount={streamInfo.nrStreamMsgs} overscanCount={40} ref={ref} onItemsRendered={onItemsRendered}>
                                     {renderListRow}
@@ -449,7 +457,7 @@ function App() {
                         </InfiniteLoader>
                         )}
                 </AutoSizer>
-                </div>
+            </div>
             <div style={{ padding: "4px 2px 2px 4px" }}>
                 <span>{streamInfo.nrStreamMsgs > 0 ? `${streamInfo.nrStreamMsgs.toLocaleString()} out of ${streamInfo.nrMsgsTotal.toLocaleString()} logs matching` : `no logs matching out of ${streamInfo.nrMsgsTotal.toLocaleString()}`}</span>
                 {(streamInfo.nrMsgsProcessed != streamInfo.nrMsgsTotal) && <progress style={{ position: "absolute", bottom: "2px", right: "1rem" }} value={streamInfo.nrMsgsProcessed} max={streamInfo.nrMsgsTotal} />}
