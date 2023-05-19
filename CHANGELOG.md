@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.67.2](https://github.com/mbehr1/dlt-logs/compare/v1.67.1...v1.67.2) (2023-05-19)
+
+
+### Bug Fixes
+
+* ci remove skipDuplicate ([d99d573](https://github.com/mbehr1/dlt-logs/commit/d99d573a9ed04b24a7d278684cf428a9d08a01c2))
+
 ## [1.67.1](https://github.com/mbehr1/dlt-logs/compare/v1.67.0...v1.67.1) (2023-05-19)
 
 
