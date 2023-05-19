@@ -179,7 +179,7 @@ export class SearchPanelProvider implements WebviewViewProvider {
                         if (msgId < this.lastMsgId) {
                             console.error(`SearchPanel: msgId ${msgId} < last ${this.lastMsgId}`);
                         }
-                        console.log(`SearchPanel: sAr cmd:${JSON.stringify(req)}`);
+                        // console.log(`SearchPanel: sAr cmd:${JSON.stringify(req)}`);
                         // need to send a response for that id:
                         let res: { err: string } | undefined = undefined;
                         switch (req.cmd) {
@@ -210,10 +210,14 @@ export class SearchPanelProvider implements WebviewViewProvider {
                                                     res: []
                                                 });
                                             },
-                                                (newMaxNr) => {
+                                                (nrStreamMsgs, nrMsgsProcessed, nrMsgsTotal) => {
                                                     webview.postMessage({
-                                                        type: 'itemCount',
-                                                        itemCount: newMaxNr
+                                                        type: 'streamInfo',
+                                                        streamInfo: {
+                                                            nrStreamMsgs,
+                                                            nrMsgsProcessed,
+                                                            nrMsgsTotal
+                                                        }
                                                     });
                                                 });
                                         } catch (e) {
@@ -258,8 +262,7 @@ export class SearchPanelProvider implements WebviewViewProvider {
                                                         lifecycle: m.lifecycle ? m.lifecycle.persistentId : undefined,
                                                         decs,
                                                     };
-                                                }),
-                                                totalNrMsgs: this.curStreamLoader?.maxKnownNumberOfMsgs,
+                                                })
                                             }
                                         });
                                     };
@@ -319,20 +322,21 @@ export class SearchPanelProvider implements WebviewViewProvider {
 
 class DocStreamLoader {
     static readonly windowSize = 1000; // initial / on re-load size
-    static readonly windowLookaheadSize = 200;
 
     private streamId: number = NaN;
     private streamIdUpdatePending = true;
     private streamData: StreamMsgData;
     private curWindow: [number, number]; // eg. [100-200)
-    public maxKnownNumberOfMsgs: number = 0;
 
-    constructor(private doc: AdltDocument, private filters: DltFilter[], onOk: () => void, private onMaxKnownMsgsChange?: (newMaxNr: number) => void) {
+    constructor(private doc: AdltDocument, private filters: DltFilter[],
+        private onOk: () => void,
+        private onStreamInfoChange?: (nrStreamMsgs: number, nrMsgsProcessed: number, nrMsgsTotal: number) => void) {
         this.streamData = {
             msgs: [],
             sink: {
                 onDone: this.sinkOnDone.bind(this),
                 onNewMessages: this.sinkOnNewMessages.bind(this),
+                onStreamInfo: this.sinkOnStreamInfo.bind(this),
             }
         };
         this.curWindow = [0, DocStreamLoader.windowSize];
@@ -346,44 +350,6 @@ class DocStreamLoader {
         });
     }
 
-    isWindowFullyLoaded(): boolean {
-        const windowLength = this.curWindow[1] - this.curWindow[0];
-        const windowFullyLoaded = this.streamData.msgs.length >= windowLength;
-        return windowFullyLoaded;
-    }
-
-    /**
-     * Perform a lookahead/pre-loading.
-     * If the current window is fully loaded and the window is at the end of known msgs:
-     *  - remove windowLookaheadSize of the current window
-     *  - extend window by windowLookaheadSize, i.e. move window from [curEnd..curEnd+windowLookaheadSize)
-     *  - even though the window requested is smaller the amount of msgs will stay at windowSize
-     */
-    triggerExtendWindow() {
-        // we do it only if we're currently at the (known) end:
-        if (this.curWindow[1] > (this.maxKnownNumberOfMsgs - DocStreamLoader.windowLookaheadSize)) {
-            // the window is fully loaded... so load more data:
-            if (this.isWindowFullyLoaded() && !this.streamIdUpdatePending) {
-                console.info(`SearchPanel DocStreamLoader triggerExtendWindow [${this.curWindow[0]}-${this.curWindow[1]})...`);
-                const streamNewWindow: [number, number] = [this.curWindow[1], this.curWindow[1] + DocStreamLoader.windowLookaheadSize];
-                const removeNrMsgs = DocStreamLoader.windowLookaheadSize;
-                this.curWindow = [this.curWindow[0] + removeNrMsgs, streamNewWindow[1]]; // this is now 1.5x times as large!
-                console.info(`SearchPanel DocStreamLoader triggerExtendWindow now [${this.curWindow[0]}-${this.curWindow[1]})...`);
-                this.streamData.msgs.splice(0, removeNrMsgs);
-                this.streamIdUpdatePending = true;
-                this.doc.changeMsgsStreamWindow(this.streamId, streamNewWindow).then(streamId => {
-                    console.info(`SearchPanel DocStreamLoader triggerExtendWindow [${this.curWindow[0]}-${this.curWindow[1]}) got new streamId=${streamId}`);
-                    this.streamId = streamId;
-                    this.streamIdUpdatePending = false;
-                });
-            } else {
-                console.info(`SearchPanel DocStreamLoader triggerExtendWindow [${this.curWindow[0]}-${this.curWindow[1]}) skipped as not as not fully loaded or pending=${this.streamIdUpdatePending}...`);
-            }
-        } else {
-            console.info(`SearchPanel DocStreamLoader triggerExtendWindow [${this.curWindow[0]}-${this.curWindow[1]}) skipped as not at the end...`);
-        }
-    }
-
     requestNewWindow(newWindow: [number, number]) {
         if (!this.streamIdUpdatePending) {
             this.streamData.msgs = [];
@@ -391,7 +357,7 @@ class DocStreamLoader {
             console.info(`SearchPanel DocStreamLoader requestNewWindow([${newWindow[0]}-${newWindow[1]}))[${this.curWindow[0]}-${this.curWindow[1]})`);
             this.streamIdUpdatePending = true;
             this.doc.changeMsgsStreamWindow(this.streamId, newWindow).then(streamId => {
-                console.info(`SearchPanel DocStreamLoader requestNewWindow([${newWindow[0]}-${newWindow[1]})) got new streamId=${streamId}`);
+                //console.info(`SearchPanel DocStreamLoader requestNewWindow([${newWindow[0]}-${newWindow[1]})) got new streamId=${streamId}`);
                 this.streamId = streamId;
                 this.streamIdUpdatePending = false;
             });
@@ -406,11 +372,6 @@ class DocStreamLoader {
 
     private sinkOnNewMessages(nrNewMsgs: number) {
         console.info(`SearchPanel DocStreamLoader sink.onNewMessages(${nrNewMsgs}) queuedRequests=${this.queuedRequests.length}...`);
-        const newMaxKnown = this.curWindow[0] + this.streamData.msgs.length;
-        if (newMaxKnown > this.maxKnownNumberOfMsgs) {
-            this.maxKnownNumberOfMsgs = newMaxKnown;
-            if (this.onMaxKnownMsgsChange) { this.onMaxKnownMsgsChange(newMaxKnown); }
-        };
         // any pending requests that can be fulfilled?
         for (let i = 0; i < this.queuedRequests.length; ++i) {
             const [startIdx, maxNrMsgs, resolve, reject] = this.queuedRequests[i];
@@ -422,8 +383,52 @@ class DocStreamLoader {
                 i -= 1;
             }
         }
-        if (this.queuedRequests.length > 1) { // we might have the prev one, but should never have more than one
-            console.warn(`SearchPanel DocStreamLoader sink.onNewMessages(${nrNewMsgs}) queuedRequests >1!`);
+        if (this.queuedRequests.length > 0) {
+            // console.warn(`SearchPanel DocStreamLoader sink.onNewMessages(${nrNewMsgs}) queuedRequests ${this.queuedRequests.length} > 0!`);
+            // as the prev requestNewWindow might have been ignored, see whether we do need to retry here:
+            // we do this only for the first in the queue:
+            const [startIdx, maxNrMsgs, resolve, reject] = this.queuedRequests[0];
+            const inWindow = startIdx >= this.curWindow[0] && startIdx < this.curWindow[1];
+            if (!inWindow) {
+                console.log(`SearchPanel DocStreamLoader sink.onNewMessages(${nrNewMsgs}) queuedRequests ${this.queuedRequests.length} > 0: requesting new window with ${startIdx} ${maxNrMsgs}`);
+                this.tryRequestNewWindow(startIdx, maxNrMsgs, true);
+            }
+        }
+    }
+
+    private sinkOnStreamInfo(nrStreamMsgs: number, nrMsgsProcessed: number, nrMsgsTotal: number) {
+        // console.info(`SearchPanel DocStreamLoader sink.onStreamInfo(${nrStreamMsgs},${nrMsgsProcessed}, ${nrMsgsTotal} )...`);
+        if (this.onStreamInfoChange) { this.onStreamInfoChange(nrStreamMsgs, nrMsgsProcessed, nrMsgsTotal); }
+    }
+
+    /**
+     * try to request a new window.
+     * 
+     * This might fail if an update is currently pending.
+     * A request is only triggered if:
+     * - currently no streamIdUpdatePending and
+     * - ignoreCurMsgs set or streamData contain already msgs.
+     * 
+     * This is to avoid constantly triggering a window change without waiting for the onNewMsgs callback/data. 
+     * @param startIdx 
+     * @param maxNumberOfMsgs 
+     * @param ignoreCurMsgs 
+     */
+    private tryRequestNewWindow(startIdx: number, maxNumberOfMsgs: number, ignoreCurMsgs?: boolean) {
+        if (!this.streamIdUpdatePending && (ignoreCurMsgs || this.streamData.msgs.length > 0)) {
+            // calc new window position: (for now simply [startIdx..)
+            let newWindow: [number, number];
+            if (startIdx >= this.curWindow[1]) {
+                newWindow = [startIdx, startIdx + DocStreamLoader.windowSize];
+            } else {
+                // before current window, avoid overlapping loading but ensure all wanted are contained:
+                const endIdxWanted = startIdx + maxNumberOfMsgs;
+                const newStartIdx = Math.max(0, endIdxWanted - DocStreamLoader.windowSize);
+                newWindow = [newStartIdx, newStartIdx + DocStreamLoader.windowSize];
+            }
+
+            // console.log(`SearchPanel DocStreamLoader.getMsgs(${startIdx}, #${maxNumberOfMsgs}) !inWindow [${this.curWindow[0]}-${this.curWindow[1]}). Changing window to [${newWindow[0]}-${newWindow[1]})`);
+            this.requestNewWindow(newWindow);
         }
     }
 
@@ -450,19 +455,7 @@ class DocStreamLoader {
                 });
             }
         } else { // need to request that window first
-            // calc new window position: (for now simply [startIdx..)
-            let newWindow: [number, number];
-            if (startIdx >= this.curWindow[1]) {
-                newWindow = [startIdx, startIdx + DocStreamLoader.windowSize];
-            } else {
-                // before current window, avoid overlapping loading but ensure all wanted are contained:
-                const endIdxWanted = startIdx + maxNumberOfMsgs;
-                const newStartIdx = Math.max(0, endIdxWanted - DocStreamLoader.windowSize);
-                newWindow = [newStartIdx, newStartIdx + DocStreamLoader.windowSize];
-            }
-
-            console.log(`SearchPanel DocStreamLoader.getMsgs(${startIdx}, #${maxNumberOfMsgs}) !inWindow [${this.curWindow[0]}-${this.curWindow[1]}). Changing window to [${newWindow[0]}-${newWindow[1]})`);
-            this.requestNewWindow(newWindow);
+            this.tryRequestNewWindow(startIdx, maxNumberOfMsgs);
             // queue request
             return new Promise<FilterableDltMsg[]>((resolve, reject) => {
                 this.queuedRequests.push([startIdx, maxNumberOfMsgs, resolve, reject]);
@@ -478,13 +471,7 @@ class DocStreamLoader {
             const startOffset = startIdx - this.curWindow[0];
             if (startOffset < 0) { return undefined; }
             const endOffsetWanted = startOffset + maxNumberOfMsgs;
-            // if the current window is full and we returned msgs from 2nd half, trigger load of new window:
-            const windowLookaheadLevel = DocStreamLoader.windowSize - DocStreamLoader.windowLookaheadSize;
             const msgs = this.streamData.msgs.slice(startOffset, endOffsetWanted);
-            // now we can shrink and load new:
-            if (triggerExtend && this.isWindowFullyLoaded() && endOffsetWanted >= windowLookaheadLevel) {
-                this.triggerExtendWindow();
-            }
             return msgs;
         } else {
             //console.warn(`SearchPanel DocStreamLoader.getAvailMsgs(${startIdx}) not avail > ${maxIndexAvail} [${this.curWindow[0]}-${this.curWindow[1]})`);

@@ -20,7 +20,7 @@
  * [x] optimize time/queries while typing: delay request until typing stops for 0.7 secs (done using useDebounceCallback for search string)
  * [ ] optimize time/queries while typing: add id to requests to ignore data from prev. requests(?) (reject prev. data updates but not yet for itemCount)
  * [ ] auto search on type or only on enter key / after timeout,...? (added debounce with flush on enter, lets see whether this good or whether autosearch should be disabled)
- * [ ] better status of "logs matching". check with adlt stream status
+ * [x] better status of "logs matching". check with adlt stream status (via StreamInfo)
  * [ ] shortcut for search window? (alt/option+f?)
  * [ ] impl "match whole word" button (logic: space/starts with and ends/space after?)
  * [ ] check theme changes / support reload on theme change (isLightTheme doesn't get updated)
@@ -73,6 +73,12 @@ interface Msg {
 interface ConsecutiveRows {
     startIdx: number;
     rows: Msg[];
+}
+
+interface StreamInfo {
+    nrStreamMsgs: number,
+    nrMsgsProcessed: number,
+    nrMsgsTotal: number
 }
 
 /**
@@ -151,7 +157,9 @@ const persistedState: PersistedState = { useRegex: true, useCaseSensitive: true,
 const MAX_LAST_USED_LIST_ITEMS = 50; // we persist max 50 last used search strings
 
 function App() {
+    // console.log(`search app (render)...`);
     const inputReference = useRef<Component>(null);
+    const infiniteLoaderRef = useRef<null | InfiniteLoader>(null);
 
     const [useRegex, setUseRegex] = useState(persistedState.useRegex);
     const [useCaseSensitive, setUseCaseSensitive] = useState(persistedState.useCaseSensitive);
@@ -161,9 +169,9 @@ function App() {
 
     // non-persisted state:
     const [activeDoc, setActiveDoc] = useState<string | null>(null);
-    const [itemCount, setItemCount] = useState(0);
+    const [streamInfo, setStreamInfo] = useState({ nrStreamMsgs: 0, nrMsgsProcessed: 0, nrMsgsTotal: 0 } as StreamInfo);
     const [data, setData] = useState([] as ConsecutiveRows[]);
-    const [loadPending, setLoadPending] = useState(false);
+    const [lastLoad, setLastLoad] = useState<[number, number] | undefined>(undefined);
     const [searchDropDownOpen, setSearchDropDownOpen] = useState(false);
 
     const debouncedSetSearchString = useDebouncedCallback(
@@ -172,15 +180,13 @@ function App() {
     );
 
 
-    const loadMoreItems = useCallback((startIndex: number, stopIndex: number): Promise<void> => {
-        //console.log(`loadMoreItems(${startIndex}-${stopIndex})...`);
-        setLoadPending(true);
+    const loadMoreItems = useCallback((startIndex: number, stopIndex: number, noLastLoadStoring?: boolean): Promise<void> => {
+        // console.log(`search loadMoreItems(${startIndex}-${stopIndex})...`);
+        if (!noLastLoadStoring) { setLastLoad([startIndex, stopIndex]); }
         return new Promise<void>((resolve, reject) => {
             sendAndReceiveMsg({ cmd: 'load', data: { startIdx: startIndex, stopIdx: stopIndex } }).then((res: any) => {
                 if (res && Array.isArray(res.msgs)) {
                     const msgs = res.msgs;
-                    const totalNrMsgs = res.totalNrMsgs;
-                    setItemCount(totalNrMsgs);
                     if (msgs.length > 0) {
                         setData(d => {
                             const curData = d.slice();
@@ -200,7 +206,6 @@ function App() {
                 } else {
                     console.warn(`loadMoreItems(${startIndex}-${stopIndex})... unexpected res=${JSON.stringify(res)}`);
                 }
-                setLoadPending(false);
                 resolve();
             });
         });
@@ -220,19 +225,21 @@ function App() {
     useEffect(() => {
         let active = true;    
         // reset search results and related items
-        setItemCount(0);
-        setData(d => { console.log(`search useEffect setData(d.length=${d.length})->[]`); return []; });
-        setLoadPending(false);
+        setStreamInfo({ nrStreamMsgs: 0, nrMsgsProcessed: 0, nrMsgsTotal: 0 });
+        setData(d => []);
         if (activeDoc && !debouncedSetSearchString.isPending() && searchString.length > 0) {
             sendAndReceiveMsg({ cmd: 'search', data: { searchString, useRegex, useCaseSensitive, useFilter } }).then((res: any) => {
                 if (active) {
                     if (Array.isArray(res)) {
-                        // const msgs = res;
-                        // we don't know the length here yet...
-                        // setItemCount(1); // will be set later
-                        /*setItemCount(msgs.length);
-                        setData([{ startIdx: 0, rows: msgs }]);*/
-                        loadMoreItems(0, 50); // todo this seems needed to avoid list with 1 item ... loading how to reset? InfiniteLoader?
+                        if (infiniteLoaderRef.current) {
+                            //console.log(`search lastRenderedStartIndex=${(infiniteLoaderRef.current as any)._lastRenderedStartIndex} ${(infiniteLoaderRef.current as any)._lastRenderedStopIndex}`);
+                            infiniteLoaderRef.current?.resetloadMoreItemsCache(true);
+                        }
+                        loadMoreItems(0, 100, true); // todo this seems needed to avoid list with item ... loading how to reset? InfiniteLoader? on itemCountCb? (resetloadMoreItemsCache doesn't seem to be enough)
+                        if (lastLoad !== undefined && (lastLoad[1] > 100)) {
+                            // see https://github.com/bvaughn/react-virtualized/blob/master/docs/InfiniteLoader.md#memoization-and-rowcount-changes
+                            loadMoreItems(lastLoad[0], lastLoad[1], true);
+                        }
                         setLastUsedList(l => {
                             const curIdx = l.indexOf(searchString);
                             if (curIdx === 0) { return l; } // no update needed
@@ -260,7 +267,7 @@ function App() {
 
     useEffect(() => {
         const updateDocCb = (msg: any) => {
-            console.log(`updateDocCb. msg=${JSON.stringify(msg)}`);
+            console.log(`search updateDocCb. msg=${JSON.stringify(msg)}`);
             if ('docUri' in msg) {
                 setActiveDoc(msg.docUri);
                 // todo: reset searchString or keep current one?
@@ -269,7 +276,7 @@ function App() {
         vscode.addMessageListener('docUpdate', updateDocCb);
 
         const focusCb = (msg: any) => {
-            console.log(`focusCb. msg=${JSON.stringify(msg)}`);
+            console.log(`search focusCb. msg=${JSON.stringify(msg)}`);
             if (inputReference.current) {
                 (inputReference.current as any).focus();
             }
@@ -277,23 +284,23 @@ function App() {
         };
         vscode.addMessageListener('focus', focusCb);
 
-        const itemCountCb = (msg: any) => {
-            console.log(`itemCountCb. msg=${JSON.stringify(msg)}`);
-            if ('itemCount' in msg) {
-                setItemCount(msg.itemCount);
+        const streamInfoCb = (msg: any) => {
+            console.log(`search streamInfoCb. msg=${JSON.stringify(msg)}`);
+            if ('streamInfo' in msg) {
+                setStreamInfo(d => { return { ...d, ...msg.streamInfo }; });
             }
         };
-        vscode.addMessageListener('itemCount', itemCountCb);
+        vscode.addMessageListener('streamInfo', streamInfoCb);
 
         // send a first hello/ping:
         vscode.postMessage({ type: 'hello', req: {} }); // no msgId needed
 
-        return () => { vscode.removeMessageListener('itemCount', itemCountCb); vscode.removeMessageListener('focus', focusCb); vscode.removeMessageListener('docUpdate', updateDocCb); };
+        return () => { vscode.removeMessageListener('streamInfo', streamInfoCb); vscode.removeMessageListener('focus', focusCb); vscode.removeMessageListener('docUpdate', updateDocCb); };
     }, []);
 
 
     // todo this might lead to the that "denied" data not being loaded or better only on next scroll
-    const singleLoadMoreItems = loadPending ? () => { } : loadMoreItems;
+    // const singleLoadMoreItems = loadPending ? (startIndex: number, stopIndex: number) => { console.log(`search ignored load [${startIndex}-${stopIndex})`); } : loadMoreItems;
 
     const isItemLoaded = (index: number): boolean => {
         //console.log(`isItemLoaded(${index})...`);
@@ -437,20 +444,24 @@ function App() {
             <div style={{ flexGrow: 1 }}>
                 <AutoSizer disableHeight={false}>
                         {({ height, width }) => (
-                        <InfiniteLoader
+                        <InfiniteLoader ref={infiniteLoaderRef}
+                            minimumBatchSize={20}
                             isItemLoaded={isItemLoaded}
-                            itemCount={itemCount}
-                            loadMoreItems={singleLoadMoreItems}>
+                            itemCount={streamInfo.nrStreamMsgs}
+                            loadMoreItems={loadMoreItems}>
                             {({ onItemsRendered, ref }) => (
-                                <FixedSizeList height={height || 400} width={width || 200} itemSize={18} itemCount={itemCount} overscanCount={20} ref={ref} onItemsRendered={onItemsRendered}>
+                                <FixedSizeList height={height || 400} width={width || 200} itemSize={18} itemCount={streamInfo.nrStreamMsgs} overscanCount={40} ref={ref} onItemsRendered={onItemsRendered}>
                                     {renderListRow}
                                 </FixedSizeList>
                             )}
                         </InfiniteLoader>
                         )}
                 </AutoSizer>
-                </div>
-            <div style={{ padding: "4px 2px 2px 4px" }}>{itemCount > 0 ? `${itemCount} logs matching` : 'no logs'}</div>
+            </div>
+            <div style={{ padding: "4px 2px 2px 4px" }}>
+                <span>{streamInfo.nrStreamMsgs > 0 ? `${streamInfo.nrStreamMsgs.toLocaleString()} out of ${streamInfo.nrMsgsTotal.toLocaleString()} logs matching` : `no logs matching out of ${streamInfo.nrMsgsTotal.toLocaleString()}`}</span>
+                {(streamInfo.nrMsgsProcessed != streamInfo.nrMsgsTotal) && <progress style={{ position: "absolute", bottom: "2px", right: "1rem" }} value={streamInfo.nrMsgsProcessed} max={streamInfo.nrMsgsTotal} />}
+            </div>
         </div>
     );
 }

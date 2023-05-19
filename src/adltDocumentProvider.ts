@@ -322,7 +322,7 @@ export class AdltDocument implements vscode.Disposable {
     fileInfoNrMsgs = 0;
 
     // messages for streams:
-    private streamMsgs = new Map<number, StreamMsgData | remote_types.BinDltMsg[][]>();
+    private streamMsgs = new Map<number, StreamMsgData | remote_types.BinType[]>();
 
     // event for being loaded
     isLoaded: boolean = false;
@@ -333,19 +333,29 @@ export class AdltDocument implements vscode.Disposable {
         return this._fileNames.map((fullName) => path.basename(fullName));
     }
 
-    processBinDltMsgs(msgs: remote_types.BinDltMsg[], streamId: number, streamData: StreamMsgData) {
-        if (msgs.length === 0) { // indicates end of query:
-            if (streamData.sink.onDone) { streamData.sink.onDone(); }
-            this.streamMsgs.delete(streamId);
-            // console.log(`adlt.processBinDltMsgs deleted stream #${streamId}`);
-        } else {
-            for (let i = 0; i < msgs.length; ++i) {
-                let binMsg = msgs[i];
+    processBinStreamMsgs(bin_type: remote_types.BinType, streamData: StreamMsgData) {
+        switch (bin_type.tag) {
+            case 'DltMsgs':
+                const [streamId, msgs] = bin_type.value;
+                if (msgs.length === 0) { // indicates end of query:
+                    if (streamData.sink.onDone) { streamData.sink.onDone(); }
+                    this.streamMsgs.delete(streamId);
+                    // console.log(`adlt.processBinDltMsgs deleted stream #${streamId}`);
+                } else {
+                    for (let i = 0; i < msgs.length; ++i) {
+                        let binMsg = msgs[i];
 
-                let msg = new AdltMsg(binMsg, this.lifecycleInfoForPersistentId(binMsg.lifecycle_id));
-                streamData.msgs.push(msg);
-            }
-            if (streamData.sink.onNewMessages) { streamData.sink.onNewMessages(msgs.length); }
+                        let msg = new AdltMsg(binMsg, this.lifecycleInfoForPersistentId(binMsg.lifecycle_id));
+                        streamData.msgs.push(msg);
+                    }
+                    if (streamData.sink.onNewMessages) { streamData.sink.onNewMessages(msgs.length); }
+                }
+                break;
+            case 'StreamInfo':
+                const si = bin_type.value;
+                // console.log(`adlt.processBinStreamMsgs: StreamInfo stream=${si.stream_id}, stream msgs=${si.nr_stream_msgs} processed=${si.nr_file_msgs_processed} total=${si.nr_file_msgs_total}`);
+                if (streamData.sink.onStreamInfo) { streamData.sink.onStreamInfo(si.nr_stream_msgs, si.nr_file_msgs_processed, si.nr_file_msgs_total); }
+                break;
         }
     }
 
@@ -422,16 +432,36 @@ export class AdltDocument implements vscode.Disposable {
                                     //console.warn(`adlt.on(binary): DltMsgs stream=${streamId}, nr_msgs=${msgs.length}`);
                                     let streamData = this.streamMsgs.get(streamId);
                                     if (streamData && !Array.isArray(streamData)) {
-                                        this.processBinDltMsgs(msgs, streamId, streamData);
+                                        this.processBinStreamMsgs(bin_type, streamData);
+                                    } else {
+                                        // we store the pure data for later processing:
+                                        if (!streamData) {
+                                            streamData = [bin_type];
+                                            this.streamMsgs.set(streamId, streamData);
+                                        } else {
+                                            streamData.push(bin_type);
+                                            if (streamData.length > 3) { console.warn(`adlt.on(binary): appended DltMsgs for yet unknown stream=${streamId}, nr_msgs=${msgs.length}, streamData.length=${streamData.length}`); }
+                                            // todo this case should happen rarely. might indicate an error case where e.g.
+                                            // we get data for a really unknown stream. stop e.g. after an upper bound
+                                        }
+                                    }
+                                }
+                                    break;
+                                case 'StreamInfo': {// todo could be refactored with DltMsgs switch case
+                                    let si = bin_type.value;
+                                    const streamId = si.stream_id;
+                                    let streamData = this.streamMsgs.get(streamId);
+                                    if (streamData && !Array.isArray(streamData)) {
+                                        this.processBinStreamMsgs(bin_type, streamData);
                                     } else {
                                         // we store the pure data for later processing:
                                         // need to keep same chunk infos (e.g. msgs.length=0) -> array of array
                                         if (!streamData) {
-                                            streamData = [msgs];
+                                            streamData = [bin_type];
                                             this.streamMsgs.set(streamId, streamData);
                                         } else {
-                                            streamData.push(msgs);
-                                            if (streamData.length > 2) { console.warn(`adlt.on(binary): appended DltMsgs for yet unknown stream=${streamId}, nr_msgs=${msgs.length}, streamData.length=${streamData.length}`); }
+                                            streamData.push(bin_type);
+                                            if (streamData.length > 3) { console.warn(`adlt.on(binary): appended StreamInfo for yet unknown stream=${streamId}, streamData.length=${streamData.length}`); }
                                             // todo this case should happen rarely. might indicate an error case where e.g.
                                             // we get data for a really unknown stream. stop e.g. after an upper bound
                                         }
@@ -1024,7 +1054,7 @@ export class AdltDocument implements vscode.Disposable {
                 // console.warn(`adlt.changeWindow streamMsgs #${this.streamMsgs.size}`);
                 if (curStreamMsgData && Array.isArray(curStreamMsgData)) {
                     // process the data now:
-                    curStreamMsgData.forEach((msgs) => this.processBinDltMsgs(msgs, streamObj.id, streamData as StreamMsgData));
+                    curStreamMsgData.forEach((msgs) => this.processBinStreamMsgs(msgs, streamData as StreamMsgData));
                 }
 
             });
@@ -1163,7 +1193,7 @@ export class AdltDocument implements vscode.Disposable {
             this.streamMsgs.set(streamObj.id, streamData);
             if (curStreamMsgData && Array.isArray(curStreamMsgData)) {
                 // process the data now:
-                curStreamMsgData.forEach((msgs) => this.processBinDltMsgs(msgs, streamObj.id, streamData));
+                curStreamMsgData.forEach((msgs) => this.processBinStreamMsgs(msgs, streamData));
             }
         });
     }
@@ -1458,7 +1488,7 @@ export class AdltDocument implements vscode.Disposable {
                     this.streamMsgs.set(streamObj.id, streamData);
                     if (curStreamMsgData && Array.isArray(curStreamMsgData)) {
                         // process the data now:
-                        curStreamMsgData.forEach((msgs) => this.processBinDltMsgs(msgs, streamObj.id, streamData));
+                        curStreamMsgData.forEach((msgs) => this.processBinStreamMsgs(msgs, streamData));
                     }                
                     return report;
                 } else {
@@ -1495,7 +1525,7 @@ export class AdltDocument implements vscode.Disposable {
                     this.streamMsgs.set(streamObj.id, streamData);
                     if (curStreamMsgData && Array.isArray(curStreamMsgData)) {
                         // process the data now:
-                        curStreamMsgData.forEach((msgs) => this.processBinDltMsgs(msgs, streamObj.id, streamData));
+                        curStreamMsgData.forEach((msgs) => this.processBinStreamMsgs(msgs, streamData));
                     }
 
                     this._reports.push(report); // todo implement Disposable for DltDocument as well so that closing a doc closes the report as well
@@ -2062,7 +2092,7 @@ export class AdltDocument implements vscode.Disposable {
                     this.streamMsgs.set(streamObj.id, streamData);
                     if (curStreamMsgData && Array.isArray(curStreamMsgData)) {
                         // process the data now:
-                        curStreamMsgData.forEach((msgs) => this.processBinDltMsgs(msgs, streamObj.id, streamData));
+                        curStreamMsgData.forEach((msgs) => this.processBinStreamMsgs(msgs, streamData));
                     }
 
                 }).catch((reason) => {
@@ -2100,7 +2130,7 @@ export class AdltDocument implements vscode.Disposable {
                     this.streamMsgs.set(streamObj.id, streamData);
                     if (curStreamMsgData && Array.isArray(curStreamMsgData)) {
                         // process the data now:
-                        curStreamMsgData.forEach((msgs) => this.processBinDltMsgs(msgs, streamObj.id, streamData));
+                        curStreamMsgData.forEach((msgs) => this.processBinStreamMsgs(msgs, streamData));
                     }
                     resolve(streamObj.id);
                 }).catch(reason => reject(reason));
@@ -2128,7 +2158,7 @@ export class AdltDocument implements vscode.Disposable {
                     this.streamMsgs.set(streamObj.id, streamData!);
                     this.streamMsgs.delete(streamId);
                     if (curStreamMsgData && Array.isArray(curStreamMsgData)) {
-                        curStreamMsgData.forEach((msgs) => this.processBinDltMsgs(msgs, streamObj.id, streamData as StreamMsgData));
+                        curStreamMsgData.forEach((msgs) => this.processBinStreamMsgs(msgs, streamData as StreamMsgData));
                     }
                     resolve(streamObj.id);
                 }).catch(e => reject(e));
