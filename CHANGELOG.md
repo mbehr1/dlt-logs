@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.67.3](https://github.com/mbehr1/dlt-logs/compare/v1.67.2...v1.67.3) (2023-05-19)
+
+
+### Bug Fixes
+
+* dont focus the tree view on active text editor change ([784994d](https://github.com/mbehr1/dlt-logs/commit/784994dba993d23468a9f0f1f48acf66c49f2990))
+
 ## [1.67.2](https://github.com/mbehr1/dlt-logs/compare/v1.67.1...v1.67.2) (2023-05-19)
 
 
