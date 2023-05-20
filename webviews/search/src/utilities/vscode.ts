@@ -65,12 +65,12 @@ class VSCodeAPIWrapper {
         const curListeners = this.msgListeners.get(type);
         if (curListeners) {
             // contained?
-            const idx = curListeners.findIndex(fn);
+            const idx = curListeners.indexOf(fn);
             if (idx >= 0) {
                 curListeners.splice(idx, 1);
                 console.info(`VSCodeApiWrapper.removeMessageListeners listener for type '${type}' removed.`);
             } else {
-                console.warn(`VSCodeApiWrapper.removeMessageListeners fn not found for type '${type}'!`);
+                console.warn(`VSCodeApiWrapper.removeMessageListeners fn not found for type '${type}' (have ${curListeners.length} listeners)!`);
             }
         } else {
             console.warn(`VSCodeApiWrapper.removeMessageListeners no listeners for type '${type}'!`);

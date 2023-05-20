@@ -62,3 +62,11 @@ pre {
 .sitem:hover {
     background-color: var(--vscode-inputOption-hoverBackground);
 }
+.inputValidation {
+    color: var(--vscode-input-foreground);
+    background-color: var(--vscode-inputValidation-errorBackground);
+    border-color: var(--vscode-inputValidation-errorBorder);
+    border-style: solid;
+    border-width: medium;
+    padding: 4px;
+}
