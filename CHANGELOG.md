@@ -1,5 +1,14 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.67.4](https://github.com/mbehr1/dlt-logs/compare/v1.67.3...v1.67.4) (2023-05-20)
+
+
+### Bug Fixes
+
+* **search:** removeMessageListener ([19a3ffe](https://github.com/mbehr1/dlt-logs/commit/19a3ffe0d2398334e5f34547ead7e05df8a4aab4))
+* **search:** show regex or other search errors ([e187ac7](https://github.com/mbehr1/dlt-logs/commit/e187ac788e45e8ed98631128f7dd5a8a9a8655b2))
+* **search:** update search results on filter change ([e5c6f7c](https://github.com/mbehr1/dlt-logs/commit/e5c6f7cd59d193c6891a44c4baebd17902ca0722))
+
 ## [1.67.3](https://github.com/mbehr1/dlt-logs/compare/v1.67.2...v1.67.3) (2023-05-19)
 
 
