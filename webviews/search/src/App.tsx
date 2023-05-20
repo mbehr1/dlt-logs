@@ -12,7 +12,7 @@
  * [x] implement window logic (and get est. number from load result) (est. number not yet, see below, lookahead impl)
 ------ MVP / first release possible --- 
  * [x] search panel doesn't open on press on search icon if terminal/panel area is not shown yet
- * [ ] update search results if useFilter is active and the filters in the doc are changed
+ * [x] update search results if useFilter is active and the filters in the doc are changed
  * [x] impl case-sensitive search for both regular and regex search
  * [x] persist last searchStrings and offer as drop-down (last 50, icon and key down, delete key to del entries)
  * [ ] search command should put focus to input box
@@ -169,7 +169,7 @@ function App() {
 
     // non-persisted state:
     const [errorText, setErrorText] = useState<string | null>(null);
-    const [activeDoc, setActiveDoc] = useState<string | null>(null);
+    const [activeDoc, setActiveDoc] = useState<{ uri: string | null, filterGen: number }>({ uri: null, filterGen: 0 });
     const [streamInfo, setStreamInfo] = useState({ nrStreamMsgs: 0, nrMsgsProcessed: 0, nrMsgsTotal: 0 } as StreamInfo);
     const [data, setData] = useState([] as ConsecutiveRows[]);
     const [lastLoad, setLastLoad] = useState<[number, number] | undefined>(undefined);
@@ -229,7 +229,7 @@ function App() {
         setStreamInfo({ nrStreamMsgs: 0, nrMsgsProcessed: 0, nrMsgsTotal: 0 });
         setData(d => []);
         setErrorText(null);
-        if (activeDoc && !debouncedSetSearchString.isPending() && searchString.length > 0) {
+        if (activeDoc.uri && !debouncedSetSearchString.isPending() && searchString.length > 0) {
             sendAndReceiveMsg({ cmd: 'search', data: { searchString, useRegex, useCaseSensitive, useFilter } }).then((res: any) => {
                 if (active) {
                     if (Array.isArray(res)) {
@@ -268,18 +268,9 @@ function App() {
             });
         }
         return () => { active = false; };
-    }, [useFilter, useCaseSensitive, useRegex, searchString, activeDoc, loadMoreItems]);
+    }, [useFilter, useCaseSensitive, useRegex, searchString, activeDoc, loadMoreItems]); // we want it to trigger if activeDoc.filterGen changes as well
 
     useEffect(() => {
-        const updateDocCb = (msg: any) => {
-            console.log(`search updateDocCb. msg=${JSON.stringify(msg)}`);
-            if ('docUri' in msg) {
-                setActiveDoc(msg.docUri);
-                // todo: reset searchString or keep current one?
-            }
-        };
-        vscode.addMessageListener('docUpdate', updateDocCb);
-
         const focusCb = (msg: any) => {
             console.log(`search focusCb. msg=${JSON.stringify(msg)}`);
             if (inputReference.current) {
@@ -300,9 +291,18 @@ function App() {
         // send a first hello/ping:
         vscode.postMessage({ type: 'hello', req: {} }); // no msgId needed
 
-        return () => { vscode.removeMessageListener('streamInfo', streamInfoCb); vscode.removeMessageListener('focus', focusCb); vscode.removeMessageListener('docUpdate', updateDocCb); };
+        return () => { vscode.removeMessageListener('streamInfo', streamInfoCb); vscode.removeMessageListener('focus', focusCb); };
     }, []);
 
+    useEffect(() => {
+        const docUpdateCb = (msg: any) => {
+            console.log(`search docUpdateCb. msg=${JSON.stringify(msg)}`);
+            if ('docUri' in msg) { setActiveDoc(d => { return { ...d, uri: msg.docUri as string }; }); }
+            if ('onApplyFilter' in msg) { if (useFilter) { setActiveDoc(d => { return { ...d, filterGen: d.filterGen + 1 }; }) } }
+        };
+        vscode.addMessageListener('docUpdate', docUpdateCb);
+        return () => { vscode.removeMessageListener('docUpdate', docUpdateCb); };
+    }, [useFilter]);
 
     // todo this might lead to the that "denied" data not being loaded or better only on next scroll
     // const singleLoadMoreItems = loadPending ? (startIndex: number, stopIndex: number) => { console.log(`search ignored load [${startIndex}-${stopIndex})`); } : loadMoreItems;

@@ -19,6 +19,7 @@ export class SearchPanelProvider implements WebviewViewProvider {
     private _disposables: Disposable[] = [];
 
     private _activeDoc?: AdltDocument;
+    private _onApplyFilterDisp?: Disposable;
 
     constructor(context: ExtensionContext, private _adltDocProvider: ADltDocumentProvider, private _onDidChangeActiveRestQueryDoc: Event<Uri | undefined>) {
         console.log(`SearchPanel()...`);
@@ -44,6 +45,20 @@ export class SearchPanelProvider implements WebviewViewProvider {
                     type: 'docUpdate',
                     docUri: doc ? doc.uri.toString() : null,
                 });
+
+                if (this._onApplyFilterDisp) {
+                    this._onApplyFilterDisp.dispose();
+                    this._onApplyFilterDisp = undefined;
+                }
+                if (doc) {
+                    this._onApplyFilterDisp = doc.onApplyFilter(() => {
+                        console.log(`SearchPanel. onApplyFilter event`);
+                        this._view?.webview.postMessage({
+                            type: 'docUpdate',
+                            onApplyFilter: true,
+                        });
+                    });
+                }
             }
         }, this._disposables);
     }
@@ -93,6 +108,10 @@ export class SearchPanelProvider implements WebviewViewProvider {
      */
     public dispose() {
         console.log(`SearchPanel.dispose()...`);
+        if (this._onApplyFilterDisp) {
+            this._onApplyFilterDisp.dispose();
+            this._onApplyFilterDisp = undefined;
+        }
         if (this.curStreamLoader) {
             this.curStreamLoader.dispose();
             this.curStreamLoader = undefined;

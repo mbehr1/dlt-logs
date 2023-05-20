@@ -296,6 +296,10 @@ export class AdltDocument implements vscode.Disposable {
     // filter support:
     allFilters: DltFilter[] = [];
 
+    // event that fires when the filters are applied (after filters are changed)
+    private _onApplyFilterEmitter = new vscode.EventEmitter<void>();
+    get onApplyFilter() { return this._onApplyFilterEmitter.event; }
+
     // tree view support:
     treeNode: TreeViewNode;
     lifecycleTreeNode: LifecycleRootNode;
@@ -1378,6 +1382,7 @@ export class AdltDocument implements vscode.Disposable {
                 console.warn(`adlt.triggerApplyFilter currently running, Retriggering.`);
                 this.triggerApplyFilter();
             } else {
+                this._onApplyFilterEmitter.fire();
                 return vscode.window.withProgress({ cancellable: false, location: vscode.ProgressLocation.Notification, title: "applying filter..." },
                     (progress) => this.applyFilter(progress));
             }
