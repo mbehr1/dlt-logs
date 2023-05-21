@@ -62,6 +62,9 @@ pre {
 .sitem:hover {
     background-color: var(--vscode-inputOption-hoverBackground);
 }
+.sitemFindMatch {
+    background-color: var(--vscode-editor-findMatchHighlightBackground);
+}
 .inputValidation {
     color: var(--vscode-input-foreground);
     background-color: var(--vscode-inputValidation-errorBackground);

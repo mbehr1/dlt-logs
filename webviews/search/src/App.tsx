@@ -160,6 +160,7 @@ function App() {
     // console.log(`search app (render)...`);
     const inputReference = useRef<Component>(null);
     const infiniteLoaderRef = useRef<null | InfiniteLoader>(null);
+    const listRef = useRef<FixedSizeList | null>(null);
 
     const [useRegex, setUseRegex] = useState(persistedState.useRegex);
     const [useCaseSensitive, setUseCaseSensitive] = useState(persistedState.useCaseSensitive);
@@ -174,6 +175,7 @@ function App() {
     const [data, setData] = useState([] as ConsecutiveRows[]);
     const [lastLoad, setLastLoad] = useState<[number, number] | undefined>(undefined);
     const [searchDropDownOpen, setSearchDropDownOpen] = useState(false);
+    const [findRes, setFindRes] = useState<{ findString: string, findRegex: RegExp, nextSearchIdx?: number, searchIdxs: number[] } | undefined>(undefined);
 
     const debouncedSetSearchString = useDebouncedCallback(
         (value) => { setSearchString(value); },
@@ -380,10 +382,51 @@ function App() {
             }
 
             // we do use outline instead of border to have the border drawn within and not around our item
+
+            const isFindMatch = findRes && findRes.searchIdxs.includes(index);
+            let frag: JSX.Element;
+            if (isFindMatch) {
+                // find all matches as there can be more than 1 within one log:
+                let match;
+                let r = findRes.findRegex;
+                r.lastIndex = 0;
+                let prevLastIndex = r.lastIndex;
+                let idxToProcess = 0;
+                let frags: JSX.Element[] = [];
+                while ((match = r.exec(str)) != null) {
+                    const foundText = match[0];
+                    const foundIdxStart = match.index;
+                    const foundIdxEnd = r.lastIndex;
+                    // console.log(`search renderListRow index #${index} found match ${foundIdxStart}-${foundIdxEnd} idxToProcess=${idxToProcess}`);
+
+                    if (foundIdxStart > idxToProcess) {
+                        frags.push(<pre>{str.slice(idxToProcess, foundIdxStart)}</pre>);
+                    }
+                    frags.push(<pre className="sitemFindMatch">{foundText}</pre>);
+                    idxToProcess = foundIdxEnd;
+
+                    if (r.lastIndex === prevLastIndex) { r.lastIndex += 1; } // see warnings on https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/RegExp/exec
+                    prevLastIndex = r.lastIndex;
+                }
+                // add end of str:
+                if (str.length > (idxToProcess + 1)) {
+                    frags.push(<pre>{str.slice(idxToProcess)}</pre>);
+                }
+
+                if (frags.length <= 0) {
+                    console.warn(`search renderListRow no match for '${str}'`);
+                    frag = <pre>{str}</pre>;
+                }
+                else {
+                    frag = <>{frags}</>
+                };
+            } else {
+                frag = <pre>{str}</pre>;
+                    }
             return (
                 <div style={style}>
                     <div className="sitem" data-time={msg.calculatedTimeInMs} style={{ color: color, backgroundColor: backgroundColor, outlineWidth: borderWidth, outlineColor: borderColor, outlineStyle: borderStyle, outlineOffset: borderWidth ? '-' + borderWidth : undefined, width: textWidthInPx }}>
-                        <pre>{str}</pre>
+                        {frag}
                     </div>
                 </div >
             );
@@ -456,7 +499,7 @@ function App() {
                             itemCount={streamInfo.nrStreamMsgs}
                             loadMoreItems={loadMoreItems}>
                             {({ onItemsRendered, ref }) => (
-                                <FixedSizeList height={height || 400} width={width || 200} itemSize={18} itemCount={streamInfo.nrStreamMsgs} overscanCount={40} ref={ref} onItemsRendered={onItemsRendered}>
+                                <FixedSizeList height={height || 400} width={width || 200} itemSize={18} itemCount={streamInfo.nrStreamMsgs} overscanCount={40} ref={(elem) => { ref(elem); listRef.current = elem; }} onItemsRendered={onItemsRendered}>
                                     {renderListRow}
                                 </FixedSizeList>
                             )}
