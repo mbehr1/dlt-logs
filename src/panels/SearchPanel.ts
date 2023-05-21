@@ -203,28 +203,54 @@ export class SearchPanelProvider implements WebviewViewProvider {
                         let res: { err: string } | undefined = undefined;
                         switch (req.cmd) {
                             case 'find': {
-                                const findReq: { findString: string, useRegex: boolean, useCaseSensitive: boolean, startIdx?: number, maxMsgsToReturn?: number } = req.data;
+                                interface FindReq {
+                                    findString: string, useRegex: boolean, useCaseSensitive: boolean, startIdx?: number, maxMsgsToReturn?: number
+                                };
+                                const findReq: FindReq = req.data;
                                 console.log(`SearchPanel: sAr cmd find:${JSON.stringify(findReq)}`);
                                 if (this.curStreamLoader) {
-                                    try {
-                                        const searchFilter = new DltFilter({ 'type': DltFilterType.POSITIVE, ignoreCasePayload: findReq.useCaseSensitive ? undefined : true, payloadRegex: findReq.useRegex ? findReq.findString : undefined, payload: findReq.useRegex ? undefined : findReq.findString }, false);
-                                        this.curStreamLoader.searchStream([searchFilter], findReq.startIdx, findReq.maxMsgsToReturn)?.then(search_res => {
-                                            webview.postMessage({
-                                                type: 'sAr',
-                                                id: msgId,
-                                                res: search_res,
+
+                                    const searchFn = (streamLoader: DocStreamLoader, findReq: FindReq): { err: string } | undefined => {
+                                        try {
+                                            let res = undefined;
+                                            const searchFilter = new DltFilter({ 'type': DltFilterType.POSITIVE, ignoreCasePayload: findReq.useCaseSensitive ? undefined : true, payloadRegex: findReq.useRegex ? findReq.findString : undefined, payload: findReq.useRegex ? undefined : findReq.findString }, false);
+                                            streamLoader.searchStream([searchFilter], findReq.startIdx, findReq.maxMsgsToReturn)?.then(search_res => {
+                                                webview.postMessage({
+                                                    type: 'sAr',
+                                                    id: msgId,
+                                                    res: search_res,
+                                                });
+                                            }, e => {
+                                                if (e && typeof e === 'object' && 'err' in e && typeof e.err === 'string') {
+                                                    res = e as { err: string };
+                                                    if ('retry' in e && !!e.retry) {
+                                                        console.warn(`SearchPanel: sAr cmd find: auto retrying...`);
+                                                        setTimeout(() => {
+                                                            let res = searchFn(streamLoader, findReq);
+                                                            if (res !== undefined) {
+                                                                webview.postMessage({
+                                                                    type: 'sAr',
+                                                                    id: msgId,
+                                                                    res
+                                                                });
+                                                            }
+                                                        }, 200);
+                                                    }
+                                                } else { // assume string
+                                                    webview.postMessage({
+                                                        type: 'sAr',
+                                                        id: msgId,
+                                                        res: { err: `find cmd failed with: ${e}` }
+                                                    });
+                                                }
                                             });
-                                        }, errorReason => {
-                                            webview.postMessage({
-                                                type: 'sAr',
-                                                id: msgId,
-                                                res: { err: `find cmd failed with: ${errorReason}` }
-                                            });
-                                        });
-                                    } catch (e) {
-                                        console.warn(`SearchPanel: sAr cmd find failed with: ${e}`);
-                                        res = { err: `find cmd failed with: ${e}` };
-                                    }
+                                        } catch (e) {
+                                            console.warn(`SearchPanel: sAr cmd find failed with: ${e}`);
+                                            res = { err: `find cmd failed outer with: ${e}` };
+                                        }
+                                        return res;
+                                    };
+                                    res = searchFn(this.curStreamLoader, findReq);
                                 }
                             }
                                 break;
@@ -526,7 +552,7 @@ class DocStreamLoader {
     searchStream(filters: DltFilter[], startIdx?: number, maxMsgsToReturn?: number) {
         if (!this.streamIdUpdatePending && this.streamId >= 0) {
             return this.doc.searchStream(this.streamId, filters, startIdx !== undefined ? startIdx : 0, maxMsgsToReturn !== undefined ? maxMsgsToReturn : 1000);
-        } else { return Promise.reject(`stream update pending, please retry`); }
+        } else { return Promise.reject({ err: `stream update pending, please retry`, retry: true }); }
     }
 
     dispose() {
