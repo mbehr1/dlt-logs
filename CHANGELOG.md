@@ -1,5 +1,17 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.68.0](https://github.com/mbehr1/dlt-logs/compare/v1.67.4...v1.68.0) (2023-05-21)
+
+
+### Features
+
+* **search:** add find within search ([990789d](https://github.com/mbehr1/dlt-logs/commit/990789d3bcb1e6763ea9e35a8100533d315b8f91))
+
+
+### Bug Fixes
+
+* **search:** add auto retry for find ([d3c6f09](https://github.com/mbehr1/dlt-logs/commit/d3c6f09fab7e1e8bb1be5be2f3454061599debfa))
+
 ## [1.67.4](https://github.com/mbehr1/dlt-logs/compare/v1.67.3...v1.67.4) (2023-05-20)
 
 
