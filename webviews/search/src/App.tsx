@@ -30,7 +30,9 @@
  * [ ] add all decoration options from https://code.visualstudio.com/api/references/vscode-api#DecorationRenderOptions
  * [ ] add an empty last line to avoid flickering on last line with horiz. scrollbar
  * [ ] optimize click on result to jump to exact index if available
- * [ ] add search within search results
+ * [x] add search within search results (FindWidget)
+ * [ ] add find button for FindWidget
+ * [ ] FindWidget load all results
  * [ ] update docs
  */
 
@@ -43,6 +45,7 @@ import AutoSizer from "react-virtualized-auto-sizer";
 import InfiniteLoader from "react-window-infinite-loader";
 import { useDebouncedCallback } from 'use-debounce';
 import "./App.css";
+import { FindWidget } from "./FindWidget";
 
 // persisted state data (in vscode.set/getState...)
 // defaults are provided in case they are not contained in getState...
@@ -156,6 +159,23 @@ const getCodicon = (name: string, disabled?: boolean) => {
 const persistedState: PersistedState = { useRegex: true, useCaseSensitive: true, useFilter: true, searchString: '', lastUsedSearchStrings: [], ...vscode.getState() || {} };
 const MAX_LAST_USED_LIST_ITEMS = 50; // we persist max 50 last used search strings
 
+export interface FindParams {
+    findString: string,
+    useCaseSensitive: boolean,
+    useRegex: boolean,
+    // startIdx?: number,
+    // maxMsgsToReturn?: number
+}
+
+export interface FindResults {
+    findString: string, // the string used initially
+    findRegex: RegExp, // the regex used to highlight matches
+    nextSearchIdx?: number,
+    searchIdxs: number[] // the relative results
+}
+
+
+
 function App() {
     // console.log(`search app (render)...`);
     const inputReference = useRef<Component>(null);
@@ -175,7 +195,10 @@ function App() {
     const [data, setData] = useState([] as ConsecutiveRows[]);
     const [lastLoad, setLastLoad] = useState<[number, number] | undefined>(undefined);
     const [searchDropDownOpen, setSearchDropDownOpen] = useState(false);
-    const [findRes, setFindRes] = useState<{ findString: string, findRegex: RegExp, nextSearchIdx?: number, searchIdxs: number[] } | undefined>(undefined);
+
+    const [findParams, setFindParams] = useState<[FindParams, boolean]>([{ findString: '', useCaseSensitive: false, useRegex: false }, false]);
+
+    const [findRes, setFindRes] = useState<FindResults | undefined>(undefined);
 
     const debouncedSetSearchString = useDebouncedCallback(
         (value) => { setSearchString(value); },
@@ -296,6 +319,49 @@ function App() {
         return () => { vscode.removeMessageListener('streamInfo', streamInfoCb); vscode.removeMessageListener('focus', focusCb); };
     }, []);
 
+    const scrollToItem = useCallback((itemIndex: number) => {
+        if (listRef.current) {
+            console.log(`search find scrolling to: ${itemIndex}`);
+            listRef.current.scrollToItem(itemIndex);
+        }
+    }, [listRef]);
+
+    useEffect(() => {
+        let active = true;
+        if (activeDoc.uri && findParams[0].findString.length > 0) {
+            sendAndReceiveMsg({ cmd: "find", data: findParams[0] }).then(res => {
+                if (active) {
+                    try {
+                        console.log(`search find got: #${res.search_idxs.length} find results`);
+                        // create regex for match highlighting:
+                        const findRegex = findParams[0].useRegex ?
+                            new RegExp(findParams[0].findString, findParams[0].useCaseSensitive ? "g" : "gi") :
+                            new RegExp(findParams[0].findString, findParams[0].useCaseSensitive ? "g" : "gi");
+
+                        setFindRes({ findString: findParams[0].findString, findRegex, nextSearchIdx: res.next_search_idx !== null ? res.next_search_idx : undefined, searchIdxs: res.search_idxs });
+                        if (res.search_idxs.length > 0) {
+                            scrollToItem(res.search_idxs[0]);
+                        }
+                    } catch (e) {
+                        console.error(`search find got e=${e}`, res);
+                    }
+                } else {
+                    console.log(`search find ignored results for (${findParams[0].findString}) due to not active!`);
+                }
+            }, (errorString: string) => {
+                console.error(`search find got e=${errorString}`);
+            });
+        } else {
+            setFindRes(undefined);
+        }
+        return () => { active = false; };
+    }, [findParams, useFilter, useCaseSensitive, useRegex, searchString, activeDoc]);
+
+    const triggerFind = (params: FindParams, findAll?: boolean) => { // todo impl. findAll...
+        console.log(`search find triggerFind called ${params.findString}...`);
+        setFindParams([params, !!findAll]);
+    }
+
     useEffect(() => {
         const docUpdateCb = (msg: any) => {
             console.log(`search docUpdateCb. msg=${JSON.stringify(msg)}`);
@@ -334,6 +400,7 @@ function App() {
     const renderListRow = (props: ListChildComponentProps) => {
         const { index, style } = props;
         const msg = getItem(index);
+        // console.log(`search renderListRow(${index})...`);
         if (msg) {
             const str = `${String(Number(msg.index)).padStart(6, ' ')} ${new Date(msg.receptionTimeInMs).toLocaleTimeString()} ${(msg.timeStamp / 10000).toFixed(4).padStart(9)} ${msg.ecu.padEnd(4)} ${msg.apid.padEnd(4)} ${msg.ctid.padEnd(4)} ${msg.payloadString}`;
             const strLen = str.length;
@@ -422,7 +489,7 @@ function App() {
                 };
             } else {
                 frag = <pre>{str}</pre>;
-                    }
+            }
             return (
                 <div style={style}>
                     <div className="sitem" data-time={msg.calculatedTimeInMs} style={{ color: color, backgroundColor: backgroundColor, outlineWidth: borderWidth, outlineColor: borderColor, outlineStyle: borderStyle, outlineOffset: borderWidth ? '-' + borderWidth : undefined, width: textWidthInPx }}>
@@ -491,6 +558,7 @@ function App() {
             </VSCodeDropdown>}
             {errorText !== null && <div className="inputValidation" >{errorText}</div>}
             <div style={{ flexGrow: 1 }}>
+                <FindWidget triggerFind={triggerFind} results={findRes} scrollToItem={scrollToItem} />
                 <AutoSizer disableHeight={false}>
                         {({ height, width }) => (
                         <InfiniteLoader ref={infiniteLoaderRef}
