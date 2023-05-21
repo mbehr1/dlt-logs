@@ -18,9 +18,13 @@
         "resolveJsonModule": true,
         "isolatedModules": true,
         "noEmit": true,
-        "jsx": "react-jsx"
+        "jsx": "react-jsx",
+        "types": [
+            "node",
+            "vite-plugin-svgr/client"
+        ],
     },
     "include": [
         "./src"
-    ]
+    ],
 }

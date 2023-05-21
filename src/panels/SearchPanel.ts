@@ -202,6 +202,58 @@ export class SearchPanelProvider implements WebviewViewProvider {
                         // need to send a response for that id:
                         let res: { err: string } | undefined = undefined;
                         switch (req.cmd) {
+                            case 'find': {
+                                interface FindReq {
+                                    findString: string, useRegex: boolean, useCaseSensitive: boolean, startIdx?: number, maxMsgsToReturn?: number
+                                };
+                                const findReq: FindReq = req.data;
+                                console.log(`SearchPanel: sAr cmd find:${JSON.stringify(findReq)}`);
+                                if (this.curStreamLoader) {
+
+                                    const searchFn = (streamLoader: DocStreamLoader, findReq: FindReq): { err: string } | undefined => {
+                                        try {
+                                            let res = undefined;
+                                            const searchFilter = new DltFilter({ 'type': DltFilterType.POSITIVE, ignoreCasePayload: findReq.useCaseSensitive ? undefined : true, payloadRegex: findReq.useRegex ? findReq.findString : undefined, payload: findReq.useRegex ? undefined : findReq.findString }, false);
+                                            streamLoader.searchStream([searchFilter], findReq.startIdx, findReq.maxMsgsToReturn)?.then(search_res => {
+                                                webview.postMessage({
+                                                    type: 'sAr',
+                                                    id: msgId,
+                                                    res: search_res,
+                                                });
+                                            }, e => {
+                                                if (e && typeof e === 'object' && 'err' in e && typeof e.err === 'string') {
+                                                    res = e as { err: string };
+                                                    if ('retry' in e && !!e.retry) {
+                                                        console.warn(`SearchPanel: sAr cmd find: auto retrying...`);
+                                                        setTimeout(() => {
+                                                            let res = searchFn(streamLoader, findReq);
+                                                            if (res !== undefined) {
+                                                                webview.postMessage({
+                                                                    type: 'sAr',
+                                                                    id: msgId,
+                                                                    res
+                                                                });
+                                                            }
+                                                        }, 200);
+                                                    }
+                                                } else { // assume string
+                                                    webview.postMessage({
+                                                        type: 'sAr',
+                                                        id: msgId,
+                                                        res: { err: `find cmd failed with: ${e}` }
+                                                    });
+                                                }
+                                            });
+                                        } catch (e) {
+                                            console.warn(`SearchPanel: sAr cmd find failed with: ${e}`);
+                                            res = { err: `find cmd failed outer with: ${e}` };
+                                        }
+                                        return res;
+                                    };
+                                    res = searchFn(this.curStreamLoader, findReq);
+                                }
+                            }
+                                break;
                             case 'search':
                                 {
                                     const searchReq: { searchString: string, useRegex: boolean, useCaseSensitive: boolean, useFilter: boolean } = req.data;
@@ -217,8 +269,8 @@ export class SearchPanelProvider implements WebviewViewProvider {
                                         res = undefined;
                                         //console.log(`SearchPanel filters=${JSON.stringify(filters.map(f => f.asConfiguration()))}`); <- reports enabled possibly wrong
                                         try {
-                                        const doc = this._activeDoc;
-                                        const searchFilter = new DltFilter({ 'type': DltFilterType.NEGATIVE, not: true, ignoreCasePayload: searchReq.useCaseSensitive ? undefined : true, payloadRegex: searchReq.useRegex ? searchReq.searchString : undefined, payload: searchReq.useRegex ? undefined : searchReq.searchString }, false);
+                                            const doc = this._activeDoc;
+                                            const searchFilter = new DltFilter({ 'type': DltFilterType.NEGATIVE, not: true, ignoreCasePayload: searchReq.useCaseSensitive ? undefined : true, payloadRegex: searchReq.useRegex ? searchReq.searchString : undefined, payload: searchReq.useRegex ? undefined : searchReq.searchString }, false);
                                             const filters = (searchReq.useFilter ? [...doc.allFilters.filter(f => (f.type === DltFilterType.POSITIVE || f.type === DltFilterType.NEGATIVE) && f.enabled), searchFilter] : [searchFilter]);
                                             this.curStreamLoader = new DocStreamLoader(doc, filters, () => {
                                                 // console.warn(`SearchPanel: sAr cmd search got new DocStreamLoader`);
@@ -495,6 +547,12 @@ class DocStreamLoader {
             //console.warn(`SearchPanel DocStreamLoader.getAvailMsgs(${startIdx}) not avail > ${maxIndexAvail} [${this.curWindow[0]}-${this.curWindow[1]})`);
         }
         return undefined;
+    }
+
+    searchStream(filters: DltFilter[], startIdx?: number, maxMsgsToReturn?: number) {
+        if (!this.streamIdUpdatePending && this.streamId >= 0) {
+            return this.doc.searchStream(this.streamId, filters, startIdx !== undefined ? startIdx : 0, maxMsgsToReturn !== undefined ? maxMsgsToReturn : 1000);
+        } else { return Promise.reject({ err: `stream update pending, please retry`, retry: true }); }
     }
 
     dispose() {

@@ -2171,6 +2171,22 @@ export class AdltDocument implements vscode.Disposable {
         });
     }
 
+    searchStream(streamId: number, filters: DltFilter[], startIdx: number, maxMsgsToReturn: number): Promise<{ search_idxs: number[], next_search_idx?: number }> {
+        let p = new Promise<{ search_idxs: number[], next_search_idx?: number }>((resolve, reject) => {
+            let streamData = this.streamMsgs.get(streamId);
+            if (!streamData) {
+                reject('invalid streamId? no streamData found');
+            } else {
+                this.sendAndRecvAdltMsg(`stream_search ${streamId} ${JSON.stringify({ start_idx: startIdx, max_results: maxMsgsToReturn, filters: filters.filter(f => f.enabled).map(f => { return { ...f.asConfiguration(), enabled: true }; }) })}`).then((response) => {
+                    const searchRes = JSON.parse(response.slice(response.indexOf("=") + 1));
+                    console.log(`adlt.searchStream on stream_search returned: next_search_idx=${searchRes.next_search_idx} #search_idxs=${Array.isArray(searchRes.search_idxs) ? searchRes.search_idxs.length : 0}`);
+                    resolve(searchRes);
+                }).catch(e => reject(e));
+            }
+        });
+        return p;
+    }
+
     stat(): vscode.FileStat {
         //console.warn(`dlt-logs.AdltDocumentProvider.stat()...`);
 
