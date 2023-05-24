@@ -1,7 +1,7 @@
 // findwidget mainly taken from https://github.com/microsoft/vscode-hexeditor/blob/main/media/editor/findWidget.css (MIT license)
 
 /* todo list
-[ ] show/highligh current line (selectedResult)
+[ ] show/highligh current line (selectedResult) via ? outline: 2px solid #282828 (editor seems to use highlight not for hover but the outline/border for hover)
 [ ] add "capped" / load more...
 [ ] handle alt-enter to highlight all searches?
 */
@@ -95,6 +95,7 @@ export const FindWidget: React.FC<{
         }*/
 
         // remove find done by useEffect above on visible change with delay
+        setSelectedResult(undefined);
         setVisible(false);
     };
 
@@ -163,7 +164,7 @@ export const FindWidget: React.FC<{
                         <CaseSensitive />
                     </VsIconCheckbox>
                 </VsTextFieldGroup>
-                <ResultBadge onUncap={() => {/*todo*/ }} results={results} selectedResult={undefined} />
+                <ResultBadge onUncap={() => {/*todo*/ }} results={results} selectedResult={selectedResult} />
                 <VsIconButton disabled={results ? results.searchIdxs.length === 0 : true} onClick={() => navigateResults(-1)} title="Previous Match">
                     <ArrowUp />
                 </VsIconButton>

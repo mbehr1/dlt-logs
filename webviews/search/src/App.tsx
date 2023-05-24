@@ -15,6 +15,7 @@
  * [x] update search results if useFilter is active and the filters in the doc are changed
  * [x] impl case-sensitive search for both regular and regex search
  * [x] persist last searchStrings and offer as drop-down (last 50, icon and key down, delete key to del entries)
+ * [ ] persist last scrollToItem/last scroll pos on reload?
  * [ ] search command should put focus to input box
  * [ ] verify regex strings
  * [x] optimize time/queries while typing: delay request until typing stops for 0.7 secs (done using useDebounceCallback for search string)
@@ -23,7 +24,8 @@
  * [x] better status of "logs matching". check with adlt stream status (via StreamInfo)
  * [ ] shortcut for search window? (alt/option+f?)
  * [ ] impl "match whole word" button (logic: space/starts with and ends/space after?)
- * [ ] check theme changes / support reload on theme change (isLightTheme doesn't get updated)
+ * [x] check theme changes / support reload on theme change
+ * [ ] fix isLightTheme doesn't get updated on theme change
  * [ ] rerun search on pressing enter in the search list (?) (if the auto upd doesnt work)
  * [ ] get rid of fixed font size/height assumptions (16px...)
  * [ ] background color for lifecycle indication (or other lifecycle indication)
@@ -32,6 +34,7 @@
  * [ ] optimize click on result to jump to exact index if available
  * [x] add search within search results (FindWidget)
  * [ ] add find button for FindWidget
+ * [ ] refactor FindWidget and regular search to use same VSCodeUI (or own) elements
  * [ ] FindWidget load all results
  * [ ] update docs
  */
