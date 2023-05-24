@@ -1,7 +1,7 @@
 // findwidget mainly taken from https://github.com/microsoft/vscode-hexeditor/blob/main/media/editor/findWidget.css (MIT license)
 
 /* todo list
-[ ] show/highligh current line (selectedResult)
+[ ] show/highligh current line (selectedResult) via ? outline: 2px solid #282828 (editor seems to use highlight not for hover but the outline/border for hover)
 [ ] add "capped" / load more...
 [ ] handle alt-enter to highlight all searches?
 */

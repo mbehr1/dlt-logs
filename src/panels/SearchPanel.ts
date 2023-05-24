@@ -300,7 +300,7 @@ export class SearchPanelProvider implements WebviewViewProvider {
                                     }
                                 }
                                 break;
-                            case 'load': // todo
+                            case 'load':
                                 // stop stream once webview visibility=false
                                 const { startIdx, stopIdx } = req.data;
                                 if (this._activeDoc && this.curStreamLoader) {
