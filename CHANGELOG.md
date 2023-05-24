@@ -1,5 +1,13 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.68.1](https://github.com/mbehr1/dlt-logs/compare/v1.68.0...v1.68.1) (2023-05-24)
+
+
+### Bug Fixes
+
+* find highlights for high-contrast themes ([3d04123](https://github.com/mbehr1/dlt-logs/commit/3d0412351b00f33a180aaa2763c38fa836e98a21))
+* **search:** show nr of selected result ([2d227cf](https://github.com/mbehr1/dlt-logs/commit/2d227cfcf6b488ccb4fd27fdae34bbb795b71c39))
+
 ## [1.68.0](https://github.com/mbehr1/dlt-logs/compare/v1.67.4...v1.68.0) (2023-05-21)
 
 
