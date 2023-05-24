@@ -95,6 +95,7 @@ export const FindWidget: React.FC<{
         }*/
 
         // remove find done by useEffect above on visible change with delay
+        setSelectedResult(undefined);
         setVisible(false);
     };
 
@@ -163,7 +164,7 @@ export const FindWidget: React.FC<{
                         <CaseSensitive />
                     </VsIconCheckbox>
                 </VsTextFieldGroup>
-                <ResultBadge onUncap={() => {/*todo*/ }} results={results} selectedResult={undefined} />
+                <ResultBadge onUncap={() => {/*todo*/ }} results={results} selectedResult={selectedResult} />
                 <VsIconButton disabled={results ? results.searchIdxs.length === 0 : true} onClick={() => navigateResults(-1)} title="Previous Match">
                     <ArrowUp />
                 </VsIconButton>
