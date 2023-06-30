@@ -29,7 +29,7 @@ export class AdltPluginChildNode implements TreeViewNode {
         this.id = util.createUniqueId();
         this.label = childObj.label || '<no label>';
         this.description = childObj.description || false;
-        this._contextValue = childObj.contextValue;
+        this._contextValue = childObj.contextValue !== undefined && childObj.contextValue !== null && typeof childObj.contextValue === 'string' ? childObj.contextValue : undefined;
 
         this._tooltip = childObj.tooltip !== undefined && typeof childObj.tooltip === "string" ? childObj.tooltip : undefined; // or as MarkDownString?
         this.cmdCtx = childObj.cmdCtx;
