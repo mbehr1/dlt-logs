@@ -1,5 +1,13 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.68.2](https://github.com/mbehr1/dlt-logs/compare/v1.68.1...v1.68.2) (2023-06-30)
+
+
+### Bug Fixes
+
+* tree view item contextValue needs to be a string ([a7584b9](https://github.com/mbehr1/dlt-logs/commit/a7584b9c8c49c0202db59df1c24918f05ddb5094))
+* update adlt to support filetransfer with paths ([c31f007](https://github.com/mbehr1/dlt-logs/commit/c31f0071948117fbe82379f684b5cb105590daa9))
+
 ## [1.68.1](https://github.com/mbehr1/dlt-logs/compare/v1.68.0...v1.68.1) (2023-05-24)
 
 
