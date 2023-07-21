@@ -269,6 +269,7 @@ export class AdltDocument implements vscode.Disposable {
     private visibleMsgs?: AdltMsg[]; // the array with the msgs that should be shown. set on startStream and cleared on stopStream
     private visibleLcs?: DltLifecycleInfoMinIF[]; // array with the visible lc persistent ids
     private _maxNrMsgs: number; //  setting 'dlt-logs.maxNumberLogs'. That many messages are displayed at once
+    private _maxReportLogs: number; // setting dlt-logs.maxReportLogs
     private _skipMsgs: number = 0; // that many messages are skipped from the top (here not loaded for cur streamId)
 
     private _sortOrderByTime = true; // we default to true // todo retrieve last from config?
@@ -379,6 +380,9 @@ export class AdltDocument implements vscode.Disposable {
         const maxNrMsgsConf = vscode.workspace.getConfiguration().get<number>('dlt-logs.maxNumberLogs');
         this._maxNrMsgs = maxNrMsgsConf ? maxNrMsgsConf : 400000; // 400k default
         //this._maxNrMsgs = 1000; // todo for testing only
+
+        const maxReportLogs = vscode.workspace.getConfiguration().get<number>('dlt-logs.maxReportLogs');
+        this._maxReportLogs = (maxReportLogs && maxReportLogs > 0) ? maxReportLogs : 1_000_000; // 1mio default
 
         // update tree view:
         this.lifecycleTreeNode = new LifecycleRootNode(this);
@@ -580,6 +584,10 @@ export class AdltDocument implements vscode.Disposable {
         if (event.affectsConfiguration('dlt-logs.filters')) {
             this.onDidChangeConfigFilters();
             this.triggerApplyFilter();
+        }
+        if (event.affectsConfiguration('dlt-logs.maxReportLogs')) {
+            const maxReportLogs = vscode.workspace.getConfiguration().get<number>('dlt-logs.maxReportLogs');
+            this._maxReportLogs = (maxReportLogs && maxReportLogs > 0) ? maxReportLogs : 1_000_000; // 1mio default
         }
         // todo add for plugins, decorations, maxNumberLogs, columns?
     }
@@ -1473,7 +1481,7 @@ export class AdltDocument implements vscode.Disposable {
             }
             let filters = Array.isArray(filter) ? filter : [filter];
             let filterStr = filters.filter(f => f.enabled).map(f => JSON.stringify({ ...f.asConfiguration(), enabled: true })).join(',');
-            this.sendAndRecvAdltMsg(`stream {"window":[0,1000000], "binary":true, "filters":[${filterStr}]}`).then((response) => {
+            this.sendAndRecvAdltMsg(`stream {"window":[0,${this._maxReportLogs}], "binary":true, "filters":[${filterStr}]}`).then((response) => {
                 // console.log(`adlt.on startStream got response:'${response}'`);
                 const streamObj = JSON.parse(response.substring(11));
                 // console.log(`adtl ok:stream`, JSON.stringify(streamObj));
@@ -1505,7 +1513,7 @@ export class AdltDocument implements vscode.Disposable {
             // open the report first and add the messages then?
             let filters = Array.isArray(filter) ? filter : [filter];
             let filterStr = filters.filter(f => f.enabled).map(f => JSON.stringify({ ...f.asConfiguration(), enabled: true })).join(',');
-            this.sendAndRecvAdltMsg(`stream {"window":[0,1000000], "binary":true, "filters":[${filterStr}]}`).then((response) => {
+            this.sendAndRecvAdltMsg(`stream {"window":[0,${this._maxReportLogs}], "binary":true, "filters":[${filterStr}]}`).then((response) => {
                 // console.log(`adlt.on startStream got response:'${response}'`);
                 const streamObj = JSON.parse(response.substring(11));
                 // console.log(`adtl ok:stream`, JSON.stringify(streamObj));
