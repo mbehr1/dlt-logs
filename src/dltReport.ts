@@ -92,6 +92,7 @@ class SingleReport implements NewMessageSink {
     public warnings: string[] = [];
     public reportTitles: string[] = [];
     public dataSetsGroupPrios: any = {};
+    private _maxReportLogs: number;
     convFunctionCache = new Map<DltFilter, [Function | undefined, Object]>();
     reportObj = {}; // an object to store e.g. settings per report from a filter
     lateEvalDPs: Map<DataPoint, any> = new Map();
@@ -100,6 +101,8 @@ class SingleReport implements NewMessageSink {
     msgsPruned: number = 0;
 
     constructor(private dltReport: DltReport, private doc: ReportDocument, public filters: DltFilter[]) {
+        const maxReportLogs = vscode.workspace.getConfiguration().get<number>('dlt-logs.maxReportLogs');
+        this._maxReportLogs = (maxReportLogs && maxReportLogs > 0) ? maxReportLogs : 1_000_000; // 1mio default
         for (let f = 0; f < filters.length; ++f) {
             const filter = filters[f];
             if (filter.reportOptions) {
@@ -132,7 +135,7 @@ class SingleReport implements NewMessageSink {
     }
 
     onNewMessages(nrNewMsgs: number) {
-        console.warn(`SingleReport.onNewMessages(${nrNewMsgs}) msgsProcessed=${this.msgsProcessed} msgsPruned=${this.msgsPruned} msgs.length=${this.msgs.length}`);
+        console.log(`SingleReport.onNewMessages(${nrNewMsgs}) msgsProcessed=${this.msgsProcessed} msgsPruned=${this.msgsPruned} msgs.length=${this.msgs.length}`);
         try {
             try {
                 this.updateReport();
@@ -148,6 +151,19 @@ class SingleReport implements NewMessageSink {
             this.dltReport.updateReport();
         } catch (e) {
             console.warn(`SingleReport.onNewMessages got e='${e}'`);
+        }
+    }
+
+    // todo add a progress bar based on the stream info!
+
+    onStreamInfo(nrStreamMsgs: number, nrMsgsProcessed: number, nrMsgsTotal: number) {
+        // console.warn(`SingleReport.onStreamInfo(nrStreamMsgs=${nrStreamMsgs}, nrMsgsProcessed=${nrMsgsProcessed}, nrMsgsTotal=${nrMsgsTotal}) msgsProcessed=${this.msgsProcessed}`);
+        if (nrStreamMsgs > this._maxReportLogs && this.msgsProcessed === this._maxReportLogs) {
+            // todo this overwrites any existing warnings (and will be overwritten by other warnings!)
+            this.dltReport.postMsgOnceAlive({
+                command: "update warnings",
+                warnings: [`Report truncated to ${this.msgsProcessed} msgs out of available ${nrStreamMsgs}! Reduce amount of returned logs or increase config setting 'dlt-logs.maxReportLogs'!`]
+            });
         }
     }
 
