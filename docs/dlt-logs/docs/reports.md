@@ -110,6 +110,12 @@ If you click on a data point in the report the DLT log window tries to scroll th
 
 You can define event filters (type: 3), add normal filters like ecu, apid, ctid and use a payloadRegex that captures either one value or even multiple values with named capture groups (?\<series\_name\>.*). 
 
+:::note
+The amount of log messages processed for a report is limited to avoid long processing times. The default limit is 1 mio logs but you can change
+it with the config setting `dlt-logs.maxReportLogs`.
+A warning will be shown in the report if you hit the limit.
+:::
+
 ### Capture group names and types
 
 By default all captures needs will be parsed as float numbers. You can change that behaviour by prefixing the capure name with STATE\_ or INT\_ (see below).
