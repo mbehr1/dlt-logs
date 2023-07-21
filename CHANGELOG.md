@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.68.3](https://github.com/mbehr1/dlt-logs/compare/v1.68.2...v1.68.3) (2023-07-21)
+
+
+### Bug Fixes
+
+* **report:** show warning if truncation happens ([9e3d9f9](https://github.com/mbehr1/dlt-logs/commit/9e3d9f9f86e7088c2628d425180d8f5fd8c3b1ae))
+
 ## [1.68.2](https://github.com/mbehr1/dlt-logs/compare/v1.68.1...v1.68.2) (2023-06-30)
 
 
