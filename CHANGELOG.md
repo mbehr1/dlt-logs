@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.69.0](https://github.com/mbehr1/dlt-logs/compare/v1.68.3...v1.69.0) (2023-07-23)
+
+
+### Features
+
+* **someip:** support franca_json files ([3f22154](https://github.com/mbehr1/dlt-logs/commit/3f22154ea67be28d775c3c32766e59919795cbcc))
+
 ## [1.68.3](https://github.com/mbehr1/dlt-logs/compare/v1.68.2...v1.68.3) (2023-07-21)
 
 
