@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.69.1](https://github.com/mbehr1/dlt-logs/compare/v1.69.0...v1.69.1) (2023-07-26)
+
+
+### Bug Fixes
+
+* dlt strings are non zero terminated ([40b724f](https://github.com/mbehr1/dlt-logs/commit/40b724f3a8ee405e899cb1ae5122ce44da0808ac))
+
 ## [1.69.0](https://github.com/mbehr1/dlt-logs/compare/v1.68.3...v1.69.0) (2023-07-23)
 
 
