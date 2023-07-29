@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.70.0](https://github.com/mbehr1/dlt-logs/compare/v1.69.1...v1.70.0) (2023-07-29)
+
+
+### Features
+
+* **logcat:** add experimental support for logcat files ([c8042b6](https://github.com/mbehr1/dlt-logs/commit/c8042b610ec3c83f8d613c3e4c4939a6903e382d))
+
 ## [1.69.1](https://github.com/mbehr1/dlt-logs/compare/v1.69.0...v1.69.1) (2023-07-26)
 
 
