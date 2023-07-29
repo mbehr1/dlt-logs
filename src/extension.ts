@@ -202,11 +202,12 @@ export function activate(context: vscode.ExtensionContext) {
 		if (Array.isArray(file_exts)) {
 			if (!file_exts.includes("dlt")) { file_exts.push("dlt"); }
 			if (!file_exts.includes("asc")) { file_exts.push("asc"); }
+			if (!file_exts.includes("txt")) { file_exts.push("txt"); }
 		} else {
-			file_exts = ["dlt", "asc"];
+			file_exts = ["dlt", "asc", "txt"];
 		}
 		console.log(`open dlt via adlt file_exts=${JSON.stringify(file_exts)}`);
-		return vscode.window.showOpenDialog({ canSelectFiles: true, canSelectFolders: false, canSelectMany: true, filters: { 'DLT Logs': file_exts }, openLabel: 'Select DLT or CAN file(s) to open...' }).then(
+		return vscode.window.showOpenDialog({ canSelectFiles: true, canSelectFolders: false, canSelectMany: true, filters: { 'DLT Logs': file_exts }, openLabel: 'Select DLT, CAN or Logcat file(s) to open...' }).then(
 			async (uris: vscode.Uri[] | undefined) => {
 				if (uris) {
 					console.log(`open dlt via adlt got URIs=${uris}`);
