@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.71.0](https://github.com/mbehr1/dlt-logs/compare/v1.70.0...v1.71.0) (2023-09-02)
+
+
+### Features
+
+* **logcat:** support threadtime format ([a0f093a](https://github.com/mbehr1/dlt-logs/commit/a0f093a3aa8c4e4989bc65ee709f64ae58fa0857))
+
 ## [1.70.0](https://github.com/mbehr1/dlt-logs/compare/v1.69.1...v1.70.0) (2023-07-29)
 
 
