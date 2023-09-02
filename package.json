@@ -1,1003 +1,1003 @@
 {
-	"name": "dlt-logs",
-	"displayName": "DLT-Logs",
-	"description": "Open DLT diagnostic log and trace files with lifecycle detection, filters, time-sync, etc.",
-	"version": "1.70.0",
-	"license": "CC-BY-NC-SA-4.0",
-	"publisher": "mbehr1",
-	"author": {
-		"name": "Matthias Behr",
-		"email": "mbehr+dltlogs@mcbehr.de"
-	},
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/mbehr1/dlt-logs.git"
-	},
-	"sponsor": {
-		"url": "https://github.com/sponsors/mbehr1"
-	},
-	"bugs": {
-		"url": "https://github.com/mbehr1/dlt-logs/issues"
-	},
-	"homepage": "https://mbehr1.github.io/dlt-logs/",
-	"engines": {
-		"vscode": "^1.67.0"
-	},
-	"categories": [
-		"Other"
-	],
-	"activationEvents": [
-		"onFileSystem:dlt-log",
-		"onFileSystem:adlt-log",
-		"onCommand:dlt-logs.dltOpenFile",
-		"onCommand:dlt-logs.dltOpenAdltFile",
-		"onCommand:dlt-logs.dltExportFile",
-		"onCommand:dlt-logs.adltTerminal",
-		"onView:mbehr1DltLogsSearch"
-	],
-	"capabilities": {
-		"virtualWorkspaces": false,
-		"untrustedWorkspaces": {
-			"supported": "limited",
-			"description": "Filter can contain regex and conv functions and thus need to come from a trusted workspace only.",
-			"restrictedConfigurations": [
-				"dlt-logs.filters",
-				"dlt-logs.plugins"
-			]
-		}
-	},
-	"main": "./out/extension.js",
-	"contributes": {
-		"configuration": [
-			{
-				"title": "DLT-Logs",
-				"properties": {
-					"dlt-logs.adltPath": {
-						"type": "string",
-						"description": "Full path incl filename to the adlt binary to use. See github.com/mbehr1/adlt. Path may not include any shell extensions like ~."
-					},
-					"dlt-logs.fileExtensions": {
-						"type": [
-							"string"
-						],
-						"default": [
-							"dlt",
-							"DLT"
-						],
-						"description": "Specifies the file extensions that can be opened."
-					},
-					"dlt-logs.reReadTimeout": {
-						"type": "integer",
-						"default": 1000,
-						"description": "Timeout in ms until the first re-read happens. Defaults to 1s."
-					},
-					"dlt-logs.maxNumberLogs": {
-						"type": "integer",
-						"default": 400000,
-						"description": "Maximum number of DLT logs that are shown in one page. If more messages do exist a paging mechanism will reload at 4/5th the next chunk. You can only search within that page. Please consider using filter to stay within that limit. Defaults to 400'000."
-					},
-					"dlt-logs.maxReportLogs": {
-						"type": "integer",
-						"default": 1000000,
-						"description": "Maximum number of DLT logs rendered for a graphical report. You'll get a warning within the report if the limit is hit."
-					},
-					"dlt-logs.columns": {
-						"type": "array",
-						"items": {
-							"type": "object",
-							"title": "column config",
-							"properties": {
-								"name": {
-									"type": "string",
-									"description": "name of the column",
-									"enum": [
-										"index",
-										"recorded time",
-										"calculated time",
-										"timestamp",
-										"ecu",
-										"apid",
-										"ctid",
-										"text",
-										"mcnt",
-										"type",
-										"subtype",
-										"mode"
-									]
-								},
-								"visible": {
-									"type": "boolean",
-									"description": "visibility of the column",
-									"default": true
-								},
-								"icon": {
-									"type": "string",
-									"description": "optional icon (codicon). e.g. $(watch)"
-								},
-								"description": {
-									"type": "string",
-									"description": "optional description shown in the column config menu"
-								}
-							}
-						},
-						"default": [
-							{
-								"name": "index",
-								"icon": "$(list-ordered)",
-								"description": "index of this msg inside the file"
-							},
-							{
-								"name": "recorded time",
-								"icon": "$(radio-tower)",
-								"description": "recorded time as local time string",
-								"visible": false
-							},
-							{
-								"name": "calculated time",
-								"icon": "$(history)",
-								"description": "calculated time when the message was sent",
-								"visible": false
-							},
-							{
-								"name": "timestamp",
-								"icon": "$(watch)",
-								"description": "relative timestamp in 0.1ms when the message was sent",
-								"visible": false
-							},
-							{
-								"name": "mcnt",
-								"description": "message counter. Should count up for each (ECU/APID/CTID)",
-								"visible": false
-							},
-							{
-								"name": "ecu",
-								"icon": "$(circuit-board)",
-								"description": "ECU identifier"
-							},
-							{
-								"name": "apid",
-								"icon": "$(package)",
-								"description": "application identifier"
-							},
-							{
-								"name": "ctid",
-								"icon": "$(list-tree)",
-								"description": "context identifier"
-							},
-							{
-								"name": "type",
-								"description": "type (LOG|CONTROL|NETWORK|TRACE) of the message",
-								"visible": false
-							},
-							{
-								"name": "subtype",
-								"description": "sub-type (e.g. log level for type LOG) of the message",
-								"visible": false
-							},
-							{
-								"name": "mode",
-								"description": "mode (verbose|non-verbose) of the message",
-								"visible": false
-							},
-							{
-								"name": "text",
-								"icon": "$(symbol-string)",
-								"description": "payload (assembled args) as text"
-							}
-						]
-					},
-					"dlt-logs.filters": {
-						"type": "array",
-						"items": {
-							"type": "object",
-							"title": "filter",
-							"properties": {
-								"name": {
-									"type": "string",
-									"description": "Optional name of this filter."
-								},
-								"type": {
-									"type": "integer",
-									"description": "Type of this filter. 0 = positive, 1 = negative, 2 = marker, 3=event (time-sync)"
-								},
-								"enabled": {
-									"type": "boolean",
-									"description": "Determines whether the filter is currently enabled.",
-									"default": true
-								},
-								"atLoadTime": {
-									"type": "boolean",
-									"description": "Determines whether the filter is already applied at file open time reducing the amount of msgs to be processed. Default=false",
-									"default": false
-								},
-								"mstp": {
-									"type": "integer",
-									"description": "The MSTP to filter for. 0 = LOG, 1 = TRACE, 2 = NW_TRACE, 3 = CONTROL. Defaults to no filter."
-								},
-								"logLevelMin": {
-									"type": "integer",
-									"description": "Minimum log level to filter for. 1 = FATAL, 2 = ERROR, 3 = WARN, 4 = INFO, 5 = DEBUG, 6 = VERBOSE. Default: no filtering to log level. Matches if the msg is type LOG and the loglevel is >= this value. E.g. use logLevelMin=4 with a neg. filter to filter out all INFO, DEBUG, VERBOSE msgs. Implies filtering for MSTP=0(LOG)."
-								},
-								"logLevelMax": {
-									"type": "integer",
-									"description": "Maximum log level to filter for. 1 = FATAL, 2 = ERROR, 3 = WARN, 4 = INFO, 5 = DEBUG, 6 = VERBOSE.  Default: no filtering to log level. Matches if the msg is type LOG and the loglevel is <= this value. E.g. use logLevelMax=2 with a pos. filter to see all FATAL and ERROR msgs. Implies filtering for MSTP=0(LOG)."
-								},
-								"ecu": {
-									"type": "string",
-									"description": "The ECU id to filter for. Ignored if empty.",
-									"default": ""
-								},
-								"apid": {
-									"type": "string",
-									"description": "The APID to filter for. Should have 4 chars (less will be filled with \\0). Ignored if empty.",
-									"default": ""
-								},
-								"ctid": {
-									"type": "string",
-									"description": "The CTID to filter for. Should have 4 chars (less will be filled with \\0). Ignored if empty.",
-									"default": ""
-								},
-								"payload": {
-									"type": "string",
-									"description": "A string to search for in (contains) the payload text. The search is case sensitive. Ignored if empty."
-								},
-								"payloadRegex": {
-									"type": "string",
-									"description": "A regular expression (JS/TS/node syntax) to match against the payload text. The search is case sensitive. Ignored if empty. If provided 'payload' is ignored."
-								},
-								"filterColour": {
-									"type": "string",
-									"description:": "The background colour used for type marker(2). Any css colour code like #f0f0f0 or 'red' can be used. For more detailed customization you can define decorations and refer to those. Only used with marker. Defaults to blue.",
-									"default": "blue"
-								},
-								"decorationId": {
-									"type": "string",
-									"description": "Identifier of the decoration (id of decorations config option) to use for marker instead of filterColour. Defaults to none."
-								},
-								"timeSyncId": {
-									"type": "string",
-									"description": "Optional identifier of a 'time sync event'. This gets broadcasted to other documents with the time and the last regex capture in lower case (from payloadRegex) as value."
-								},
-								"timeSyncPrio": {
-									"type": "integer",
-									"description": "Optional (needed if timeSyncId is used) priority of the time-sync event. As two documents exchange their events by this prio they decide on who will adjust the time. The event with the highest prio (lowest number) will be used."
-								},
-								"configs": {
-									"type": "array",
-									"items": {
-										"type": "string",
-										"description": "Name of the config the filter is part of. The name can be like a 'path' using e.g. <highest-level-config>/<next-level-config> and will be added to the lowest level."
-									},
-									"description": "List of configs this filter is part of."
-								},
-								"reportOptions": {
-									"type": "object",
-									"description": "Additional options for reports.",
-									"properties": {
-										"valueMap": {
-											"type": "object",
-											"description": "See docs for details."
-										},
-										"conversionFunction": {
-											"type": "string",
-											"description": "Javascript function body as string. See docs for details."
-										},
-										"yAxes": {
-											"type": "object",
-											"description": "Determines yAxis for each dataset. See docs for details."
-										}
-									}
-								}
-							}
-						},
-						"default": []
-					},
-					"dlt-logs.configs": {
-						"type": "array",
-						"items": {
-							"type": "object",
-							"title": "config",
-							"properties": {
-								"name": {
-									"type": "string",
-									"description": "Name of this config. Can be 'path' alike using <highest-level-config>/<next-level-config>/... e.g. 'ECU1/generic'"
-								},
-								"autoEnableIf": {
-									"type": "string",
-									"description": "Regex on ECU-ID to determine when to enable this config automatically. Can be empty or .* for always enable. If missing the config is by default disabled i.e. all filters part of this config will be disabled."
-								}
-							}
-						}
-					},
-					"dlt-logs.plugins": {
-						"type": "array",
-						"items": {
-							"oneOf": [
-								{
-									"type": "object",
-									"title": "FileTransfer plugin",
-									"properties": {
-										"name": {
-											"type": "string",
-											"description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp', 'NonVerbose', 'Rewrite' and 'CAN' are available.",
-											"enum": [
-												"FileTransfer"
-											]
-										},
-										"enabled": {
-											"type": "boolean",
-											"description": "Determines whether the plugin is currently enabled.",
-											"default": true
-										},
-										"allowSave": {
-											"type": "boolean",
-											"description": "Determing whether saving the files is supported. Otherwise just the information of filetransfers is provided. This reduces the memory footprint. Default: true (allow).",
-											"default": true
-										},
-										"keepFLDA": {
-											"type": "boolean",
-											"description": "Whether to keep the FLDA log messages. Default is to remove them from the logs.",
-											"default": false
-										},
-										"apid": {
-											"type": "string",
-											"description": "The APID to filter for FL* msgs. Should have 4 chars (less will be filled with \\0). Ignored if empty. The spec doesn't define any but providing one speeds up parsing.",
-											"default": ""
-										},
-										"ctid": {
-											"type": "string",
-											"description": "The CTID to filter for FL* msgs. Should have 4 chars (less will be filled with \\0). Ignored if empty. The spec doesn't define any value but providing one speeds up parsing.",
-											"default": ""
-										}
-									}
-								},
-								{
-									"type": "object",
-									"title": "SOME/IP plugin",
-									"properties": {
-										"name": {
-											"type": "string",
-											"description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp', 'NonVerbose', 'Rewrite' and 'CAN' are available.",
-											"enum": [
-												"SomeIp"
-											]
-										},
-										"enabled": {
-											"type": "boolean",
-											"description": "Determines whether the plugin is currently enabled.",
-											"default": true
-										},
-										"fibexDir": {
-											"type": "string",
-											"description": "The path to directory with the FIBEX files. Needs to be set."
-										},
-										"ctid": {
-											"type": "string",
-											"description": "The CTID to filter for SOME/IP msgs. Should have 4 chars (less will be filled with \\0). Defaults to 'TC'.",
-											"default": "TC"
-										},
-										"mtin": {
-											"type": "integer",
-											"description": "The 'MTIN' to filter for SOME/IP msgs. Defaults to MTIN_NW.TRACE_IPC (1).",
-											"default": 1
-										}
-									}
-								},
-								{
-									"type": "object",
-									"title": "Non-Verbose plugin",
-									"properties": {
-										"name": {
-											"type": "string",
-											"description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp', 'NonVerbose', 'Rewrite' and 'CAN' are available.",
-											"enum": [
-												"NonVerbose"
-											]
-										},
-										"enabled": {
-											"type": "boolean",
-											"description": "Determines whether the plugin is currently enabled.",
-											"default": true
-										},
-										"fibexDir": {
-											"type": "string",
-											"description": "The path to directory with the FIBEX files. Can be empty if shared folder with SomeIp is used."
-										}
-									}
-								},
-								{
-									"type": "object",
-									"title": "Rewrite plugin",
-									"properties": {
-										"name": {
-											"type": "string",
-											"description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp', 'NonVerbose', 'Rewrite' and 'CAN' are available.",
-											"enum": [
-												"Rewrite"
-											]
-										},
-										"enabled": {
-											"type": "boolean",
-											"description": "Determines whether the plugin is currently enabled.",
-											"default": true
-										},
-										"rewrites": {
-											"type": "array",
-											"description": "Array with rewrite configurations.",
-											"items": {
-												"type": "object",
-												"title": "rewrite config",
-												"properties": {
-													"name": {
-														"type": "string",
-														"description": "Identifier of this rewrite config."
-													},
-													"filter": {
-														"type": "object",
-														"description": "Filter attributes. Type is set automatically to positive filter. This determines which messages will be rewritten by this config."
-													},
-													"payloadRegex": {
-														"type": "string",
-														"description": "Regex on the payload. This will be called after the message is matched and is applied on the payloadText. The match/result is passed as first parameter to the rewrite functions."
-													},
-													"rewrite": {
-														"type": "object",
-														"description": "Rewrite functions. Function definition taking two parameter: match from payloadRegex (or undefined) and the message object. Currently functions for message attributes: payloadText and timeStamp are supported. Those functions will be called and if a value is returned this will replace the current msg attribute value."
-													}
-												}
-											},
-											"default": [
-												{
-													"name": "SYS/JOUR timestamp and text",
-													"filter": {
-														"apid": "SYS",
-														"ctid": "JOUR"
-													},
-													"payloadRegex": "^.*? .*? (?<timeStamp>\\d+\\.\\d+) (?<text>.*)$",
-													"rewrite": {
-														"timeStamp": "function(m,msg){ if (!m) { return undefined; } return Math.round(Number(m.groups?.['timeStamp']) * 10000)}",
-														"payloadText": "function(m,msg){ if (!m) {return undefined; } return m.groups?.['text']}"
-													}
-												}
-											]
-										}
-									}
-								},
-								{
-									"type": "object",
-									"title": "CAN plugin",
-									"properties": {
-										"name": {
-											"type": "string",
-											"description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp', 'NonVerbose', 'Rewrite' and 'CAN' are available.",
-											"enum": [
-												"CAN"
-											]
-										},
-										"enabled": {
-											"type": "boolean",
-											"description": "Determines whether the plugin is currently enabled.",
-											"default": true
-										},
-										"fibexDir": {
-											"type": "string",
-											"description": "The path to directory with the FIBEX files. Needs to be set."
-										},
-										"ctid": {
-											"type": "string",
-											"description": "The CTID to filter for CAN msgs. Should have 4 chars (less will be filled with \\0). Defaults to 'TC'.",
-											"default": "TC"
-										},
-										"mtin": {
-											"type": "integer",
-											"description": "The 'MTIN' to filter for SOME/IP msgs. Defaults to MTIN_NW.TRACE_CAN (2).",
-											"default": 2
-										}
-									}
-								}
-							]
-						},
-						"default": [
-							{
-								"name": "FileTransfer",
-								"enabled": true,
-								"allowSave": true,
-								"keepFLDA": false
-							},
-							{
-								"name": "SomeIp",
-								"enabled": false
-							},
-							{
-								"name": "NonVerbose",
-								"enabled": false
-							},
-							{
-								"name": "Rewrite",
-								"enabled": false,
-								"rewrites": [
-									{
-										"name": "SYS/JOUR timestamp and text",
-										"filter": {
-											"apid": "SYS",
-											"ctid": "JOUR"
-										},
-										"payloadRegex": "^.*? .*? (?<timeStamp>\\d+\\.\\d+) (?<text>.*)$",
-										"rewrite": {
-											"timeStamp": "function(m,msg){ if (!m) { return undefined; } return Math.round(Number(m.groups?.['timeStamp']) * 10000)}",
-											"payloadText": "function(m,msg){ if (!m) {return undefined; } return m.groups?.['text']}"
-										}
-									}
-								]
-							},
-							{
-								"name": "CAN",
-								"enabled": false
-							}
-						]
-					},
-					"dlt-logs.decorations": {
-						"type": "array",
-						"items": {
-							"type": "object",
-							"title": "decoration",
-							"properties": {
-								"id": {
-									"type": "string",
-									"description": "Identifier of this decoration for later reference e.g. in filters."
-								},
-								"renderOptions": {
-									"type": "object",
-									"description": "Render options see vs code API DecorationRenderOptions. isWholeLine:true will be added automatically."
-								}
-							}
-						},
-						"default": [
-							{
-								"id": "error",
-								"renderOptions": {
-									"borderWidth": "1px",
-									"borderStyle": "solid",
-									"overviewRulerColor": "red",
-									"overviewRulerLane": 1,
-									"light": {
-										"borderColor": "red"
-									},
-									"dark": {
-										"borderColor": "red"
-									}
-								}
-							},
-							{
-								"id": "warning",
-								"renderOptions": {
-									"borderWidth": "1px",
-									"borderStyle": "dotted",
-									"overviewRulerColor": "orange",
-									"overviewRulerLane": 2,
-									"light": {
-										"borderColor": "orange"
-									},
-									"dark": {
-										"borderColor": "orange"
-									}
-								}
-							},
-							{
-								"id": "fatal",
-								"renderOptions": {
-									"borderWidth": "3px",
-									"borderStyle": "solid",
-									"overviewRulerColor": "red",
-									"overviewRulerLane": 7,
-									"light": {
-										"borderColor": "red"
-									},
-									"dark": {
-										"borderColor": "red"
-									}
-								}
-							},
-							{
-								"id": "lifecycleOdd",
-								"renderOptions": {
-									"overviewRulerColor": "rgba(56,154,66,0.1)",
-									"overviewRulerLane": 7,
-									"dark": {
-										"backgroundColor": "rgba(56,154,66,0.1)"
-									},
-									"light": {
-										"backgroundColor": "rgba(156,154,166,0.1)"
-									}
-								}
-							}
-						]
-					}
-				}
-			}
-		],
-		"commands": [
-			{
-				"command": "dlt-logs.dltExportFile",
-				"title": "Export/filter DLT file..."
-			},
-			{
-				"command": "dlt-logs.dltOpenFile",
-				"title": "Open DLT file..."
-			},
-			{
-				"command": "dlt-logs.dltOpenAdltFile",
-				"title": "Open DLT file via adlt..."
-			},
-			{
-				"command": "dlt-logs.dltOpenFileDeprecated",
-				"title": "Open DLT file via deprecated NodeJS implementation..."
-			},
-			{
-				"command": "dlt-logs.adltTerminal",
-				"title": "New terminal with adlt in path"
-			},
-			{
-				"command": "dlt-logs.adjustTime",
-				"title": "adjust time..."
-			},
-			{
-				"command": "dlt-logs.sendTime",
-				"title": "send selected time",
-				"icon": "$(sync)"
-			},
-			{
-				"command": "dlt-logs.sendTimeSyncEvents",
-				"title": "send detected time sync events",
-				"icon": "$(sync)"
-			},
-			{
-				"command": "dlt-logs.toggleTimeSync",
-				"title": "toggle auto time sync",
-				"icon": "$(sync-ignored)"
-			},
-			{
-				"command": "dlt-logs.goToTime",
-				"title": "go/jump to entered time...",
-				"icon": "$(history)"
-			},
-			{
-				"command": "dlt-logs.search",
-				"title": "search dlt logs",
-				"icon": "$(search-fuzzy)"
-			},
-			{
-				"command": "dlt-logs.addFilter",
-				"title": "add filter..."
-			},
-			{
-				"command": "dlt-logs.editFilter",
-				"title": "edit filter...",
-				"icon": "$(edit)"
-			},
-			{
-				"command": "dlt-logs.deleteFilter",
-				"title": "delete filter...",
-				"icon": "$(trash)"
-			},
-			{
-				"command": "dlt-logs.enableFilter",
-				"title": "enable",
-				"icon": "$(debug-start)"
-			},
-			{
-				"command": "dlt-logs.disableFilter",
-				"title": "disable",
-				"icon": "$(debug-pause)"
-			},
-			{
-				"command": "dlt-logs.zoomIn",
-				"title": "adjust filter to provide more details",
-				"icon": "$(zoom-in)"
-			},
-			{
-				"command": "dlt-logs.zoomOut",
-				"title": "adjust filter to hide details",
-				"icon": "$(zoom-out)"
-			},
-			{
-				"command": "dlt-logs.setPosFilter",
-				"title": "set pos. filter",
-				"icon": "$(add)"
-			},
-			{
-				"command": "dlt-logs.openReport",
-				"title": "open report",
-				"icon": "$(graph)"
-			},
-			{
-				"command": "dlt-logs.openNewReport",
-				"title": "open as new report",
-				"icon": "$(expand-all)"
-			},
-			{
-				"command": "dlt-logs.treeViewSave",
-				"title": "save as...",
-				"icon": "$(save-as)"
-			},
-			{
-				"command": "dlt-logs.configureColumns",
-				"title": "configure columns...",
-				"icon": "$(list-unordered)"
-			},
-			{
-				"command": "dlt-logs.toggleSortOrder",
-				"title": "toggle sort order",
-				"icon": "$(list-ordered)"
-			},
-			{
-				"command": "dlt-logs.testRestQuery",
-				"title": "test rest query"
-			}
-		],
-		"menus": {
-			"editor/context": [
-				{
-					"group": "1_modification",
-					"command": "dlt-logs.adjustTime",
-					"when": "editorLangId == dlt-log"
-				},
-				{
-					"group": "0_navigation",
-					"command": "dlt-logs.sendTime",
-					"when": "editorLangId == dlt-log"
-				}
-			],
-			"view/item/context": [
-				{
-					"command": "dlt-logs.enableFilter",
-					"when": "view == dltLifecycleExplorer && viewItem =~ /filterDisabled/",
-					"group": "inline"
-				},
-				{
-					"command": "dlt-logs.disableFilter",
-					"when": "view == dltLifecycleExplorer && viewItem =~ /filterEnabled/",
-					"group": "inline"
-				},
-				{
-					"command": "dlt-logs.openReport",
-					"alt": "dlt-logs.openNewReport",
-					"when": "view == dltLifecycleExplorer && viewItem =~ /^filterReport/",
-					"group": "inline"
-				},
-				{
-					"command": "dlt-logs.editFilter",
-					"alt": "dlt-logs.deleteFilter",
-					"when": "view == dltLifecycleExplorer && viewItem =~ /filterAllowEdit/",
-					"group": "inline@2"
-				},
-				{
-					"command": "dlt-logs.treeViewSave",
-					"when": "view == dltLifecycleExplorer && viewItem =~ /canSave/",
-					"group": "inline"
-				},
-				{
-					"command": "dlt-logs.zoomIn",
-					"when": "view == dltLifecycleExplorer && viewItem =~ /canZoomIn/",
-					"group": "inline"
-				},
-				{
-					"command": "dlt-logs.zoomOut",
-					"when": "view == dltLifecycleExplorer && viewItem =~ /canZoomOut/",
-					"group": "inline"
-				},
-				{
-					"command": "dlt-logs.setPosFilter",
-					"when": "view == dltLifecycleExplorer && viewItem =~ /canSetPosF/",
-					"group": "inline"
-				}
-			],
-			"editor/title": [
-				{
-					"command": "dlt-logs.search",
-					"when": "resourceLangId == dlt-log || resourceLangId == can-asc",
-					"group": "navigation@1"
-				},
-				{
-					"command": "dlt-logs.goToTime",
-					"when": "resourceLangId == dlt-log || resourceLangId == can-asc",
-					"group": "navigation@2"
-				},
-				{
-					"command": "dlt-logs.toggleSortOrder",
-					"when": "resourceLangId == dlt-log || resourceLangId == can-asc",
-					"group": "navigation@3"
-				},
-				{
-					"command": "dlt-logs.configureColumns",
-					"when": "resourceLangId == dlt-log || resourceLangId == can-asc",
-					"group": "navigation@4"
-				},
-				{
-					"command": "dlt-logs.toggleTimeSync",
-					"alt": "dlt-logs.sendTimeSyncEvents",
-					"when": "editorLangId == dlt-log",
-					"group": "navigation@5"
-				}
-			]
-		},
-		"viewsContainers": {
-			"activitybar": [
-				{
-					"id": "mbehr1Logs",
-					"title": "Logs (smart-/dlt-logs)",
-					"icon": "./media/logs.svg"
-				}
-			],
-			"panel": [
-				{
-					"id": "mbehr1DltLogsSearch",
-					"title": "DLT-Logs search",
-					"icon": "./media/logs.svg"
-				}
-			]
-		},
-		"views": {
-			"mbehr1DltLogsSearch": [
-				{
-					"type": "webview",
-					"id": "mbehr1DltLogsSearch",
-					"name": "DLT-Logs search",
-					"icon": "./media/logs.svg"
-				}
-			],
-			"mbehr1Logs": [
-				{
-					"id": "dltLifecycleExplorer",
-					"name": "DLT-Logs Explorer"
-				}
-			]
-		},
-		"viewsWelcome": [
-			{
-				"view": "dltLifecycleExplorer",
-				"contents": "No DLT log file opened/visible. [Learn more](https://mbehr1.github.io/dlt-logs/).\n[Open dlt file(s)](command:dlt-logs.dltOpenAdltFile)"
-			}
-		],
-		"languages": [
-			{
-				"id": "dlt-log",
-				"extensions": [
-					".dlt",
-					".DLT"
-				]
-			},
-			{
-				"id": "can-asc",
-				"extensions": [
-					".asc"
-				]
-			}
-		]
-	},
-	"scripts": {
-		"install:all": "npm install && cd webviews/search && npm install",
-		"start:webview:search": "cd webviews/search && npm run start",
-		"build:webview:search": "cd webviews/search && npm run build",
-		"prepare": "husky install",
-		"vscode:prepublish": "npm run compile && npm run build:webview:search",
-		"compile": "tsc -p ./",
-		"lint": "eslint src --ext ts",
-		"watch": "tsc -watch -p ./",
-		"pretest": "npm run compile && npm run lint",
-		"test": "node ./out/test/runTest.js",
-		"e2etests": "wdio run test/wdio.conf.ts"
-	},
-	"devDependencies": {
-		"@commitlint/cli": "^17.5.1",
-		"@commitlint/config-conventional": "^17.4.4",
-		"@semantic-release/changelog": "^6.0.3",
-		"@semantic-release/exec": "^6.0.3",
-		"@semantic-release/git": "^10.0.1",
-		"@types/chai": "^4.3.4",
-		"@types/glob": "^8.1.0",
-		"@types/mocha": "^10.0.1",
-		"@types/node": "^18.15.11",
-		"@types/semver": "^7.3.13",
-		"@types/uuid": "^9.0.1",
-		"@types/vscode": "1.67.0",
-		"@types/ws": "^8.5.4",
-		"@typescript-eslint/eslint-plugin": "^5.58.0",
-		"@typescript-eslint/parser": "^5.58.0",
-		"@vscode/test-electron": "^2.1.5",
-		"@vscode/vsce": "2.18.0",
-		"@wdio/cli": "^7.23.0",
-		"@wdio/local-runner": "^7.23.0",
-		"@wdio/mocha-framework": "^7.23.0",
-		"@wdio/spec-reporter": "^7.23.0",
-		"chai": "^4.3.7",
-		"chai-image": "^3.0.0",
-		"eslint": "^8.38.0",
-		"glob": "^8.0.3",
-		"husky": "^8.0.3",
-		"mocha": "^10.2.0",
-		"semantic-release": "^21.0.1",
-		"ts-node": "^10.9.1",
-		"typescript": "^5.0.4",
-		"wdio-vscode-service": "^4.0.7"
-	},
-	"dependencies": {
-		"@vscode/codicons": "^0.0.33",
-		"@vscode/extension-telemetry": "^0.6.2",
-		"@vscode/webview-ui-toolkit": "^1.2.2",
-		"chart.js": "^4.2.1",
-		"chartjs-adapter-moment": "^1.0.1",
-		"chartjs-plugin-annotation": "^2.2.1",
-		"chartjs-plugin-zoom": "^2.0.1",
-		"fast-xml-parser": "^3.19.0",
-		"hammerjs": "^2.0.8",
-		"hw-chartjs-plugin-colorschemes": "0.5.4",
-		"json5": "2.2.3",
-		"moment": "^2.29.4",
-		"semver": "^7.4.0",
-		"timelines-chart": "^2.12.1",
-		"uuid": "^9.0.0",
-		"w3-css": "^4.1.0",
-		"ws": "^8.13.0"
-	},
-	"optionalDependencies": {
-		"node-adlt": "0.41.0"
-	},
-	"commitlint": {
-		"extends": [
-			"@commitlint/config-conventional"
-		]
-	},
-	"release": {
-		"branches": [
-			"master"
-		],
-		"plugins": [
-			[
-				"@semantic-release/commit-analyzer",
-				{
-					"releaseRules": [
-						{
-							"type": "docs",
-							"scope": "readme",
-							"release": "patch"
-						}
-					]
-				}
-			],
-			"@semantic-release/release-notes-generator",
-			[
-				"@semantic-release/changelog",
-				{
-					"changelogFile": "CHANGELOG.md",
-					"changelogTitle": "# Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))"
-				}
-			],
-			[
-				"@semantic-release/npm",
-				{
-					"npmPublish": false
-				}
-			],
-			[
-				"@semantic-release/git",
-				{
-					"message": "chore(release): ${nextRelease.version}"
-				}
-			],
-			[
-				"@semantic-release/exec",
-				{
-					"publishCmd": "echo \"nextVer=v${nextRelease.version}\" >> $GITHUB_OUTPUT"
-				}
-			]
-		],
-		"preset": "conventionalcommits"
-	},
-	"__metadata": {
-		"id": "ed571ed6-c34f-444a-bf6e-22415895c92b",
-		"publisherDisplayName": "Matthias Behr",
-		"publisherId": "621ef6d2-fdf3-492a-b37e-5dd9a17cb88f",
-		"isPreReleaseVersion": false
-	}
+  "name": "dlt-logs",
+  "displayName": "DLT-Logs",
+  "description": "Open DLT diagnostic log and trace files with lifecycle detection, filters, time-sync, etc.",
+  "version": "1.70.0",
+  "license": "CC-BY-NC-SA-4.0",
+  "publisher": "mbehr1",
+  "author": {
+    "name": "Matthias Behr",
+    "email": "mbehr+dltlogs@mcbehr.de"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mbehr1/dlt-logs.git"
+  },
+  "sponsor": {
+    "url": "https://github.com/sponsors/mbehr1"
+  },
+  "bugs": {
+    "url": "https://github.com/mbehr1/dlt-logs/issues"
+  },
+  "homepage": "https://mbehr1.github.io/dlt-logs/",
+  "engines": {
+    "vscode": "^1.67.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onFileSystem:dlt-log",
+    "onFileSystem:adlt-log",
+    "onCommand:dlt-logs.dltOpenFile",
+    "onCommand:dlt-logs.dltOpenAdltFile",
+    "onCommand:dlt-logs.dltExportFile",
+    "onCommand:dlt-logs.adltTerminal",
+    "onView:mbehr1DltLogsSearch"
+  ],
+  "capabilities": {
+    "virtualWorkspaces": false,
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "Filter can contain regex and conv functions and thus need to come from a trusted workspace only.",
+      "restrictedConfigurations": [
+        "dlt-logs.filters",
+        "dlt-logs.plugins"
+      ]
+    }
+  },
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": [
+      {
+        "title": "DLT-Logs",
+        "properties": {
+          "dlt-logs.adltPath": {
+            "type": "string",
+            "description": "Full path incl filename to the adlt binary to use. See github.com/mbehr1/adlt. Path may not include any shell extensions like ~."
+          },
+          "dlt-logs.fileExtensions": {
+            "type": [
+              "string"
+            ],
+            "default": [
+              "dlt",
+              "DLT"
+            ],
+            "description": "Specifies the file extensions that can be opened."
+          },
+          "dlt-logs.reReadTimeout": {
+            "type": "integer",
+            "default": 1000,
+            "description": "Timeout in ms until the first re-read happens. Defaults to 1s."
+          },
+          "dlt-logs.maxNumberLogs": {
+            "type": "integer",
+            "default": 400000,
+            "description": "Maximum number of DLT logs that are shown in one page. If more messages do exist a paging mechanism will reload at 4/5th the next chunk. You can only search within that page. Please consider using filter to stay within that limit. Defaults to 400'000."
+          },
+          "dlt-logs.maxReportLogs": {
+            "type": "integer",
+            "default": 1000000,
+            "description": "Maximum number of DLT logs rendered for a graphical report. You'll get a warning within the report if the limit is hit."
+          },
+          "dlt-logs.columns": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "title": "column config",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "name of the column",
+                  "enum": [
+                    "index",
+                    "recorded time",
+                    "calculated time",
+                    "timestamp",
+                    "ecu",
+                    "apid",
+                    "ctid",
+                    "text",
+                    "mcnt",
+                    "type",
+                    "subtype",
+                    "mode"
+                  ]
+                },
+                "visible": {
+                  "type": "boolean",
+                  "description": "visibility of the column",
+                  "default": true
+                },
+                "icon": {
+                  "type": "string",
+                  "description": "optional icon (codicon). e.g. $(watch)"
+                },
+                "description": {
+                  "type": "string",
+                  "description": "optional description shown in the column config menu"
+                }
+              }
+            },
+            "default": [
+              {
+                "name": "index",
+                "icon": "$(list-ordered)",
+                "description": "index of this msg inside the file"
+              },
+              {
+                "name": "recorded time",
+                "icon": "$(radio-tower)",
+                "description": "recorded time as local time string",
+                "visible": false
+              },
+              {
+                "name": "calculated time",
+                "icon": "$(history)",
+                "description": "calculated time when the message was sent",
+                "visible": false
+              },
+              {
+                "name": "timestamp",
+                "icon": "$(watch)",
+                "description": "relative timestamp in 0.1ms when the message was sent",
+                "visible": false
+              },
+              {
+                "name": "mcnt",
+                "description": "message counter. Should count up for each (ECU/APID/CTID)",
+                "visible": false
+              },
+              {
+                "name": "ecu",
+                "icon": "$(circuit-board)",
+                "description": "ECU identifier"
+              },
+              {
+                "name": "apid",
+                "icon": "$(package)",
+                "description": "application identifier"
+              },
+              {
+                "name": "ctid",
+                "icon": "$(list-tree)",
+                "description": "context identifier"
+              },
+              {
+                "name": "type",
+                "description": "type (LOG|CONTROL|NETWORK|TRACE) of the message",
+                "visible": false
+              },
+              {
+                "name": "subtype",
+                "description": "sub-type (e.g. log level for type LOG) of the message",
+                "visible": false
+              },
+              {
+                "name": "mode",
+                "description": "mode (verbose|non-verbose) of the message",
+                "visible": false
+              },
+              {
+                "name": "text",
+                "icon": "$(symbol-string)",
+                "description": "payload (assembled args) as text"
+              }
+            ]
+          },
+          "dlt-logs.filters": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "title": "filter",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Optional name of this filter."
+                },
+                "type": {
+                  "type": "integer",
+                  "description": "Type of this filter. 0 = positive, 1 = negative, 2 = marker, 3=event (time-sync)"
+                },
+                "enabled": {
+                  "type": "boolean",
+                  "description": "Determines whether the filter is currently enabled.",
+                  "default": true
+                },
+                "atLoadTime": {
+                  "type": "boolean",
+                  "description": "Determines whether the filter is already applied at file open time reducing the amount of msgs to be processed. Default=false",
+                  "default": false
+                },
+                "mstp": {
+                  "type": "integer",
+                  "description": "The MSTP to filter for. 0 = LOG, 1 = TRACE, 2 = NW_TRACE, 3 = CONTROL. Defaults to no filter."
+                },
+                "logLevelMin": {
+                  "type": "integer",
+                  "description": "Minimum log level to filter for. 1 = FATAL, 2 = ERROR, 3 = WARN, 4 = INFO, 5 = DEBUG, 6 = VERBOSE. Default: no filtering to log level. Matches if the msg is type LOG and the loglevel is >= this value. E.g. use logLevelMin=4 with a neg. filter to filter out all INFO, DEBUG, VERBOSE msgs. Implies filtering for MSTP=0(LOG)."
+                },
+                "logLevelMax": {
+                  "type": "integer",
+                  "description": "Maximum log level to filter for. 1 = FATAL, 2 = ERROR, 3 = WARN, 4 = INFO, 5 = DEBUG, 6 = VERBOSE.  Default: no filtering to log level. Matches if the msg is type LOG and the loglevel is <= this value. E.g. use logLevelMax=2 with a pos. filter to see all FATAL and ERROR msgs. Implies filtering for MSTP=0(LOG)."
+                },
+                "ecu": {
+                  "type": "string",
+                  "description": "The ECU id to filter for. Ignored if empty.",
+                  "default": ""
+                },
+                "apid": {
+                  "type": "string",
+                  "description": "The APID to filter for. Should have 4 chars (less will be filled with \\0). Ignored if empty.",
+                  "default": ""
+                },
+                "ctid": {
+                  "type": "string",
+                  "description": "The CTID to filter for. Should have 4 chars (less will be filled with \\0). Ignored if empty.",
+                  "default": ""
+                },
+                "payload": {
+                  "type": "string",
+                  "description": "A string to search for in (contains) the payload text. The search is case sensitive. Ignored if empty."
+                },
+                "payloadRegex": {
+                  "type": "string",
+                  "description": "A regular expression (JS/TS/node syntax) to match against the payload text. The search is case sensitive. Ignored if empty. If provided 'payload' is ignored."
+                },
+                "filterColour": {
+                  "type": "string",
+                  "description:": "The background colour used for type marker(2). Any css colour code like #f0f0f0 or 'red' can be used. For more detailed customization you can define decorations and refer to those. Only used with marker. Defaults to blue.",
+                  "default": "blue"
+                },
+                "decorationId": {
+                  "type": "string",
+                  "description": "Identifier of the decoration (id of decorations config option) to use for marker instead of filterColour. Defaults to none."
+                },
+                "timeSyncId": {
+                  "type": "string",
+                  "description": "Optional identifier of a 'time sync event'. This gets broadcasted to other documents with the time and the last regex capture in lower case (from payloadRegex) as value."
+                },
+                "timeSyncPrio": {
+                  "type": "integer",
+                  "description": "Optional (needed if timeSyncId is used) priority of the time-sync event. As two documents exchange their events by this prio they decide on who will adjust the time. The event with the highest prio (lowest number) will be used."
+                },
+                "configs": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "description": "Name of the config the filter is part of. The name can be like a 'path' using e.g. <highest-level-config>/<next-level-config> and will be added to the lowest level."
+                  },
+                  "description": "List of configs this filter is part of."
+                },
+                "reportOptions": {
+                  "type": "object",
+                  "description": "Additional options for reports.",
+                  "properties": {
+                    "valueMap": {
+                      "type": "object",
+                      "description": "See docs for details."
+                    },
+                    "conversionFunction": {
+                      "type": "string",
+                      "description": "Javascript function body as string. See docs for details."
+                    },
+                    "yAxes": {
+                      "type": "object",
+                      "description": "Determines yAxis for each dataset. See docs for details."
+                    }
+                  }
+                }
+              }
+            },
+            "default": []
+          },
+          "dlt-logs.configs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "title": "config",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Name of this config. Can be 'path' alike using <highest-level-config>/<next-level-config>/... e.g. 'ECU1/generic'"
+                },
+                "autoEnableIf": {
+                  "type": "string",
+                  "description": "Regex on ECU-ID to determine when to enable this config automatically. Can be empty or .* for always enable. If missing the config is by default disabled i.e. all filters part of this config will be disabled."
+                }
+              }
+            }
+          },
+          "dlt-logs.plugins": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "title": "FileTransfer plugin",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp', 'NonVerbose', 'Rewrite' and 'CAN' are available.",
+                      "enum": [
+                        "FileTransfer"
+                      ]
+                    },
+                    "enabled": {
+                      "type": "boolean",
+                      "description": "Determines whether the plugin is currently enabled.",
+                      "default": true
+                    },
+                    "allowSave": {
+                      "type": "boolean",
+                      "description": "Determing whether saving the files is supported. Otherwise just the information of filetransfers is provided. This reduces the memory footprint. Default: true (allow).",
+                      "default": true
+                    },
+                    "keepFLDA": {
+                      "type": "boolean",
+                      "description": "Whether to keep the FLDA log messages. Default is to remove them from the logs.",
+                      "default": false
+                    },
+                    "apid": {
+                      "type": "string",
+                      "description": "The APID to filter for FL* msgs. Should have 4 chars (less will be filled with \\0). Ignored if empty. The spec doesn't define any but providing one speeds up parsing.",
+                      "default": ""
+                    },
+                    "ctid": {
+                      "type": "string",
+                      "description": "The CTID to filter for FL* msgs. Should have 4 chars (less will be filled with \\0). Ignored if empty. The spec doesn't define any value but providing one speeds up parsing.",
+                      "default": ""
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "title": "SOME/IP plugin",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp', 'NonVerbose', 'Rewrite' and 'CAN' are available.",
+                      "enum": [
+                        "SomeIp"
+                      ]
+                    },
+                    "enabled": {
+                      "type": "boolean",
+                      "description": "Determines whether the plugin is currently enabled.",
+                      "default": true
+                    },
+                    "fibexDir": {
+                      "type": "string",
+                      "description": "The path to directory with the FIBEX files. Needs to be set."
+                    },
+                    "ctid": {
+                      "type": "string",
+                      "description": "The CTID to filter for SOME/IP msgs. Should have 4 chars (less will be filled with \\0). Defaults to 'TC'.",
+                      "default": "TC"
+                    },
+                    "mtin": {
+                      "type": "integer",
+                      "description": "The 'MTIN' to filter for SOME/IP msgs. Defaults to MTIN_NW.TRACE_IPC (1).",
+                      "default": 1
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "title": "Non-Verbose plugin",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp', 'NonVerbose', 'Rewrite' and 'CAN' are available.",
+                      "enum": [
+                        "NonVerbose"
+                      ]
+                    },
+                    "enabled": {
+                      "type": "boolean",
+                      "description": "Determines whether the plugin is currently enabled.",
+                      "default": true
+                    },
+                    "fibexDir": {
+                      "type": "string",
+                      "description": "The path to directory with the FIBEX files. Can be empty if shared folder with SomeIp is used."
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "title": "Rewrite plugin",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp', 'NonVerbose', 'Rewrite' and 'CAN' are available.",
+                      "enum": [
+                        "Rewrite"
+                      ]
+                    },
+                    "enabled": {
+                      "type": "boolean",
+                      "description": "Determines whether the plugin is currently enabled.",
+                      "default": true
+                    },
+                    "rewrites": {
+                      "type": "array",
+                      "description": "Array with rewrite configurations.",
+                      "items": {
+                        "type": "object",
+                        "title": "rewrite config",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "description": "Identifier of this rewrite config."
+                          },
+                          "filter": {
+                            "type": "object",
+                            "description": "Filter attributes. Type is set automatically to positive filter. This determines which messages will be rewritten by this config."
+                          },
+                          "payloadRegex": {
+                            "type": "string",
+                            "description": "Regex on the payload. This will be called after the message is matched and is applied on the payloadText. The match/result is passed as first parameter to the rewrite functions."
+                          },
+                          "rewrite": {
+                            "type": "object",
+                            "description": "Rewrite functions. Function definition taking two parameter: match from payloadRegex (or undefined) and the message object. Currently functions for message attributes: payloadText and timeStamp are supported. Those functions will be called and if a value is returned this will replace the current msg attribute value."
+                          }
+                        }
+                      },
+                      "default": [
+                        {
+                          "name": "SYS/JOUR timestamp and text",
+                          "filter": {
+                            "apid": "SYS",
+                            "ctid": "JOUR"
+                          },
+                          "payloadRegex": "^.*? .*? (?<timeStamp>\\d+\\.\\d+) (?<text>.*)$",
+                          "rewrite": {
+                            "timeStamp": "function(m,msg){ if (!m) { return undefined; } return Math.round(Number(m.groups?.['timeStamp']) * 10000)}",
+                            "payloadText": "function(m,msg){ if (!m) {return undefined; } return m.groups?.['text']}"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "title": "CAN plugin",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp', 'NonVerbose', 'Rewrite' and 'CAN' are available.",
+                      "enum": [
+                        "CAN"
+                      ]
+                    },
+                    "enabled": {
+                      "type": "boolean",
+                      "description": "Determines whether the plugin is currently enabled.",
+                      "default": true
+                    },
+                    "fibexDir": {
+                      "type": "string",
+                      "description": "The path to directory with the FIBEX files. Needs to be set."
+                    },
+                    "ctid": {
+                      "type": "string",
+                      "description": "The CTID to filter for CAN msgs. Should have 4 chars (less will be filled with \\0). Defaults to 'TC'.",
+                      "default": "TC"
+                    },
+                    "mtin": {
+                      "type": "integer",
+                      "description": "The 'MTIN' to filter for SOME/IP msgs. Defaults to MTIN_NW.TRACE_CAN (2).",
+                      "default": 2
+                    }
+                  }
+                }
+              ]
+            },
+            "default": [
+              {
+                "name": "FileTransfer",
+                "enabled": true,
+                "allowSave": true,
+                "keepFLDA": false
+              },
+              {
+                "name": "SomeIp",
+                "enabled": false
+              },
+              {
+                "name": "NonVerbose",
+                "enabled": false
+              },
+              {
+                "name": "Rewrite",
+                "enabled": false,
+                "rewrites": [
+                  {
+                    "name": "SYS/JOUR timestamp and text",
+                    "filter": {
+                      "apid": "SYS",
+                      "ctid": "JOUR"
+                    },
+                    "payloadRegex": "^.*? .*? (?<timeStamp>\\d+\\.\\d+) (?<text>.*)$",
+                    "rewrite": {
+                      "timeStamp": "function(m,msg){ if (!m) { return undefined; } return Math.round(Number(m.groups?.['timeStamp']) * 10000)}",
+                      "payloadText": "function(m,msg){ if (!m) {return undefined; } return m.groups?.['text']}"
+                    }
+                  }
+                ]
+              },
+              {
+                "name": "CAN",
+                "enabled": false
+              }
+            ]
+          },
+          "dlt-logs.decorations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "title": "decoration",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "description": "Identifier of this decoration for later reference e.g. in filters."
+                },
+                "renderOptions": {
+                  "type": "object",
+                  "description": "Render options see vs code API DecorationRenderOptions. isWholeLine:true will be added automatically."
+                }
+              }
+            },
+            "default": [
+              {
+                "id": "error",
+                "renderOptions": {
+                  "borderWidth": "1px",
+                  "borderStyle": "solid",
+                  "overviewRulerColor": "red",
+                  "overviewRulerLane": 1,
+                  "light": {
+                    "borderColor": "red"
+                  },
+                  "dark": {
+                    "borderColor": "red"
+                  }
+                }
+              },
+              {
+                "id": "warning",
+                "renderOptions": {
+                  "borderWidth": "1px",
+                  "borderStyle": "dotted",
+                  "overviewRulerColor": "orange",
+                  "overviewRulerLane": 2,
+                  "light": {
+                    "borderColor": "orange"
+                  },
+                  "dark": {
+                    "borderColor": "orange"
+                  }
+                }
+              },
+              {
+                "id": "fatal",
+                "renderOptions": {
+                  "borderWidth": "3px",
+                  "borderStyle": "solid",
+                  "overviewRulerColor": "red",
+                  "overviewRulerLane": 7,
+                  "light": {
+                    "borderColor": "red"
+                  },
+                  "dark": {
+                    "borderColor": "red"
+                  }
+                }
+              },
+              {
+                "id": "lifecycleOdd",
+                "renderOptions": {
+                  "overviewRulerColor": "rgba(56,154,66,0.1)",
+                  "overviewRulerLane": 7,
+                  "dark": {
+                    "backgroundColor": "rgba(56,154,66,0.1)"
+                  },
+                  "light": {
+                    "backgroundColor": "rgba(156,154,166,0.1)"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    ],
+    "commands": [
+      {
+        "command": "dlt-logs.dltExportFile",
+        "title": "Export/filter DLT file..."
+      },
+      {
+        "command": "dlt-logs.dltOpenFile",
+        "title": "Open DLT file..."
+      },
+      {
+        "command": "dlt-logs.dltOpenAdltFile",
+        "title": "Open DLT file via adlt..."
+      },
+      {
+        "command": "dlt-logs.dltOpenFileDeprecated",
+        "title": "Open DLT file via deprecated NodeJS implementation..."
+      },
+      {
+        "command": "dlt-logs.adltTerminal",
+        "title": "New terminal with adlt in path"
+      },
+      {
+        "command": "dlt-logs.adjustTime",
+        "title": "adjust time..."
+      },
+      {
+        "command": "dlt-logs.sendTime",
+        "title": "send selected time",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "dlt-logs.sendTimeSyncEvents",
+        "title": "send detected time sync events",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "dlt-logs.toggleTimeSync",
+        "title": "toggle auto time sync",
+        "icon": "$(sync-ignored)"
+      },
+      {
+        "command": "dlt-logs.goToTime",
+        "title": "go/jump to entered time...",
+        "icon": "$(history)"
+      },
+      {
+        "command": "dlt-logs.search",
+        "title": "search dlt logs",
+        "icon": "$(search-fuzzy)"
+      },
+      {
+        "command": "dlt-logs.addFilter",
+        "title": "add filter..."
+      },
+      {
+        "command": "dlt-logs.editFilter",
+        "title": "edit filter...",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "dlt-logs.deleteFilter",
+        "title": "delete filter...",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "dlt-logs.enableFilter",
+        "title": "enable",
+        "icon": "$(debug-start)"
+      },
+      {
+        "command": "dlt-logs.disableFilter",
+        "title": "disable",
+        "icon": "$(debug-pause)"
+      },
+      {
+        "command": "dlt-logs.zoomIn",
+        "title": "adjust filter to provide more details",
+        "icon": "$(zoom-in)"
+      },
+      {
+        "command": "dlt-logs.zoomOut",
+        "title": "adjust filter to hide details",
+        "icon": "$(zoom-out)"
+      },
+      {
+        "command": "dlt-logs.setPosFilter",
+        "title": "set pos. filter",
+        "icon": "$(add)"
+      },
+      {
+        "command": "dlt-logs.openReport",
+        "title": "open report",
+        "icon": "$(graph)"
+      },
+      {
+        "command": "dlt-logs.openNewReport",
+        "title": "open as new report",
+        "icon": "$(expand-all)"
+      },
+      {
+        "command": "dlt-logs.treeViewSave",
+        "title": "save as...",
+        "icon": "$(save-as)"
+      },
+      {
+        "command": "dlt-logs.configureColumns",
+        "title": "configure columns...",
+        "icon": "$(list-unordered)"
+      },
+      {
+        "command": "dlt-logs.toggleSortOrder",
+        "title": "toggle sort order",
+        "icon": "$(list-ordered)"
+      },
+      {
+        "command": "dlt-logs.testRestQuery",
+        "title": "test rest query"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "group": "1_modification",
+          "command": "dlt-logs.adjustTime",
+          "when": "editorLangId == dlt-log"
+        },
+        {
+          "group": "0_navigation",
+          "command": "dlt-logs.sendTime",
+          "when": "editorLangId == dlt-log"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "dlt-logs.enableFilter",
+          "when": "view == dltLifecycleExplorer && viewItem =~ /filterDisabled/",
+          "group": "inline"
+        },
+        {
+          "command": "dlt-logs.disableFilter",
+          "when": "view == dltLifecycleExplorer && viewItem =~ /filterEnabled/",
+          "group": "inline"
+        },
+        {
+          "command": "dlt-logs.openReport",
+          "alt": "dlt-logs.openNewReport",
+          "when": "view == dltLifecycleExplorer && viewItem =~ /^filterReport/",
+          "group": "inline"
+        },
+        {
+          "command": "dlt-logs.editFilter",
+          "alt": "dlt-logs.deleteFilter",
+          "when": "view == dltLifecycleExplorer && viewItem =~ /filterAllowEdit/",
+          "group": "inline@2"
+        },
+        {
+          "command": "dlt-logs.treeViewSave",
+          "when": "view == dltLifecycleExplorer && viewItem =~ /canSave/",
+          "group": "inline"
+        },
+        {
+          "command": "dlt-logs.zoomIn",
+          "when": "view == dltLifecycleExplorer && viewItem =~ /canZoomIn/",
+          "group": "inline"
+        },
+        {
+          "command": "dlt-logs.zoomOut",
+          "when": "view == dltLifecycleExplorer && viewItem =~ /canZoomOut/",
+          "group": "inline"
+        },
+        {
+          "command": "dlt-logs.setPosFilter",
+          "when": "view == dltLifecycleExplorer && viewItem =~ /canSetPosF/",
+          "group": "inline"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "dlt-logs.search",
+          "when": "resourceLangId == dlt-log || resourceLangId == can-asc",
+          "group": "navigation@1"
+        },
+        {
+          "command": "dlt-logs.goToTime",
+          "when": "resourceLangId == dlt-log || resourceLangId == can-asc",
+          "group": "navigation@2"
+        },
+        {
+          "command": "dlt-logs.toggleSortOrder",
+          "when": "resourceLangId == dlt-log || resourceLangId == can-asc",
+          "group": "navigation@3"
+        },
+        {
+          "command": "dlt-logs.configureColumns",
+          "when": "resourceLangId == dlt-log || resourceLangId == can-asc",
+          "group": "navigation@4"
+        },
+        {
+          "command": "dlt-logs.toggleTimeSync",
+          "alt": "dlt-logs.sendTimeSyncEvents",
+          "when": "editorLangId == dlt-log",
+          "group": "navigation@5"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "mbehr1Logs",
+          "title": "Logs (smart-/dlt-logs)",
+          "icon": "./media/logs.svg"
+        }
+      ],
+      "panel": [
+        {
+          "id": "mbehr1DltLogsSearch",
+          "title": "DLT-Logs search",
+          "icon": "./media/logs.svg"
+        }
+      ]
+    },
+    "views": {
+      "mbehr1DltLogsSearch": [
+        {
+          "type": "webview",
+          "id": "mbehr1DltLogsSearch",
+          "name": "DLT-Logs search",
+          "icon": "./media/logs.svg"
+        }
+      ],
+      "mbehr1Logs": [
+        {
+          "id": "dltLifecycleExplorer",
+          "name": "DLT-Logs Explorer"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "dltLifecycleExplorer",
+        "contents": "No DLT log file opened/visible. [Learn more](https://mbehr1.github.io/dlt-logs/).\n[Open dlt file(s)](command:dlt-logs.dltOpenAdltFile)"
+      }
+    ],
+    "languages": [
+      {
+        "id": "dlt-log",
+        "extensions": [
+          ".dlt",
+          ".DLT"
+        ]
+      },
+      {
+        "id": "can-asc",
+        "extensions": [
+          ".asc"
+        ]
+      }
+    ]
+  },
+  "scripts": {
+    "install:all": "npm install && cd webviews/search && npm install",
+    "start:webview:search": "cd webviews/search && npm run start",
+    "build:webview:search": "cd webviews/search && npm run build",
+    "prepare": "husky install",
+    "vscode:prepublish": "npm run compile && npm run build:webview:search",
+    "compile": "tsc -p ./",
+    "lint": "eslint src --ext ts",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "test": "node ./out/test/runTest.js",
+    "e2etests": "wdio run test/wdio.conf.ts"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^17.5.1",
+    "@commitlint/config-conventional": "^17.4.4",
+    "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/exec": "^6.0.3",
+    "@semantic-release/git": "^10.0.1",
+    "@types/chai": "^4.3.4",
+    "@types/glob": "^8.1.0",
+    "@types/mocha": "^10.0.1",
+    "@types/node": "^18.15.11",
+    "@types/semver": "^7.3.13",
+    "@types/uuid": "^9.0.1",
+    "@types/vscode": "1.67.0",
+    "@types/ws": "^8.5.4",
+    "@typescript-eslint/eslint-plugin": "^5.58.0",
+    "@typescript-eslint/parser": "^5.58.0",
+    "@vscode/test-electron": "^2.1.5",
+    "@vscode/vsce": "2.18.0",
+    "@wdio/cli": "^7.23.0",
+    "@wdio/local-runner": "^7.23.0",
+    "@wdio/mocha-framework": "^7.23.0",
+    "@wdio/spec-reporter": "^7.23.0",
+    "chai": "^4.3.7",
+    "chai-image": "^3.0.0",
+    "eslint": "^8.38.0",
+    "glob": "^8.0.3",
+    "husky": "^8.0.3",
+    "mocha": "^10.2.0",
+    "semantic-release": "^21.0.1",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.0.4",
+    "wdio-vscode-service": "^4.0.7"
+  },
+  "dependencies": {
+    "@vscode/codicons": "^0.0.33",
+    "@vscode/extension-telemetry": "^0.6.2",
+    "@vscode/webview-ui-toolkit": "^1.2.2",
+    "chart.js": "^4.2.1",
+    "chartjs-adapter-moment": "^1.0.1",
+    "chartjs-plugin-annotation": "^2.2.1",
+    "chartjs-plugin-zoom": "^2.0.1",
+    "fast-xml-parser": "^3.19.0",
+    "hammerjs": "^2.0.8",
+    "hw-chartjs-plugin-colorschemes": "0.5.4",
+    "json5": "2.2.3",
+    "moment": "^2.29.4",
+    "semver": "^7.4.0",
+    "timelines-chart": "^2.12.1",
+    "uuid": "^9.0.0",
+    "w3-css": "^4.1.0",
+    "ws": "^8.13.0"
+  },
+  "optionalDependencies": {
+    "node-adlt": "0.42.0"
+  },
+  "commitlint": {
+    "extends": [
+      "@commitlint/config-conventional"
+    ]
+  },
+  "release": {
+    "branches": [
+      "master"
+    ],
+    "plugins": [
+      [
+        "@semantic-release/commit-analyzer",
+        {
+          "releaseRules": [
+            {
+              "type": "docs",
+              "scope": "readme",
+              "release": "patch"
+            }
+          ]
+        }
+      ],
+      "@semantic-release/release-notes-generator",
+      [
+        "@semantic-release/changelog",
+        {
+          "changelogFile": "CHANGELOG.md",
+          "changelogTitle": "# Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))"
+        }
+      ],
+      [
+        "@semantic-release/npm",
+        {
+          "npmPublish": false
+        }
+      ],
+      [
+        "@semantic-release/git",
+        {
+          "message": "chore(release): ${nextRelease.version}"
+        }
+      ],
+      [
+        "@semantic-release/exec",
+        {
+          "publishCmd": "echo \"nextVer=v${nextRelease.version}\" >> $GITHUB_OUTPUT"
+        }
+      ]
+    ],
+    "preset": "conventionalcommits"
+  },
+  "__metadata": {
+    "id": "ed571ed6-c34f-444a-bf6e-22415895c92b",
+    "publisherDisplayName": "Matthias Behr",
+    "publisherId": "621ef6d2-fdf3-492a-b37e-5dd9a17cb88f",
+    "isPreReleaseVersion": false
+  }
 }
