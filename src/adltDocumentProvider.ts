@@ -1908,52 +1908,68 @@ export class AdltDocument implements vscode.Disposable {
                             const queryFilters = JSON5.parse(commandParams);
                             // console.log(`filters=`, queryFilters);
                             if (Array.isArray(queryFilters) && queryFilters.length > 0) {
-                                let addLifecycles = false;
-                                let maxNrMsgs = 1000; // default to 1000 msgs to report as result
-                                const filters: DltFilter[] = [];
-                                for (let i = 0; i < queryFilters.length; ++i) {
-                                    const filterAttribs = queryFilters[i];
-                                    if ('maxNrMsgs' in filterAttribs) {
-                                        const fMaxNrMsgs = filterAttribs['maxNrMsgs'];
-                                        if (fMaxNrMsgs === 0) { maxNrMsgs = this.fileInfoNrMsgs; } else
-                                            if (fMaxNrMsgs > maxNrMsgs) { maxNrMsgs = fMaxNrMsgs; }
-                                        delete filterAttribs['maxNrMsgs'];
-                                    }
-                                    if ('addLifecycles' in filterAttribs) { addLifecycles = true; }
-                                    const filter = new DltFilter(filterAttribs, false);
-                                    filters.push(filter);
+                              let addLifecycles = false;
+                              let maxNrMsgs = 1000; // default to 1000 msgs to report as result
+                              // todo bug not working to set maxNrMsgs to <1000!
+                              const filters: DltFilter[] = [];
+                              for (let i = 0; i < queryFilters.length; ++i) {
+                                const filterAttribs = queryFilters[i];
+                                if ('maxNrMsgs' in filterAttribs) {
+                                  const fMaxNrMsgs = filterAttribs['maxNrMsgs'];
+                                  if (fMaxNrMsgs === 0) {
+                                    maxNrMsgs = this.fileInfoNrMsgs;
+                                  } else if (fMaxNrMsgs > maxNrMsgs) {
+                                    maxNrMsgs = fMaxNrMsgs;
+                                  }
+                                  delete filterAttribs['maxNrMsgs'];
                                 }
-                                // now get the matching message:
-                                if (filters.length > 0) {
-                                    const matches = await this.getMatchingMessages(filters, maxNrMsgs);
-                                    // console.log(`adlt.restQueryDocsFilters got matches.length=${matches.length}`);
-                                    //const matches: util.RestObject[] = [];
-                                    retObj.data = util.createRestArray(matches, (obj: object, i: number) => { const msg = obj as FilterableDltMsg; return msg.asRestObject(i); });
-                                    if (addLifecycles) {
-                                        // add lifecycle infos to the result:
-                                        this.lifecycles.forEach((lcInfo, ecu) => {
-                                            const lifecycles = [...lcInfo.map((lc, idx) => {
-                                                return {
-                                                    type: "lifecycles", id: lc.persistentId,
-                                                    attributes: {
-                                                        index: idx + 1,
-                                                        id: lc.persistentId, // todo to ease parsing with jsonPath...
-                                                        ecu: ecu, // todo or without <SH>_ ?
-                                                        label: lc.getTreeNodeLabel(),
-                                                        startTimeUtc: lc.lifecycleStart.toUTCString(),
-                                                        endTimeUtc: lc.lifecycleEnd.toUTCString(),
-                                                        sws: lc.swVersions,
-                                                        msgs: lc.nrMsgs,
-                                                    }
-                                                };
-                                            })];
-                                            if (Array.isArray(retObj.data)) { retObj.data.unshift(...lifecycles); }
-                                        });
-                                    }
-                                } else {
-                                    if (!Array.isArray(retObj.error)) { retObj.error = []; }
-                                    retObj.error?.push({ title: `query failed as no filters defined` });
+                                if ('addLifecycles' in filterAttribs) {
+                                  addLifecycles = true;
                                 }
+                                const filter = new DltFilter(filterAttribs, false);
+                                filters.push(filter);
+                              }
+                              // now get the matching message:
+                              if (filters.length > 0) {
+                                const matches = await this.getMatchingMessages(filters, maxNrMsgs);
+                                // console.log(`adlt.restQueryDocsFilters got matches.length=${matches.length}`);
+                                //const matches: util.RestObject[] = [];
+                                retObj.data = util.createRestArray(matches, (obj: object, i: number) => {
+                                  const msg = obj as FilterableDltMsg;
+                                  return msg.asRestObject(i);
+                                });
+                                if (addLifecycles) {
+                                  // add lifecycle infos to the result:
+                                  this.lifecycles.forEach((lcInfo, ecu) => {
+                                    const lifecycles = [
+                                      ...lcInfo.map((lc, idx) => {
+                                        return {
+                                          type: 'lifecycles',
+                                          id: lc.persistentId,
+                                          attributes: {
+                                            index: idx + 1,
+                                            id: lc.persistentId, // todo to ease parsing with jsonPath...
+                                            ecu: ecu, // todo or without <SH>_ ?
+                                            label: lc.getTreeNodeLabel(),
+                                            startTimeUtc: lc.lifecycleStart.toUTCString(),
+                                            endTimeUtc: lc.lifecycleEnd.toUTCString(),
+                                            sws: lc.swVersions,
+                                            msgs: lc.nrMsgs,
+                                          },
+                                        };
+                                      }),
+                                    ];
+                                    if (Array.isArray(retObj.data)) {
+                                      retObj.data.unshift(...lifecycles);
+                                    }
+                                  });
+                                }
+                              } else {
+                                if (!Array.isArray(retObj.error)) {
+                                  retObj.error = [];
+                                }
+                                retObj.error?.push({ title: `query failed as no filters defined` });
+                              }
                             } else {
                                 if (!Array.isArray(retObj.error)) { retObj.error = []; }
                                 retObj.error?.push({ title: `query failed as commandParams wasn't an array` });
