@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.72.0](https://github.com/mbehr1/dlt-logs/compare/v1.71.0...v1.72.0) (2023-10-08)
+
+
+### Features
+
+* add dlt-logs-utils support ([31b7b9f](https://github.com/mbehr1/dlt-logs/commit/31b7b9fb2e91aaf39cb6e55ef0dd3f69c0936f8e))
+
 ## [1.71.0](https://github.com/mbehr1/dlt-logs/compare/v1.70.0...v1.71.0) (2023-09-02)
 
 
