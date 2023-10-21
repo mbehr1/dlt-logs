@@ -1,6 +1,6 @@
 import { PageDecorator, IPageDecorator, BasePage, WebView } from 'wdio-vscode-service';
-import { reportWebView as ReportWebViewLocators } from './locators';
-import * as locatorMap from './locators';
+import { reportWebView as ReportWebViewLocators } from './locators.js';
+import * as locatorMap from './locators.js';
 
 export interface ReportWebView extends IPageDecorator<typeof ReportWebViewLocators> { }
 @PageDecorator(ReportWebViewLocators)
