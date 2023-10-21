@@ -1,10 +1,7 @@
 {
-    "extends": "../tsconfig.json",
+    // "extends": "../tsconfig.json",
     "compilerOptions": {
-        "experimentalDecorators": true,
-        "module": "CommonJS",
-        "rootDir": "./",
-        "esModuleInterop": true,
+        "module": "ESNext",
         "types": [
             "node",
             "webdriverio/async",
@@ -12,8 +9,16 @@
             "expect-webdriverio",
             "wdio-vscode-service"
         ],
-        "target": "es2021"
+        "target": "es2022",
+        "moduleResolution": "node",
+        "esModuleInterop": true,
+        "experimentalDecorators": true
     },
+    "ts-node": {
+        // Tell ts-node CLI to install the --loader automatically, explained below
+        "esm": true
+    },
+
     "include": [
         "./**/*.ts"
     ],
