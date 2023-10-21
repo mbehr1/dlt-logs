@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.72.1](https://github.com/mbehr1/dlt-logs/compare/v1.72.0...v1.72.1) (2023-10-21)
+
+
+### Bug Fixes
+
+* **adlt:** resume lifecycles not properly sorted ([3edbb02](https://github.com/mbehr1/dlt-logs/commit/3edbb0240956b384505cb1f2071d01fbc5b022c2))
+
 ## [1.72.0](https://github.com/mbehr1/dlt-logs/compare/v1.71.0...v1.72.0) (2023-10-08)
 
 
