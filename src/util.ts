@@ -238,3 +238,14 @@ export function getNonce() {
 export function getUri(webview: vscode.Webview, extensionUri: vscode.Uri, pathList: string[]) {
     return webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, ...pathList));
 }
+
+/**
+ * check whether the given string contains any regex chars ^$*+?()[]{}|.-\=!<,
+ * @param s string to search for regex chars
+ * @returns whether the string contains any regex chars
+ */
+export function containsRegexChars(s: string): boolean {
+  let pos= s.search(/[\^\$\*\+\?\(\)\[\]\{\}\|\.\-\\\=\!\<]/);
+  // console.log(`containsRegexChars('${s}') pos=${pos}`);
+  return pos >= 0;
+}
