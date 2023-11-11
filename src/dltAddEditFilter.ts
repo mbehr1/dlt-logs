@@ -189,9 +189,9 @@ export function editFilter(doc: FilterableDocument & ReportDocument, newFilter: 
         }
 
         let stepInput = new MultiStepInput(`${isAdd ? 'add' : 'edit'} filter...`, [
-            { title: `filter on ECU?`, items: ecus, initialValue: () => { return newFilter.ecu; }, placeholder: 'enter or select the ECU to filter (if any)', onValue: (v) => { newFilter.ecu = v.length ? v : undefined; }, isValid: (v => (v.length <= 4)) },
-            { title: `filter on APID?`, items: apids, initialValue: () => { return newFilter.apid; }, onValue: (v) => { newFilter.apid = v.length ? v : undefined; }, isValid: (v => (v.length <= 4)) },
-            { title: `filter on CTID?`, items: () => ctids.filter(v => { return newFilter.apid !== undefined ? v.data.apids.includes(newFilter.apid) : true; }), initialValue: () => { return newFilter.ctid; }, onValue: (v) => { newFilter.ctid = v.length ? v : undefined; }, isValid: (v => (v.length <= 4)) },
+            { title: `filter on ECU?`, items: ecus, initialValue: () => { return newFilter.ecu instanceof RegExp ? newFilter.ecu.source : newFilter.ecu; }, placeholder: 'enter or select the ECU to filter (if any)', onValue: (v) => { newFilter.ecu = onValueChar4OrRegex(newFilter.ecu, v); }, isValid: (v => (v.length <= 4 || util.containsRegexChars(v))) },
+            { title: `filter on APID?`, items: apids, initialValue: () => { return newFilter.apid instanceof RegExp ? newFilter.apid.source : newFilter.apid; }, onValue: (v) => { newFilter.apid = onValueChar4OrRegex(newFilter.apid, v); }, isValid: (v => (v.length <= 4 || util.containsRegexChars(v))) },
+            { title: `filter on CTID?`, items: () => ctids.filter(v => { return ctidFilter(newFilter.apid, v.data.apids); }), initialValue: () => { return newFilter.ctid instanceof RegExp ? newFilter.ctid.source : newFilter.ctid; }, onValue: (v) => { newFilter.ctid = onValueChar4OrRegex(newFilter.ctid, v); }, isValid: (v => (v.length <= 4 || util.containsRegexChars(v))) },
             { title: `filter on payload?`, items: optArgs !== undefined && optArgs.payload !== undefined ? [new PickItem(optArgs.payload)] : [], initialValue: () => { return newFilter.payload; }, onValue: (v) => { newFilter.payload = v.length ? v : undefined; } },
             { title: `filter on payloadRegex?`, items: optArgs !== undefined && optArgs.payload !== undefined ? [new PickItem(optArgs.payload)] : [], initialValue: () => { return newFilter.payloadRegex?.source; }, onValue: (v) => { newFilter.payloadRegex = v.length ? new RegExp(v) : undefined; }, isValid: (v => { try { let r = new RegExp(v); return true; } catch (err) { return false; } }) },
             { title: `filter type?`, items: [new PickItem(filterTypesByNumber.get(0)!), new PickItem(filterTypesByNumber.get(1)!), new PickItem(filterTypesByNumber.get(2)!)], initialValue: () => { return filterTypesByNumber.get(newFilter.type); }, onValue: (v) => { let t = filterTypesByName.get(v); if (t !== undefined) { newFilter.type = t; } }, isValid: (v => (filterTypesByName.has(v))) },
@@ -209,6 +209,31 @@ export function editFilter(doc: FilterableDocument & ReportDocument, newFilter: 
             console.log(`dlt-log.editFilter input cancelled...`);
         });
     });
+}
+
+function ctidFilter(apid: string|RegExp|undefined, apids:string[]):boolean {
+    if (apid === undefined){
+        return true; // no apid -> all ctids
+    }
+    if (apid instanceof RegExp){
+        return apids.some(a => apid.test(a));
+    } else {
+        return apids.includes(apid);
+    }
+}
+
+function onValueChar4OrRegex(oldValue: string | RegExp | undefined, newValue: string): string | RegExp | undefined {
+  if (newValue.length) {
+    const oldWasRegEx = oldValue instanceof RegExp;
+    const lastValue = oldWasRegEx ? (oldValue as RegExp).source : oldValue;
+    if (newValue === lastValue) {
+      return oldValue; // we keep the type
+    } else {
+      return util.containsRegexChars(newValue) ? new RegExp(newValue) : newValue;
+    }
+  } else {
+    return undefined;
+  }
 }
 
 // from npm color-names: (import of 2.0 module does export as single elements and not as one object with all keys)
