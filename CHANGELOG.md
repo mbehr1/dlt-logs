@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.73.0](https://github.com/mbehr1/dlt-logs/compare/v1.72.1...v1.73.0) (2023-11-11)
+
+
+### Features
+
+* regex support for ecu, apid, ctid ([edda8f1](https://github.com/mbehr1/dlt-logs/commit/edda8f1ef4d5b7c6c88fe05cb8f5cf2aba81726c))
+
 ## [1.72.1](https://github.com/mbehr1/dlt-logs/compare/v1.72.0...v1.72.1) (2023-10-21)
 
 
