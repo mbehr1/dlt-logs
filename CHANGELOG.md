@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.73.2](https://github.com/mbehr1/dlt-logs/compare/v1.73.1...v1.73.2) (2023-11-12)
+
+
+### Bug Fixes
+
+* **nonverbose:** add S_INTxy support ([a93519b](https://github.com/mbehr1/dlt-logs/commit/a93519b585daf76ff8913eb092c0332c69b89c85))
+
 ## [1.73.1](https://github.com/mbehr1/dlt-logs/compare/v1.73.0...v1.73.1) (2023-11-12)
 
 
