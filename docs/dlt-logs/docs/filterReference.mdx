@@ -44,7 +44,7 @@ attribute name | expected type | default value | description
 `ecu`| string | undefined| ECU identifier / ECU. Up to 4 characters.
 `ecuIsRegex` | boolean | no value = 'autodetect' | Optional. See `apidIsRegex`.
 `apid`| string | undefined| Application identifier / APID . Up to 4 characters.
-`apidIsRegex` | boolean | no value = 'autodetect' | Optional. If provided the apid is treated according to the value as true:regex, false:no regex. If not provided the apid is treated as regex if it contains any special regex characters: `^$*+?()[]{}|.-\=!<,`
+`apidIsRegex` | boolean | no value = 'autodetect' | Optional. If provided the apid is treated according to the value as true:regex, false:no regex. If not provided the apid is treated as regex if it contains any special regex characters: `^$*+?()[]{}\|.-\=!<,`
 `ctid`| string | undefined| Context identifier / CTID. Up to 4 characters.
 `ctidIsRegex` | boolean | no value = 'autodetect' | Optional. See `apidIsRegex`.
 `logLevelMin`| number | undefined| Minimum log-level. I.e. log-level of the message has to be >= to match. If specified `mstp`is automatically set to 0. See [Log levels](#log-levels) for values and examples.
@@ -80,12 +80,14 @@ E.g. to match for messages with
 
 :::tip ecu, apid, ctid regular expressions
 In general the filter for ecu, apid, ctid expect 4 characters. If less characters are used the regex search is different that the default/non-regex ones:
-e.g. 
+e.g.
+
 version | example | description
 ------- | ------- | -----------
 default | `"apid":"ECU"` | default/non-regex matches against `apid ECU\0`. So starting with ECU and then (null byte).
 `"apidIsRegex":true`| `"apid":"ECU"` | regex matches against 'ECU' within apid. So e.g. "ECU1" or "AECU" or "ECU" all match.
 regex | `"apid":"^ECU"` | autodetected regex matches against starting with 'ECU'. So e.g. "ECU" or "ECU1" match  but not "AECU".
+
 :::
 
 :::warning
