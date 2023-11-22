@@ -761,6 +761,12 @@ export class AdltDocument implements vscode.Disposable {
                                 this.pluginTreeNode.children.push(plugin);
                             }
                             break;
+                        case 'Muniic':
+                            {
+                                const plugin = new AdltPlugin(`Muniic Decoder`, new vscode.ThemeIcon('clock'), this.uri, this.pluginTreeNode, this._treeEventEmitter, pluginObj, this);
+                                this.pluginTreeNode.children.push(plugin);
+                            }
+                            break;
                     }
 
                 } catch (error) {
