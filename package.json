@@ -319,7 +319,7 @@
                   "properties": {
                     "name": {
                       "type": "string",
-                      "description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp', 'NonVerbose', 'Rewrite' and 'CAN' are available.",
+                      "description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp', 'NonVerbose', 'Rewrite', 'CAN' and 'Muniic' are available.",
                       "enum": [
                         "FileTransfer"
                       ]
@@ -357,7 +357,7 @@
                   "properties": {
                     "name": {
                       "type": "string",
-                      "description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp', 'NonVerbose', 'Rewrite' and 'CAN' are available.",
+                      "description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp', 'NonVerbose', 'Rewrite', 'CAN' and 'Muniic' are available.",
                       "enum": [
                         "SomeIp"
                       ]
@@ -389,7 +389,7 @@
                   "properties": {
                     "name": {
                       "type": "string",
-                      "description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp', 'NonVerbose', 'Rewrite' and 'CAN' are available.",
+                      "description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp', 'NonVerbose', 'Rewrite', 'CAN' and 'Muniic' are available.",
                       "enum": [
                         "NonVerbose"
                       ]
@@ -411,7 +411,7 @@
                   "properties": {
                     "name": {
                       "type": "string",
-                      "description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp', 'NonVerbose', 'Rewrite' and 'CAN' are available.",
+                      "description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp', 'NonVerbose', 'Rewrite', 'CAN' and 'Muniic' are available.",
                       "enum": [
                         "Rewrite"
                       ]
@@ -469,7 +469,7 @@
                   "properties": {
                     "name": {
                       "type": "string",
-                      "description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp', 'NonVerbose', 'Rewrite' and 'CAN' are available.",
+                      "description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp', 'NonVerbose', 'Rewrite', 'CAN' and 'Muniic' are available.",
                       "enum": [
                         "CAN"
                       ]
@@ -494,7 +494,29 @@
                       "default": 2
                     }
                   }
-                }
+                },
+                {
+                  "type": "object",
+                  "title": "Muniic plugin",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "description": "Identifier of the plugin. Currently only 'FileTransfer','SomeIp', 'NonVerbose', 'Rewrite', 'CAN' and 'Muniic' are available.",
+                      "enum": [
+                        "Muniic"
+                      ]
+                    },
+                    "enabled": {
+                      "type": "boolean",
+                      "description": "Determines whether the plugin is currently enabled.",
+                      "default": true
+                    },
+                    "jsonDir": {
+                      "type": "string",
+                      "description": "The path to directory with the json files. Needs to be set."
+                    }
+                  }
+                }                
               ]
             },
             "default": [
@@ -532,6 +554,10 @@
               },
               {
                 "name": "CAN",
+                "enabled": false
+              },
+              {
+                "name": "Muniic",
                 "enabled": false
               }
             ]
