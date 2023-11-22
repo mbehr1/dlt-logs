@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.74.2](https://github.com/mbehr1/dlt-logs/compare/v1.74.1...v1.74.2) (2023-11-22)
+
+
+### Bug Fixes
+
+* add plugin to treeview ([ca14426](https://github.com/mbehr1/dlt-logs/commit/ca14426b80e098990a37b46be80134e55b406dbe))
+
 ## [1.74.1](https://github.com/mbehr1/dlt-logs/compare/v1.74.0...v1.74.1) (2023-11-22)
 
 
