@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.74.3](https://github.com/mbehr1/dlt-logs/compare/v1.74.2...v1.74.3) (2023-11-24)
+
+
+### Bug Fixes
+
+* **adlt:** v0.45.1 to get muniic plugin fixes ([e304863](https://github.com/mbehr1/dlt-logs/commit/e304863bde6d03ced381e62e2c0753fadd5cbc79))
+
 ## [1.74.2](https://github.com/mbehr1/dlt-logs/compare/v1.74.1...v1.74.2) (2023-11-22)
 
 
