@@ -522,16 +522,21 @@ export class AdltDocument implements vscode.Disposable {
                 }
             });
             this.webSocket.on('upgrade', (response) => {
-                console.log(`dlt-logs.AdltDocumentProvider.on(upgrade) got response:`, response);
-                let ah = response.headers['adlt-version'];
-                this.adltVersion = ah && !Array.isArray(ah) ? ah : (ah && Array.isArray(ah) ? ah.join(',') : undefined);
-                if (this.adltVersion) {
-                    if (!semver.satisfies(this.adltVersion, MIN_ADLT_VERSION_SEMVER_RANGE)) {
-                        vscode.window.showErrorMessage(`Your adlt version is not matching the required version!\nPlease correct!\nDetected version is '${this.adltVersion}' vs required '${MIN_ADLT_VERSION_SEMVER_RANGE}.'`, { modal: true });
-                    } else {
-                        console.log(`adlt.AdltDocumentProvider got matching adlt version ${this.adltVersion} vs ${MIN_ADLT_VERSION_SEMVER_RANGE}.`);
-                    }
+              // console.log(`dlt-logs.AdltDocumentProvider.on(upgrade) got response:`, response);
+              let ah = response.headers['adlt-version'];
+              this.adltVersion = ah && !Array.isArray(ah) ? ah : ah && Array.isArray(ah) ? ah.join(',') : undefined;
+              if (this.adltVersion) {
+                if (!semver.satisfies(this.adltVersion, MIN_ADLT_VERSION_SEMVER_RANGE)) {
+                  vscode.window.showErrorMessage(
+                    `Your adlt version is not matching the required version!\nPlease correct!\nDetected version is '${this.adltVersion}' vs required '${MIN_ADLT_VERSION_SEMVER_RANGE}.'`,
+                    { modal: true }
+                  );
+                } else {
+                  console.log(
+                    `adlt.AdltDocumentProvider got matching adlt version ${this.adltVersion} vs ${MIN_ADLT_VERSION_SEMVER_RANGE}.`
+                  );
                 }
+              }
             });
             this.webSocket.on('open', () => {
                 this.webSocketIsConnected = true;
@@ -560,18 +565,21 @@ export class AdltDocument implements vscode.Disposable {
     }
 
     dispose() {
-        console.log(`AdltDocument.dispose()`);
-        this.streamMsgs.clear();
+      // console.log(`AdltDocument.dispose()`);
+      this.streamMsgs.clear();
 
-        this.closeAdltFiles().then(() => {
-            if (this.webSocket !== undefined) {
-                console.log(`AdltDocument.dispose closing webSocket`);
-                this.webSocket.close();
-                this.webSocket = undefined;
-            }
-        }, (reason) => {
-            console.log(`AdltDocument.dispose closeAdltFiles failed with '${reason}'`);
-        });
+      this.closeAdltFiles().then(
+        () => {
+          if (this.webSocket !== undefined) {
+            // console.log(`AdltDocument.dispose closing webSocket`);
+            this.webSocket.close();
+            this.webSocket = undefined;
+          }
+        },
+        (reason) => {
+          console.log(`AdltDocument.dispose closeAdltFiles failed with '${reason}'`);
+        },
+      );
     }
 
     /**
@@ -609,10 +617,10 @@ export class AdltDocument implements vscode.Disposable {
                 for (let i = 0; i < filterObjs.length; ++i) {
                     let filterConf: any = filterObjs[i];
                     if (!('id' in filterConf)) {
-                        const newId = uuidv4();
-                        console.log(` got filter: type=${filterConf?.type} without id. Assigning new one: ${newId}`);
-                        filterConf.id = newId;
-                        migrated = true;
+                      const newId = uuidv4();
+                      // console.log(` got filter: type=${filterConf?.type} without id. Assigning new one: ${newId}`);
+                      filterConf.id = newId;
+                      migrated = true;
                     }
                 }
                 if (migrated) {
@@ -643,174 +651,222 @@ export class AdltDocument implements vscode.Disposable {
      * @param filterObjs array of filter objects as received from the configuration
      */ // todo move to extension
     parseFilterConfigs(filterObjs: Object[] | undefined) {
-        console.log(`AdltDocument.parseFilterConfigs: have ${filterObjs?.length} filters to parse. Currently have ${this.allFilters.length} filters...`);
-        if (filterObjs) {
+      // console.log(`AdltDocument.parseFilterConfigs: have ${filterObjs?.length} filters to parse. Currently have ${this.allFilters.length} filters...`);
+      if (filterObjs) {
+        let skipped = 0;
+        for (let i = 0; i < filterObjs.length; ++i) {
+          try {
+            let filterConf: any = filterObjs[i];
+            const targetIdx = i - skipped;
 
-            let skipped = 0;
-            for (let i = 0; i < filterObjs.length; ++i) {
-                try {
-                    let filterConf: any = filterObjs[i];
-                    const targetIdx = i - skipped;
-
-                    // is this one contained?
-                    const containedIdx = this.allFilters.findIndex((filter) => filter.id === filterConf?.id);
-                    if (containedIdx < 0) {
-                        // not contained yet:
-                        let newFilter = new DltFilter(filterConf);
-                        if (newFilter.configs.length > 0) {
-                            // todo adlt this.updateConfigs(newFilter);
-                            // for now (as no proper config support) we disable those filters:
-                            newFilter.enabled = false;
-                        }
-                        // insert at targetIdx:
-                        //this.filterTreeNode.children.push(new FilterNode(null, this.filterTreeNode, newFilter));
-                        //                        this.allFilters.push(newFilter);
-                        this.filterTreeNode.children.splice(targetIdx, 0, new FilterNode(null, this.filterTreeNode, newFilter));
-                        this.allFilters.splice(i - skipped, 0, newFilter);
-                        console.log(`AdltDocument.parseFilterConfigs adding filter: name='${newFilter.name}' type=${newFilter.type}, enabled=${newFilter.enabled}, atLoadTime=${newFilter.atLoadTime}`);
-                    } else {
-                        // its contained already. so lets first update the settings:
-                        const existingFilter = this.allFilters[containedIdx];
-                        if ('type' in filterConf && 'id' in filterConf) {
-                            existingFilter.configOptions = JSON.parse(JSON.stringify(filterConf)); // create a new object
-                            existingFilter.reInitFromConfiguration();
-                        } else {
-                            console.warn(`AdltDocument skipped update of existingFilter=${existingFilter.id} due to wrong config: '${JSON.stringify(filterConf)}'`);
-                        }
-                        // now check whether the order has changed:
-                        if (targetIdx !== containedIdx) {
-                            // order seems changed!
-                            // duplicates will be detected here automatically! (and removed/skipped)
-                            if (targetIdx > containedIdx) {
-                                // duplicate! the same idx is already there. skip this one
-                                console.warn(`AdltDocument.parseFilterConfigs: skipped filterConf.id='${filterConf.id}' as duplicate!`);
-                                skipped++;
-                            } else { // containedIdx > targetIdx
-                                //console.warn(`parseFilterConfigs: detected order change for existingFilter.name='${existingFilter.name} from ${containedIdx} to ${targetIdx}'`);
-                                // reorder:
-                                const removed = this.allFilters.splice(containedIdx, 1);
-                                this.allFilters.splice(targetIdx, 0, ...removed);
-                                const removedNode = this.filterTreeNode.children.splice(containedIdx, 1);
-                                this.filterTreeNode.children.splice(targetIdx, 0, ...removedNode);
-                            }
-                        }
-                    }
-                } catch (error) {
-                    console.log(`AdltDocument.parseFilterConfigs error:${error}`);
-                    skipped++;
+            // is this one contained?
+            const containedIdx = this.allFilters.findIndex((filter) => filter.id === filterConf?.id);
+            if (containedIdx < 0) {
+              // not contained yet:
+              let newFilter = new DltFilter(filterConf);
+              if (newFilter.configs.length > 0) {
+                // todo adlt this.updateConfigs(newFilter);
+                // for now (as no proper config support) we disable those filters:
+                newFilter.enabled = false;
+              }
+              // insert at targetIdx:
+              //this.filterTreeNode.children.push(new FilterNode(null, this.filterTreeNode, newFilter));
+              //                        this.allFilters.push(newFilter);
+              this.filterTreeNode.children.splice(targetIdx, 0, new FilterNode(null, this.filterTreeNode, newFilter));
+              this.allFilters.splice(i - skipped, 0, newFilter);
+              // console.log(`AdltDocument.parseFilterConfigs adding filter: name='${newFilter.name}' type=${newFilter.type}, enabled=${newFilter.enabled}, atLoadTime=${newFilter.atLoadTime}`);
+            } else {
+              // its contained already. so lets first update the settings:
+              const existingFilter = this.allFilters[containedIdx];
+              if ('type' in filterConf && 'id' in filterConf) {
+                existingFilter.configOptions = JSON.parse(JSON.stringify(filterConf)); // create a new object
+                existingFilter.reInitFromConfiguration();
+              } else {
+                console.warn(
+                  `AdltDocument skipped update of existingFilter=${existingFilter.id} due to wrong config: '${JSON.stringify(filterConf)}'`
+                );
+              }
+              // now check whether the order has changed:
+              if (targetIdx !== containedIdx) {
+                // order seems changed!
+                // duplicates will be detected here automatically! (and removed/skipped)
+                if (targetIdx > containedIdx) {
+                  // duplicate! the same idx is already there. skip this one
+                  console.warn(`AdltDocument.parseFilterConfigs: skipped filterConf.id='${filterConf.id}' as duplicate!`);
+                  skipped++;
+                } else {
+                  // containedIdx > targetIdx
+                  //console.warn(`parseFilterConfigs: detected order change for existingFilter.name='${existingFilter.name} from ${containedIdx} to ${targetIdx}'`);
+                  // reorder:
+                  const removed = this.allFilters.splice(containedIdx, 1);
+                  this.allFilters.splice(targetIdx, 0, ...removed);
+                  const removedNode = this.filterTreeNode.children.splice(containedIdx, 1);
+                  this.filterTreeNode.children.splice(targetIdx, 0, ...removedNode);
                 }
+              }
             }
-            // lets remove the ones not inside filterConf:
-            // that are regular DltFilter (so skip plugins...)
-            // should be the ones with pos >= filterObj.length-skipped as we ensured sort order
-            // already above
-            // we might stop at first plugin as well.
-            // currently we do e.g. delete the filters from loadTimeAssistant now as well.
-            // (but it doesn't harm as load time filters are anyhow wrong in that case)
-            // todo think about it
-            for (let i = filterObjs.length - skipped; i < this.allFilters.length; ++i) {
-                const existingFilter = this.allFilters[i];
-                if (existingFilter.constructor === DltFilter) { // not instanceof as this covers inheritance
-                    //console.log(`AdltDocument.parseFilterConfigs deleting existingFilter: name '${existingFilter.name}' ${existingFilter instanceof DltFileTransferPlugin} ${existingFilter instanceof DltFilter} ${existingFilter.constructor === DltFileTransferPlugin} ${existingFilter.constructor === DltFilter}`);
-                    this.allFilters.splice(i, 1);
-                    this.filterTreeNode.children.splice(i, 1);
-                    i--;
-                }
-            }
+          } catch (error) {
+            console.log(`AdltDocument.parseFilterConfigs error:${error}`);
+            skipped++;
+          }
         }
+        // lets remove the ones not inside filterConf:
+        // that are regular DltFilter (so skip plugins...)
+        // should be the ones with pos >= filterObj.length-skipped as we ensured sort order
+        // already above
+        // we might stop at first plugin as well.
+        // currently we do e.g. delete the filters from loadTimeAssistant now as well.
+        // (but it doesn't harm as load time filters are anyhow wrong in that case)
+        // todo think about it
+        for (let i = filterObjs.length - skipped; i < this.allFilters.length; ++i) {
+          const existingFilter = this.allFilters[i];
+          if (existingFilter.constructor === DltFilter) {
+            // not instanceof as this covers inheritance
+            //console.log(`AdltDocument.parseFilterConfigs deleting existingFilter: name '${existingFilter.name}' ${existingFilter instanceof DltFileTransferPlugin} ${existingFilter instanceof DltFilter} ${existingFilter.constructor === DltFileTransferPlugin} ${existingFilter.constructor === DltFilter}`);
+            this.allFilters.splice(i, 1);
+            this.filterTreeNode.children.splice(i, 1);
+            i--;
+          }
+        }
+      }
     }
 
     parsePluginConfigs(pluginObjs: Object[] | undefined) {
-        console.log(`adlt.parsePluginConfigs: have ${pluginObjs?.length} plugins to parse...`);
-        if (pluginObjs) {
-            for (let i = 0; i < pluginObjs?.length; ++i) {
-                try {
-                    const pluginObj: any = pluginObjs[i];
-                    const pluginName = pluginObj.name;
-                    switch (pluginName) {
-                        case 'FileTransfer':
-                            {
-                                const plugin = new AdltPlugin(`File transfers`, new vscode.ThemeIcon('files'), this.uri, this.pluginTreeNode, this._treeEventEmitter, pluginObj, this);
-                                this.pluginTreeNode.children.push(plugin);
-                                //this.allFilters.push(plugin);
-                                //this.filterTreeNode.children.push(new FilterNode(null, this.filterTreeNode, plugin)); // add to filter as well
-                            }
-                            break;
-                        case 'SomeIp':
-                            {
-                                const plugin = new AdltPlugin(`SOME/IP Decoder`, new vscode.ThemeIcon('group-by-ref-type'), this.uri, this.pluginTreeNode, this._treeEventEmitter, pluginObj, this);
-                                this.pluginTreeNode.children.push(plugin);
-                            }
-                            break;
-                        case 'NonVerbose':
-                            {
-                                // todo add merge of settings with fibexDir from SomeIp to match the docs...
-                                const plugin = new AdltPlugin(`Non-Verbose`, new vscode.ThemeIcon('symbol-numeric'), this.uri, this.pluginTreeNode, this._treeEventEmitter, pluginObj, this);
-                                this.pluginTreeNode.children.push(plugin);
-                            }
-                            break;
-                        case 'Rewrite':
-                            {
-                                const plugin = new AdltPlugin(`'Rewrite' plugin`, new vscode.ThemeIcon('replace-all'), this.uri, this.pluginTreeNode, this._treeEventEmitter, pluginObj, this);
-                                this.pluginTreeNode.children.push(plugin);
-                            }
-                            break;
-                        case 'CAN':
-                            {
-                                const plugin = new AdltPlugin(`CAN Decoder`, new vscode.ThemeIcon('plug'), this.uri, this.pluginTreeNode, this._treeEventEmitter, pluginObj, this);
-                                this.pluginTreeNode.children.push(plugin);
-                            }
-                            break;
-                        case 'Muniic':
-                            {
-                                const plugin = new AdltPlugin(`Muniic Decoder`, new vscode.ThemeIcon('clock'), this.uri, this.pluginTreeNode, this._treeEventEmitter, pluginObj, this);
-                                this.pluginTreeNode.children.push(plugin);
-                            }
-                            break;
-                    }
-
-                } catch (error) {
-                    console.log(`dlt-logs.parsePluginConfigs error:${error}`);
+      // console.log(`adlt.parsePluginConfigs: have ${pluginObjs?.length} plugins to parse...`);
+      if (pluginObjs) {
+        for (let i = 0; i < pluginObjs?.length; ++i) {
+          try {
+            const pluginObj: any = pluginObjs[i];
+            const pluginName = pluginObj.name;
+            switch (pluginName) {
+              case 'FileTransfer':
+                {
+                  const plugin = new AdltPlugin(
+                    `File transfers`,
+                    new vscode.ThemeIcon('files'),
+                    this.uri,
+                    this.pluginTreeNode,
+                    this._treeEventEmitter,
+                    pluginObj,
+                    this
+                  );
+                  this.pluginTreeNode.children.push(plugin);
+                  //this.allFilters.push(plugin);
+                  //this.filterTreeNode.children.push(new FilterNode(null, this.filterTreeNode, plugin)); // add to filter as well
                 }
+                break;
+              case 'SomeIp':
+                {
+                  const plugin = new AdltPlugin(
+                    `SOME/IP Decoder`,
+                    new vscode.ThemeIcon('group-by-ref-type'),
+                    this.uri,
+                    this.pluginTreeNode,
+                    this._treeEventEmitter,
+                    pluginObj,
+                    this
+                  );
+                  this.pluginTreeNode.children.push(plugin);
+                }
+                break;
+              case 'NonVerbose':
+                {
+                  // todo add merge of settings with fibexDir from SomeIp to match the docs...
+                  const plugin = new AdltPlugin(
+                    `Non-Verbose`,
+                    new vscode.ThemeIcon('symbol-numeric'),
+                    this.uri,
+                    this.pluginTreeNode,
+                    this._treeEventEmitter,
+                    pluginObj,
+                    this
+                  );
+                  this.pluginTreeNode.children.push(plugin);
+                }
+                break;
+              case 'Rewrite':
+                {
+                  const plugin = new AdltPlugin(
+                    `'Rewrite' plugin`,
+                    new vscode.ThemeIcon('replace-all'),
+                    this.uri,
+                    this.pluginTreeNode,
+                    this._treeEventEmitter,
+                    pluginObj,
+                    this
+                  );
+                  this.pluginTreeNode.children.push(plugin);
+                }
+                break;
+              case 'CAN':
+                {
+                  const plugin = new AdltPlugin(
+                    `CAN Decoder`,
+                    new vscode.ThemeIcon('plug'),
+                    this.uri,
+                    this.pluginTreeNode,
+                    this._treeEventEmitter,
+                    pluginObj,
+                    this
+                  );
+                  this.pluginTreeNode.children.push(plugin);
+                }
+                break;
+              case 'Muniic':
+                {
+                  const plugin = new AdltPlugin(
+                    `Muniic Decoder`,
+                    new vscode.ThemeIcon('clock'),
+                    this.uri,
+                    this.pluginTreeNode,
+                    this._treeEventEmitter,
+                    pluginObj,
+                    this
+                  );
+                  this.pluginTreeNode.children.push(plugin);
+                }
+                break;
             }
+          } catch (error) {
+            console.log(`dlt-logs.parsePluginConfigs error:${error}`);
+          }
         }
-
+      }
     }
 
     parseDecorationsConfigs(decorationConfigs: Object[] | undefined) {
-        console.log(`parseDecorationsConfigs: have ${decorationConfigs?.length} decorations to parse...`);
-        if (this._decorationTypes.size) {
-
-            // remove current ones from editor:
-            this.textEditors.forEach((editor) => {
-                this.decorations?.forEach((value, key) => {
-                    editor.setDecorations(key, []);
-                });
-            });
-            // todo clear... this.decorations = undefined; // todo allDecorations?
-            this._decorationTypes.clear();
-        }
-        if (decorationConfigs && decorationConfigs.length) {
-            for (let i = 0; i < decorationConfigs.length; ++i) {
-                try {
-                    const conf: any = decorationConfigs[i];
-                    if (conf.id) {
-                        console.log(` adding decoration id=${conf.id}`);
-                        let decOpt = <vscode.DecorationRenderOptions>conf.renderOptions;
-                        decOpt.isWholeLine = true;
-                        let decType = vscode.window.createTextEditorDecorationType(decOpt);
-                        this._decorationTypes.set(conf.id, { decType, decOptions: { ...decOpt } });
-                    }
-                } catch (error) {
-                    console.log(`dlt-logs.parseDecorationsConfig error:${error}`);
-                }
+      // console.log(`parseDecorationsConfigs: have ${decorationConfigs?.length} decorations to parse...`);
+      if (this._decorationTypes.size) {
+        // remove current ones from editor:
+        this.textEditors.forEach((editor) => {
+          this.decorations?.forEach((value, key) => {
+            editor.setDecorations(key, []);
+          });
+        });
+        // todo clear... this.decorations = undefined; // todo allDecorations?
+        this._decorationTypes.clear();
+      }
+      if (decorationConfigs && decorationConfigs.length) {
+        for (let i = 0; i < decorationConfigs.length; ++i) {
+          try {
+            const conf: any = decorationConfigs[i];
+            if (conf.id) {
+              // console.log(` adding decoration id=${conf.id}`);
+              let decOpt = <vscode.DecorationRenderOptions>conf.renderOptions;
+              decOpt.isWholeLine = true;
+              let decType = vscode.window.createTextEditorDecorationType(decOpt);
+              this._decorationTypes.set(conf.id, { decType, decOptions: { ...decOpt } });
             }
+          } catch (error) {
+            console.log(`dlt-logs.parseDecorationsConfig error:${error}`);
+          }
         }
-        this.decWarning = this._decorationTypes.get("warning");
-        this.decError = this._decorationTypes.get("error");
-        this.decFatal = this._decorationTypes.get("fatal");
+      }
+      this.decWarning = this._decorationTypes.get('warning');
+      this.decError = this._decorationTypes.get('error');
+      this.decFatal = this._decorationTypes.get('fatal');
 
-        console.log(`dlt-logs.parseDecorationsConfig got ${this._decorationTypes.size} decorations!`);
+      // console.log(`dlt-logs.parseDecorationsConfig got ${this._decorationTypes.size} decorations!`);
     }
 
     private _decorationsHoverTexts = new Map<string, vscode.MarkdownString>();
@@ -882,35 +938,35 @@ export class AdltDocument implements vscode.Disposable {
         // plugin configs:
         const pluginCfgs = JSON.stringify(this.pluginTreeNode.children.map(tr => (tr as AdltPlugin).options));
         this.sendAndRecvAdltMsg(`open {"sort":${this._sortOrderByTime},"files":${JSON.stringify(this._fileNames)},"plugins":${pluginCfgs}}`).then((response) => {
-            console.log(`adlt.on open got response:'${response}'`);
-            // parse plugins_active from response:
-            try {
-                let json_resp = JSON.parse(response.slice(response.indexOf('{')));
-                if ('plugins_active' in json_resp) {
-                    console.log(`adlt.on open plugins_active:'${json_resp.plugins_active}'`);
-                    // go through all plugin nodes and update the status:
-                    this.pluginTreeNode.children.forEach((pluginNode) => {
-                        let plugin = pluginNode as AdltPlugin;
-                        plugin.setActive(json_resp.plugins_active.includes(plugin.options.name));
-                    });
-                }
-            } catch (err) {
-                console.error(`adlt.on open response could not be parsed as json due to:'${err}'`);
+          // console.log(`adlt.on open got response:'${response}'`);
+          // parse plugins_active from response:
+          try {
+            let json_resp = JSON.parse(response.slice(response.indexOf('{')));
+            if ('plugins_active' in json_resp) {
+              // console.log(`adlt.on open plugins_active:'${json_resp.plugins_active}'`);
+              // go through all plugin nodes and update the status:
+              this.pluginTreeNode.children.forEach((pluginNode) => {
+                let plugin = pluginNode as AdltPlugin;
+                plugin.setActive(json_resp.plugins_active.includes(plugin.options.name));
+              });
             }
-            if (!this.isLoaded) {
-                this.isLoaded = true;
-                this._onDidLoad.fire(this.isLoaded);
+          } catch (err) {
+            console.error(`adlt.on open response could not be parsed as json due to:'${err}'`);
+          }
+          if (!this.isLoaded) {
+            this.isLoaded = true;
+            this._onDidLoad.fire(this.isLoaded);
+          }
+          // wait with startStream until the first EAC infos are here to be able to use that for
+          // configs (autoenabling of filters)
+          this._startStreamPendingSince = Date.now();
+          // fallback that if after 5s no EAC... -> start
+          setTimeout(() => {
+            if (this._startStreamPendingSince !== undefined && Date.now() - this._startStreamPendingSince >= 5000) {
+              this._startStreamPendingSince = undefined;
+              this.startStream();
             }
-            // wait with startStream until the first EAC infos are here to be able to use that for
-            // configs (autoenabling of filters)
-            this._startStreamPendingSince = Date.now();
-            // fallback that if after 5s no EAC... -> start
-            setTimeout(() => {
-                if (this._startStreamPendingSince !== undefined && ((Date.now() - this._startStreamPendingSince) >= 5000)) {
-                    this._startStreamPendingSince = undefined;
-                    this.startStream();
-                }
-            }, 5000);
+          }, 5000);
         });
     }
 
