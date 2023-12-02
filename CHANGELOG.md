@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.75.0](https://github.com/mbehr1/dlt-logs/compare/v1.74.4...v1.75.0) (2023-12-02)
+
+
+### Features
+
+* support serial dlt files ([6648d9a](https://github.com/mbehr1/dlt-logs/commit/6648d9a8f7a5b4cc44214af15f8b696544b9ba61))
+
 ## [1.74.4](https://github.com/mbehr1/dlt-logs/compare/v1.74.3...v1.74.4) (2023-11-28)
 
 
