@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.75.2](https://github.com/mbehr1/dlt-logs/compare/v1.75.1...v1.75.2) (2023-12-10)
+
+
+### Bug Fixes
+
+* **someip:** add parameter for events into treeview ([5ba018b](https://github.com/mbehr1/dlt-logs/commit/5ba018b318141cc6de20bcf5732b0cf711c0bc09))
+
 ## [1.75.1](https://github.com/mbehr1/dlt-logs/compare/v1.75.0...v1.75.1) (2023-12-10)
 
 
