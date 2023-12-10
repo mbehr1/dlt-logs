@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.75.1](https://github.com/mbehr1/dlt-logs/compare/v1.75.0...v1.75.1) (2023-12-10)
+
+
+### Bug Fixes
+
+* **someip:** reports fail with json parse error ([0921e51](https://github.com/mbehr1/dlt-logs/commit/0921e51751a92ce3fde7d272950dfdcad83e1ae4))
+
 ## [1.75.0](https://github.com/mbehr1/dlt-logs/compare/v1.74.4...v1.75.0) (2023-12-02)
 
 
