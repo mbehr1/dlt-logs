@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.75.3](https://github.com/mbehr1/dlt-logs/compare/v1.75.2...v1.75.3) (2023-12-17)
+
+
+### Bug Fixes
+
+* **lifecycle:** improve idlt lifecycle detection ([b3d12e3](https://github.com/mbehr1/dlt-logs/commit/b3d12e31b3061fed3f2434402fd943f8f2f41bfb))
+
 ## [1.75.2](https://github.com/mbehr1/dlt-logs/compare/v1.75.1...v1.75.2) (2023-12-10)
 
 
