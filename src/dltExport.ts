@@ -2,16 +2,16 @@
  * Copyright(C) Matthias Behr, 2020.
  */
 
-import * as vscode from 'vscode';
-import { extensionId } from './constants';
-import { MultiStepInput, PickItem } from './quickPick';
-import { DltFilter, DltFilterType } from './dltFilter';
-import { DltDocument } from './dltDocument';
-import { DltLifecycleInfoMinIF, DltLifecycleInfo } from './dltLifecycle';
-import * as util from './util';
-import * as fs from 'fs';
-import { DltMsg, MSTP, MTIN_CTRL, createStorageMsgAsBuffer, MTIN_LOG } from './dltParser';
-import { basename } from 'path';
+import * as vscode from 'vscode'
+import { extensionId } from './constants'
+import { MultiStepInput, PickItem } from './quickPick'
+import { DltFilter, DltFilterType } from './dltFilter'
+import { DltDocument } from './dltDocument'
+import { DltLifecycleInfoMinIF, DltLifecycleInfo } from './dltLifecycle'
+import * as util from './util'
+import * as fs from 'fs'
+import { DltMsg, MSTP, MTIN_CTRL, createStorageMsgAsBuffer, MTIN_LOG } from './dltParser'
+import { basename } from 'path'
 
 /* features to support:
 [x] merge multiple files into one
@@ -30,265 +30,357 @@ import { basename } from 'path';
 */
 
 interface ExportDltOptions {
-    srcUris: vscode.Uri[];
-    dstUri: vscode.Uri;
-    reorderMsgsByTime: boolean;
-    rewriteMsgTimes: boolean;
-    lcsToKeep: DltLifecycleInfoMinIF[]; // empty = all,
-    timeFrom?: number,
-    timeTo?: number
+  srcUris: vscode.Uri[]
+  dstUri: vscode.Uri
+  reorderMsgsByTime: boolean
+  rewriteMsgTimes: boolean
+  lcsToKeep: DltLifecycleInfoMinIF[] // empty = all,
+  timeFrom?: number
+  timeTo?: number
 }
 
-const srcUriMap = new Map<string, number>();
+const srcUriMap = new Map<string, number>()
 const getReadFd = (fsPath: string): number => {
-    let curEntry = srcUriMap.get(fsPath);
-    if (curEntry === undefined) {
-        curEntry = fs.openSync(fsPath, "r");
-        srcUriMap.set(fsPath, curEntry);
-    }
-    return curEntry;
-};
+  let curEntry = srcUriMap.get(fsPath)
+  if (curEntry === undefined) {
+    curEntry = fs.openSync(fsPath, 'r')
+    srcUriMap.set(fsPath, curEntry)
+  }
+  return curEntry
+}
 const closeAllReadFds = () => {
-    srcUriMap.forEach(fd => fs.closeSync(fd));
-    srcUriMap.clear();
-};
+  srcUriMap.forEach((fd) => fs.closeSync(fd))
+  srcUriMap.clear()
+}
 
 const getFirstMsg = (fileUri: vscode.Uri) => {
-    const fd = getReadFd(fileUri.fsPath);
-    let data = Buffer.allocUnsafe(1 * 1024 * 1024); // we do only scan first MB
-    let read = fs.readSync(fd, data, 0, data.byteLength, 0);
-    const msgs: DltMsg[] = [];
-    const parseInfo = DltDocument.dltP.parseDltFromBuffer(data.slice(0, read), 0, msgs, undefined, [], [], []);
-    if (msgs.length) { return msgs[0]; } else { return undefined; };
-};
+  const fd = getReadFd(fileUri.fsPath)
+  let data = Buffer.allocUnsafe(1 * 1024 * 1024) // we do only scan first MB
+  let read = fs.readSync(fd, data, 0, data.byteLength, 0)
+  const msgs: DltMsg[] = []
+  const parseInfo = DltDocument.dltP.parseDltFromBuffer(data.slice(0, read), 0, msgs, undefined, [], [], [])
+  if (msgs.length) {
+    return msgs[0]
+  } else {
+    return undefined
+  }
+}
 
-const onMoreItems: vscode.EventEmitter<PickItem[] | undefined> = new vscode.EventEmitter<PickItem[] | undefined>();
+const onMoreItems: vscode.EventEmitter<PickItem[] | undefined> = new vscode.EventEmitter<PickItem[] | undefined>()
 
 const calcLifecycles = (lcs: PickItem[], options: ExportDltOptions, cancelToken: vscode.CancellationToken) => {
-    setTimeout(async () => {
-        const lifecycles = new Map<string, DltLifecycleInfo[]>();
+  setTimeout(async () => {
+    const lifecycles = new Map<string, DltLifecycleInfo[]>()
 
-        // srcUris are already sorted by first msg time
-        for (let i = 0; !cancelToken.isCancellationRequested && i < options.srcUris.length; ++i) {
-            await pass1ReadUri(options.srcUris[i], [], lifecycles, undefined, undefined, () => {
-                let didChange = false;
-                lifecycles.forEach((lcInfos, ecu) => {
-                    //console.log(` ${ecu} has ${lcInfos.length} lifecycles:`);
-                    for (let i = 0; i < lcInfos.length; ++i) {
-                        const lcInfo = lcInfos[i];
-                        const lcStr = `${ecu} LC#${i + 1}`;
-                        const lcsIdx = lcs.findIndex((lc) => {
-                            if (lc.name === lcStr) { return true; }
-                            return false;
-                        });
-                        let lcI: PickItem;
-                        if (lcsIdx !== -1) {
-                            lcI = lcs[lcsIdx];
-                        } else {
-                            didChange = true;
-                            lcI = new PickItem(lcStr);
-                            lcs.push(lcI);
-                            lcI.data = {
-                                lcInfo: lcInfo,
-                                ecu: ecu,
-                                lifecycleStart: lcInfo.lifecycleStart,
-                                lifecycleEnd: lcInfo.lifecycleEnd
-                            };
-                        }
-                        // update desc:
-                        const oldDesc = `${lcI.data.lifecycleStart.toLocaleString()}-${lcI.data.lifecycleEnd.toLocaleString()}`;
-                        lcI.data.lifecycleStart = lcInfo.lifecycleStart;
-                        lcI.data.lifecycleEnd = lcInfo.lifecycleEnd;
-                        const newDesc = `${lcI.data.lifecycleStart.toLocaleString()}-${lcI.data.lifecycleEnd.toLocaleString()}`;
-                        if (oldDesc !== newDesc) { didChange = true; }
-                        if (didChange) { lcI.description = newDesc; };
-                    };
-                });
-                if (didChange) { onMoreItems.fire(lcs); }
-            }, 50 / options.srcUris.length, undefined, cancelToken, 1000); // todo filter
-        }
-        console.log(`calcLifecycles done: got ${lifecycles.size} ECUs:`);
-        lifecycles.forEach((lcInfos, ecu) => {
-            console.log(` ${ecu} has ${lcInfos.length} lifecycles:`);
-            lcInfos.forEach(lcInfo => {
-                console.log(`  ${lcInfo.lifecycleStart.toUTCString()}-${lcInfo.lifecycleEnd.toUTCString()} with ${lcInfo.logMessages.length} msgs, ${lcInfo.apidInfos.size} APID infos`);
-            });
-        });
-        if (!cancelToken.isCancellationRequested) { onMoreItems.fire(undefined); }
-    }, 10);
-    return onMoreItems.event;
-};
+    // srcUris are already sorted by first msg time
+    for (let i = 0; !cancelToken.isCancellationRequested && i < options.srcUris.length; ++i) {
+      await pass1ReadUri(
+        options.srcUris[i],
+        [],
+        lifecycles,
+        undefined,
+        undefined,
+        () => {
+          let didChange = false
+          lifecycles.forEach((lcInfos, ecu) => {
+            //console.log(` ${ecu} has ${lcInfos.length} lifecycles:`);
+            for (let i = 0; i < lcInfos.length; ++i) {
+              const lcInfo = lcInfos[i]
+              const lcStr = `${ecu} LC#${i + 1}`
+              const lcsIdx = lcs.findIndex((lc) => {
+                if (lc.name === lcStr) {
+                  return true
+                }
+                return false
+              })
+              let lcI: PickItem
+              if (lcsIdx !== -1) {
+                lcI = lcs[lcsIdx]
+              } else {
+                didChange = true
+                lcI = new PickItem(lcStr)
+                lcs.push(lcI)
+                lcI.data = {
+                  lcInfo: lcInfo,
+                  ecu: ecu,
+                  lifecycleStart: lcInfo.lifecycleStart,
+                  lifecycleEnd: lcInfo.lifecycleEnd,
+                }
+              }
+              // update desc:
+              const oldDesc = `${lcI.data.lifecycleStart.toLocaleString()}-${lcI.data.lifecycleEnd.toLocaleString()}`
+              lcI.data.lifecycleStart = lcInfo.lifecycleStart
+              lcI.data.lifecycleEnd = lcInfo.lifecycleEnd
+              const newDesc = `${lcI.data.lifecycleStart.toLocaleString()}-${lcI.data.lifecycleEnd.toLocaleString()}`
+              if (oldDesc !== newDesc) {
+                didChange = true
+              }
+              if (didChange) {
+                lcI.description = newDesc
+              }
+            }
+          })
+          if (didChange) {
+            onMoreItems.fire(lcs)
+          }
+        },
+        50 / options.srcUris.length,
+        undefined,
+        cancelToken,
+        1000,
+      ) // todo filter
+    }
+    console.log(`calcLifecycles done: got ${lifecycles.size} ECUs:`)
+    lifecycles.forEach((lcInfos, ecu) => {
+      console.log(` ${ecu} has ${lcInfos.length} lifecycles:`)
+      lcInfos.forEach((lcInfo) => {
+        console.log(
+          `  ${lcInfo.lifecycleStart.toUTCString()}-${lcInfo.lifecycleEnd.toUTCString()} with ${lcInfo.logMessages.length} msgs, ${
+            lcInfo.apidInfos.size
+          } APID infos`,
+        )
+      })
+    })
+    if (!cancelToken.isCancellationRequested) {
+      onMoreItems.fire(undefined)
+    }
+  }, 10)
+  return onMoreItems.event
+}
 
 export async function exportDlt(srcUris: vscode.Uri[], allFilters: DltFilter[] | undefined = undefined) {
-    // todo have to avoid reentrant call (as srcUriMap is global/static...)
-    console.log(`export dlt called...(#allFilters=${allFilters?.length})`);
-    if (srcUris.length === 0) { return; }
-    return new Promise((resolveAssistant, cancelAssistant) => {
+  // todo have to avoid reentrant call (as srcUriMap is global/static...)
+  console.log(`export dlt called...(#allFilters=${allFilters?.length})`)
+  if (srcUris.length === 0) {
+    return
+  }
+  return new Promise((resolveAssistant, cancelAssistant) => {
+    let firstMsgTime: number | undefined = undefined
 
-        let firstMsgTime: number | undefined = undefined;
+    if (srcUris.length > 0) {
+      // we do this even with just one file to get the firstMsgTime:
+      // let's sort the srcUris by first msg time. eases lifecycle calculation (assumes ascending recording times)
+      const minSrcMsgTimes = new Map<string, number>()
+      for (let i = 0; i < srcUris.length; ++i) {
+        const firstMsg = getFirstMsg(srcUris[i])
+        if (firstMsg !== undefined) {
+          minSrcMsgTimes.set(srcUris[i].toString(), firstMsg.receptionTimeInMs)
+          if (firstMsgTime === undefined || firstMsgTime > firstMsg.receptionTimeInMs) {
+            firstMsgTime = firstMsg.receptionTimeInMs
+          }
+        } else {
+          console.log(`no msg from ${srcUris[i].toString()}`) // todo might consider to remove it...
+        }
+      }
+      console.log(`sorting srcUris from: ${srcUris.map((u) => u.toString()).join(',')}`)
+      srcUris.sort((a, b) => {
+        const timeA = minSrcMsgTimes.get(a.toString())
+        const timeB = minSrcMsgTimes.get(b.toString())
+        return (timeA !== undefined ? timeA : 0) - (timeB !== undefined ? timeB : 0)
+      })
+      console.log(`sorted srcUris to   : ${srcUris.map((u) => u.toString()).join(',')}`)
+    }
 
-        if (srcUris.length > 0) { // we do this even with just one file to get the firstMsgTime:
-            // let's sort the srcUris by first msg time. eases lifecycle calculation (assumes ascending recording times)
-            const minSrcMsgTimes = new Map<string, number>();
-            for (let i = 0; i < srcUris.length; ++i) {
-                const firstMsg = getFirstMsg(srcUris[i]);
-                if (firstMsg !== undefined) {
-                    minSrcMsgTimes.set(srcUris[i].toString(), firstMsg.receptionTimeInMs);
-                    if (firstMsgTime === undefined || firstMsgTime > firstMsg.receptionTimeInMs) {
-                        firstMsgTime = firstMsg.receptionTimeInMs;
-                    }
-                } else {
-                    console.log(`no msg from ${srcUris[i].toString()}`); // todo might consider to remove it...
-                }
-            }
-            console.log(`sorting srcUris from: ${srcUris.map(u => u.toString()).join(',')}`);
-            srcUris.sort((a, b) => {
-                const timeA = minSrcMsgTimes.get(a.toString());
-                const timeB = minSrcMsgTimes.get(b.toString());
-                return ((timeA !== undefined) ? timeA : 0) - ((timeB !== undefined) ? timeB : 0);
-            });
-            console.log(`sorted srcUris to   : ${srcUris.map(u => u.toString()).join(',')}`);
+    const exportOptions: ExportDltOptions = {
+      srcUris: srcUris,
+      dstUri: srcUris[0].with({ path: `${srcUris[0].path}_exported.dlt` }),
+      reorderMsgsByTime: true,
+      rewriteMsgTimes: true,
+      lcsToKeep: [],
+    }
+    const yesNoItems: PickItem[] = [new PickItem('yes'), new PickItem('no')]
+
+    const lcs: PickItem[] = []
+
+    const onLcsValues = (v: string | readonly PickItem[]) => {
+      exportOptions.lcsToKeep = []
+      if (Array.isArray(v)) {
+        console.log(`lcs onValue(${v.map((v) => v.name).join(',')})`)
+        // now add the lifecycles:
+        ;(<readonly PickItem[]>v).forEach((pi) => {
+          if (pi.data !== undefined && pi.data.lcInfo !== undefined) {
+            exportOptions.lcsToKeep.push(pi.data.lcInfo)
+          }
+        })
+      } else {
+        console.log(`lcs onValue(str '${v}') todo!`)
+        // search all PickItems that contain v in their name (and/or descrip?)
+      }
+      console.log(`onLcsValues() got ${exportOptions.lcsToKeep.length} lcsToKeep`)
+    }
+
+    // todo keep selection on going back...
+
+    // time restriction:
+    const timeRestrictInitialValue = (): string => {
+      let v = ''
+      if (exportOptions.timeFrom !== undefined) {
+        const timeFrom = new Date(exportOptions.timeFrom)
+        v = `${timeFrom.getHours().toString().padStart(2, '0')}:${timeFrom.getMinutes().toString().padStart(2, '0')}-`
+      }
+      if (exportOptions.timeTo !== undefined) {
+        if (v.length === 0) {
+          v = '-'
+        }
+        const timeTo = new Date(exportOptions.timeTo)
+        v += `${timeTo.getHours().toString().padStart(2, '0')}:${timeTo.getMinutes().toString().padStart(2, '0')}`
+      }
+      return v
+    }
+
+    const timeRestrictPIs: PickItem[] = [new PickItem('')]
+    const timeRestrictItems = (): PickItem[] => {
+      const val = timeRestrictInitialValue()
+      timeRestrictUpdateHint(
+        val,
+        exportOptions.timeFrom !== undefined ? new Date(exportOptions.timeFrom) : undefined,
+        exportOptions.timeTo !== undefined ? new Date(exportOptions.timeTo) : undefined,
+        val.length === 0 ? `enter time range like: from-to as 'hh:mm-hh:mm'. From or to can be empty.` : '',
+      )
+      return timeRestrictPIs // todo fill with infos from lifecycles or first/last msg
+    }
+
+    const timeRestrictOnValue = (v: string) => {
+      //console.log(`got timeRestrict value='${v}'`);
+      timeRestrictIsValid(v, true)
+    }
+
+    const timeRestrictRegExp = new RegExp(/^([0-2]\d:[0-5]\d)?\-([0-2]\d:[0-5]\d)?$/)
+    const timeRestrictMoreItemsEvent: vscode.EventEmitter<PickItem[] | undefined> = new vscode.EventEmitter<PickItem[] | undefined>()
+
+    const timeRestrictUpdateHint = (
+      v: string,
+      timeFrom: Date | undefined,
+      timeTo: Date | undefined,
+      hint?: string,
+      error: boolean = false,
+    ) => {
+      timeRestrictPIs[0].name = v
+      timeRestrictPIs[0].description = `${hint !== undefined ? `${error ? 'Error: ' : ''}${hint} ` : ''}${
+        timeFrom !== undefined ? timeFrom.toLocaleString() : ''
+      }-${timeTo !== undefined ? timeTo.toLocaleString() : ''}`
+      timeRestrictMoreItemsEvent.fire(timeRestrictPIs)
+    }
+
+    const timeRestrictIsValid = (v: string, storeValue: boolean = false): boolean => {
+      //console.log(`got timeRestrict value='${v}'`);
+      if (!v.length) {
+        if (storeValue) {
+          exportOptions.timeFrom = undefined
+          exportOptions.timeTo = undefined
+        } else {
+          timeRestrictUpdateHint(v, undefined, undefined, `enter time range like: from-to as 'hh:mm-hh:mm'. From or to can be empty.`)
+        }
+        return true
+      }
+      const rTest = timeRestrictRegExp.test(v)
+      //console.log(`got timeRestrict value='${v}' tests ${rTest}`);
+      if (!rTest) {
+        timeRestrictUpdateHint('', undefined, undefined, `not matching 'hh:mm-hh-mm'`, true)
+        return false
+      }
+      // parse the two times:
+      const timeR = timeRestrictRegExp.exec(v)
+      if (timeR !== null) {
+        //console.log(`got timeRestrict value='${v}' exec 0 = '${timeR[0]}'`);
+        //console.log(`got timeRestrict value='${v}' exec 1 = '${timeR[1]}'`);
+        //console.log(`got timeRestrict value='${v}' exec 2 = '${timeR[2]}'`);
+        const gotTimeFrom = timeR[1] !== undefined
+        const gotTimeTo = timeR[2] !== undefined
+        if (!gotTimeFrom && !gotTimeTo) {
+          timeRestrictUpdateHint('', undefined, undefined, `at least 'from' or 'to' needed`, true)
+          return false
         }
 
-        const exportOptions: ExportDltOptions = {
-            srcUris: srcUris,
-            dstUri: srcUris[0].with({ path: `${srcUris[0].path}_exported.dlt` }),
-            reorderMsgsByTime: true,
-            rewriteMsgTimes: true,
-            lcsToKeep: []
-        };
-        const yesNoItems: PickItem[] = [new PickItem('yes'), new PickItem('no')];
+        // determine min/max times from either lcsToKeep or the first msg (not last as not so easy to determine)
+        const minTime = firstMsgTime !== undefined ? firstMsgTime : 0
 
-        const lcs: PickItem[] = [];
+        const timeFrom = new Date(minTime)
+        if (gotTimeFrom) {
+          timeFrom.setHours(Number(timeR[1].split(':')[0]), Number(timeR[1].split(':')[1]), 0)
+          if (timeFrom.valueOf() < minTime) {
+            timeFrom.setTime(timeFrom.valueOf() + 1000 * 60 * 60 * 24) // advance by one day
+          }
+        }
+        const timeTo = new Date(timeFrom.valueOf())
+        if (gotTimeTo) {
+          timeTo.setHours(Number(timeR[2].split(':')[0]), Number(timeR[2].split(':')[1]), 0)
+          if (timeTo.valueOf() < timeFrom.valueOf()) {
+            timeTo.setTime(timeTo.valueOf() + 1000 * 60 * 60 * 24) // advance by one day
+          }
+        }
+        //console.log(`got timeFrom=${gotTimeFrom ? timeFrom.toLocaleString() : '<none>'} timeTo=${gotTimeTo ? timeTo.toLocaleString() : '<none>'}`);
+        if (gotTimeTo && gotTimeFrom) {
+          if (timeFrom.valueOf() > timeTo.valueOf()) {
+            timeRestrictUpdateHint('', undefined, undefined, `'from' later than 'to'`, true)
+            return false
+          }
+        }
+        if (storeValue) {
+          exportOptions.timeFrom = gotTimeFrom ? timeFrom.valueOf() : undefined
+          exportOptions.timeTo = gotTimeTo ? timeTo.valueOf() : undefined
+        } else {
+          timeRestrictUpdateHint(v, gotTimeFrom ? timeFrom : undefined, gotTimeTo ? timeTo : undefined)
+        }
+        return true
+      } else {
+        return false
+      }
+    }
 
-        const onLcsValues = (v: string | readonly PickItem[]) => {
-            exportOptions.lcsToKeep = [];
-            if (Array.isArray(v)) {
-                console.log(`lcs onValue(${v.map(v => v.name).join(',')})`);
-                // now add the lifecycles:
-                (<readonly PickItem[]>v).forEach((pi) => {
-                    if (pi.data !== undefined && pi.data.lcInfo !== undefined) { exportOptions.lcsToKeep.push(pi.data.lcInfo); }
-                });
-            } else {
-                console.log(`lcs onValue(str '${v}') todo!`);
-                // search all PickItems that contain v in their name (and/or descrip?)
-            }
-            console.log(`onLcsValues() got ${exportOptions.lcsToKeep.length} lcsToKeep`);
-        };
+    const timeRestrictOnMoreItems = (cancel: vscode.CancellationToken) => {
+      // we do this to get an event to trigger the items update at timeRestrictIsValid...
+      setTimeout(() => timeRestrictMoreItemsEvent.fire(undefined), 10)
+      return timeRestrictMoreItemsEvent.event
+    }
 
-        // todo keep selection on going back...
-
-        // time restriction:
-        const timeRestrictInitialValue = (): string => {
-            let v = '';
-            if (exportOptions.timeFrom !== undefined) {
-                const timeFrom = new Date(exportOptions.timeFrom);
-                v = `${timeFrom.getHours().toString().padStart(2, '0')}:${timeFrom.getMinutes().toString().padStart(2, '0')}-`;
-            }
-            if (exportOptions.timeTo !== undefined) {
-                if (v.length === 0) { v = '-'; }
-                const timeTo = new Date(exportOptions.timeTo);
-                v += `${timeTo.getHours().toString().padStart(2, '0')}:${timeTo.getMinutes().toString().padStart(2, '0')}`;
-            }
-            return v;
-        };
-
-        const timeRestrictPIs: PickItem[] = [new PickItem('')];
-        const timeRestrictItems = (): PickItem[] => {
-            const val = timeRestrictInitialValue();
-            timeRestrictUpdateHint(val,
-                exportOptions.timeFrom !== undefined ? new Date(exportOptions.timeFrom) : undefined,
-                exportOptions.timeTo !== undefined ? new Date(exportOptions.timeTo) : undefined,
-                val.length === 0 ? `enter time range like: from-to as 'hh:mm-hh:mm'. From or to can be empty.` : ''
-            );
-            return timeRestrictPIs; // todo fill with infos from lifecycles or first/last msg
-        };
-
-        const timeRestrictOnValue = (v: string) => {
-            //console.log(`got timeRestrict value='${v}'`);
-            timeRestrictIsValid(v, true);
-        };
-
-        const timeRestrictRegExp = new RegExp(/^([0-2]\d:[0-5]\d)?\-([0-2]\d:[0-5]\d)?$/);
-        const timeRestrictMoreItemsEvent: vscode.EventEmitter<PickItem[] | undefined> = new vscode.EventEmitter<PickItem[] | undefined>();
-
-        const timeRestrictUpdateHint = (v: string, timeFrom: Date | undefined, timeTo: Date | undefined, hint?: string, error: boolean = false) => {
-            timeRestrictPIs[0].name = v;
-            timeRestrictPIs[0].description = `${hint !== undefined ? `${error ? 'Error: ' : ''}${hint} ` : ''}${timeFrom !== undefined ? timeFrom.toLocaleString() : ''}-${timeTo !== undefined ? timeTo.toLocaleString() : ''}`;
-            timeRestrictMoreItemsEvent.fire(timeRestrictPIs);
-        };
-
-        const timeRestrictIsValid = (v: string, storeValue: boolean = false): boolean => {
-            //console.log(`got timeRestrict value='${v}'`);
-            if (!v.length) {
-                if (storeValue) {
-                    exportOptions.timeFrom = undefined;
-                    exportOptions.timeTo = undefined;
-                }
-                else {
-                    timeRestrictUpdateHint(v, undefined, undefined, `enter time range like: from-to as 'hh:mm-hh:mm'. From or to can be empty.`);
-                } return true;
-            }
-            const rTest = timeRestrictRegExp.test(v);
-            //console.log(`got timeRestrict value='${v}' tests ${rTest}`);
-            if (!rTest) { timeRestrictUpdateHint('', undefined, undefined, `not matching 'hh:mm-hh-mm'`, true); return false; }
-            // parse the two times:
-            const timeR = timeRestrictRegExp.exec(v);
-            if (timeR !== null) {
-                //console.log(`got timeRestrict value='${v}' exec 0 = '${timeR[0]}'`);
-                //console.log(`got timeRestrict value='${v}' exec 1 = '${timeR[1]}'`);
-                //console.log(`got timeRestrict value='${v}' exec 2 = '${timeR[2]}'`);
-                const gotTimeFrom = timeR[1] !== undefined;
-                const gotTimeTo = timeR[2] !== undefined;
-                if (!gotTimeFrom && !gotTimeTo) { timeRestrictUpdateHint('', undefined, undefined, `at least 'from' or 'to' needed`, true); return false; }
-
-                // determine min/max times from either lcsToKeep or the first msg (not last as not so easy to determine)
-                const minTime = firstMsgTime !== undefined ? firstMsgTime : 0;
-
-                const timeFrom = new Date(minTime);
-                if (gotTimeFrom) {
-                    timeFrom.setHours(Number(timeR[1].split(':')[0]), Number(timeR[1].split(':')[1]), 0);
-                    if (timeFrom.valueOf() < minTime) {
-                        timeFrom.setTime(timeFrom.valueOf() + (1000 * 60 * 60 * 24)); // advance by one day
-                    }
-                }
-                const timeTo = new Date(timeFrom.valueOf());
-                if (gotTimeTo) {
-                    timeTo.setHours(Number(timeR[2].split(':')[0]), Number(timeR[2].split(':')[1]), 0);
-                    if (timeTo.valueOf() < timeFrom.valueOf()) {
-                        timeTo.setTime(timeTo.valueOf() + (1000 * 60 * 60 * 24)); // advance by one day
-                    }
-                }
-                //console.log(`got timeFrom=${gotTimeFrom ? timeFrom.toLocaleString() : '<none>'} timeTo=${gotTimeTo ? timeTo.toLocaleString() : '<none>'}`);
-                if (gotTimeTo && gotTimeFrom) {
-                    if (timeFrom.valueOf() > timeTo.valueOf()) { timeRestrictUpdateHint('', undefined, undefined, `'from' later than 'to'`, true); return false; }
-                }
-                if (storeValue) {
-                    exportOptions.timeFrom = gotTimeFrom ? timeFrom.valueOf() : undefined;
-                    exportOptions.timeTo = gotTimeTo ? timeTo.valueOf() : undefined;
-                } else {
-                    timeRestrictUpdateHint(v, gotTimeFrom ? timeFrom : undefined, gotTimeTo ? timeTo : undefined);
-                }
-                return true;
-            } else { return false; }
-        };
-
-        const timeRestrictOnMoreItems = (cancel: vscode.CancellationToken) => {
-            // we do this to get an event to trigger the items update at timeRestrictIsValid...
-            setTimeout(() => timeRestrictMoreItemsEvent.fire(undefined), 10);
-            return timeRestrictMoreItemsEvent.event;
-        };
-
-        let stepInput = new MultiStepInput(`Export/filter dlt file assistant...`, [
-            { title: `select all lifecycles to keep (none=keep all)`, items: lcs, onValues: onLcsValues, onMoreItems: (cancel) => { return calcLifecycles(lcs, exportOptions, cancel); } },
-            { title: `restrict export by time (from-to)`, initialValue: timeRestrictInitialValue, items: timeRestrictItems, isValid: timeRestrictIsValid, onValue: timeRestrictOnValue, onMoreItems: timeRestrictOnMoreItems, canSelectMany: false },
-            // { title: `select all APIDs that can be removed`, items: apids, onValues: (v) => { if (Array.isArray(v)) { removeApids = v.map(v => v.name); } else { removeApids = v.length ? [<string>v] : []; } }, onMoreItems: loadMoreApids }
-            { title: `reorder msgs by calculated time?`, initialValue: () => exportOptions.reorderMsgsByTime ? 'yes' : 'no', items: yesNoItems, onValue: (v) => { exportOptions.reorderMsgsByTime = v === 'yes'; }, canSelectMany: false },
-            { title: `rewrite msg times by calculated times?`, initialValue: () => exportOptions.rewriteMsgTimes ? 'yes' : 'no', items: yesNoItems, onValue: (v) => { exportOptions.rewriteMsgTimes = v === 'yes'; }, canSelectMany: false }
-        ], { canSelectMany: true });
-        stepInput.run().then(async () => {
-            // insert them as loadTimeFilters (negBeforePos...?)
-            /*
+    let stepInput = new MultiStepInput(
+      `Export/filter dlt file assistant...`,
+      [
+        {
+          title: `select all lifecycles to keep (none=keep all)`,
+          items: lcs,
+          onValues: onLcsValues,
+          onMoreItems: (cancel) => {
+            return calcLifecycles(lcs, exportOptions, cancel)
+          },
+        },
+        {
+          title: `restrict export by time (from-to)`,
+          initialValue: timeRestrictInitialValue,
+          items: timeRestrictItems,
+          isValid: timeRestrictIsValid,
+          onValue: timeRestrictOnValue,
+          onMoreItems: timeRestrictOnMoreItems,
+          canSelectMany: false,
+        },
+        // { title: `select all APIDs that can be removed`, items: apids, onValues: (v) => { if (Array.isArray(v)) { removeApids = v.map(v => v.name); } else { removeApids = v.length ? [<string>v] : []; } }, onMoreItems: loadMoreApids }
+        {
+          title: `reorder msgs by calculated time?`,
+          initialValue: () => (exportOptions.reorderMsgsByTime ? 'yes' : 'no'),
+          items: yesNoItems,
+          onValue: (v) => {
+            exportOptions.reorderMsgsByTime = v === 'yes'
+          },
+          canSelectMany: false,
+        },
+        {
+          title: `rewrite msg times by calculated times?`,
+          initialValue: () => (exportOptions.rewriteMsgTimes ? 'yes' : 'no'),
+          items: yesNoItems,
+          onValue: (v) => {
+            exportOptions.rewriteMsgTimes = v === 'yes'
+          },
+          canSelectMany: false,
+        },
+      ],
+      { canSelectMany: true },
+    )
+    stepInput
+      .run()
+      .then(async () => {
+        // insert them as loadTimeFilters (negBeforePos...?)
+        /*
             if (removeApids?.length) {
                 console.log(`adding neg. load filters for APIDs: ${removeApids.join(',')}`);
                 for (let i = 0; i < removeApids.length; ++i) {
@@ -297,320 +389,447 @@ export async function exportDlt(srcUris: vscode.Uri[], allFilters: DltFilter[] |
                 }
             }*/
 
-            // saveAs ... todo
-            let doRetry;
-            do {
-                doRetry = false;
-                await vscode.window.showSaveDialog({ defaultUri: exportOptions.dstUri, saveLabel: 'save filtered dlt as ...' }).then(async saveUri => {
-                    if (saveUri) {
-                        console.log(`save as uri=${saveUri?.toString()}`);
-                        if (exportOptions.srcUris.map(u => u.toString()).includes(saveUri.toString())) {
-                            await vscode.window.showErrorMessage('Exporting/filtering into same file not possible. Please choose a different one.', { modal: true });
-                            doRetry = true;
-                        } else {
-                            exportOptions.dstUri = saveUri;
-                            doExport(exportOptions).then(() => {
-                                resolveAssistant(exportOptions);
-                            }).catch(err => {
-                                console.log(`dlt-log.exportDlt doExport err=${err}`);
-                                closeAllReadFds();
-                                cancelAssistant();
-                            });
-                        }
-                    }
-                });
-            } while (doRetry);
-
-        }).catch(err => {
-            console.log(`dlt-log.exportDlt cancelled...`);
-            closeAllReadFds();
-            cancelAssistant();
-        });
-    });
+        // saveAs ... todo
+        let doRetry
+        do {
+          doRetry = false
+          await vscode.window
+            .showSaveDialog({ defaultUri: exportOptions.dstUri, saveLabel: 'save filtered dlt as ...' })
+            .then(async (saveUri) => {
+              if (saveUri) {
+                console.log(`save as uri=${saveUri?.toString()}`)
+                if (exportOptions.srcUris.map((u) => u.toString()).includes(saveUri.toString())) {
+                  await vscode.window.showErrorMessage('Exporting/filtering into same file not possible. Please choose a different one.', {
+                    modal: true,
+                  })
+                  doRetry = true
+                } else {
+                  exportOptions.dstUri = saveUri
+                  doExport(exportOptions)
+                    .then(() => {
+                      resolveAssistant(exportOptions)
+                    })
+                    .catch((err) => {
+                      console.log(`dlt-log.exportDlt doExport err=${err}`)
+                      closeAllReadFds()
+                      cancelAssistant()
+                    })
+                }
+              }
+            })
+        } while (doRetry)
+      })
+      .catch((err) => {
+        console.log(`dlt-log.exportDlt cancelled...`)
+        closeAllReadFds()
+        cancelAssistant()
+      })
+  })
 }
 
 async function doExport(exportOptions: ExportDltOptions) {
-    console.log(`doExport(${JSON.stringify(exportOptions)})...`);
+  console.log(`doExport(${JSON.stringify(exportOptions)})...`)
 
-    // we do the export in a two pass approach:
-    // 1st pass:
-    //  read all src files
-    //   apply to be used filters (todo)
-    //   maintain a list of calculated time, srcUri, msgIdx (or directly msgOffset/len)
-    //   maintain lifecycles
-    // if wanted: sort list by time
+  // we do the export in a two pass approach:
+  // 1st pass:
+  //  read all src files
+  //   apply to be used filters (todo)
+  //   maintain a list of calculated time, srcUri, msgIdx (or directly msgOffset/len)
+  //   maintain lifecycles
+  // if wanted: sort list by time
 
-    // 2nd pass: export msgs
-    //  ordered by list
-    //  if wanted with rewritten times
-    //  apply lifecycle filters (or from...to times)
+  // 2nd pass: export msgs
+  //  ordered by list
+  //  if wanted with rewritten times
+  //  apply lifecycle filters (or from...to times)
 
+  const tempBuffer = Buffer.allocUnsafe(0xffff + 0x1000) // Dlt max message is limited by uint16
+  const pass2GetData = (msgInfo: MinMsgInfo): Buffer => {
+    const readFd = getReadFd(msgInfo.uri.fsPath)
+    const read = fs.readSync(readFd, tempBuffer, 0, msgInfo.msgLen, msgInfo.msgOffset)
+    if (read !== msgInfo.msgLen) {
+      throw Error(`read from ${msgInfo.uri.fsPath} returned ${read} vs. expected ${msgInfo.msgLen}`)
+    }
+    return tempBuffer.slice(0, read)
+  }
 
+  const rewriteMsgTimes = exportOptions.rewriteMsgTimes
+  const keepAllLcs = exportOptions.lcsToKeep.length === 0
 
-
-
-    const tempBuffer = Buffer.allocUnsafe(0xffff + 0x1000); // Dlt max message is limited by uint16
-    const pass2GetData = (msgInfo: MinMsgInfo): Buffer => {
-        const readFd = getReadFd(msgInfo.uri.fsPath);
-        const read = fs.readSync(readFd, tempBuffer, 0, msgInfo.msgLen, msgInfo.msgOffset);
-        if (read !== msgInfo.msgLen) {
-            throw Error(`read from ${msgInfo.uri.fsPath} returned ${read} vs. expected ${msgInfo.msgLen}`);
+  const keepLc = (lc: DltLifecycleInfoMinIF): boolean => {
+    const lcsToKeep = exportOptions.lcsToKeep
+    if (!lcsToKeep.length) {
+      return true
+    }
+    for (let i = 0; i < lcsToKeep.length; ++i) {
+      const lcToKeep = lcsToKeep[i]
+      if (lcToKeep.ecu === lc.ecu) {
+        // we do a fuzzy compare if lc.start is within lcToKeep.start-end
+        const p1Start = lcToKeep.lifecycleStart.valueOf()
+        const p1End = lcToKeep.lifecycleEnd.valueOf()
+        const p2Start = lc.lifecycleStart.valueOf()
+        const p2End = lc.lifecycleEnd.valueOf()
+        if ((p1Start >= p2Start && p1Start <= p2End) || (p2Start >= p1Start && p2Start <= p1End)) {
+          return true
         }
-        return tempBuffer.slice(0, read);
-    };
+      }
+    }
+    return false // no matching lc found
+  }
 
-    const rewriteMsgTimes = exportOptions.rewriteMsgTimes;
-    const keepAllLcs = exportOptions.lcsToKeep.length === 0;
+  const keepMinTime = exportOptions.timeFrom !== undefined ? exportOptions.timeFrom : 0
+  const keepMaxTime = exportOptions.timeTo !== undefined ? exportOptions.timeTo : Number.MAX_SAFE_INTEGER
 
-    const keepLc = (lc: DltLifecycleInfoMinIF): boolean => {
-        const lcsToKeep = exportOptions.lcsToKeep;
-        if (!lcsToKeep.length) { return true; }
-        for (let i = 0; i < lcsToKeep.length; ++i) {
-            const lcToKeep = lcsToKeep[i];
-            if (lcToKeep.ecu === lc.ecu) {
-                // we do a fuzzy compare if lc.start is within lcToKeep.start-end
-                const p1Start = lcToKeep.lifecycleStart.valueOf();
-                const p1End = lcToKeep.lifecycleEnd.valueOf();
-                const p2Start = lc.lifecycleStart.valueOf();
-                const p2End = lc.lifecycleEnd.valueOf();
-                if ((p1Start >= p2Start && p1Start <= p2End) || (p2Start >= p1Start && p2Start <= p1End)) { return true; }
+  const MARGIN_MAXTIME_MS = 120_000 // 120s margin to allow e.g. if the lifecycle of the message will still change to earlier
+  const MARGIN_MSGS = 1_000_000 // 1 mio msgs to stabilize lifecycles
+
+  const pass1EarlyRemove = (msgs: (MinMsgInfo | undefined)[] | undefined, context: any): void => {
+    // context can be used by us and is an empty obj on first call
+    // do some heuristics to reduce memory footprint, i.e. remove unneeded msgs already during pass1
+    // 1) if msg time < keepMinTime -> remove
+    // 2) if msg time - margin > keepMaxTime -> remove
+    // 3) if msg lifecycle does not intersect with any of the ones to keep -> remove
+
+    // to let the lifecycles "stabilize" we do this only after 1mio msgs (MARGIN_MSGS) are processed (i.e. dont process the last 1mio msgs yet)
+
+    if (msgs === undefined) {
+      return
+    }
+    const lastIdx = context.lastIdx ?? 0
+    if (msgs.length - lastIdx < MARGIN_MSGS) {
+      return
+    }
+
+    // console.log(`pass1EarlyRemove(msgs.length=${msgs.length}) lastIdx = ${lastIdx} `);
+    let removed = 0
+
+    if (context.keepLcSet === undefined) {
+      context.keepLcSet = new Set<DltLifecycleInfoMinIF>()
+    }
+    if (context.removeLcSet === undefined) {
+      context.removeLcSet = new Set<DltLifecycleInfoMinIF>()
+    }
+
+    // check all msgs from lastIdx to end:
+    for (let i = lastIdx; i < msgs.length - MARGIN_MSGS; ++i) {
+      let msg = msgs[i]
+      if (msg !== undefined) {
+        let removeMsg = false
+        // check 1) if a min time is set and the cur msgs time is below we can safely remove it. Even if the finalLifecycle might change it can only change to earlier.
+        const msgTimeMs: number =
+          rewriteMsgTimes && msg.lifecycle !== undefined
+            ? Math.floor(msg.lifecycle.finalLifecycle.lifecycleStart.valueOf() + msg.timeStamp / 10)
+            : msg.receptionTimeInMs
+
+        if (keepMinTime > msgTimeMs) {
+          removeMsg = true
+        } else if (keepMaxTime < msgTimeMs - MARGIN_MAXTIME_MS) {
+          removeMsg = true
+        } // that was check 2)
+        else if (!keepAllLcs) {
+          // check 3)
+          const lc = msg.lifecycle !== undefined ? msg.lifecycle.finalLifecycle : undefined
+          if (lc !== undefined) {
+            if (context.removeLcSet.has(lc)) {
+              removeMsg = true
+            } else if (!context.keepLcSet.has(lc)) {
+              // lc not evaluated yet, do so now:
+              const keep = keepLc(lc)
+              if (keep) {
+                context.keepLcSet.add(lc)
+              } else {
+                context.removeLcSet.add(lc)
+                removeMsg = true
+              }
             }
+          }
         }
-        return false; // no matching lc found
-    };
 
-    const keepMinTime = exportOptions.timeFrom !== undefined ? exportOptions.timeFrom : 0;
-    const keepMaxTime = exportOptions.timeTo !== undefined ? exportOptions.timeTo : Number.MAX_SAFE_INTEGER;
+        if (removeMsg) {
+          msgs[i] = undefined // todo could optimize e.g. with moving all undefined to the end and then remove them... or splice bigger chunks
+          // I want to avoid removing single ones as this has up to O(n) complexity
+          removed++
+        }
+      }
+    }
+    if (removed > 0) {
+      console.log(`pass1EarlyRemove(msgs.length=${msgs.length}) lastIdx = ${lastIdx}: removed ${removed} `)
+    }
+    context.lastIdx = msgs.length - MARGIN_MSGS
+  }
 
-    const MARGIN_MAXTIME_MS = 120_000; // 120s margin to allow e.g. if the lifecycle of the message will still change to earlier
-    const MARGIN_MSGS = 1_000_000; // 1 mio msgs to stabilize lifecycles
+  await vscode.window.withProgress(
+    { cancellable: true, location: vscode.ProgressLocation.Notification, title: `Export/filter dlt file...` },
+    async (progress, cancelToken) => {
+      // pass 1:
+      const lifecycles = new Map<string, DltLifecycleInfo[]>()
+      const minMsgInfos: (MinMsgInfo | undefined)[] = []
 
-    const pass1EarlyRemove = (msgs: ((MinMsgInfo | undefined)[]) | undefined, context: any): void => {
-        // context can be used by us and is an empty obj on first call
-        // do some heuristics to reduce memory footprint, i.e. remove unneeded msgs already during pass1
-        // 1) if msg time < keepMinTime -> remove
-        // 2) if msg time - margin > keepMaxTime -> remove
-        // 3) if msg lifecycle does not intersect with any of the ones to keep -> remove
+      // srcUris are already sorted by first msg time
 
-        // to let the lifecycles "stabilize" we do this only after 1mio msgs (MARGIN_MSGS) are processed (i.e. dont process the last 1mio msgs yet)
+      for (let i = 0; i < exportOptions.srcUris.length; ++i) {
+        await pass1ReadUri(
+          exportOptions.srcUris[i],
+          [],
+          lifecycles,
+          minMsgInfos,
+          progress,
+          undefined,
+          50 / exportOptions.srcUris.length,
+          pass1EarlyRemove,
+          cancelToken,
+        ) // todo filter
+      }
+      console.log(`after pass1: got ${minMsgInfos.length} msgs and ${lifecycles.size} ECUs:`)
+      lifecycles.forEach((lcInfos, ecu) => {
+        console.log(` ${ecu} has ${lcInfos.length} lifecycles:`)
+        lcInfos.forEach((lcInfo) => {
+          console.log(
+            `  ${lcInfo.lifecycleStart.toUTCString()}-${lcInfo.lifecycleEnd.toUTCString()} with ${lcInfo.logMessages.length} msgs, ${
+              lcInfo.apidInfos.size
+            } APID infos`,
+          )
+        })
+      })
 
-        if (msgs === undefined) { return; }
-        const lastIdx = context.lastIdx ?? 0;
-        if (msgs.length - lastIdx < MARGIN_MSGS) { return; }
-
-        // console.log(`pass1EarlyRemove(msgs.length=${msgs.length}) lastIdx = ${lastIdx} `);
-        let removed = 0;
-
-        if (context.keepLcSet === undefined) { context.keepLcSet = new Set<DltLifecycleInfoMinIF>(); }
-        if (context.removeLcSet === undefined) { context.removeLcSet = new Set<DltLifecycleInfoMinIF>(); }
-
-        // check all msgs from lastIdx to end:
-        for (let i = lastIdx; i < msgs.length - MARGIN_MSGS; ++i) {
-            let msg = msgs[i];
-            if (msg !== undefined) {
-                let removeMsg = false;
-                // check 1) if a min time is set and the cur msgs time is below we can safely remove it. Even if the finalLifecycle might change it can only change to earlier.
-                const msgTimeMs: number = (rewriteMsgTimes && msg.lifecycle !== undefined) ? Math.floor(msg.lifecycle.finalLifecycle.lifecycleStart.valueOf() + (msg.timeStamp / 10)) : msg.receptionTimeInMs;
-
-                if (keepMinTime > msgTimeMs) { removeMsg = true; } else
-                    if (keepMaxTime < (msgTimeMs - MARGIN_MAXTIME_MS)) { removeMsg = true; } else // that was check 2)
-                        if (!keepAllLcs) {
-                            // check 3)
-                            const lc = msg.lifecycle !== undefined ? msg.lifecycle.finalLifecycle : undefined;
-                            if (lc !== undefined) {
-                                if (context.removeLcSet.has(lc)) {
-                                    removeMsg = true;
-                                } else if (!context.keepLcSet.has(lc)) {
-                                    // lc not evaluated yet, do so now:
-                                    const keep = keepLc(lc);
-                                    if (keep) { context.keepLcSet.add(lc); } else {
-                                        context.removeLcSet.add(lc);
-                                        removeMsg = true;
-                                    }
-                                }
-                            }
-                        }
-
-                if (removeMsg) {
-                    msgs[i] = undefined; // todo could optimize e.g. with moving all undefined to the end and then remove them... or splice bigger chunks
-                    // I want to avoid removing single ones as this has up to O(n) complexity
-                    removed++;
-                }
+      // maintain a set (fast lookup) of lifecycles to keep:
+      const lcsToKeep = new Set<DltLifecycleInfoMinIF>()
+      if (exportOptions.lcsToKeep.length > 0) {
+        // map the lifecycles from first run to new run from here (new objects, might have slightly different times due to filters applied)
+        exportOptions.lcsToKeep.forEach((p1Lc) => {
+          const p2LcInfos = lifecycles.get(p1Lc.ecu)
+          if (p2LcInfos === undefined) {
+            console.log(`couldn't find the new lifecycles to keep for ECU '${p1Lc.ecu}' `) // might be normal/expected if filters get applied
+            // show an info todo
+          } else {
+            // let's try to find the one that matches best:
+            // we do this by start time being contained in the other one
+            const p2LcInfoIdx = p2LcInfos.findIndex((p2Lc) => {
+              // compare p2Lc with p1Lc
+              const p1Start = p1Lc.lifecycleStart.valueOf()
+              const p1End = p1Lc.lifecycleEnd.valueOf()
+              const p2Start = p2Lc.lifecycleStart.valueOf()
+              const p2End = p2Lc.lifecycleEnd.valueOf()
+              if ((p1Start >= p2Start && p1Start <= p2End) || (p2Start >= p1Start && p2Start <= p1End)) {
+                return true
+              } else {
+                return false
+              }
+            })
+            if (p2LcInfoIdx < 0) {
+              console.log(
+                `couldn't find the new lifecycles to keep for ECU '${
+                  p1Lc.ecu
+                }' LC: ${p1Lc.lifecycleStart.toUTCString()}-${p1Lc.lifecycleEnd.toUTCString()} `,
+              ) // might be normal/expected if filters get applied
+              // show an info todo
+            } else {
+              console.log(
+                `found new lifecycle to keep for ECU '${p1Lc.ecu}' new LC: ${p2LcInfos[
+                  p2LcInfoIdx
+                ].lifecycleStart.toUTCString()}-${p2LcInfos[
+                  p2LcInfoIdx
+                ].lifecycleEnd.toUTCString()} for LC: ${p1Lc.lifecycleStart.toUTCString()}-${p1Lc.lifecycleEnd.toUTCString()}`,
+              )
+              lcsToKeep.add(p2LcInfos[p2LcInfoIdx])
             }
-        }
-        if (removed > 0) {
-            console.log(`pass1EarlyRemove(msgs.length=${msgs.length}) lastIdx = ${lastIdx}: removed ${removed} `);
-        }
-        context.lastIdx = msgs.length - MARGIN_MSGS;
-    };
+          }
+        })
+      }
+      console.log(`after pass1: keeping ${keepAllLcs ? 'all' : lcsToKeep.size} lifecycles`)
 
-    await vscode.window.withProgress({ cancellable: true, location: vscode.ProgressLocation.Notification, title: `Export/filter dlt file...` },
-        async (progress, cancelToken) => {
-            // pass 1:
-            const lifecycles = new Map<string, DltLifecycleInfo[]>();
-            const minMsgInfos: (MinMsgInfo | undefined)[] = [];
+      // sort list by time?
+      if (exportOptions.reorderMsgsByTime && !cancelToken.isCancellationRequested) {
+        // could filter out all undefined ones before sorting
+        // but seems fast anyhow, minMsgInfos = minMsgInfos.filter(a => a !== undefined);
+        progress.report({ message: `sorting ${minMsgInfos.length} messages` })
+        await util.sleep(50)
+        minMsgInfos.sort((a, b) => {
+          if (a === undefined && b === undefined) {
+            return 0
+          }
+          if (a === undefined) {
+            return 1
+          }
+          if (b === undefined) {
+            return -1
+          }
 
-            // srcUris are already sorted by first msg time
+          const timeA = a.lifecycle === undefined ? a.receptionTimeInMs : a.lifecycle.lifecycleStart.valueOf() + a.timeStamp / 10
+          const timeB = b.lifecycle === undefined ? b.receptionTimeInMs : b.lifecycle.lifecycleStart.valueOf() + b.timeStamp / 10
+          if (timeA === timeB) {
+            return a.msgOffset - b.msgOffset
+          }
+          return timeA - timeB // this is not stable! So if same time sort by offset (assuming from different files dont have same offset)
+        })
+        console.log(`sorted ${minMsgInfos.length} msgs`)
+        progress.report({ message: `sorted ${minMsgInfos.length} messages` })
+        await util.sleep(10) // 10ms each 100ms
+      }
 
-            for (let i = 0; i < exportOptions.srcUris.length; ++i) {
-                await pass1ReadUri(exportOptions.srcUris[i], [], lifecycles, minMsgInfos, progress, undefined, 50 / exportOptions.srcUris.length, pass1EarlyRemove, cancelToken); // todo filter
-            }
-            console.log(`after pass1: got ${minMsgInfos.length} msgs and ${lifecycles.size} ECUs:`);
-            lifecycles.forEach((lcInfos, ecu) => {
-                console.log(` ${ecu} has ${lcInfos.length} lifecycles:`);
-                lcInfos.forEach(lcInfo => {
-                    console.log(`  ${lcInfo.lifecycleStart.toUTCString()}-${lcInfo.lifecycleEnd.toUTCString()} with ${lcInfo.logMessages.length} msgs, ${lcInfo.apidInfos.size} APID infos`);
-                });
-            });
+      // pass 2:
+      if (!cancelToken.isCancellationRequested) {
+        let wroteMsgs = 0
+        let pass2StartTime = process.hrtime()
+        try {
+          console.log(`pass2: creating ${exportOptions.dstUri.fsPath}`)
+          const saveFileFd = fs.openSync(exportOptions.dstUri.fsPath, 'w')
+          //console.log(`created ${exportOptions.dstUri.fsPath}`);
+          let wroteFirstMsg = false
 
-            // maintain a set (fast lookup) of lifecycles to keep:
-            const lcsToKeep = new Set<DltLifecycleInfoMinIF>();
-            if (exportOptions.lcsToKeep.length > 0) {
-                // map the lifecycles from first run to new run from here (new objects, might have slightly different times due to filters applied)
-                exportOptions.lcsToKeep.forEach(p1Lc => {
-                    const p2LcInfos = lifecycles.get(p1Lc.ecu);
-                    if (p2LcInfos === undefined) {
-                        console.log(`couldn't find the new lifecycles to keep for ECU '${p1Lc.ecu}' `); // might be normal/expected if filters get applied
-                        // show an info todo
-                    } else {
-                        // let's try to find the one that matches best:
-                        // we do this by start time being contained in the other one
-                        const p2LcInfoIdx = p2LcInfos.findIndex((p2Lc) => {
-                            // compare p2Lc with p1Lc
-                            const p1Start = p1Lc.lifecycleStart.valueOf();
-                            const p1End = p1Lc.lifecycleEnd.valueOf();
-                            const p2Start = p2Lc.lifecycleStart.valueOf();
-                            const p2End = p2Lc.lifecycleEnd.valueOf();
-                            if ((p1Start >= p2Start && p1Start <= p2End) || (p2Start >= p1Start && p2Start <= p1End)) { return true; } else { return false; }
-                        });
-                        if (p2LcInfoIdx < 0) {
-                            console.log(`couldn't find the new lifecycles to keep for ECU '${p1Lc.ecu}' LC: ${p1Lc.lifecycleStart.toUTCString()}-${p1Lc.lifecycleEnd.toUTCString()} `); // might be normal/expected if filters get applied
-                            // show an info todo
-                        } else {
-                            console.log(`found new lifecycle to keep for ECU '${p1Lc.ecu}' new LC: ${p2LcInfos[p2LcInfoIdx].lifecycleStart.toUTCString()}-${p2LcInfos[p2LcInfoIdx].lifecycleEnd.toUTCString()} for LC: ${p1Lc.lifecycleStart.toUTCString()}-${p1Lc.lifecycleEnd.toUTCString()}`);
-                            lcsToKeep.add(p2LcInfos[p2LcInfoIdx]);
-                        }
+          try {
+            let lastIncrement = 50
+            for (let m = 0; m < minMsgInfos.length; ++m) {
+              const minMsgInfo = minMsgInfos[m]
+              if (minMsgInfo !== undefined) {
+                const msgTimeMs: number =
+                  rewriteMsgTimes && minMsgInfo.lifecycle !== undefined
+                    ? Math.floor(minMsgInfo.lifecycle.lifecycleStart.valueOf() + minMsgInfo.timeStamp / 10)
+                    : minMsgInfo.receptionTimeInMs
+                if (!keepAllLcs && (minMsgInfo.lifecycle === undefined || !lcsToKeep.has(minMsgInfo.lifecycle))) {
+                  // if not keepAllLcs we remove msgs without lifecycles. Those are main CTRL_REQUEST msgs
+                  // skipping that msg
+                } else if (msgTimeMs < keepMinTime || msgTimeMs > keepMaxTime) {
+                  // remove msg due to time restriction
+                } else {
+                  const data = pass2GetData(minMsgInfo)
+
+                  // write the first msg with infos about the conversion:
+                  if (!wroteFirstMsg && minMsgInfo.lifecycle !== undefined) {
+                    // we need info from first proper message to not influence lifecycle calc.
+                    const extension = vscode.extensions.getExtension(extensionId)
+                    let ecu = minMsgInfo.lifecycle.ecu
+                    let timeMs = minMsgInfo.receptionTimeInMs
+                    if (exportOptions.rewriteMsgTimes) {
+                      timeMs = Math.floor(minMsgInfo.lifecycle.lifecycleStart.valueOf() + minMsgInfo.timeStamp / 10)
                     }
-                });
-            }
-            console.log(`after pass1: keeping ${keepAllLcs ? 'all' : lcsToKeep.size} lifecycles`);
-
-            // sort list by time?
-            if (exportOptions.reorderMsgsByTime && !cancelToken.isCancellationRequested) {
-                // could filter out all undefined ones before sorting
-                // but seems fast anyhow, minMsgInfos = minMsgInfos.filter(a => a !== undefined);
-                progress.report({ message: `sorting ${minMsgInfos.length} messages` });
-                await util.sleep(50);
-                minMsgInfos.sort((a, b) => {
-                    if (a === undefined && b === undefined) { return 0; }
-                    if (a === undefined) { return 1; }
-                    if (b === undefined) { return -1; }
-
-                    const timeA = (a.lifecycle === undefined ? a.receptionTimeInMs : (a.lifecycle.lifecycleStart.valueOf() + (a.timeStamp / 10)));
-                    const timeB = (b.lifecycle === undefined ? b.receptionTimeInMs : (b.lifecycle.lifecycleStart.valueOf() + (b.timeStamp / 10)));
-                    if (timeA === timeB) { return a.msgOffset - b.msgOffset; }
-                    return timeA - timeB; // this is not stable! So if same time sort by offset (assuming from different files dont have same offset)
-                });
-                console.log(`sorted ${minMsgInfos.length} msgs`);
-                progress.report({ message: `sorted ${minMsgInfos.length} messages` });
-                await util.sleep(10); // 10ms each 100ms    
-            }
-
-            // pass 2:
-            if (!cancelToken.isCancellationRequested) {
-                let wroteMsgs = 0;
-                let pass2StartTime = process.hrtime();
-                try {
-                    console.log(`pass2: creating ${exportOptions.dstUri.fsPath}`);
-                    const saveFileFd = fs.openSync(exportOptions.dstUri.fsPath, "w");
-                    //console.log(`created ${exportOptions.dstUri.fsPath}`);
-                    let wroteFirstMsg = false;
-
-                    try {
-                        let lastIncrement = 50;
-                        for (let m = 0; m < minMsgInfos.length; ++m) {
-                            const minMsgInfo = minMsgInfos[m];
-                            if (minMsgInfo !== undefined) {
-                                const msgTimeMs: number = (rewriteMsgTimes && minMsgInfo.lifecycle !== undefined) ? Math.floor(minMsgInfo.lifecycle.lifecycleStart.valueOf() + (minMsgInfo.timeStamp / 10)) : minMsgInfo.receptionTimeInMs;
-                                if (!keepAllLcs && (minMsgInfo.lifecycle === undefined || !lcsToKeep.has(minMsgInfo.lifecycle))) {
-                                    // if not keepAllLcs we remove msgs without lifecycles. Those are main CTRL_REQUEST msgs
-                                    // skipping that msg
-                                } else if ((msgTimeMs < keepMinTime) || (msgTimeMs > keepMaxTime)) {
-                                    // remove msg due to time restriction
-                                } else {
-                                    const data = pass2GetData(minMsgInfo);
-
-                                    // write the first msg with infos about the conversion:
-                                    if (!wroteFirstMsg && minMsgInfo.lifecycle !== undefined) { // we need info from first proper message to not influence lifecycle calc.
-                                        const extension = vscode.extensions.getExtension(extensionId);
-                                        let ecu = minMsgInfo.lifecycle.ecu;
-                                        let timeMs = minMsgInfo.receptionTimeInMs;
-                                        if (exportOptions.rewriteMsgTimes) {
-                                            timeMs = Math.floor(minMsgInfo.lifecycle.lifecycleStart.valueOf() + (minMsgInfo.timeStamp / 10));
-                                        }
-                                        let infoMsg = createStorageMsgAsBuffer({ time: timeMs, timeStamp: minMsgInfo.timeStamp, mstp: MSTP.TYPE_LOG, mtin: MTIN_LOG.LOG_INFO, ecu: ecu, apid: 'VsDl', ctid: 'Info', text: `File created by VS-Code extension ${extension?.packageJSON.id} v${extension !== undefined ? extension.packageJSON.version : 'unknown'} on ${new Date().toUTCString()}` });
-                                        let written = fs.writeSync(saveFileFd, infoMsg);
-                                        if (written !== infoMsg.byteLength) { throw Error(`couldn't write ${infoMsg.byteLength} bytes. Wrote ${written}.`); }
-                                        infoMsg = createStorageMsgAsBuffer({ time: timeMs, timeStamp: minMsgInfo.timeStamp, mstp: MSTP.TYPE_LOG, mtin: MTIN_LOG.LOG_INFO, ecu: ecu, apid: 'VsDl', ctid: 'Info', text: `Export settings used: 'reorder msgs'=${exportOptions.reorderMsgsByTime ? 'yes' : 'no'}, 'rewrite msg time'=${exportOptions.rewriteMsgTimes ? 'yes' : 'no'}, src files='${exportOptions.srcUris.map(u => basename(u.fsPath)).join(',')}'` });
-                                        written = fs.writeSync(saveFileFd, infoMsg);
-                                        if (written !== infoMsg.byteLength) { throw Error(`couldn't write ${infoMsg.byteLength} bytes. Wrote ${written}.`); }
-                                        infoMsg = createStorageMsgAsBuffer({ time: timeMs, timeStamp: minMsgInfo.timeStamp, mstp: MSTP.TYPE_LOG, mtin: MTIN_LOG.LOG_INFO, ecu: ecu, apid: 'VsDl', ctid: 'Info', text: `Lifecycles kept=${keepAllLcs ? 'all' : exportOptions.lcsToKeep.map(l => `'ECU:${l.ecu}, ${l.lifecycleStart.toUTCString()} - ${l.lifecycleEnd.toUTCString()}'`).join(' and ')}` });
-                                        written = fs.writeSync(saveFileFd, infoMsg);
-                                        if (written !== infoMsg.byteLength) { throw Error(`couldn't write ${infoMsg.byteLength} bytes. Wrote ${written}.`); }
-                                        if (exportOptions.timeFrom !== undefined || exportOptions.timeTo !== undefined) {
-                                            infoMsg = createStorageMsgAsBuffer({ time: timeMs, timeStamp: minMsgInfo.timeStamp, mstp: MSTP.TYPE_LOG, mtin: MTIN_LOG.LOG_INFO, ecu: ecu, apid: 'VsDl', ctid: 'Info', text: `Restricted times=${exportOptions.timeFrom !== undefined ? `${new Date(exportOptions.timeFrom).toUTCString()}` : ''}-${exportOptions.timeTo !== undefined ? `${new Date(exportOptions.timeTo).toUTCString()}` : ''}` });
-                                            written = fs.writeSync(saveFileFd, infoMsg);
-                                            if (written !== infoMsg.byteLength) { throw Error(`couldn't write ${infoMsg.byteLength} bytes. Wrote ${written}.`); }
-                                        }
-                                        wroteFirstMsg = true;
-                                    }
-
-                                    if (rewriteMsgTimes) {
-                                        // replace storage header secs/micros with the lifecycleStart + timeStamp calculated time:
-                                        // we can only do so if we do know the lifecycle
-                                        if (minMsgInfo.lifecycle) {
-                                            const ms: number = msgTimeMs;// Math.floor(minMsgInfo.lifecycle.lifecycleStart.valueOf() + (minMsgInfo.timeStamp / 10));
-                                            const secs: number = Math.floor(ms / 1000);
-                                            const micros: number = Math.round(((ms % 1000) * 1000) + ((minMsgInfo.timeStamp % 10) * 100));
-
-                                            const msCalc = (secs * 1000) + (micros / 1000);
-                                            // we should be off by +[0,1)ms
-                                            //assert(msCalc < (ms + 1) && msCalc >= ms, `new time calc wrong: ${msCalc}!==${ms} by ${msCalc - ms}`);
-                                            data.writeUInt32LE(secs, 4);
-                                            data.writeInt32LE(micros, 8);
-                                        }
-                                    }
-                                    const written = fs.writeSync(saveFileFd, data);
-                                    if (written !== data.byteLength) {
-                                        throw Error(`couldn't write ${data.byteLength} bytes. Wrote ${written}.`);
-                                    }
-                                    wroteMsgs++;
-                                }
-                            }
-                            let curTime = process.hrtime(pass2StartTime);
-                            if (curTime[1] / 1000000 > 100) { // 100ms passed
-                                pass2StartTime = process.hrtime();
-                                const increment = 50 + Math.round(50 * (m / minMsgInfos.length));
-                                progress.report({ increment: increment - lastIncrement, message: `pass 2: processed ${Number(100 * m / minMsgInfos.length).toFixed(0)}%: ${Number(m / 1000).toFixed(0)}/${Number(minMsgInfos.length / 1000).toFixed(0)}k msgs` });
-                                lastIncrement = increment;
-                                await util.sleep(10); // 10ms each 100ms
-                                if (cancelToken.isCancellationRequested) { break; }
-                            }
-                        }
-                    } catch (err) {
-                        console.log(`pass 2: got error: '${err}'`);
-                        progress.report({ message: `pass 2: got error: '${err}'` });
+                    let infoMsg = createStorageMsgAsBuffer({
+                      time: timeMs,
+                      timeStamp: minMsgInfo.timeStamp,
+                      mstp: MSTP.TYPE_LOG,
+                      mtin: MTIN_LOG.LOG_INFO,
+                      ecu: ecu,
+                      apid: 'VsDl',
+                      ctid: 'Info',
+                      text: `File created by VS-Code extension ${extension?.packageJSON.id} v${
+                        extension !== undefined ? extension.packageJSON.version : 'unknown'
+                      } on ${new Date().toUTCString()}`,
+                    })
+                    let written = fs.writeSync(saveFileFd, infoMsg)
+                    if (written !== infoMsg.byteLength) {
+                      throw Error(`couldn't write ${infoMsg.byteLength} bytes. Wrote ${written}.`)
                     }
-                    fs.closeSync(saveFileFd);
-                } catch (err) {
-                    console.log(`pass 2: create file got error: '${err}'`);
-                    progress.report({ message: `pass 2: create file got error: '${err}'` });
+                    infoMsg = createStorageMsgAsBuffer({
+                      time: timeMs,
+                      timeStamp: minMsgInfo.timeStamp,
+                      mstp: MSTP.TYPE_LOG,
+                      mtin: MTIN_LOG.LOG_INFO,
+                      ecu: ecu,
+                      apid: 'VsDl',
+                      ctid: 'Info',
+                      text: `Export settings used: 'reorder msgs'=${exportOptions.reorderMsgsByTime ? 'yes' : 'no'}, 'rewrite msg time'=${
+                        exportOptions.rewriteMsgTimes ? 'yes' : 'no'
+                      }, src files='${exportOptions.srcUris.map((u) => basename(u.fsPath)).join(',')}'`,
+                    })
+                    written = fs.writeSync(saveFileFd, infoMsg)
+                    if (written !== infoMsg.byteLength) {
+                      throw Error(`couldn't write ${infoMsg.byteLength} bytes. Wrote ${written}.`)
+                    }
+                    infoMsg = createStorageMsgAsBuffer({
+                      time: timeMs,
+                      timeStamp: minMsgInfo.timeStamp,
+                      mstp: MSTP.TYPE_LOG,
+                      mtin: MTIN_LOG.LOG_INFO,
+                      ecu: ecu,
+                      apid: 'VsDl',
+                      ctid: 'Info',
+                      text: `Lifecycles kept=${
+                        keepAllLcs
+                          ? 'all'
+                          : exportOptions.lcsToKeep
+                              .map((l) => `'ECU:${l.ecu}, ${l.lifecycleStart.toUTCString()} - ${l.lifecycleEnd.toUTCString()}'`)
+                              .join(' and ')
+                      }`,
+                    })
+                    written = fs.writeSync(saveFileFd, infoMsg)
+                    if (written !== infoMsg.byteLength) {
+                      throw Error(`couldn't write ${infoMsg.byteLength} bytes. Wrote ${written}.`)
+                    }
+                    if (exportOptions.timeFrom !== undefined || exportOptions.timeTo !== undefined) {
+                      infoMsg = createStorageMsgAsBuffer({
+                        time: timeMs,
+                        timeStamp: minMsgInfo.timeStamp,
+                        mstp: MSTP.TYPE_LOG,
+                        mtin: MTIN_LOG.LOG_INFO,
+                        ecu: ecu,
+                        apid: 'VsDl',
+                        ctid: 'Info',
+                        text: `Restricted times=${
+                          exportOptions.timeFrom !== undefined ? `${new Date(exportOptions.timeFrom).toUTCString()}` : ''
+                        }-${exportOptions.timeTo !== undefined ? `${new Date(exportOptions.timeTo).toUTCString()}` : ''}`,
+                      })
+                      written = fs.writeSync(saveFileFd, infoMsg)
+                      if (written !== infoMsg.byteLength) {
+                        throw Error(`couldn't write ${infoMsg.byteLength} bytes. Wrote ${written}.`)
+                      }
+                    }
+                    wroteFirstMsg = true
+                  }
+
+                  if (rewriteMsgTimes) {
+                    // replace storage header secs/micros with the lifecycleStart + timeStamp calculated time:
+                    // we can only do so if we do know the lifecycle
+                    if (minMsgInfo.lifecycle) {
+                      const ms: number = msgTimeMs // Math.floor(minMsgInfo.lifecycle.lifecycleStart.valueOf() + (minMsgInfo.timeStamp / 10));
+                      const secs: number = Math.floor(ms / 1000)
+                      const micros: number = Math.round((ms % 1000) * 1000 + (minMsgInfo.timeStamp % 10) * 100)
+
+                      const msCalc = secs * 1000 + micros / 1000
+                      // we should be off by +[0,1)ms
+                      //assert(msCalc < (ms + 1) && msCalc >= ms, `new time calc wrong: ${msCalc}!==${ms} by ${msCalc - ms}`);
+                      data.writeUInt32LE(secs, 4)
+                      data.writeInt32LE(micros, 8)
+                    }
+                  }
+                  const written = fs.writeSync(saveFileFd, data)
+                  if (written !== data.byteLength) {
+                    throw Error(`couldn't write ${data.byteLength} bytes. Wrote ${written}.`)
+                  }
+                  wroteMsgs++
                 }
-                console.log(`pass2: finished writing ${wroteMsgs} msgs to ${exportOptions.dstUri.fsPath}`);
+              }
+              let curTime = process.hrtime(pass2StartTime)
+              if (curTime[1] / 1000000 > 100) {
+                // 100ms passed
+                pass2StartTime = process.hrtime()
+                const increment = 50 + Math.round(50 * (m / minMsgInfos.length))
+                progress.report({
+                  increment: increment - lastIncrement,
+                  message: `pass 2: processed ${Number((100 * m) / minMsgInfos.length).toFixed(0)}%: ${Number(m / 1000).toFixed(
+                    0,
+                  )}/${Number(minMsgInfos.length / 1000).toFixed(0)}k msgs`,
+                })
+                lastIncrement = increment
+                await util.sleep(10) // 10ms each 100ms
+                if (cancelToken.isCancellationRequested) {
+                  break
+                }
+              }
             }
-            closeAllReadFds();
+          } catch (err) {
+            console.log(`pass 2: got error: '${err}'`)
+            progress.report({ message: `pass 2: got error: '${err}'` })
+          }
+          fs.closeSync(saveFileFd)
+        } catch (err) {
+          console.log(`pass 2: create file got error: '${err}'`)
+          progress.report({ message: `pass 2: create file got error: '${err}'` })
         }
-    );
+        console.log(`pass2: finished writing ${wroteMsgs} msgs to ${exportOptions.dstUri.fsPath}`)
+      }
+      closeAllReadFds()
+    },
+  )
 }
 
 /* this needs to be really memory optimized to allow opening incl. sorting files
@@ -619,109 +838,145 @@ async function doExport(exportOptions: ExportDltOptions) {
  */
 
 interface MinMsgInfo {
-    uri: vscode.Uri; // todo could be optimized as index:number (16bit) together with msgLen (16bit)
-    readonly msgOffset: number; // offset in src file
-    readonly msgLen: number; // len of message in src file
-    readonly receptionTimeInMs: number; // time in ms.
-    readonly timeStamp: number;
-    lifecycle: DltLifecycleInfo | undefined;
+  uri: vscode.Uri // todo could be optimized as index:number (16bit) together with msgLen (16bit)
+  readonly msgOffset: number // offset in src file
+  readonly msgLen: number // len of message in src file
+  readonly receptionTimeInMs: number // time in ms.
+  readonly timeStamp: number
+  lifecycle: DltLifecycleInfo | undefined
 }
 
 const pass1ReadUri = async (
-    fileUri: vscode.Uri,
-    allFilters: readonly DltFilter[],
-    lifecycles: Map<string, DltLifecycleInfo[]>,
-    minMsgInfos: ((MinMsgInfo | undefined)[]) | undefined,
-    progress: vscode.Progress<{
-        message?: string | undefined;
-        increment?: number | undefined;
-    }> | undefined,
-    progressCallback: (() => void) | undefined,
-    expectedIncrement: number,
-    earlyRemove: ((msgs: ((MinMsgInfo | undefined)[]) | undefined, context: any) => void) | undefined,
-    cancel: vscode.CancellationToken,
-    progressTimeout: number = 100) => {
-    if (cancel.isCancellationRequested) { return; }
-    const fd = getReadFd(fileUri.fsPath);
-    const stats = fs.statSync(fileUri.fsPath);
-    let read: number = 0;
-    let chunkSize = 10 * 1024 * 1024;
-    let parsedFileLen = 0;
-    let data = Buffer.allocUnsafe(chunkSize);
-    let startTime = process.hrtime();
-    let lastUpdateTime = startTime;
-    let msgs: DltMsg[] = [];
-    // determine current filters:
-    const [posFilters, negFilters, decFilters, eventFilters, negBeforePosFilters] = DltDocument.getFilter(allFilters, true, true);
-    progress?.report({ message: `pass 1: processing file '${basename(fileUri.fsPath)}'` });
-    let index = 0;
-    let lastIncrement = 0;
-    let msgCnt = 0;
-    const earlyRemoveContext = {};
-    do {
-        read = fs.readSync(fd, data, 0, chunkSize, parsedFileLen);
-        if (read) {
-            //const copiedBuf = Buffer.from(data.slice(0, read)); // have to create a copy of Buffer here! not necessary to access apid
-            // parse data:
-            const msgOffsets: number[] = [];
-            const msgLengths: number[] = [];
-            const parseInfo = DltDocument.dltP.parseDltFromBuffer(data.slice(0, read), 0, msgs, undefined, posFilters, negFilters, negBeforePosFilters, msgOffsets, msgLengths);
-            if (parseInfo[0] > 0) {
-            }
-            if (parseInfo[1] > 0) {
-                //console.log(`checkFileChanges read=${read} remaining=${parseInfo[1]} bytes. Parse ${parseInfo[2]} msgs.`);
-            }
-            if (msgs.length > 0) {
-                DltLifecycleInfo.updateLifecycles(msgs, lifecycles, false);
+  fileUri: vscode.Uri,
+  allFilters: readonly DltFilter[],
+  lifecycles: Map<string, DltLifecycleInfo[]>,
+  minMsgInfos: (MinMsgInfo | undefined)[] | undefined,
+  progress:
+    | vscode.Progress<{
+        message?: string | undefined
+        increment?: number | undefined
+      }>
+    | undefined,
+  progressCallback: (() => void) | undefined,
+  expectedIncrement: number,
+  earlyRemove: ((msgs: (MinMsgInfo | undefined)[] | undefined, context: any) => void) | undefined,
+  cancel: vscode.CancellationToken,
+  progressTimeout: number = 100,
+) => {
+  if (cancel.isCancellationRequested) {
+    return
+  }
+  const fd = getReadFd(fileUri.fsPath)
+  const stats = fs.statSync(fileUri.fsPath)
+  let read: number = 0
+  let chunkSize = 10 * 1024 * 1024
+  let parsedFileLen = 0
+  let data = Buffer.allocUnsafe(chunkSize)
+  let startTime = process.hrtime()
+  let lastUpdateTime = startTime
+  let msgs: DltMsg[] = []
+  // determine current filters:
+  const [posFilters, negFilters, decFilters, eventFilters, negBeforePosFilters] = DltDocument.getFilter(allFilters, true, true)
+  progress?.report({ message: `pass 1: processing file '${basename(fileUri.fsPath)}'` })
+  let index = 0
+  let lastIncrement = 0
+  let msgCnt = 0
+  const earlyRemoveContext = {}
+  do {
+    read = fs.readSync(fd, data, 0, chunkSize, parsedFileLen)
+    if (read) {
+      //const copiedBuf = Buffer.from(data.slice(0, read)); // have to create a copy of Buffer here! not necessary to access apid
+      // parse data:
+      const msgOffsets: number[] = []
+      const msgLengths: number[] = []
+      const parseInfo = DltDocument.dltP.parseDltFromBuffer(
+        data.slice(0, read),
+        0,
+        msgs,
+        undefined,
+        posFilters,
+        negFilters,
+        negBeforePosFilters,
+        msgOffsets,
+        msgLengths,
+      )
+      if (parseInfo[0] > 0) {
+      }
+      if (parseInfo[1] > 0) {
+        //console.log(`checkFileChanges read=${read} remaining=${parseInfo[1]} bytes. Parse ${parseInfo[2]} msgs.`);
+      }
+      if (msgs.length > 0) {
+        DltLifecycleInfo.updateLifecycles(msgs, lifecycles, false)
 
-                for (let m = 0; m < msgs.length; ++m) {
-                    const msg = msgs[m];
-                    // we treat CTRL_REQUEST separately: we dont store a lifecycle. so later one the reception time is used an not the calc. time
-                    if (minMsgInfos !== undefined) {
-                        minMsgInfos.push({ uri: fileUri, msgOffset: parsedFileLen + msgOffsets[m], msgLen: msgLengths[m], timeStamp: msg.timeStamp, lifecycle: (msg.mstp === MSTP.TYPE_CONTROL && msg.mtin === MTIN_CTRL.CONTROL_REQUEST) ? undefined : msg.lifecycle as DltLifecycleInfo, receptionTimeInMs: msg.receptionTimeInMs });
-                    }
-                    index++;
-                }
-                msgCnt += msgs.length;
-                msgs = []; // keep mem load low. we copied relevant info to minMsgInfos
-                if (earlyRemove !== undefined) { earlyRemove(minMsgInfos, earlyRemoveContext); }
-            }
-
-            if (read !== parseInfo[1]) {
-                parsedFileLen += read - parseInfo[1];
-                let curTime = process.hrtime(startTime);
-                if (curTime[1] / 1000000 > 100) { // 100ms passed
-                    await util.sleep(progressTimeout / 10); // 10% sleep ratio
-                    startTime = process.hrtime();
-                }
-            } else {
-                console.log(`checkFileChanges read=${read} remaining=${parseInfo[1]} bytes. Parsed ${parseInfo[2]} msgs. Stop parsing to avoid endless loop.`);
-                read = 0;
-            }
-            // update every progressTimeout ms:
-            let curTime = process.hrtime(lastUpdateTime);
-            if ((curTime[0] * 1000 + (curTime[1] / 1000000)) > progressTimeout) {
-                lastUpdateTime = process.hrtime();
-                const increment = Math.round(expectedIncrement * (parsedFileLen / stats.size));
-                progress?.report({ increment: increment - lastIncrement, message: `pass 1: processing file '${basename(fileUri.fsPath)}' got ${lifecycles.size} ECUs and ${Number(msgCnt / 1000).toFixed(0)}k msgs` });
-                lastIncrement = increment;
-                if (progressCallback !== undefined) { progressCallback(); }
-            }
-
+        for (let m = 0; m < msgs.length; ++m) {
+          const msg = msgs[m]
+          // we treat CTRL_REQUEST separately: we dont store a lifecycle. so later one the reception time is used an not the calc. time
+          if (minMsgInfos !== undefined) {
+            minMsgInfos.push({
+              uri: fileUri,
+              msgOffset: parsedFileLen + msgOffsets[m],
+              msgLen: msgLengths[m],
+              timeStamp: msg.timeStamp,
+              lifecycle:
+                msg.mstp === MSTP.TYPE_CONTROL && msg.mtin === MTIN_CTRL.CONTROL_REQUEST ? undefined : (msg.lifecycle as DltLifecycleInfo),
+              receptionTimeInMs: msg.receptionTimeInMs,
+            })
+          }
+          index++
         }
-    } while (read > 0 && !cancel.isCancellationRequested);
+        msgCnt += msgs.length
+        msgs = [] // keep mem load low. we copied relevant info to minMsgInfos
+        if (earlyRemove !== undefined) {
+          earlyRemove(minMsgInfos, earlyRemoveContext)
+        }
+      }
 
-    // need to update minMsgInfos here to point to finalLifecycles as some lifecycles might have been merged
-    if (minMsgInfos !== undefined) {
-    for (let i = 0; i < minMsgInfos.length; ++i) {
-        let msgI = minMsgInfos[i];
-        if (msgI !== undefined && msgI.lifecycle !== undefined) {
-            const newLC = msgI.lifecycle.finalLifecycle;
-            msgI.lifecycle = newLC;
+      if (read !== parseInfo[1]) {
+        parsedFileLen += read - parseInfo[1]
+        let curTime = process.hrtime(startTime)
+        if (curTime[1] / 1000000 > 100) {
+          // 100ms passed
+          await util.sleep(progressTimeout / 10) // 10% sleep ratio
+          startTime = process.hrtime()
         }
+      } else {
+        console.log(
+          `checkFileChanges read=${read} remaining=${parseInfo[1]} bytes. Parsed ${parseInfo[2]} msgs. Stop parsing to avoid endless loop.`,
+        )
+        read = 0
+      }
+      // update every progressTimeout ms:
+      let curTime = process.hrtime(lastUpdateTime)
+      if (curTime[0] * 1000 + curTime[1] / 1000000 > progressTimeout) {
+        lastUpdateTime = process.hrtime()
+        const increment = Math.round(expectedIncrement * (parsedFileLen / stats.size))
+        progress?.report({
+          increment: increment - lastIncrement,
+          message: `pass 1: processing file '${basename(fileUri.fsPath)}' got ${lifecycles.size} ECUs and ${Number(msgCnt / 1000).toFixed(
+            0,
+          )}k msgs`,
+        })
+        lastIncrement = increment
+        if (progressCallback !== undefined) {
+          progressCallback()
         }
+      }
     }
+  } while (read > 0 && !cancel.isCancellationRequested)
 
-    if (!cancel.isCancellationRequested && progressCallback !== undefined) { progressCallback(); }
-    console.log(`pass1ReadUri(uri=${fileUri.toString()}) finished.`);
-};
+  // need to update minMsgInfos here to point to finalLifecycles as some lifecycles might have been merged
+  if (minMsgInfos !== undefined) {
+    for (let i = 0; i < minMsgInfos.length; ++i) {
+      let msgI = minMsgInfos[i]
+      if (msgI !== undefined && msgI.lifecycle !== undefined) {
+        const newLC = msgI.lifecycle.finalLifecycle
+        msgI.lifecycle = newLC
+      }
+    }
+  }
+
+  if (!cancel.isCancellationRequested && progressCallback !== undefined) {
+    progressCallback()
+  }
+  console.log(`pass1ReadUri(uri=${fileUri.toString()}) finished.`)
+}

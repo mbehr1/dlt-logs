@@ -2,18 +2,17 @@
  * Copyright(C) Matthias Behr.
  */
 
+import * as vscode from 'vscode'
 
-import * as vscode from 'vscode';
-
-import { dltScheme } from './constants';
+import { dltScheme } from './constants'
 
 class DltLogCustomDocument implements vscode.CustomDocument {
-    constructor(public uri: vscode.Uri) {
-        console.log(`DltLogCustomDocument(uri=${uri.toString()})`);
-    }
-    dispose() {
-        console.log(`DltLogCustomDocument.dispose()`);
-    }
+  constructor(public uri: vscode.Uri) {
+    console.log(`DltLogCustomDocument(uri=${uri.toString()})`)
+  }
+  dispose() {
+    console.log(`DltLogCustomDocument.dispose()`)
+  }
 }
 
 /*
@@ -29,28 +28,40 @@ class DltLogCustomDocument implements vscode.CustomDocument {
  */
 
 export class DltLogCustomReadonlyEditorProvider implements vscode.CustomReadonlyEditorProvider<DltLogCustomDocument> {
-    openCustomDocument(uri: vscode.Uri, openContext: vscode.CustomDocumentOpenContext, token: vscode.CancellationToken): Thenable<DltLogCustomDocument> | DltLogCustomDocument {
-        console.log(`DltLogCustomReadonlyEditorProvider.openCustomDocument(uri=${uri.toString()})`);
-        setTimeout(() => { // open slightly later the real document
-            let dltUri = uri.with({ scheme: dltScheme });
-            vscode.workspace.openTextDocument(dltUri).then((value) => { vscode.window.showTextDocument(value, { preview: false }); });
-        }, 250);
-        // for a)
-        throw Error(`Please use 'Open DLT file...' command next time.`);
-        return new DltLogCustomDocument(uri);
-    }
+  openCustomDocument(
+    uri: vscode.Uri,
+    openContext: vscode.CustomDocumentOpenContext,
+    token: vscode.CancellationToken,
+  ): Thenable<DltLogCustomDocument> | DltLogCustomDocument {
+    console.log(`DltLogCustomReadonlyEditorProvider.openCustomDocument(uri=${uri.toString()})`)
+    setTimeout(() => {
+      // open slightly later the real document
+      let dltUri = uri.with({ scheme: dltScheme })
+      vscode.workspace.openTextDocument(dltUri).then((value) => {
+        vscode.window.showTextDocument(value, { preview: false })
+      })
+    }, 250)
+    // for a)
+    throw Error(`Please use 'Open DLT file...' command next time.`)
+    return new DltLogCustomDocument(uri)
+  }
 
-    resolveCustomEditor(document: DltLogCustomDocument, webviewPanel: vscode.WebviewPanel, token: vscode.CancellationToken): Thenable<void> | void {
-        console.log(`DltLogCustomReadonlyEditorProvider.resolveCustomEditor(document.uri=${document.uri.toString()})`);
-        webviewPanel.webview.html = `Please use "Open DLT file..." command to open DLT documents.`;
-        if (false) { // needed for b) only
-            setTimeout(() => {
-                console.log(`resolveCustomEditor timeout: ${vscode.window.activeTextEditor?.document.uri}`);
-                // the api doesn't allow to specify a document. so its a bit risky.
-                if (vscode.window.activeTextEditor === undefined || vscode.window.activeTextEditor.document.uri === document.uri) {
-                    vscode.commands.executeCommand('workbench.action.closeActiveEditor');
-                }
-            }, 100);
+  resolveCustomEditor(
+    document: DltLogCustomDocument,
+    webviewPanel: vscode.WebviewPanel,
+    token: vscode.CancellationToken,
+  ): Thenable<void> | void {
+    console.log(`DltLogCustomReadonlyEditorProvider.resolveCustomEditor(document.uri=${document.uri.toString()})`)
+    webviewPanel.webview.html = `Please use "Open DLT file..." command to open DLT documents.`
+    if (false) {
+      // needed for b) only
+      setTimeout(() => {
+        console.log(`resolveCustomEditor timeout: ${vscode.window.activeTextEditor?.document.uri}`)
+        // the api doesn't allow to specify a document. so its a bit risky.
+        if (vscode.window.activeTextEditor === undefined || vscode.window.activeTextEditor.document.uri === document.uri) {
+          vscode.commands.executeCommand('workbench.action.closeActiveEditor')
         }
+      }, 100)
     }
+  }
 }
