@@ -39,52 +39,52 @@
  * [ ] update docs
  */
 
-import { sendAndReceiveMsg, vscode } from "./utilities/vscode";
-import React from "react";
-import { ChangeEvent, Component, MouseEventHandler, useEffect, useRef, useState, useCallback } from "react";
-import { VSCodeButton, VSCodeDropdown, VSCodeOption, VSCodeTextField } from "@vscode/webview-ui-toolkit/react";
-import { FixedSizeList, ListChildComponentProps } from 'react-window';
-import AutoSizer from "react-virtualized-auto-sizer";
-import InfiniteLoader from "react-window-infinite-loader";
-import { useDebouncedCallback } from 'use-debounce';
-import "./App.css";
-import { FindWidget } from "./FindWidget";
+import { sendAndReceiveMsg, vscode } from './utilities/vscode'
+import React from 'react'
+import { ChangeEvent, Component, MouseEventHandler, useEffect, useRef, useState, useCallback } from 'react'
+import { VSCodeButton, VSCodeDropdown, VSCodeOption, VSCodeTextField } from '@vscode/webview-ui-toolkit/react'
+import { FixedSizeList, ListChildComponentProps } from 'react-window'
+import AutoSizer from 'react-virtualized-auto-sizer'
+import InfiniteLoader from 'react-window-infinite-loader'
+import { useDebouncedCallback } from 'use-debounce'
+import './App.css'
+import { FindWidget } from './FindWidget'
 
 // persisted state data (in vscode.set/getState...)
 // defaults are provided in case they are not contained in getState...
 interface PersistedState {
-    useRegex: boolean,
-    useCaseSensitive: boolean,
-    useFilter: boolean,
-    searchString: string,
-    lastUsedSearchStrings: string[],
+  useRegex: boolean
+  useCaseSensitive: boolean
+  useFilter: boolean
+  searchString: string
+  lastUsedSearchStrings: string[]
 }
 
 // needs to be in sync with SearchPanel.ts map ...
 interface Msg {
-    index: number,
-    receptionTimeInMs: number,
-    calculatedTimeInMs?: number,
-    timeStamp: number,
-    ecu: string,
-    mcnt: number,
-    apid: string,
-    ctid: string,
-    mtin: string,
-    payloadString: string,
-    lifecycle?: number,
-    decs?: any[], // decorations options, todo change to index to map...
+  index: number
+  receptionTimeInMs: number
+  calculatedTimeInMs?: number
+  timeStamp: number
+  ecu: string
+  mcnt: number
+  apid: string
+  ctid: string
+  mtin: string
+  payloadString: string
+  lifecycle?: number
+  decs?: any[] // decorations options, todo change to index to map...
 }
 
 interface ConsecutiveRows {
-    startIdx: number;
-    rows: Msg[];
+  startIdx: number
+  rows: Msg[]
 }
 
 interface StreamInfo {
-    nrStreamMsgs: number,
-    nrMsgsProcessed: number,
-    nrMsgsTotal: number
+  nrStreamMsgs: number
+  nrMsgsProcessed: number
+  nrMsgsTotal: number
 }
 
 /**
@@ -94,90 +94,106 @@ interface StreamInfo {
  * @returns index where the item was added
  */
 function addRows(consRows: ConsecutiveRows[], toAdd: ConsecutiveRows): number {
-    const idx = consRows.findIndex((rows) => rows.startIdx > toAdd.startIdx);
-    if (idx >= 0) {
-        // insert before the idx:
-        consRows.splice(idx, 0, toAdd);
-        return idx;
-    } else { // no existing item has a startIdx<=toAdd
-        // add to the end
-        consRows.push(toAdd);
-        return consRows.length - 1;
-    }
+  const idx = consRows.findIndex((rows) => rows.startIdx > toAdd.startIdx)
+  if (idx >= 0) {
+    // insert before the idx:
+    consRows.splice(idx, 0, toAdd)
+    return idx
+  } else {
+    // no existing item has a startIdx<=toAdd
+    // add to the end
+    consRows.push(toAdd)
+    return consRows.length - 1
+  }
 }
 
-const isLightTheme = document.body.classList.contains('vscode-light'); // else 'vscode-dark', 'vscode-high-contrast' we assume dark
+const isLightTheme = document.body.classList.contains('vscode-light') // else 'vscode-dark', 'vscode-high-contrast' we assume dark
 
 // we could assign a click handler to every single sitem element but lets use just one function:
 document.addEventListener('click', (e) => {
-    const et = e.target;
-    if (et instanceof Element) {
-        //console.log(`document.onClick className=${et.className} ${et.classList}`);
-        let textContent: string | null | undefined;
-        let timeInMs: string | null | undefined;
+  const et = e.target
+  if (et instanceof Element) {
+    //console.log(`document.onClick className=${et.className} ${et.classList}`);
+    let textContent: string | null | undefined
+    let timeInMs: string | null | undefined
 
-        if (et.classList.contains('sitem')) {
-            textContent = et.children.item(0)?.textContent;
-            timeInMs = et.getAttribute('data-time');
-        }
-        if (et.className === '' && et.parentElement?.classList.contains('sitem')) {
-            //console.log(`document.onClick parent`, et);
-            textContent = et.parentElement.innerText;
-            timeInMs = et.parentElement.getAttribute('data-time');
-        }
-        if (textContent) {
-            const textContentTrimmed = textContent.trimStart();
-            const index = Number.parseInt(textContentTrimmed.slice(0, textContentTrimmed.indexOf(' ')));
-            //console.log(`search document.click index=${index}`);
-            vscode.postMessage({ type: 'click', req: { index, timeInMs: timeInMs ? Number(timeInMs) : undefined } }); // no msgId needed
-            // preventDefault?
-        }
+    if (et.classList.contains('sitem')) {
+      textContent = et.children.item(0)?.textContent
+      timeInMs = et.getAttribute('data-time')
     }
-});
+    if (et.className === '' && et.parentElement?.classList.contains('sitem')) {
+      //console.log(`document.onClick parent`, et);
+      textContent = et.parentElement.innerText
+      timeInMs = et.parentElement.getAttribute('data-time')
+    }
+    if (textContent) {
+      const textContentTrimmed = textContent.trimStart()
+      const index = Number.parseInt(textContentTrimmed.slice(0, textContentTrimmed.indexOf(' ')))
+      //console.log(`search document.click index=${index}`);
+      vscode.postMessage({ type: 'click', req: { index, timeInMs: timeInMs ? Number(timeInMs) : undefined } }) // no msgId needed
+      // preventDefault?
+    }
+  }
+})
 
 type ToggleProps = {
-    icon: string,
-    title: string,
-    active: boolean,
-    onClick?: MouseEventHandler<HTMLElement>
-};
+  icon: string
+  title: string
+  active: boolean
+  onClick?: MouseEventHandler<HTMLElement>
+}
 
 // <div title="Match Whole Word (⌥⌘W)" class="monaco-custom-toggle codicon codicon-whole-word" tabindex="0" role="checkbox" aria-checked="false" aria-label="Match Whole Word (⌥⌘W)" aria-disabled="false" style="color: inherit;"></div>
 // <div title="Use Regular Expression (⌥⌘R)" class="monaco-custom-toggle codicon codicon-regex checked" tabindex="0" role="checkbox" aria-checked="true" aria-label="Use Regular Expression (⌥⌘R)" aria-disabled="false" style="color: var(--vscode-inputOption-activeForeground); border-color: var(--vscode-inputOption-activeBorder); background-color: var(--vscode-inputOption-activeBackground);"></div>
 // todo add onKeyDown logic as well? https://github.com/microsoft/vscode/blob/dc897c6c4fa6e9eecc98c70e4931dbdc16a4027c/src/vs/base/browser/ui/toggle/toggle.ts
 
 const Toggle = (props: ToggleProps) => {
-    const { icon, active } = props;
-    // todo tabindex?
-    return (<div onClick={props.onClick} title={props.title} className={`monaco-custom-toggle codicon codicon-${icon}${active ? ' checked' : ''}`} role="checkbox" aria-checked={active} aria-disabled={false} aria-label={props.title} />);
-};
+  const { icon, active } = props
+  // todo tabindex?
+  return (
+    <div
+      onClick={props.onClick}
+      title={props.title}
+      className={`monaco-custom-toggle codicon codicon-${icon}${active ? ' checked' : ''}`}
+      role='checkbox'
+      aria-checked={active}
+      aria-disabled={false}
+      aria-label={props.title}
+    />
+  )
+}
 
 const getCodicon = (name: string, disabled?: boolean) => {
-    // uses the same logic from https://github.com/microsoft/vscode/blob/dc897c6c4fa6e9eecc98c70e4931dbdc16a4027c/src/vs/base/browser/ui/codicons/codicon/codicon-modifiers.css#L16
-    // not officially documented. add e2e test to check that it keeps on working todo!
+  // uses the same logic from https://github.com/microsoft/vscode/blob/dc897c6c4fa6e9eecc98c70e4931dbdc16a4027c/src/vs/base/browser/ui/codicons/codicon/codicon-modifiers.css#L16
+  // not officially documented. add e2e test to check that it keeps on working todo!
 
-    return (<span className={`codicon codicon-${name}${disabled ? ' codicon-modifier-disabled' : ''}`}></span>);
-};
+  return <span className={`codicon codicon-${name}${disabled ? ' codicon-modifier-disabled' : ''}`}></span>
+}
 
-const persistedState: PersistedState = { useRegex: true, useCaseSensitive: true, useFilter: true, searchString: '', lastUsedSearchStrings: [], ...vscode.getState() || {} };
-const MAX_LAST_USED_LIST_ITEMS = 50; // we persist max 50 last used search strings
+const persistedState: PersistedState = {
+  useRegex: true,
+  useCaseSensitive: true,
+  useFilter: true,
+  searchString: '',
+  lastUsedSearchStrings: [],
+  ...(vscode.getState() || {}),
+}
+const MAX_LAST_USED_LIST_ITEMS = 50 // we persist max 50 last used search strings
 
 export interface FindParams {
-    findString: string,
-    useCaseSensitive: boolean,
-    useRegex: boolean,
-    // startIdx?: number,
-    // maxMsgsToReturn?: number
+  findString: string
+  useCaseSensitive: boolean
+  useRegex: boolean
+  // startIdx?: number,
+  // maxMsgsToReturn?: number
 }
 
 export interface FindResults {
-    findString: string, // the string used initially
-    findRegex: RegExp, // the regex used to highlight matches
-    nextSearchIdx?: number,
-    searchIdxs: number[] // the relative results
+  findString: string // the string used initially
+  findRegex: RegExp // the regex used to highlight matches
+  nextSearchIdx?: number
+  searchIdxs: number[] // the relative results
 }
-
-
 
 function App() {
   // console.log(`search app (render)...`);
