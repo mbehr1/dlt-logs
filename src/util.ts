@@ -249,3 +249,32 @@ export function containsRegexChars(s: string): boolean {
   // console.log(`containsRegexChars('${s}') pos=${pos}`);
   return pos >= 0
 }
+
+
+/**
+ * Finds the partition point in an array based on a given predicate function.
+ * 
+ * The array must be sorted in such a way that all values that match the predicate
+ * are located before all values that do not match the predicate.
+ * 
+ * @param {any[]} arr - The array to search in.
+ * @param {(value: any) => boolean} predicate - The predicate function used to determine the partition point.
+ * @returns {number} - The index of the partition point in the array.
+ */
+export function partitionPoint(arr: any[], predicate: (value: any) => boolean): number {
+  let first = 0
+  let count = arr.length
+
+  while (count > 0) {
+    const step = (count / 2) | 0
+    let it = first + step
+    if (predicate(arr[it])) {
+      first = ++it
+      count -= step + 1
+    } else {
+      count = step
+    }
+  }
+
+  return first
+}
