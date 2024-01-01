@@ -443,10 +443,29 @@ export class SearchPanelProvider implements WebviewViewProvider {
             }
             break
           case 'click':
-            console.log(`SearchPanel: click:${JSON.stringify(req)}`)
-            if (req.timeInMs) {
-              // todo support revealByIndex(req.index) and only fallback to time... (or add to revealDate...)
-              this._activeDoc?.revealDate(new Date(req.timeInMs))
+            // either a search result has been clicked or a new search triggered (or the search entry cleared)
+            // we do:
+            // on click: toggle highlight (and reveal). if currently highlighted the same msg -> remove highlight
+            // on new search/clear: clear highlights
+            if (this._activeDoc) {
+              if (req.index >= 0) {
+                const curHighlights = this._activeDoc.getMsgTimeHighlights('SearchPanel')
+                let fIdx: number
+                if (curHighlights && (fIdx = curHighlights.findIndex((h) => h.msgIndex === req.index)) >= 0) {
+                  // we toggle the current one off:
+                  curHighlights.splice(fIdx, 1)
+                  // need to set again even though the array is already modified to trigger update
+                  this._activeDoc.setMsgTimeHighlights('SearchPanel', curHighlights)
+                } else {
+                  this._activeDoc.setMsgTimeHighlights('SearchPanel', [{ msgIndex: req.index, calculatedTimeInMs: req.timeInMs }])
+                }
+              } else {
+                this._activeDoc.setMsgTimeHighlights('SearchPanel', [])
+              }
+              if (req.timeInMs) {
+                // todo support revealByIndex(req.index) and only fallback to time... (or add to revealDate...)
+                this._activeDoc.revealDate(new Date(req.timeInMs))
+              }
             }
             break
           case 'hello': // webview loaded/reloaded, send current doc if any (as the updates might have been missed)

@@ -273,6 +273,14 @@ interface DecorationsInfo {
   decOptions: any // the options used to create the type
 }
 
+/**
+ * Represents a "message / time" highlight.
+ * 
+ * Used to highlight e.g. from SearchPanel msgs or the timeRange from that message
+ * if the message is currently not visible (filtered out).
+ */
+type MsgTimeHighlight = { msgIndex: number; calculatedTimeInMs?: number }
+
 export class AdltDocument implements vscode.Disposable {
   private _fileNames: string[] // the real local file names
   private realStat: fs.Stats
@@ -301,6 +309,7 @@ export class AdltDocument implements vscode.Disposable {
   private mdError = new vscode.MarkdownString('$(error) LOG_ERROR', true)
   private decFatal?: DecorationsInfo
   private mdFatal = new vscode.MarkdownString('$(error) LOG_FATAL', true)
+  private decMsgTimeHighlights?: DecorationsInfo
 
   private _decorationTypes = new Map<string, DecorationsInfo>() // map with id and settings. init from config in parseDecorationsConfigs
   // decorationOptionsMapByType = new Map<vscode.TextEditorDecorationType
@@ -940,6 +949,23 @@ export class AdltDocument implements vscode.Disposable {
     this.decError = this._decorationTypes.get('error')
     this.decFatal = this._decorationTypes.get('fatal')
 
+    if (this._decorationTypes.has('msgTimeHighlights')) {
+      this.decMsgTimeHighlights = this._decorationTypes.get('msgTimeHighlights')
+    } else {
+      // create a new/static one based on the current vscode theme settings
+      const decOptions = {
+        backgroundColor: new vscode.ThemeColor(
+          /* this is the one vscode uses. which is good in light scences but a bit too weak in dark ones: 'editor.rangeHighlightBackground' */ /* 'editor.findRangeHighlightBackground' */ 'editor.findMatchBackground',
+        ), // todo or highlight the exact matches with findMatchBackground?
+        // editor.findMatchBackground is not visible in high contract themes!
+        isWholeLine: true,
+      }
+      const decType = vscode.window.createTextEditorDecorationType(decOptions)
+      const decInfo = { decType, decOptions: { ...decOptions } }
+      this._decorationTypes.set('msgTimeHighlights', decInfo)
+      this.decMsgTimeHighlights = decInfo
+    }
+
     // console.log(`dlt-logs.parseDecorationsConfig got ${this._decorationTypes.size} decorations!`);
   }
 
@@ -1439,6 +1465,7 @@ export class AdltDocument implements vscode.Disposable {
                   visibleLcs.push(newLc)
                 }
               }
+              const _ = doc.processMsgTimeHighlights() // we ignore the result as updateDecorations will be called anyhow
             })
           }
         },
@@ -1456,6 +1483,11 @@ export class AdltDocument implements vscode.Disposable {
     })
   }
 
+  /**
+   * Clears all decorations from the text editors.
+   *
+   * Called after changeWindow and startStream.
+   */
   clearDecorations() {
     // console.log(`adlt.clearDecorations()...`);
     this.textEditors.forEach((editor) => {
@@ -1466,12 +1498,30 @@ export class AdltDocument implements vscode.Disposable {
     })
   }
 
+  /**
+   * Updates the decorations in the text editors based on all the stored decorations.
+   *
+   * This is called whenever the active text editor changes (unclear why... todo) or
+   * when the text document changed.
+   */
   updateDecorations() {
     // console.log(`adlt.updateDecorations()...`);
     this.textEditors.forEach((editor) => {
       this.decorations.forEach((value, key) => {
         editor.setDecorations(key, value)
       })
+    })
+  }
+
+  /**
+   * Updates a single decoration for all text editors.
+   * @param decType The decoration type to update.
+   */
+  updateDecoration(decType: vscode.TextEditorDecorationType) {
+    //console.log(`adlt.updateDecoration(${decType.key})...`)
+    const rangesOrOptions = this.decorations.get(decType) || []
+    this.textEditors.forEach((editor) => {
+      editor.setDecorations(decType, rangesOrOptions)
     })
   }
 
@@ -1502,6 +1552,78 @@ export class AdltDocument implements vscode.Disposable {
     return decs
   }
 
+  // message/time highlighting support (used from SearchPanel)
+  // to highlight a clicked/selected search result in the editor
+  private msgTimeHighlights = new Map<string, MsgTimeHighlight[]>()
+
+  /**
+   * Sets the message time highlights for a specific provider.
+   *
+   * @param provider - The provider for which to set the highlights.
+   * @param highlights - An array of objects containing the message index to highlight. Use empty array to unset.
+   */
+  public setMsgTimeHighlights(provider: string, highlights: MsgTimeHighlight[]) {
+    console.log(`adlt.setMsgTimeHighlights(${provider}, ${highlights.length})...`)
+    let didChange = true
+    if (highlights.length === 0) {
+      didChange = this.msgTimeHighlights.delete(provider)
+    } else {
+      this.msgTimeHighlights.set(provider, highlights)
+    }
+    if (didChange) {
+      this.processMsgTimeHighlights().forEach((decType) => this.updateDecoration(decType))
+    }
+  }
+
+  public getMsgTimeHighlights(provider: string): MsgTimeHighlight[] | undefined {
+    return this.msgTimeHighlights.get(provider)
+  }
+
+  /**
+   * Processes the message time highlights.
+   *
+   * Will be called once the msgTimeHighlights have been updated or when the document changes. (todo)
+   *
+   * @returns An array of decoration types that have been updated.
+   */
+  processMsgTimeHighlights(): vscode.TextEditorDecorationType[] {
+    console.log(`adlt.processMsgTimeHighlights()...`)
+    if (!this.visibleMsgs) {
+      console.log(`adlt.processMsgTimeHighlights() no visibleMsgs yet! Ignoring.`)
+      return []
+    }
+
+    const decType = this.decMsgTimeHighlights?.decType
+    if (decType === undefined) {
+      return []
+    }
+    let decOptions = this.decorations.get(decType)
+    if (!decOptions) {
+      decOptions = []
+      this.decorations.set(decType, decOptions)
+    } else {
+      decOptions.length = 0
+    }
+    for (const highlights of this.msgTimeHighlights.values()) {
+      for (const highlight of highlights) {
+        const msgVisIdx = this.visibleMsgs.findIndex((msg) => msg.index === highlight.msgIndex)
+        if (msgVisIdx >= 0) {
+          console.log(`adlt.processMsgTimeHighlights() msgIndex=${highlight.msgIndex} visible at ${msgVisIdx}`)
+          const decType = this.decMsgTimeHighlights?.decType
+          if (decType !== undefined) {
+            let decOptions = this.decorations.get(decType)! // we do insert it above
+            decOptions.push({ range: new vscode.Range(msgVisIdx, 0, msgVisIdx, 21), hoverMessage: undefined })
+          }
+        } else {
+          // the exact msg is currently not visible, so we need to find the closest one:
+          // two cases: a) sorted by time and b) sorted by index
+          // todo
+          console.log(`adlt.processMsgTimeHighlights() msgIndex=${highlight.msgIndex} not visible!`)
+        }
+      }
+    }
+    return [decType]
+  }
 
   // window support:
   notifyVisibleRange(range: vscode.Range) {
