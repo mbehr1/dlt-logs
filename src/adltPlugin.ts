@@ -334,7 +334,7 @@ export class AdltPlugin implements TreeViewNode {
 
   // state updates from adlt for that plugin
   processStateUpdate(state: any): void {
-    console.log(`AdltPlugin(${this.options.name}).processStateUpdate(${JSON.stringify(state)})...`)
+    //console.log(`AdltPlugin(${this.options.name}).processStateUpdate(${JSON.stringify(state)})...`)
     if ('treeItems' in state && Array.isArray(state.treeItems)) {
       this.children.length = 0 // for now no updates but delete, add
       // add our child nodes:
