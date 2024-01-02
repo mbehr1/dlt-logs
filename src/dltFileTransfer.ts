@@ -2,12 +2,12 @@
  * Copyright(C) Matthias Behr.
  */
 
-import * as vscode from 'vscode';
-import * as fs from 'fs';
-import { TreeViewNode } from './dltTreeViewNodes';
-import { DltFilter, DltFilterType } from './dltFilter';
-import { DltMsg, MSTP, MTIN_LOG, MTIN_CTRL } from './dltParser';
-import { createUniqueId } from './util';
+import * as vscode from 'vscode'
+import * as fs from 'fs'
+import { TreeViewNode } from './dltTreeViewNodes'
+import { DltFilter, DltFilterType } from './dltFilter'
+import { DltMsg, MSTP, MTIN_LOG, MTIN_CTRL } from './dltParser'
+import { createUniqueId } from './util'
 
 /*
 https://github.com/GENIVI/dlt-daemon/blob/b5902c506e958933bbabe6bdab8d676e0aa0bbc5/src/lib/dlt_filetransfer.c
@@ -50,255 +50,298 @@ DLT_LOG(*fileContext, DLT_LOG_INFO,
 */
 
 export class DltFileTransfer implements TreeViewNode {
-    id: string;
-    label: string;
-    tooltip: string | undefined;
-    //uri: vscode.Uri | null; // index provided as fragment #<index>
-    //parent: TreeViewNode | null;
-    children: TreeViewNode[];
-    contextValue: string;
-    private _expectPackageNr: number = 1; // 1 based
-    private _lastPackageNr: number = 0;
-    isComplete: boolean = false;
-    missingData: number = 0; // nr of the missing packet
-    private _buffers: Buffer[] = []; // todo or use npm.tmp and store directly into temp to reduce mem footprint!
+  id: string
+  label: string
+  tooltip: string | undefined
+  //uri: vscode.Uri | null; // index provided as fragment #<index>
+  //parent: TreeViewNode | null;
+  children: TreeViewNode[]
+  contextValue: string
+  private _expectPackageNr: number = 1 // 1 based
+  private _lastPackageNr: number = 0
+  isComplete: boolean = false
+  missingData: number = 0 // nr of the missing packet
+  private _buffers: Buffer[] = [] // todo or use npm.tmp and store directly into temp to reduce mem footprint!
 
-    constructor(public uri: vscode.Uri, public parent: TreeViewNode | null, public allowSave: boolean,
-        public serial: number, public fileName: string, public fileSize: number | undefined, public fileCreationDate: string | undefined, public nrPackages: number | undefined, public bufferSize: number | undefined,
-        public startMsg: DltMsg) {
-        this.children = [];
-        this.id = createUniqueId();
-        if (this.fileSize) {
-            this.label = `Incomplete (0/${this.nrPackages}) file transfer '${this.fileName}' ${Math.ceil(this.fileSize / 1024)}kb`;
-        } else {
-            this.label = `Partial file transfer '${this.fileName}' unknown size`;
-        }
-        this.uri = this.uri.with({ fragment: startMsg.index.toString() }); // selecting should select the first message.
-        this.contextValue = 'fileTransferIncomplete';
-        parent?.children.push(this);
+  constructor(
+    public uri: vscode.Uri,
+    public parent: TreeViewNode | null,
+    public allowSave: boolean,
+    public serial: number,
+    public fileName: string,
+    public fileSize: number | undefined,
+    public fileCreationDate: string | undefined,
+    public nrPackages: number | undefined,
+    public bufferSize: number | undefined,
+    public startMsg: DltMsg,
+  ) {
+    this.children = []
+    this.id = createUniqueId()
+    if (this.fileSize) {
+      this.label = `Incomplete (0/${this.nrPackages}) file transfer '${this.fileName}' ${Math.ceil(this.fileSize / 1024)}kb`
+    } else {
+      this.label = `Partial file transfer '${this.fileName}' unknown size`
+    }
+    this.uri = this.uri.with({ fragment: startMsg.index.toString() }) // selecting should select the first message.
+    this.contextValue = 'fileTransferIncomplete'
+    parent?.children.push(this)
 
-        // todo verify fileSize ~nrPackages*bufferSize
+    // todo verify fileSize ~nrPackages*bufferSize
+  }
+  addFLDA(packageToTransfer: number, buf: Buffer) {
+    if (packageToTransfer === this._expectPackageNr) {
+      if (this.allowSave) {
+        this._buffers.push(buf)
+      }
+      this._lastPackageNr = packageToTransfer
+      if (packageToTransfer === this.nrPackages) {
+        console.log(` addFLDA completed ${this.fileName}!`)
+        this.checkFinished(false)
+      } else {
+        this._expectPackageNr++
+      }
+    } else {
+      console.log(` addFLDA expected ${this._expectPackageNr} but got ${packageToTransfer}`)
+      this.missingData = this._expectPackageNr
+      this.checkFinished(false)
     }
-    addFLDA(packageToTransfer: number, buf: Buffer) {
-        if (packageToTransfer === this._expectPackageNr) {
-            if (this.allowSave) {
-                this._buffers.push(buf);
-            }
-            this._lastPackageNr = packageToTransfer;
-            if (packageToTransfer === this.nrPackages) {
-                console.log(` addFLDA completed ${this.fileName}!`);
-                this.checkFinished(false);
-            } else {
-                this._expectPackageNr++;
-            }
-        } else {
-            console.log(` addFLDA expected ${this._expectPackageNr} but got ${packageToTransfer}`);
-            this.missingData = this._expectPackageNr;
-            this.checkFinished(false);
-        }
-    }
+  }
 
-    checkFinished(onFLFI: boolean): void {
-        let incomplete = false;
-        let lastPackage = false;
-        // any missing package?
-        if (this.missingData) {
-            incomplete = true;
-            this._buffers = [];
+  checkFinished(onFLFI: boolean): void {
+    let incomplete = false
+    let lastPackage = false
+    // any missing package?
+    if (this.missingData) {
+      incomplete = true
+      this._buffers = []
+    } else {
+      // got last package
+      if (this.nrPackages) {
+        if (this.nrPackages === this._lastPackageNr) {
+          lastPackage = true
         } else {
-            // got last package
-            if (this.nrPackages) {
-                if (this.nrPackages === this._lastPackageNr) {
-                    lastPackage = true;
-                } else {
-                    incomplete = true;
-                }
-            } else {
-                // at least one package?
-                if (this._lastPackageNr === 0) {
-                    incomplete = true;
-                }
-            }
-            if (this.fileSize) {
-                // verify file size todo
-            }
+          incomplete = true
         }
-        if (incomplete) {
-            this.isComplete = false;
-            this.label = `Incomplete file transfer '${this.fileName}', missing ${this.missingData}/${this.nrPackages})`;
-        } else {
-            this.isComplete = true;
-            if (this.fileSize) {
-                this.label = `Complete file transfer '${this.fileName}' ${Math.ceil(this.fileSize / 1024)}kb`;
-            } else {
-                this.label = `Recovered file transfer '${this.fileName}'`; // todo add size from buffers
-            }
-            this.contextValue = this.allowSave ? 'canSave' : 'fileTransferCompleteNoBuffers';
+      } else {
+        // at least one package?
+        if (this._lastPackageNr === 0) {
+          incomplete = true
         }
+      }
+      if (this.fileSize) {
+        // verify file size todo
+      }
     }
+    if (incomplete) {
+      this.isComplete = false
+      this.label = `Incomplete file transfer '${this.fileName}', missing ${this.missingData}/${this.nrPackages})`
+    } else {
+      this.isComplete = true
+      if (this.fileSize) {
+        this.label = `Complete file transfer '${this.fileName}' ${Math.ceil(this.fileSize / 1024)}kb`
+      } else {
+        this.label = `Recovered file transfer '${this.fileName}'` // todo add size from buffers
+      }
+      this.contextValue = this.allowSave ? 'canSave' : 'fileTransferCompleteNoBuffers'
+    }
+  }
 
-    saveAs(uri: vscode.Uri) {
-        console.log(`DltFileTransfer.saveAs(${uri.toString()}) for ${this.fileName}...`); // todo
-        if (this.isComplete && this.allowSave && this._buffers.length) {
-            const fd = fs.openSync(uri.fsPath, 'w');
-            if (!fd) {
-                console.log(`DltFileTransfer.saveAs() open failed with`);
-                throw Error(`saveAs openSync(${uri.toString()}) failed!`);
-            }
-            for (let i = 0; i < this._buffers.length; ++i) {
-                const buf = this._buffers[i];
-                const written = fs.writeSync(fd, new Uint8Array(buf.buffer, buf.byteOffset, buf.length));
-                if (written !== buf.length) {
-                    fs.closeSync(fd);
-                    throw Error(`saveAs writeSync has written ${written} instead of ${buf.length}`);
-                }
-            }
-            fs.closeSync(fd);
-            console.log(`DltFileTransfer.saveAs() done.`);
-        } else {
-            console.log(`DltFileTransfer.saveAs() got no data for ${this.fileName}!`);
+  saveAs(uri: vscode.Uri) {
+    console.log(`DltFileTransfer.saveAs(${uri.toString()}) for ${this.fileName}...`) // todo
+    if (this.isComplete && this.allowSave && this._buffers.length) {
+      const fd = fs.openSync(uri.fsPath, 'w')
+      if (!fd) {
+        console.log(`DltFileTransfer.saveAs() open failed with`)
+        throw Error(`saveAs openSync(${uri.toString()}) failed!`)
+      }
+      for (let i = 0; i < this._buffers.length; ++i) {
+        const buf = this._buffers[i]
+        const written = fs.writeSync(fd, new Uint8Array(buf.buffer, buf.byteOffset, buf.length))
+        if (written !== buf.length) {
+          fs.closeSync(fd)
+          throw Error(`saveAs writeSync has written ${written} instead of ${buf.length}`)
         }
+      }
+      fs.closeSync(fd)
+      console.log(`DltFileTransfer.saveAs() done.`)
+    } else {
+      console.log(`DltFileTransfer.saveAs() got no data for ${this.fileName}!`)
     }
-};
+  }
+}
 
 export class DltFileTransferPlugin extends DltFilter {
-    private _uri: vscode.Uri;
-    private _transfers: Map<number, DltFileTransfer> = new Map<number, DltFileTransfer>();
-    private _keepFLDA: boolean = false; // keep FLDA,..
-    private _treeEventEmitter: vscode.EventEmitter<TreeViewNode | null>;
-    public allowSave: boolean = true;
+  private _uri: vscode.Uri
+  private _transfers: Map<number, DltFileTransfer> = new Map<number, DltFileTransfer>()
+  private _keepFLDA: boolean = false // keep FLDA,..
+  private _treeEventEmitter: vscode.EventEmitter<TreeViewNode | null>
+  public allowSave: boolean = true
 
-    constructor(uri: vscode.Uri, public treeViewNode: TreeViewNode, treeEventEmitter: vscode.EventEmitter<TreeViewNode | null>, options: any) {
-        super({ type: DltFilterType.NEGATIVE }, false); // don't allow Edit from treeViewExplorer for these
-        if ('enabled' in options) {
-            this.enabled = options.enabled;
-        } else {
-            this.enabled = true;
-        }
-        if ('allowSave' in options) {
-            this.allowSave = options.allowSave;
-        }
-        if ('keepFLDA' in options) {
-            this._keepFLDA = options.keepFLDA;
-        }
-        if ('apid' in options) {
-            if (options.apid.length) {
-                this.apid = options.apid;
-            }
-        }
-        if ('ctid' in options) {
-            if (options.ctid.length) {
-                this.ctid = options.ctid;
-            }
-        }
-
-        this.atLoadTime = true; // for now only supported at load time (afterwards filters might already apply...)
-        this.beforePositive = true;
-        this._uri = uri;
-        this._treeEventEmitter = treeEventEmitter;
+  constructor(
+    uri: vscode.Uri,
+    public treeViewNode: TreeViewNode,
+    treeEventEmitter: vscode.EventEmitter<TreeViewNode | null>,
+    options: any,
+  ) {
+    super({ type: DltFilterType.NEGATIVE }, false) // don't allow Edit from treeViewExplorer for these
+    if ('enabled' in options) {
+      this.enabled = options.enabled
+    } else {
+      this.enabled = true
+    }
+    if ('allowSave' in options) {
+      this.allowSave = options.allowSave
+    }
+    if ('keepFLDA' in options) {
+      this._keepFLDA = options.keepFLDA
+    }
+    if ('apid' in options) {
+      if (options.apid.length) {
+        this.apid = options.apid
+      }
+    }
+    if ('ctid' in options) {
+      if (options.ctid.length) {
+        this.ctid = options.ctid
+      }
     }
 
-    matches(msg: DltMsg): boolean {
-        if (!this.enabled) {
-            return false;
-        }
+    this.atLoadTime = true // for now only supported at load time (afterwards filters might already apply...)
+    this.beforePositive = true
+    this._uri = uri
+    this._treeEventEmitter = treeEventEmitter
+  }
 
-        if (this.apid && msg.apid !== this.apid) {
-            return false;
-        }
-        if (this.ctid && msg.ctid !== this.ctid) {
-            return false;
-        }
+  matches(msg: DltMsg): boolean {
+    if (!this.enabled) {
+      return false
+    }
 
-        // we process here the info and return true if we want to remove the msg
-        if (msg.mstp === MSTP.TYPE_LOG && msg.mtin === MTIN_LOG.LOG_INFO) {
-            if (msg.noar === 8) { // FLST?
-                if (DltFileTransferPlugin.isType(msg, "FLST")) {
-                    const serial: number = msg.payloadArgs[1];
-                    const fileName: string = msg.payloadArgs[2];
-                    const fileSize: number = msg.payloadArgs[3];
-                    const fileCreationDate: string = msg.payloadArgs[4];
-                    const nrPackages: number = msg.payloadArgs[5];
-                    const bufferSize: number = msg.payloadArgs[6];
+    if (this.apid && msg.apid !== this.apid) {
+      return false
+    }
+    if (this.ctid && msg.ctid !== this.ctid) {
+      return false
+    }
 
-                    console.log(`DltFileTransferPlugin got FLST: serial = ${serial} name = '${fileName}'`);
-                    let actTransfer = this._transfers.get(serial);
-                    if (actTransfer) {
-                        console.log(`DltFileTransferPlugin got FLST for already known one serial = ${serial}.Aborting current!`);
-                    } // todo make FileTransfer disposable so that we can remove the node!
-                    // todo add fragment to line?
-                    actTransfer = new DltFileTransfer(this._uri, this.treeViewNode, this.allowSave, serial, fileName, fileSize, fileCreationDate, nrPackages, bufferSize, msg);
-                    this._transfers.set(serial, actTransfer);
-                    this._treeEventEmitter.fire(this.treeViewNode);
-                }
-            } else if (msg.noar === 5) { // FLDA?
-                if (DltFileTransferPlugin.isType(msg, "FLDA")) {
-                    const serial: number = msg.payloadArgs[1];
-                    const packageToTransfer: number = msg.payloadArgs[2];
-                    //console.log(`DltFileTransferPlugin got FLDA ${packageToTransfer} for serial = ${serial}`);
-                    let actTransfer = this._transfers.get(serial);
-                    if (actTransfer) {
-                        actTransfer.addFLDA(packageToTransfer, msg.payloadArgs[3]);
-                    } else {
-                        // incomplete // we might handle/recover it if this is the first package!
-                        actTransfer = new DltFileTransfer(this._uri, this.treeViewNode, this.allowSave, serial, "<unknown>", undefined, undefined, undefined, undefined, msg);
-                        this._transfers.set(serial, actTransfer);
-                        this._treeEventEmitter.fire(this.treeViewNode);
-                        // we might handle it if this is the first package!
-                        if (!packageToTransfer) {
-                            actTransfer.addFLDA(packageToTransfer, msg.payloadArgs[3]);
-                        }
-                    }
-                    if (actTransfer && actTransfer.isComplete) {
-                        this._treeEventEmitter.fire(this.treeViewNode);
-                    }
-                    if (!this._keepFLDA) {
-                        return true;
-                    }
-                }
-            } else if (msg.noar === 3) { // FLFI
-                if (DltFileTransferPlugin.isType(msg, "FLFI")) {
-                    try {
-                        const serial: number = msg.payloadArgs[1];
-                        console.log(`DltFileTransferPlugin got FLFI for serial = ${serial}`);
-                        const actTransfer = this._transfers.get(serial);
-                        if (actTransfer) {
-                            actTransfer.checkFinished(true);
-                            this._treeEventEmitter.fire(actTransfer);
-                        }
-                    } catch (error) {
-                        console.log(`DltFileTransferPlugin.isType(FLFI) but error: ${error} `);
-                    }
-                }
+    // we process here the info and return true if we want to remove the msg
+    if (msg.mstp === MSTP.TYPE_LOG && msg.mtin === MTIN_LOG.LOG_INFO) {
+      if (msg.noar === 8) {
+        // FLST?
+        if (DltFileTransferPlugin.isType(msg, 'FLST')) {
+          const serial: number = msg.payloadArgs[1]
+          const fileName: string = msg.payloadArgs[2]
+          const fileSize: number = msg.payloadArgs[3]
+          const fileCreationDate: string = msg.payloadArgs[4]
+          const nrPackages: number = msg.payloadArgs[5]
+          const bufferSize: number = msg.payloadArgs[6]
+
+          console.log(`DltFileTransferPlugin got FLST: serial = ${serial} name = '${fileName}'`)
+          let actTransfer = this._transfers.get(serial)
+          if (actTransfer) {
+            console.log(`DltFileTransferPlugin got FLST for already known one serial = ${serial}.Aborting current!`)
+          } // todo make FileTransfer disposable so that we can remove the node!
+          // todo add fragment to line?
+          actTransfer = new DltFileTransfer(
+            this._uri,
+            this.treeViewNode,
+            this.allowSave,
+            serial,
+            fileName,
+            fileSize,
+            fileCreationDate,
+            nrPackages,
+            bufferSize,
+            msg,
+          )
+          this._transfers.set(serial, actTransfer)
+          this._treeEventEmitter.fire(this.treeViewNode)
+        }
+      } else if (msg.noar === 5) {
+        // FLDA?
+        if (DltFileTransferPlugin.isType(msg, 'FLDA')) {
+          const serial: number = msg.payloadArgs[1]
+          const packageToTransfer: number = msg.payloadArgs[2]
+          //console.log(`DltFileTransferPlugin got FLDA ${packageToTransfer} for serial = ${serial}`);
+          let actTransfer = this._transfers.get(serial)
+          if (actTransfer) {
+            actTransfer.addFLDA(packageToTransfer, msg.payloadArgs[3])
+          } else {
+            // incomplete // we might handle/recover it if this is the first package!
+            actTransfer = new DltFileTransfer(
+              this._uri,
+              this.treeViewNode,
+              this.allowSave,
+              serial,
+              '<unknown>',
+              undefined,
+              undefined,
+              undefined,
+              undefined,
+              msg,
+            )
+            this._transfers.set(serial, actTransfer)
+            this._treeEventEmitter.fire(this.treeViewNode)
+            // we might handle it if this is the first package!
+            if (!packageToTransfer) {
+              actTransfer.addFLDA(packageToTransfer, msg.payloadArgs[3])
             }
+          }
+          if (actTransfer && actTransfer.isComplete) {
+            this._treeEventEmitter.fire(this.treeViewNode)
+          }
+          if (!this._keepFLDA) {
+            return true
+          }
         }
-        return false; // by default keep all msgs.
-    }
-
-    get name(): string {
-        const enabled: string = this.enabled ? "" : "disabled: ";
-        let type: string = !this._keepFLDA ? "- FLDA " : " ";
-        if (this.atLoadTime) {
-            type = "(load time) " + type;
-        }
-        let nameStr: string = "plugin FileTransfer";
-        if (this.apid) { nameStr += ` APID:${this.apid} `; };
-        if (this.ctid) { nameStr += ` CTID:${this.ctid}`; };
-        return `${enabled} ${type} ${nameStr} `;
-    }
-
-    static isType(msg: DltMsg, typeStr: string): boolean {
-        // the msg for a type starts and ends with that string
-        try {
-            const payloadArgs = msg.payloadArgs;
-            const str0: string = payloadArgs[0];
-            const str1: string = payloadArgs[msg.noar - 1];
-            if (str0 === typeStr && str1 === typeStr) {
-                return true;
+      } else if (msg.noar === 3) {
+        // FLFI
+        if (DltFileTransferPlugin.isType(msg, 'FLFI')) {
+          try {
+            const serial: number = msg.payloadArgs[1]
+            console.log(`DltFileTransferPlugin got FLFI for serial = ${serial}`)
+            const actTransfer = this._transfers.get(serial)
+            if (actTransfer) {
+              actTransfer.checkFinished(true)
+              this._treeEventEmitter.fire(actTransfer)
             }
-        } catch (error) {
-            // normal if payload is of different type console.log(`DltFileTransferPlugin.isType error: ${ error } `);
+          } catch (error) {
+            console.log(`DltFileTransferPlugin.isType(FLFI) but error: ${error} `)
+          }
         }
-        return false;
+      }
     }
+    return false // by default keep all msgs.
+  }
+
+  get name(): string {
+    const enabled: string = this.enabled ? '' : 'disabled: '
+    let type: string = !this._keepFLDA ? '- FLDA ' : ' '
+    if (this.atLoadTime) {
+      type = '(load time) ' + type
+    }
+    let nameStr: string = 'plugin FileTransfer'
+    if (this.apid) {
+      nameStr += ` APID:${this.apid} `
+    }
+    if (this.ctid) {
+      nameStr += ` CTID:${this.ctid}`
+    }
+    return `${enabled} ${type} ${nameStr} `
+  }
+
+  static isType(msg: DltMsg, typeStr: string): boolean {
+    // the msg for a type starts and ends with that string
+    try {
+      const payloadArgs = msg.payloadArgs
+      const str0: string = payloadArgs[0]
+      const str1: string = payloadArgs[msg.noar - 1]
+      if (str0 === typeStr && str1 === typeStr) {
+        return true
+      }
+    } catch (error) {
+      // normal if payload is of different type console.log(`DltFileTransferPlugin.isType error: ${ error } `);
+    }
+    return false
+  }
 }
