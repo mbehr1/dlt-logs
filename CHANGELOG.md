@@ -1,5 +1,13 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.76.0](https://github.com/mbehr1/dlt-logs/compare/v1.75.3...v1.76.0) (2024-01-02)
+
+
+### Features
+
+* **search:** add highlight for non visible msgs ([8279755](https://github.com/mbehr1/dlt-logs/commit/8279755f65df244f5b52994832f5c93df5c2c911))
+* **search:** highlight messages selected from search panel ([037e57a](https://github.com/mbehr1/dlt-logs/commit/037e57a2a8c226fb0ba80cde0d1bca638d771e33))
+
 ## [1.75.3](https://github.com/mbehr1/dlt-logs/compare/v1.75.2...v1.75.3) (2023-12-17)
 
 
