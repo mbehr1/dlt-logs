@@ -284,6 +284,7 @@ type MsgTimeHighlight = { msgIndex: number; calculatedTimeInMs?: number }
 export class AdltDocument implements vscode.Disposable {
   private _fileNames: string[] // the real local file names
   private realStat: fs.Stats
+  private _mtime: number // last modification time in ms we report as part of stat()
   private webSocket?: WebSocket
   private webSocketIsConnected = false
   private webSocketErrors: string[] = []
@@ -421,6 +422,7 @@ export class AdltDocument implements vscode.Disposable {
       throw Error(`AdltDocument file ${uri.toString()} doesn't exist!`)
     }
     this.realStat = fs.statSync(this._fileNames[0]) // todo summarize all stats
+    this._mtime = this.realStat.mtime.valueOf()
 
     // configuration:
     const maxNrMsgsConf = vscode.workspace.getConfiguration().get<number>('dlt-logs.maxNumberLogs')
@@ -638,7 +640,7 @@ export class AdltDocument implements vscode.Disposable {
       })
       .catch((reason) => {
         this.text = `Couldn't start adlt due to reason: '${reason}'!\n\n` + this.text
-        this.emitDocChanges.fire([{ type: vscode.FileChangeType.Changed, uri: this.uri }])
+        this.emitChanges()
       })
 
     // add a static report filter for testing:
@@ -661,6 +663,11 @@ export class AdltDocument implements vscode.Disposable {
         console.log(`AdltDocument.dispose closeAdltFiles failed with '${reason}'`)
       },
     )
+  }
+
+  emitChanges() {
+    this._mtime = Date.now()
+    this.emitDocChanges.fire([{ type: vscode.FileChangeType.Changed, uri: this.uri }])
   }
 
   /**
@@ -1335,7 +1342,7 @@ export class AdltDocument implements vscode.Disposable {
           this.text = `<current filter (${
             this.allFilters.filter((f) => (f.type === DltFilterType.POSITIVE || f.type === DltFilterType.NEGATIVE) && f.enabled).length
           }) lead to empty file>`
-          this.emitDocChanges.fire([{ type: vscode.FileChangeType.Changed, uri: doc.uri }])
+          this.emitChanges()
         }
       }, 1000)
 
@@ -1373,7 +1380,7 @@ export class AdltDocument implements vscode.Disposable {
               } else {
                 doc.text += newTxt
               }
-              doc.emitDocChanges.fire([{ type: vscode.FileChangeType.Changed, uri: doc.uri }])
+              doc.emitChanges()
               console.log(`adlt.onNewMessages(${nrNewMsgs}, isFirst=${isFirst}) triggered doc changes.`)
               // determine the new decorations:
               let lastLc: DltLifecycleInfoMinIF | undefined = undefined
@@ -2827,12 +2834,12 @@ export class AdltDocument implements vscode.Disposable {
   }
 
   stat(): vscode.FileStat {
-    //console.warn(`dlt-logs.AdltDocumentProvider.stat()...`);
+    //console.warn(`AdltDocument.stat()...(text.length=${this.text.length}, mtime=${this._mtime})`)
 
     return {
       size: this.text.length,
       ctime: this.realStat.ctime.valueOf(),
-      mtime: this.realStat.mtime.valueOf(),
+      mtime: this._mtime,
       type: vscode.FileType.File,
     }
   }
@@ -3342,7 +3349,7 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider, /*vscode
 
   readFile(uri: vscode.Uri): Uint8Array {
     let doc = this._documents.get(uri.toString())
-    // console.log(`adlt-logs.readFile(uri=${uri.toString().slice(0, 100)})...`);
+    // console.log(`adlt-logs.readFile(uri=${uri.toString().slice(0, 100)})...`)
     if (!doc) {
       const port = this.getAdltProcessAndPort()
       doc = new AdltDocument(
@@ -3362,9 +3369,9 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider, /*vscode
   }
 
   watch(uri: vscode.Uri): vscode.Disposable {
-    // console.log(`adlt-logs.watch(uri=${uri.toString().slice(0, 100)}...`);
+    // console.log(`adlt-logs.watch(uri=${uri.toString().slice(0, 100)}...`)
     return new vscode.Disposable(() => {
-      // console.log(`adlt-logs.watch.Dispose ${uri}`);
+      // console.log(`adlt-logs.watch.Dispose ${uri}`)
       // const fileUri = uri.with({ scheme: 'file' });
       let doc = this._documents.get(uri.toString())
       if (doc) {
