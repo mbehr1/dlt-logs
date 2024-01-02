@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.76.2](https://github.com/mbehr1/dlt-logs/compare/v1.76.1...v1.76.2) (2024-01-02)
+
+
+### Bug Fixes
+
+* toggle sort order triggers no update of the document ([2c1e719](https://github.com/mbehr1/dlt-logs/commit/2c1e71967d4c01841084371e128de5c37356e414))
+
 ## [1.76.1](https://github.com/mbehr1/dlt-logs/compare/v1.76.0...v1.76.1) (2024-01-02)
 
 
