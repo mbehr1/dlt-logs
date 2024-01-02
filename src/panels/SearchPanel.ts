@@ -459,12 +459,10 @@ export class SearchPanelProvider implements WebviewViewProvider {
                 } else {
                   this._activeDoc.setMsgTimeHighlights('SearchPanel', [{ msgIndex: req.index, calculatedTimeInMs: req.timeInMs }])
                 }
+                this._activeDoc.revealMsgIndex(0 + req.index) // or only if we did set highlight? for now do it always
               } else {
                 this._activeDoc.setMsgTimeHighlights('SearchPanel', [])
-              }
-              if (req.timeInMs) {
-                // todo support revealByIndex(req.index) and only fallback to time... (or add to revealDate...)
-                this._activeDoc.revealDate(new Date(req.timeInMs))
+                // we dont reveal here, just clear highlights
               }
             }
             break

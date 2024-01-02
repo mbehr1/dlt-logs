@@ -1850,19 +1850,32 @@ export class AdltDocument implements vscode.Disposable {
     this._reports.forEach((r) => r.onDidChangeSelectedTime(time))
   }
 
-  revealDate(time: Date): void {
-    this.lineCloseToDate(time).then((line) => {
-      try {
-        if (line >= 0 && this.textEditors) {
-          const posRange = new vscode.Range(line, 0, line, 0)
-          this.textEditors.forEach((value) => {
-            value.revealRange(posRange, vscode.TextEditorRevealType.AtTop)
-          })
-        }
-      } catch (err) {
-        console.warn(`adlt.revealDate(${time}) got err=${err}`)
-      }
+  revealMsgIndex(index: number): void {
+    console.log(`adlt.revealMsgIndex(${index})`)
+    this.lineCloseTo(index).then((line) => {
+      console.log(`adlt.revealMsgIndex(${index}) line=${line}`)
+      this.revealLine(line)
     })
+  }
+
+  revealDate(time: Date): void {
+    console.log(`adlt.revealDate(${time})`)
+    this.lineCloseTo(time).then((line) => {
+      this.revealLine(line)
+    })
+  }
+
+  revealLine(line: number): void {
+    try {
+      if (line >= 0 && this.textEditors) {
+        const posRange = new vscode.Range(line, 0, line, 0)
+        this.textEditors.forEach((value) => {
+          value.revealRange(posRange, vscode.TextEditorRevealType.AtTop)
+        })
+      }
+    } catch (err) {
+      console.warn(`adlt.revealLine(${line}) got err=${err}`)
+    }
   }
 
   /**
@@ -1997,15 +2010,22 @@ export class AdltDocument implements vscode.Disposable {
     return 'receptionTimeInMs' in msg ? msg.receptionTimeInMs : msg.timeStamp / 10
   }
 
-  async lineCloseToDate(date: Date): Promise<number> {
+  /**
+   * Finds the line number closest to the given message index or date.
+   * If the line is not in the visible range or too close to the edge, it requeries and returns the new line number.
+   * @param msgIndexOrDate The message index or date to search for.
+   * @returns A promise that resolves to the line number.
+   */
+  async lineCloseTo(msgIndexOrDate: number | Date): Promise<number> {
     // ideas:
     // we query adlt here for the line (could as well scan/binsearch the visibleMsgs and query adlt only if before first or last)
     // then if not in range (or too close to edge) -> requery
     // and return the new line
     if (this.streamId > 0) {
-      return this.sendAndRecvAdltMsg(`stream_binary_search ${this.streamId} time_ms=${date.valueOf()}`)
+      const searchParam = typeof msgIndexOrDate === 'number' ? `index=${msgIndexOrDate}` : `time_ms=${msgIndexOrDate.valueOf()}`
+      return this.sendAndRecvAdltMsg(`stream_binary_search ${this.streamId} ${searchParam}`)
         .then((response) => {
-          console.log(`adlt on search_stream resp: ${response}`)
+          console.log(`adlt on search_stream(${searchParam}) resp: ${response}`)
           const responseObj = JSON.parse(response.substring(response.indexOf('=') + 1))
           //console.warn(`adlt on seach_stream resp: ${JSON.stringify(responseObj)}`);
           let index = responseObj.filtered_msg_index
