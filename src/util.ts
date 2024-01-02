@@ -250,13 +250,12 @@ export function containsRegexChars(s: string): boolean {
   return pos >= 0
 }
 
-
 /**
  * Finds the partition point in an array based on a given predicate function.
- * 
+ *
  * The array must be sorted in such a way that all values that match the predicate
  * are located before all values that do not match the predicate.
- * 
+ *
  * @param {any[]} arr - The array to search in.
  * @param {(value: any) => boolean} predicate - The predicate function used to determine the partition point.
  * @returns {number} - The index of the partition point in the array.

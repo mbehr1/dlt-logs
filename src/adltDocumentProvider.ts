@@ -275,7 +275,7 @@ interface DecorationsInfo {
 
 /**
  * Represents a "message / time" highlight.
- * 
+ *
  * Used to highlight e.g. from SearchPanel msgs or the timeRange from that message
  * if the message is currently not visible (filtered out).
  */
@@ -1587,7 +1587,7 @@ export class AdltDocument implements vscode.Disposable {
    * @returns An array of decoration types that have been updated.
    */
   processMsgTimeHighlights(): vscode.TextEditorDecorationType[] {
-    console.log(`adlt.processMsgTimeHighlights()...`)
+    // console.log(`adlt.processMsgTimeHighlights()...`)
     if (!this.visibleMsgs) {
       console.log(`adlt.processMsgTimeHighlights() no visibleMsgs yet! Ignoring.`)
       return []
@@ -1606,19 +1606,38 @@ export class AdltDocument implements vscode.Disposable {
     }
     for (const highlights of this.msgTimeHighlights.values()) {
       for (const highlight of highlights) {
+        // todo: this is slow O(n). we could do the calculatedTimeInMs search always first and then check whether the msg is included!
         const msgVisIdx = this.visibleMsgs.findIndex((msg) => msg.index === highlight.msgIndex)
         if (msgVisIdx >= 0) {
           console.log(`adlt.processMsgTimeHighlights() msgIndex=${highlight.msgIndex} visible at ${msgVisIdx}`)
-          const decType = this.decMsgTimeHighlights?.decType
-          if (decType !== undefined) {
-            let decOptions = this.decorations.get(decType)! // we do insert it above
-            decOptions.push({ range: new vscode.Range(msgVisIdx, 0, msgVisIdx, 21), hoverMessage: undefined })
-          }
+          decOptions.push({ range: new vscode.Range(msgVisIdx, 0, msgVisIdx, 21), hoverMessage: undefined })
         } else {
           // the exact msg is currently not visible, so we need to find the closest one:
           // two cases: a) sorted by time and b) sorted by index
-          // todo
-          console.log(`adlt.processMsgTimeHighlights() msgIndex=${highlight.msgIndex} not visible!`)
+          // todo impl for !this._sortOrderByTime
+          console.log(
+            `adlt.processMsgTimeHighlights() msgIndex=${highlight.msgIndex} not visible, sortOrderByTime=${this._sortOrderByTime} req. time=${highlight.calculatedTimeInMs}`,
+          )
+          if (highlight.calculatedTimeInMs !== undefined) {
+            // find the closest ones by time (e.g. one before and one after)
+            // do a binary search in the visibleMsgs:
+            let point = this._sortOrderByTime
+              ? util.partitionPoint(this.visibleMsgs, (msg: AdltMsg) => {
+                  const msgTimeInMs = this.provideTimeByMsgInMs(msg) || msg.receptionTimeInMs // fallback to that same as adlt.buffer_sort_messages does
+                  if (msgTimeInMs === undefined) {
+                    console.warn(`adlt.processMsgTimeHighlights() msgIndex=${highlight.msgIndex} msgTimeInMs=undefined!`)
+                  }
+                  return msgTimeInMs === undefined || msgTimeInMs < highlight.calculatedTimeInMs!
+                }) // undefined case can break the binary search (non partitioned, but it should never happen as each msg has a receptionTimeInMs)
+              : util.partitionPoint(this.visibleMsgs, (msg: AdltMsg) => {
+                  return msg.index < highlight.msgIndex
+                })
+            console.log(`adlt.processMsgTimeHighlights() partitionPoint=${point}`)
+            // we highlight only if there is a msg before and after (otherwise it gets misleading)
+            if (point > 0 && point < this.visibleMsgs.length) {
+              decOptions.push({ range: new vscode.Range(point - 1, 0, point, 21), hoverMessage: undefined })
+            }
+          }
         }
       }
     }
@@ -1960,14 +1979,24 @@ export class AdltDocument implements vscode.Disposable {
   }
 
   provideTimeByMsg(msg: FilterableDltMsg | ViewableDltMsg): Date | undefined {
+    const timeInMs = this.provideTimeByMsgInMs(msg)
+    if (timeInMs === undefined) {
+      return
+    } else {
+      return new Date(timeInMs)
+    }
+  }
+
+  provideTimeByMsgInMs(msg: FilterableDltMsg | ViewableDltMsg): number | undefined {
     if (msg.mstp === MSTP.TYPE_CONTROL && msg.mtin === MTIN_CTRL.CONTROL_REQUEST) {
       return
     }
     if (msg.lifecycle) {
-      return new Date(msg.lifecycle.lifecycleStart.valueOf() + msg.timeStamp / 10)
+      return msg.lifecycle.lifecycleStart.valueOf() + msg.timeStamp / 10
     }
-    return new Date(/* todo this._timeAdjustMs + */ 'receptionTimeInMs' in msg ? msg.receptionTimeInMs : msg.timeStamp / 10)
+    return 'receptionTimeInMs' in msg ? msg.receptionTimeInMs : msg.timeStamp / 10
   }
+
   async lineCloseToDate(date: Date): Promise<number> {
     // ideas:
     // we query adlt here for the line (could as well scan/binsearch the visibleMsgs and query adlt only if before first or last)
