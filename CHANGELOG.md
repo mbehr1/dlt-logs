@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.76.1](https://github.com/mbehr1/dlt-logs/compare/v1.76.0...v1.76.1) (2024-01-02)
+
+
+### Bug Fixes
+
+* improve reveal accurracy ([502e739](https://github.com/mbehr1/dlt-logs/commit/502e739e3efa38e55f6dc79d4bd8d8650dc82178))
+
 ## [1.76.0](https://github.com/mbehr1/dlt-logs/compare/v1.75.3...v1.76.0) (2024-01-02)
 
 
