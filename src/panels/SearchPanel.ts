@@ -399,7 +399,7 @@ export class SearchPanelProvider implements WebviewViewProvider {
                           return {
                             index: m.index,
                             receptionTimeInMs: m.receptionTimeInMs,
-                            calculatedTimeInMs: doc.provideTimeByMsg(m)?.valueOf(),
+                            calculatedTimeInMs: doc.provideTimeByMsgInMs(m),
                             timeStamp: m.timeStamp,
                             ecu: m.ecu,
                             mcnt: m.mcnt,
