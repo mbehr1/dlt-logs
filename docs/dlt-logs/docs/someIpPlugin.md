@@ -19,7 +19,7 @@ APID TC   ipc      > (632a:0005) ServiceName(0080).set_fieldName_field{"fieldNam
 
 symbol | description
 ------ | -----------
-`>` | SOME/IP request. Other symbols here are `<` for response, `*` for notification or `!` for errors.
+`>` | SOME/IP request. Other symbols here are `<` for response, `*` for notification, `\` for request wo. response / fire&forget or `!` for errors.
 `(632a:0005)` | Client id (here 632a) and session id (here 5) as hex numbers.
 `ServiceName` | Short name of the service decoded.
 `(0080)` | Instance id in hex.
