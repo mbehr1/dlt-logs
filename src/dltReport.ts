@@ -415,6 +415,10 @@ class SingleReport implements NewMessageSink {
     insertPrevState = false,
     insertYLabels = true,
   ) {
+    if (insertPrevState && typeof value === 'number') {
+      // make all STATE_ to strings
+      value = `${value}`
+    }
     try {
       let dataSet = this.dataSets.get(label)
       const timeInMs = time.valueOf()
