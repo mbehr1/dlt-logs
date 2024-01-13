@@ -1,5 +1,17 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.77.0](https://github.com/mbehr1/dlt-logs/compare/v1.76.3...v1.77.0) (2024-01-13)
+
+
+### Features
+
+* **someip:** add report for methods, change fire&forget symbol ([995f33b](https://github.com/mbehr1/dlt-logs/commit/995f33b79d558cda7b2de65e982019fa39156206))
+
+
+### Bug Fixes
+
+* **report:** handle STATE_ with type number as strings ([10257f1](https://github.com/mbehr1/dlt-logs/commit/10257f123036091934794c7edd40eeed8114911c))
+
 ## [1.76.3](https://github.com/mbehr1/dlt-logs/compare/v1.76.2...v1.76.3) (2024-01-03)
 
 
