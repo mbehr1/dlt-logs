@@ -493,7 +493,17 @@ const graphConfigTemplate = {
                     },
                     label: (item) => { // the lower part per item. Should contain: label name and label value (e.g. thread cpu load: 15)
                         // console.warn(`label() called for`, item);
-                        return (item.dataset.label || 'no dataset label') + ': ' + (item.formattedValue.startsWith('(') ? item.formattedValue.slice(item.formattedValue.indexOf(',') + 1, item.formattedValue.length - 1).trim() : ((item.formattedValue || typeof item.formattedValue === 'number') ? ('' + item.formattedValue) : 'no item formatted value'));
+                        return (
+                          (item.dataset.label || 'no dataset label') +
+                          ': ' +
+                          (item.formattedValue.startsWith('(')
+                            ? item.formattedValue.slice(item.formattedValue.indexOf(',') + 1, item.formattedValue.length - 1).trim()
+                            : item.formattedValue || typeof item.formattedValue === 'number'
+                              ? '' + item.formattedValue
+                              : item.parsed?.y
+                                ? '' + item.parsed.y
+                                : 'no item formatted value')
+                        )
                     }
 
                 }
