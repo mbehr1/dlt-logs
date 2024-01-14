@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.78.0](https://github.com/mbehr1/dlt-logs/compare/v1.77.0...v1.78.0) (2024-01-14)
+
+
+### Features
+
+* **plugin:** support filterFrag array and use for someip methods ([6d0e941](https://github.com/mbehr1/dlt-logs/commit/6d0e9418c25dfd42ce00bcb1f432c7eb750f76ff))
+
 ## [1.77.0](https://github.com/mbehr1/dlt-logs/compare/v1.76.3...v1.77.0) (2024-01-13)
 
 
