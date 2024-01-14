@@ -176,6 +176,7 @@ export class DltDocument {
   private _sortOrderByTime = false
 
   constructor(
+    private log: vscode.LogOutputChannel,
     uri: vscode.Uri,
     docEventEmitter: vscode.EventEmitter<vscode.FileChangeEvent[]>,
     treeEventEmitter: vscode.EventEmitter<TreeViewNode | null>,
@@ -2341,7 +2342,7 @@ export class DltDocument {
         return undefined
       }
     } else {
-      let report = new DltReport(context, this, (r: DltReport) => {
+      let report = new DltReport(this.log, context, this, (r: DltReport) => {
         console.log(`onOpenReport onDispose called... #reports=${this._reports.length}`)
         const idx = this._reports.indexOf(r)
         if (idx >= 0) {

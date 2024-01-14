@@ -35,6 +35,7 @@ export class AdltPluginChildNode implements TreeViewNode {
   _doc: AdltDocument | undefined
 
   constructor(
+    private log: vscode.LogOutputChannel,
     childObj: any,
     public parent: TreeViewNode,
     public uri: vscode.Uri,
@@ -72,7 +73,7 @@ export class AdltPluginChildNode implements TreeViewNode {
           Object.keys(nonNullFilterFrag).forEach((key) => !(nonNullFilterFrag[key] === null) || delete nonNullFilterFrag[key])
           this._filterFragments.push(nonNullFilterFrag)
         } else {
-          console.warn(`adlt plugin child node ignoring invalid filterFrag '${JSON.stringify(filterFragParam)}'!`)
+          log.warn(`adlt plugin child node ignoring invalid filterFrag '${JSON.stringify(filterFragParam)}'!`)
         }
       }
     }
@@ -149,7 +150,8 @@ export class AdltPluginChildNode implements TreeViewNode {
   }
 
   applyCommand(cmd: string): void {
-    console.log(`adlt plugin child node got command '${cmd}'`)
+    const log = this.log
+    log.info(`adlt plugin child node got command '${cmd}'`)
     // context canSetPosF -> cmd setPosFilter
     // context canZoomOut (make msgs non visible) -> cmd zoomOut
     // context canZoomIn (make msgs visible) -> cmd zoomIn
@@ -160,7 +162,7 @@ export class AdltPluginChildNode implements TreeViewNode {
         case 'zoomIn': // aka 'make visible': either if any neg: "disable all neg filters" and "add a pos filter"
           const negFilters = filtersActive.filter((f) => f.enabled && f.type === DltFilterType.NEGATIVE)
           if (negFilters.length > 0) {
-            console.log(` disabled ${negFilters.length} neg`)
+            log.info(` disabled ${negFilters.length} neg`)
             negFilters.forEach((f) => (f.enabled = false))
           }
           // add a pos filter:
@@ -170,14 +172,14 @@ export class AdltPluginChildNode implements TreeViewNode {
             // do we have any one that is currently disabled? if so, enable it
             const disPosF = nonRestFiltersActive.filter((f) => !f.enabled && f.type === DltFilterType.POSITIVE)
             if (disPosF.length > 0) {
-              console.log(` enabled ${disPosF.length} pos filters`)
+              log.info(` enabled ${disPosF.length} pos filters`)
               disPosF.forEach((f) => (f.enabled = true))
             } else {
               // else do add a new one(s)
               this._filterFragments.forEach((f) => {
                 const filterFrag: any = { type: DltFilterType.POSITIVE, ...f }
                 Object.keys(filterFrag).forEach((key) => !(filterFrag[key as keyof typeof filterFrag] === null) || delete filterFrag[key])
-                console.log(` adding new pos ${JSON.stringify(filterFrag)}`)
+                log.info(` adding new pos ${JSON.stringify(filterFrag)}`)
                 const newFilter = new DltFilter(filterFrag, true)
                 this._doc!.onFilterAdd(newFilter, false)
               })
@@ -188,7 +190,7 @@ export class AdltPluginChildNode implements TreeViewNode {
         case 'zoomOut': // aka 'make non visible':  if pos filter is fitting non less restrictive: disable else "add a neg filter"
           const posNonRestF = nonRestFiltersActive.filter((f) => f.enabled && f.type === DltFilterType.POSITIVE)
           if (posNonRestF.length > 0) {
-            console.log(`disabled ${posNonRestF.length} pos`)
+            log.info(`disabled ${posNonRestF.length} pos`)
             posNonRestF.forEach((f) => (f.enabled = false))
           }
           // if any less restr. pos. filter meets, add a neg filter:
@@ -201,14 +203,14 @@ export class AdltPluginChildNode implements TreeViewNode {
             // do we have any one that is currently disabled? if so, enable it
             const disNegF = nonRestFiltersActive.filter((f) => !f.enabled && f.type === DltFilterType.NEGATIVE)
             if (disNegF.length > 0) {
-              console.log(`enabled ${disNegF.length} neg`)
+              log.info(`enabled ${disNegF.length} neg`)
               disNegF.forEach((f) => (f.enabled = true))
             } else {
               this._filterFragments.forEach((f) => {
                 // add new neg one will all but null keys:
                 const filterFrag: any = { type: DltFilterType.NEGATIVE, ...f }
                 Object.keys(filterFrag).forEach((key) => !(filterFrag[key] === null) || delete filterFrag[key])
-                console.log(` adding new neg ${JSON.stringify(filterFrag)}`)
+                log.info(` adding new neg ${JSON.stringify(filterFrag)}`)
                 const newFilter = new DltFilter(filterFrag, true)
                 this._doc!.onFilterAdd(newFilter, false)
               })
@@ -238,7 +240,7 @@ export class AdltPluginChildNode implements TreeViewNode {
               if (uri) {
                 try {
                   //fileTransfer.saveAs(uri);
-                  console.log(`adlt plugin child node should save '${uri.toString()}'`)
+                  log.info(`adlt plugin child node should save '${uri.toString()}'`)
                   const doc_name = this.getAdltDocumentAndPluginName()
                   if (doc_name) {
                     const [doc, name] = doc_name
@@ -247,13 +249,13 @@ export class AdltPluginChildNode implements TreeViewNode {
                         `plugin_cmd ${JSON.stringify({ name: name, cmd: cmd, params: { saveAs: uri.fsPath }, cmdCtx: this.cmdCtx })}`,
                       )
                       .then((response) => {
-                        console.log(`adlt.plugin_cmd save got response:'${response}'`)
+                        log.info(`adlt.plugin_cmd save got response:'${response}'`)
                       })
                       .catch((reason) => {
                         return vscode.window.showErrorMessage(`Save file failed with error:'${reason}'`)
                       })
                   } else {
-                    console.error(`adlt plugin child node got no doc!`)
+                    log.error(`adlt plugin child node got no doc!`)
                   }
                 } catch (err) {
                   return vscode.window.showErrorMessage(`Save file failed with error:'${err}'`)
@@ -264,11 +266,11 @@ export class AdltPluginChildNode implements TreeViewNode {
 
           break
         default:
-          console.error(`adlt.plugin child node got not supported command '${cmd}'!`)
+          log.error(`adlt.plugin child node got not supported command '${cmd}'!`)
           break
       }
     } else {
-      console.error(`adlt.plugin child node got unknown command '${cmd}'!`)
+      log.error(`adlt.plugin child node got unknown command '${cmd}'!`)
     }
   }
 
@@ -309,6 +311,7 @@ export class AdltPlugin implements TreeViewNode {
   public active: boolean // will be set based on open status from adlt
 
   constructor(
+    private log: vscode.LogOutputChannel,
     private origLabel: string,
     public iconPath: vscode.ThemeIcon | undefined,
     public uri: vscode.Uri,
@@ -348,11 +351,11 @@ export class AdltPlugin implements TreeViewNode {
   }
 
   applyCommand(cmd: string): void {
-    console.warn(`AdltPlugin(${this.options.name}).applyCommand(cmd=${cmd})... nyi`)
+    this.log.warn(`AdltPlugin(${this.options.name}).applyCommand(cmd=${cmd})... nyi`)
   }
 
   createChildNode(childObj: any, parent: TreeViewNode): TreeViewNode {
-    let newNode = new AdltPluginChildNode(childObj, parent, this.uri)
+    let newNode = new AdltPluginChildNode(this.log, childObj, parent, this.uri)
     // children:
     if ('children' in childObj && Array.isArray(childObj.children)) {
       for (let aChild of childObj.children) {

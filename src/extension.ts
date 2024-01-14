@@ -31,6 +31,9 @@ export function activate(context: vscode.ExtensionContext) {
   // Use the console to output diagnostic information (console.log) and errors (console.error)
   // This line of code will only be executed once when your extension is activated
 
+  const log = vscode.window.createOutputChannel('DLT-Logs', { log: true })
+  //logOutputChannel.logLevel = vscode.LogLevel.Info
+
   const extension = vscode.extensions.getExtension(extensionId)
 
   const prevVersion = context.globalState.get<string>(GlobalState.Version)
@@ -38,8 +41,11 @@ export function activate(context: vscode.ExtensionContext) {
 
   if (extension) {
     extensionVersion = extension.packageJSON.version
+    log.info(`${extensionId} v${extensionVersion} ${prevVersion !== extensionVersion ? `prevVersion: ${prevVersion} ` : ''}activated`)
     console.log(
-      `${extensionId} v${extensionVersion} ${prevVersion !== extensionVersion ? `prevVersion: ${prevVersion} ` : ''}is now active!`,
+      `${extensionId} v${extensionVersion} ${
+        prevVersion !== extensionVersion ? `prevVersion: ${prevVersion} ` : ''
+      }is now active! More logs in output channel 'DLT-Logs'`,
     )
     // the aik is not really sec_ret. but lets avoid bo_ts finding it too easy:
     const strKE = 'ZjJlMDA4NTQtNmU5NC00ZDVlLTkxNDAtOGFiNmIzNTllODBi'
@@ -48,7 +54,7 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(reporter)
     reporter?.sendTelemetryEvent('activate')
   } else {
-    console.log(`${extensionId}: not found as extension!`)
+    log.warn(`${extensionId}: not found as extension!`)
   }
 
   const _treeRootNodes: TreeViewNode[] = [] // one root node per document.
@@ -89,7 +95,7 @@ export function activate(context: vscode.ExtensionContext) {
       async handleDrop(target: TreeViewNode | undefined, sources: vscode.DataTransfer, token: vscode.CancellationToken): Promise<void> {
         let srcs: string[] = []
         sources.forEach((value, key) => srcs.push(`key:${key}=${value.asString()}`))
-        console.log(`adlt.handleDrop sources: ${srcs.join(',')}`)
+        log.info(`adlt.handleDrop sources: ${srcs.join(',')}`)
         //console.log(`adlt.handleDrop get: ${await (await sources.get('text/uri-list'))?.asString()}`);
         // use-cases:
         // drop Dlt-Viewer filter files -> adltProvider with .dlf files
@@ -102,7 +108,7 @@ export function activate(context: vscode.ExtensionContext) {
         return adltProvider.onDrop(target, sources, token)
       },
       handleDrag(source, dataTransfer, token): void | Thenable<void> {
-        console.log(`adlt.handleDrag #source=${source.length}...`)
+        log.info(`adlt.handleDrag #source=${source.length}...`)
         // add json frags for filters to dataTransfer
         return adltProvider.onDrag(source, dataTransfer, token)
       },
@@ -179,7 +185,7 @@ export function activate(context: vscode.ExtensionContext) {
       try {
         columns.push(new ColumnConfig(obj))
       } catch (err) {
-        console.error(`error '${err} parsing '`, obj)
+        log.error(`error '${err} parsing '`, obj)
       }
     })
     // new column name 'calculated time', visible:false, ... included?
@@ -202,6 +208,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   // register our document provider that knows how to handle "dlt-logs"
   let dltProvider = new dltDocument.DltDocumentProvider(
+    log,
     context,
     _dltLifecycleTreeView,
     _treeRootNodes,
@@ -216,6 +223,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   // register our document provider that knows how to handle "dlt-logs"
   let adltProvider = new ADltDocumentProvider(
+    log,
     context,
     _dltLifecycleTreeView,
     _treeRootNodes,
@@ -245,7 +253,7 @@ export function activate(context: vscode.ExtensionContext) {
     } else {
       file_exts = ['dlt', 'asc', 'txt']
     }
-    console.log(`open dlt via adlt file_exts=${JSON.stringify(file_exts)}`)
+    log.info(`open dlt via adlt file_exts=${JSON.stringify(file_exts)}`)
     return vscode.window
       .showOpenDialog({
         canSelectFiles: true,
@@ -256,7 +264,7 @@ export function activate(context: vscode.ExtensionContext) {
       })
       .then(async (uris: vscode.Uri[] | undefined) => {
         if (uris) {
-          console.log(`open dlt via adlt got URIs=${uris}`)
+          log.trace(`open dlt via adlt got URIs=${uris}`)
           /*const fileUri = uri.with({ scheme: "file" });
 					if (!fs.existsSync(fileUri.fsPath)*/
           if (uris.length === 1) {
@@ -273,7 +281,7 @@ export function activate(context: vscode.ExtensionContext) {
               scheme: adltScheme,
               query: encodeURIComponent(JSON.stringify({ lf: uris.map((u) => path.relative(basePath, u.fsPath)) })),
             })
-            console.log(`open dlt via adlt encoded uris as=${uri.toString()}`)
+            log.trace(`open dlt via adlt encoded uris as=${uri.toString()}`)
             vscode.workspace.openTextDocument(uri).then((value) => {
               vscode.window.showTextDocument(value, { preview: false })
             })
@@ -296,7 +304,7 @@ export function activate(context: vscode.ExtensionContext) {
         .then(async (uris: vscode.Uri[] | undefined) => {
           if (uris) {
             uris.forEach((uri) => {
-              console.log(`open dlt got URI=${uri.toString()}`)
+              log.info(`open dlt got URI=${uri.toString()}`)
               let dltUri = uri.with({ scheme: dltScheme })
               vscode.workspace.openTextDocument(dltUri).then((value) => {
                 vscode.window.showTextDocument(value, { preview: false })
@@ -327,7 +335,7 @@ export function activate(context: vscode.ExtensionContext) {
 	outputChannel.show(true);*/
 
   // register SearchPanel provider
-  const searchPanelProvider = new SearchPanelProvider(context, adltProvider, onDidChangeActiveRestQueryDoc)
+  const searchPanelProvider = new SearchPanelProvider(log, context, adltProvider, onDidChangeActiveRestQueryDoc)
 
   // on change of active text editor update calculated decorations:
   context.subscriptions.push(
@@ -347,7 +355,7 @@ export function activate(context: vscode.ExtensionContext) {
               //console.warn(`dlt-logs.onDidChangeActiveTextEditor did reveal ${doc?.treeNode.id}`);
             })
           } catch (err) {
-            console.warn(`dlt-logs.onDidChangeActiveTextEditor did reveal got err ${err}`)
+            log.warn(`dlt-logs.onDidChangeActiveTextEditor did reveal got err ${err}`)
           }
           //this.checkActiveTextEditor(data);
           doc.updateDecorations()
@@ -373,7 +381,7 @@ export function activate(context: vscode.ExtensionContext) {
         // update status bar only for the last used/active doc:
         let activeDoc = getRestQueryDocById('0')
         if (doc === activeDoc) {
-          console.log(`dlt-logs.onDidChangeTextDocument for active document`)
+          log.trace(`dlt-logs.onDidChangeTextDocument for active document`)
           doc.updateStatusBarItem(_statusBarItem)
         }
       }
@@ -393,11 +401,11 @@ export function activate(context: vscode.ExtensionContext) {
         let { doc, provider } = getDocAndProviderFor(uri.toString())
         if (doc === activeDoc) {
           // update status bar only for the last used/active doc:
-          console.log(`dlt-logs.onDidChangeStatus and doc is active document`)
+          log.trace(`dlt-logs.onDidChangeStatus and doc is active document`)
           doc.updateStatusBarItem(_statusBarItem)
         }
       } else {
-        console.log(`dlt-logs.onDidChangeStatus for active document`)
+        log.trace(`dlt-logs.onDidChangeStatus for active document`)
         activeDoc.updateStatusBarItem(_statusBarItem)
       }
     }),
@@ -420,7 +428,7 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand('dlt-logs.addFilter', async (...args) => {
       args.forEach((a) => {
-        console.log(` dlt-logs.addFilter arg='${JSON.stringify(a)}'`)
+        log.trace(` dlt-logs.addFilter arg='${JSON.stringify(a)}'`)
       })
       if (args.length < 2) {
         return
@@ -448,9 +456,9 @@ export function activate(context: vscode.ExtensionContext) {
       if (parentUri) {
         let { doc, provider } = getDocAndProviderFor(parentUri.toString())
         if (doc) {
-          console.log(`editFilter(${filterNode.label}) called for doc=${parentUri}`)
+          log.trace(`editFilter(${filterNode.label}) called for doc=${parentUri}`)
           editFilter(doc, filterNode.filter).then(() => {
-            console.log(`editFilter resolved...`)
+            log.trace(`editFilter resolved...`)
             _onDidChangeTreeData.fire(filterNode)
           })
         }
@@ -465,7 +473,7 @@ export function activate(context: vscode.ExtensionContext) {
       if (parentUri) {
         let { doc, provider } = getDocAndProviderFor(parentUri.toString())
         if (doc) {
-          console.log(`deleteFilter(${filterNode.label}) called for doc=${parentUri}`)
+          log.trace(`deleteFilter(${filterNode.label}) called for doc=${parentUri}`)
           let parentNode = filterNode.parent
           vscode.window
             .showWarningMessage(
@@ -476,7 +484,7 @@ export function activate(context: vscode.ExtensionContext) {
             .then((value) => {
               if (value === 'Delete') {
                 deleteFilter(doc!, filterNode.filter).then(() => {
-                  console.log(`deleteFilter resolved...`)
+                  log.trace(`deleteFilter resolved...`)
                   _onDidChangeTreeData.fire(parentNode)
                 })
               }
@@ -524,13 +532,13 @@ export function activate(context: vscode.ExtensionContext) {
       let uri: vscode.Uri | null | undefined
 
       if (args[0] !== undefined && (args[0] instanceof FilterNode || ('filter' in args[0] && 'parent' in args[0]))) {
-        console.log(`dlt-logs.openReport using single arg')`)
+        log.trace(`dlt-logs.openReport using single arg')`)
         const filterNode = <FilterNode>args[0]
         label = filterNode.label
         filter = filterNode.filter
         uri = filterNode.parent?.uri
       } else {
-        console.log(`dlt-logs.openReport using two args: '${JSON.stringify(args[0])}' and '${JSON.stringify(args[1])}')`)
+        log.trace(`dlt-logs.openReport using two args: '${JSON.stringify(args[0])}' and '${JSON.stringify(args[1])}')`)
         filter = new DltFilter(args[1])
         label = filter.name
         uri = vscode.Uri.parse('base64Uri' in args[0] ? Buffer.from(args[0].base64Uri, 'base64').toString('utf8') : args[0].uri)
@@ -538,15 +546,15 @@ export function activate(context: vscode.ExtensionContext) {
       if (uri) {
         const doc = dltProvider._documents.get(uri.toString())
         if (doc) {
-          console.log(`openReport(${label}) called for doc=${uri}`)
+          log.trace(`openReport(${label}) called for doc=${uri}`)
           doc.onOpenReport(context, filter)
         } else {
           const doc = adltProvider._documents.get(uri.toString())
           if (doc) {
-            console.log(`openReport(${label}) called for adlt doc=${uri}`)
+            log.trace(`openReport(${label}) called for adlt doc=${uri}`)
             doc.onOpenReport(context, filter)
           } else {
-            console.warn(
+            log.warn(
               `dlt-logs.openReport didn't found uri '${uri.toString()}' in '${Array.from(adltProvider._documents.keys()).join(' , ')}'`,
             )
           }
@@ -561,12 +569,12 @@ export function activate(context: vscode.ExtensionContext) {
       if (parentUri) {
         const doc = dltProvider._documents.get(parentUri.toString())
         if (doc) {
-          console.log(`openNewReport(${filterNode.label}) called for doc=${parentUri}`)
+          log.info(`openNewReport(${filterNode.label}) called for doc=${parentUri}`)
           doc.onOpenReport(context, filterNode.filter, true)
         } else {
           const doc = adltProvider._documents.get(parentUri.toString())
           if (doc) {
-            console.log(`openNewReport(${filterNode.label}) called for adlt doc=${parentUri}`)
+            log.info(`openNewReport(${filterNode.label}) called for adlt doc=${parentUri}`)
             doc.onOpenReport(context, filterNode.filter, true)
           }
         }
@@ -589,10 +597,10 @@ export function activate(context: vscode.ExtensionContext) {
           if (uris && uris.length > 0) {
             exportDlt(uris)
               .then(() => {
-                console.log(`exportDlt finished`)
+                log.info(`exportDlt finished`)
               })
               .catch((err) => {
-                console.log(`exportDlt cancelled/error=${err}`)
+                log.info(`exportDlt cancelled/error=${err}`)
               })
           }
         })
@@ -601,7 +609,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.commands.registerTextEditorCommand('dlt-logs.toggleSortOrder', async (textEditor: vscode.TextEditor) => {
-      console.log(`dlt-logs.toggleSortOrder(textEditor.uri = ${textEditor.document.uri.toString()}) called...`)
+      log.info(`dlt-logs.toggleSortOrder(textEditor.uri = ${textEditor.document.uri.toString()}) called...`)
       const uriStr = textEditor.document.uri.toString()
       const doc = dltProvider._documents.get(uriStr) || adltProvider._documents.get(uriStr)
       if (doc) {
@@ -612,7 +620,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.commands.registerTextEditorCommand('dlt-logs.goToTime', async (textEditor: vscode.TextEditor) => {
-      console.log(`dlt-logs.goToTime(textEditor.uri = ${textEditor.document.uri.toString()}) called...`)
+      log.trace(`dlt-logs.goToTime(textEditor.uri = ${textEditor.document.uri.toString()}) called...`)
       const uriStr = textEditor.document.uri.toString()
       const doc = dltProvider._documents.get(uriStr) || adltProvider._documents.get(uriStr)
       if (doc) {
@@ -631,7 +639,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
         if (timeFrom !== undefined) {
           askSingleTime(timeFrom, timeTo).then((time) => {
-            console.log(`dlt-logs.goToTime()=${time}`)
+            log.info(`dlt-logs.goToTime()=${time}`)
             doc.revealDate(time)
           })
         }
@@ -671,7 +679,7 @@ export function activate(context: vscode.ExtensionContext) {
                         break
                       }
                     } catch (err) {
-                      console.error(` err ${err} at updating config obj!`)
+                      log.error(` err ${err} at updating config obj!`)
                     }
                   }
                   if (!found) {
@@ -687,10 +695,10 @@ export function activate(context: vscode.ExtensionContext) {
                       // todo might need a better solution if workspace config is used.
                       // the changes wont be reflected at next startup. (default->global->workspace)
                       // would need to inspect first.
-                      console.log('updated column config.')
+                      log.trace('updated column config.')
                     })
                 } catch (err) {
-                  console.error(` err ${err} at updating configuration!`)
+                  log.error(` err ${err} at updating configuration!`)
                 }
               }
               return true
@@ -704,7 +712,7 @@ export function activate(context: vscode.ExtensionContext) {
         })
         .then((ok) => {
           if (ok) {
-            console.warn(`Dlt.configureColumns()... columns ok`)
+            log.trace(`Dlt.configureColumns()... columns ok`)
             // retrigger drawing of all docs (and not just the active one?) (todo)
             const doc =
               dltProvider._documents.get(textEditor.document.uri.toString()) ||
@@ -715,10 +723,10 @@ export function activate(context: vscode.ExtensionContext) {
                   { cancellable: false, location: vscode.ProgressLocation.Notification, title: 'applying columns to active document...' },
                   (progress) => doc.applyFilter(progress),
                 )
-                .then(() => console.log(`Dlt.configureColumns() applyFilter() done`))
+                .then(() => log.trace(`Dlt.configureColumns() applyFilter() done`))
             }
           } else {
-            console.warn(`Dlt.configureColumns()... not ok`)
+            log.warn(`Dlt.configureColumns()... not ok`)
           }
         })
     }),
@@ -736,7 +744,7 @@ export function activate(context: vscode.ExtensionContext) {
         .then(async (input: string | undefined) => {
           if (input?.length) {
             const res = await restQuery(context, input)
-            console.log(`restQuery returned: '${res}'`)
+            log.info(`restQuery returned: '${res}'`)
             vscode.window.showInformationMessage(res, 'ok')
           }
         })
@@ -849,9 +857,9 @@ export function activate(context: vscode.ExtensionContext) {
       // is it one of our documents?
       const { doc, provider } = getDocAndProviderFor(uriStr)
       if (doc) {
-        console.log(` dlt-logs.onDidCloseTextDocument: found document with uri=${uriStr}`)
+        log.info(` dlt-logs.onDidCloseTextDocument: found document with uri=${uriStr}`)
         if (doc.textDocument) {
-          console.log(`  deleting document with uri=${doc.textDocument.uri.toString()}`)
+          log.trace(`  deleting document with uri=${doc.textDocument.uri.toString()}`)
           doc.textDocument = undefined
           let childNode: TreeViewNode = doc.treeNode
           for (let i = 0; i < _treeRootNodes.length; ++i) {
@@ -916,7 +924,7 @@ export function activate(context: vscode.ExtensionContext) {
         getRestQueryDocByIdDidLoadSub.dispose()
       }
       getRestQueryDocByIdDidLoadSub = doc.onDidLoad((load) => {
-        console.warn(`dlt-logs.getRestQueryDocById.onDidLoad called...`)
+        log.trace(`dlt-logs.getRestQueryDocById.onDidLoad called...`)
         if (getRestQueryDocByIdDidLoadSub) {
           getRestQueryDocByIdDidLoadSub.dispose()
           getRestQueryDocByIdDidLoadSub = undefined

@@ -104,6 +104,7 @@ class SingleReport implements NewMessageSink {
   msgsPruned: number = 0
 
   constructor(
+    private log: vscode.LogOutputChannel,
     private dltReport: DltReport,
     private doc: ReportDocument,
     public filters: DltFilter[],
@@ -124,25 +125,26 @@ class SingleReport implements NewMessageSink {
                 this.reportTitles.push(filter.configOptions.name)
               }
             } else {
-              console.warn(`dltReport: unsupported type for reportOptions.title. expect string or boolean got ${typeof title}`)
+              log.warn(`dltReport: unsupported type for reportOptions.title. expect string or boolean got ${typeof title}`)
             }
           }
           if ('groupPrio' in filter.reportOptions) {
             const groupPrio = filter.reportOptions.groupPrio
             Object.keys(groupPrio).forEach((groupName) => {
               this.dataSetsGroupPrios[groupName] = Number(groupPrio[groupName])
-              console.log(`dltReport groupPrios=${JSON.stringify(this.dataSetsGroupPrios)}`)
+              log.trace(`dltReport groupPrios=${JSON.stringify(this.dataSetsGroupPrios)}`)
             })
           }
         } catch (err) {
-          console.log(`SingleReport(...) got error '${err}' processing reportOptions.`)
+          log.error(`SingleReport(...) got error '${err}' processing reportOptions.`)
         }
       }
     }
   }
 
   onNewMessages(nrNewMsgs: number) {
-    console.log(
+    const log = this.log
+    log.trace(
       `SingleReport.onNewMessages(${nrNewMsgs}) msgsProcessed=${this.msgsProcessed} msgsPruned=${this.msgsPruned} msgs.length=${this.msgs.length}`,
     )
     try {
@@ -154,11 +156,11 @@ class SingleReport implements NewMessageSink {
           this.msgs.length = 0
         }
       } catch (e) {
-        console.warn(`SingleReport.onNewMessages updateReport got e='${e}'`)
+        log.warn(`SingleReport.onNewMessages updateReport got e='${e}'`)
       }
       this.dltReport.updateReport()
     } catch (e) {
-      console.warn(`SingleReport.onNewMessages got e='${e}'`)
+      log.warn(`SingleReport.onNewMessages got e='${e}'`)
     }
   }
 
@@ -178,6 +180,7 @@ class SingleReport implements NewMessageSink {
   }
 
   updateReport() {
+    const log = this.log
     const msgs = this.msgs
     const minIdx = this.msgsProcessed - this.msgsPruned
     const maxIdx = msgs.length
@@ -211,7 +214,7 @@ class SingleReport implements NewMessageSink {
                     try {
                       convValuesFunction = Function('matches,params', filter.reportOptions.conversionFunction)
                       convValuesObj = {}
-                      console.log(` using conversionFunction = '${convValuesFunction}'`)
+                      log.info(` using conversionFunction = '${convValuesFunction}'`)
                       this.convFunctionCache.set(filter, [convValuesFunction, convValuesObj])
                     } catch (e) {
                       convValuesObj = {}
@@ -279,12 +282,13 @@ class SingleReport implements NewMessageSink {
         }
       })
 
-      console.log(`SingleReport.updateReport: have ${this.dataSets.size} data sets, processed ${this.lateEvalDPs.size} late evaluations`)
+      log.info(`SingleReport.updateReport: have ${this.dataSets.size} data sets, processed ${this.lateEvalDPs.size} late evaluations`)
       //dataSets.forEach((data, key) => { console.log(`  ${key} with ${data.data.length} entries and ${data.yLabels?.length} yLabels`); });
     }
   }
 
   getDataSetProperties(forDataSetName: string): { yAxis?: any; group?: string; yLabels?: string[]; valuesMap?: Map<string, string> } {
+    const log = this.log
     let yAxis: any | undefined = undefined
     let groupName: string | undefined = undefined
     let yLabels: string[] | undefined = undefined
@@ -345,7 +349,7 @@ class SingleReport implements NewMessageSink {
                         */
             const valueMap = filter.reportOptions.valueMap
             for (let dataSetName of Object.keys(valueMap)) {
-              console.log(` got valueMap.${dataSetName} : ${JSON.stringify(valueMap[dataSetName], null, 2)}`)
+              log.trace(` got valueMap.${dataSetName} : ${JSON.stringify(valueMap[dataSetName], null, 2)}`)
               // do we have a dataSet with that label?
               if (dataSetName === forDataSetName) {
                 const valueMapMap: Array<any> = valueMap[dataSetName]
@@ -369,7 +373,7 @@ class SingleReport implements NewMessageSink {
             }
           }
         } catch (err) {
-          console.log(`SingleReport.getDataSetProperties('${forDataSetName}') got error '${err}' processing reportOptions.`)
+          log.error(`SingleReport.getDataSetProperties('${forDataSetName}') got error '${err}' processing reportOptions.`)
         }
       }
       if (yAxis !== undefined && groupName !== undefined && yLabels !== undefined) {
@@ -415,6 +419,7 @@ class SingleReport implements NewMessageSink {
     insertPrevState = false,
     insertYLabels = true,
   ) {
+    const log = this.log
     if (insertPrevState && typeof value === 'number') {
       // make all STATE_ to strings
       value = `${value}`
@@ -582,7 +587,7 @@ class SingleReport implements NewMessageSink {
         }
       }
     } catch (e) {
-      console.warn(`SingleReport.insertDataPoint got e='${e}'`)
+      log.warn(`SingleReport.insertDataPoint got e='${e}'`)
     }
   }
 
@@ -617,6 +622,7 @@ export class DltReport implements vscode.Disposable {
   lastChangeActive: Date | undefined
 
   constructor(
+    private log: vscode.LogOutputChannel,
     private context: vscode.ExtensionContext,
     private doc: ReportDocument,
     private callOnDispose: (r: DltReport) => any,
@@ -633,13 +639,13 @@ export class DltReport implements vscode.Disposable {
     //  for ${filter.name} todo think about nice naming title
 
     this.panel.onDidDispose(() => {
-      console.log(`DltReport panel onDidDispose called.`)
+      log.info(`DltReport panel onDidDispose called.`)
       this.panel = undefined
       this.dispose() // we close now as well
     })
 
     this.panel.onDidChangeViewState((e) => {
-      console.log(`DltReport panel onDidChangeViewState(${e.webviewPanel.active}) called.`)
+      log.info(`DltReport panel onDidChangeViewState(${e.webviewPanel.active}) called.`)
       if (e.webviewPanel.active) {
         this.lastChangeActive = new Date(Date.now())
       }
@@ -663,10 +669,10 @@ export class DltReport implements vscode.Disposable {
         case 'clicked':
           try {
             const dateClicked: Date = new Date(e.dataPoint.x)
-            console.log(`report.onDidReceiveMessage clicked date e=${dateClicked}`)
+            log.info(`report.onDidReceiveMessage clicked date e=${dateClicked}`)
             this.doc.revealDate(dateClicked)
           } catch (err) {
-            console.warn(`report.onDidReceiveMessage clicked got err=${err}`, e)
+            log.warn(`report.onDidReceiveMessage clicked got err=${err}`, e)
           }
           break
       }
@@ -688,7 +694,7 @@ export class DltReport implements vscode.Disposable {
   }
 
   dispose() {
-    console.log(`DltReport dispose called.`)
+    this.log.info(`DltReport dispose called.`)
     if (this.panel) {
       this.panel.dispose()
       this.panel = undefined
@@ -745,7 +751,7 @@ export class DltReport implements vscode.Disposable {
     // enable the filters: todo... rethink whether disabled report filter make sense!
     filters.forEach((f) => (f.enabled = true))
 
-    reportToRet = new SingleReport(this, this.doc, filters)
+    reportToRet = new SingleReport(this.log, this, this.doc, filters)
     this.singleReports.push(reportToRet)
     return reportToRet
   }
@@ -758,6 +764,7 @@ export class DltReport implements vscode.Disposable {
   }
 
   updateReport() {
+    const log = this.log
     if (!this.panel) {
       return
     }
@@ -809,7 +816,7 @@ export class DltReport implements vscode.Disposable {
 
     const lcStartDate: Date = lcDates[0]
     const lcEndDate: Date = lcDates[lcDates.length - 1]
-    console.log(`updateReport lcStartDate=${lcStartDate}, lcEndDate=${lcEndDate}`)
+    log.trace(`updateReport lcStartDate=${lcStartDate}, lcEndDate=${lcEndDate}`)
 
     let dataSetsGroupPrios: any = {}
 
@@ -881,7 +888,7 @@ export class DltReport implements vscode.Disposable {
 const migrateAxesV2V3 = function (axis: any): any {
   // do we need to convert?
   if ('scaleLabel' in axis || 'ticks' in axis) {
-    console.log(`migrateAxesV2V2: converting: ${JSON.stringify(axis)}`)
+    //console.log(`migrateAxesV2V2: converting: ${JSON.stringify(axis)}`)
     let newAxis = JSON.parse(JSON.stringify(axis))
     // scaleLabel -> title
     if ('scaleLabel' in axis) {
@@ -902,7 +909,7 @@ const migrateAxesV2V3 = function (axis: any): any {
       }
       delete newAxis.ticks
     }
-    console.log(`migrateAxesV2V2: to: ${JSON.stringify(newAxis)}`)
+    //console.log(`migrateAxesV2V2: to: ${JSON.stringify(newAxis)}`)
     return newAxis
   } else {
     return axis
