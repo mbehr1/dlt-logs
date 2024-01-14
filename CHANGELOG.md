@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.79.0](https://github.com/mbehr1/dlt-logs/compare/v1.78.0...v1.79.0) (2024-01-14)
+
+
+### Features
+
+* output window 'DLT-Logs' ([042e24f](https://github.com/mbehr1/dlt-logs/commit/042e24fda22c434bb0372611b7ae853e81a739d3))
+
 ## [1.78.0](https://github.com/mbehr1/dlt-logs/compare/v1.77.0...v1.78.0) (2024-01-14)
 
 
