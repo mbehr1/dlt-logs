@@ -1,4 +1,4 @@
-// copyright(c) Matthias Behr, 2022
+// copyright(c) Matthias Behr, 2022-2024
 
 import * as vscode from 'vscode'
 import * as util from './util'
@@ -8,6 +8,15 @@ import { AdltDocument, decodeAdltUri } from './adltDocumentProvider'
 import { DltFilter, DltFilterType } from './dltFilter'
 
 // let treeNode = { , label: `SOME/IP Decoder`, uri: this.uri, parent: this.pluginTreeNode, children: [], tooltip: undefined, iconPath: new vscode.ThemeIcon('group-by-ref-type') }; // or symbol-interface?
+
+// one dimensional settings plus optional reportOptions object
+type FilterFrag = {
+  [key: string]: any
+} /*& {
+  reportOptions?: {
+    [key: string]: any
+  }
+}*/
 
 export class AdltPluginChildNode implements TreeViewNode {
   readonly id: string // unique id
@@ -22,7 +31,7 @@ export class AdltPluginChildNode implements TreeViewNode {
   cmdCtx: any | undefined
 
   // filter support: (zoomIn/Out/setPosF)
-  _filterFragment: any | undefined
+  _filterFragments: FilterFrag[]
   _doc: AdltDocument | undefined
 
   constructor(
@@ -41,15 +50,30 @@ export class AdltPluginChildNode implements TreeViewNode {
     this._tooltip = childObj.tooltip !== undefined && typeof childObj.tooltip === 'string' ? childObj.tooltip : undefined // or as MarkDownString?
     this.cmdCtx = childObj.cmdCtx
 
+    this._filterFragments = []
     if ('filterFrag' in childObj && childObj['filterFrag'] !== null) {
       const doc_name = this.getAdltDocumentAndPluginName()
       // check that _doc is avail
       if (doc_name !== undefined) {
         const [doc, name] = doc_name
         this._doc = doc
-        this._filterFragment = { ...childObj['filterFrag'] }
-        // check that no key is null / delete all null keys
-        Object.keys(this._filterFragment).forEach((key) => !(this._filterFragment[key] === null) || delete this._filterFragment[key])
+        let filterFragParam = childObj['filterFrag']
+        if (Array.isArray(filterFragParam)) {
+          // array of filterFrag objects
+          for (const filterFrag of filterFragParam) {
+            const nonNullFilterFrag = { ...filterFrag }
+            // check that no key is null / delete all null keys
+            Object.keys(nonNullFilterFrag).forEach((key) => !(nonNullFilterFrag[key] === null) || delete nonNullFilterFrag[key])
+            this._filterFragments.push(nonNullFilterFrag)
+          }
+        } else if (typeof filterFragParam === 'object') {
+          const nonNullFilterFrag = { ...childObj['filterFrag'] }
+          // check that no key is null / delete all null keys
+          Object.keys(nonNullFilterFrag).forEach((key) => !(nonNullFilterFrag[key] === null) || delete nonNullFilterFrag[key])
+          this._filterFragments.push(nonNullFilterFrag)
+        } else {
+          console.warn(`adlt plugin child node ignoring invalid filterFrag '${JSON.stringify(filterFragParam)}'!`)
+        }
       }
     }
 
@@ -70,7 +94,7 @@ export class AdltPluginChildNode implements TreeViewNode {
   }
 
   get contextValue() {
-    if (this._filterFragment) {
+    if (this._filterFragments.length > 0) {
       // similar to DynFilterNode:
       // we determine whether this filter fragments are visible or not
       // it's visible if
@@ -89,10 +113,10 @@ export class AdltPluginChildNode implements TreeViewNode {
       }
       let isCurrentlyVisible = (posFiltersActive || anyPosFilterActive === 0) && negFiltersActive === 0
       let canSetPosF = isCurrentlyVisible && anyPosFilterActive === 0
+      let hasReportOptions = this._filterFragments.findIndex((f) => 'reportOptions' in f) >= 0
       return (
-        `${'reportOptions' in this._filterFragment ? 'filterReport ' : ''}${isCurrentlyVisible ? 'canZoomOut' : 'canZoomIn'}${
-          canSetPosF ? ' canSetPosF ' : ' '
-        }` + this._contextValue
+        `${hasReportOptions ? 'filterReport ' : ''}${isCurrentlyVisible ? 'canZoomOut' : 'canZoomIn'}${canSetPosF ? ' canSetPosF ' : ' '}` +
+        this._contextValue
       )
     } else {
       return this._contextValue
@@ -100,15 +124,14 @@ export class AdltPluginChildNode implements TreeViewNode {
   }
 
   get tooltip(): string | undefined {
-    if (this._filterFragment) {
+    if (this._filterFragments.length > 0) {
       const activeFilters = this.getSimilarFilters(true)
       if (activeFilters.length) {
         return `${this._tooltip ? this._tooltip + '\n' : ''}Active filters:\n${activeFilters.map((f) => f.name).join(',\n')}`
       } else {
-        return `${this._tooltip ? this._tooltip + '\n' : ''}Would set filter:\n${JSON.stringify({
-          ...this._filterFragment,
-          reportOptions: undefined,
-        })}`
+        return `${this._tooltip ? this._tooltip + '\n' : ''}Would set filter:\n${this._filterFragments
+          .map((f) => JSON.stringify({ ...f, reportOptions: undefined }))
+          .join('\n')}`
       }
     } else {
       return this._tooltip
@@ -121,11 +144,8 @@ export class AdltPluginChildNode implements TreeViewNode {
    * todo: add proper interface here (and not cast simply to FilterNode on registerCommand('...openReport'...))
    */
   get filter(): DltFilter[] {
-    if ('reportOptions' in this._filterFragment) {
-      return [new DltFilter({ type: 3, ...this._filterFragment }, false)]
-    } else {
-      return []
-    }
+    let reportFilters = this._filterFragments.filter((f) => 'reportOptions' in f)
+    return reportFilters.map((r) => new DltFilter({ type: 3, ...r }, false))
   }
 
   applyCommand(cmd: string): void {
@@ -133,7 +153,7 @@ export class AdltPluginChildNode implements TreeViewNode {
     // context canSetPosF -> cmd setPosFilter
     // context canZoomOut (make msgs non visible) -> cmd zoomOut
     // context canZoomIn (make msgs visible) -> cmd zoomIn
-    if (this._filterFragment && ['setPosFilter', 'zoomOut', 'zoomIn'].find((e) => e === cmd) !== undefined) {
+    if (this._filterFragments.length > 0 && ['setPosFilter', 'zoomOut', 'zoomIn'].find((e) => e === cmd) !== undefined) {
       const filtersActive = this.getSimilarFilters(true, true)
       const nonRestFiltersActive = this.getSimilarFilters(false, true)
       switch (cmd) {
@@ -150,15 +170,17 @@ export class AdltPluginChildNode implements TreeViewNode {
             // do we have any one that is currently disabled? if so, enable it
             const disPosF = nonRestFiltersActive.filter((f) => !f.enabled && f.type === DltFilterType.POSITIVE)
             if (disPosF.length > 0) {
-              console.log(` enabled 1 pos`)
-              disPosF[0].enabled = true
+              console.log(` enabled ${disPosF.length} pos filters`)
+              disPosF.forEach((f) => (f.enabled = true))
             } else {
-              // else do add a new one
-              const filterFrag = { type: DltFilterType.POSITIVE, ...this._filterFragment }
-              Object.keys(filterFrag).forEach((key) => !(filterFrag[key] === null) || delete filterFrag[key])
-              console.log(` adding new pos ${JSON.stringify(filterFrag)}`)
-              const newFilter = new DltFilter(filterFrag, true)
-              this._doc!.onFilterAdd(newFilter, false)
+              // else do add a new one(s)
+              this._filterFragments.forEach((f) => {
+                const filterFrag: any = { type: DltFilterType.POSITIVE, ...f }
+                Object.keys(filterFrag).forEach((key) => !(filterFrag[key as keyof typeof filterFrag] === null) || delete filterFrag[key])
+                console.log(` adding new pos ${JSON.stringify(filterFrag)}`)
+                const newFilter = new DltFilter(filterFrag, true)
+                this._doc!.onFilterAdd(newFilter, false)
+              })
             }
           }
 
@@ -179,22 +201,26 @@ export class AdltPluginChildNode implements TreeViewNode {
             // do we have any one that is currently disabled? if so, enable it
             const disNegF = nonRestFiltersActive.filter((f) => !f.enabled && f.type === DltFilterType.NEGATIVE)
             if (disNegF.length > 0) {
-              console.log(`enabled 1 neg`)
-              disNegF[0].enabled = true
+              console.log(`enabled ${disNegF.length} neg`)
+              disNegF.forEach((f) => (f.enabled = true))
             } else {
-              // add new neg one will all but null keys:
-              const filterFrag = { type: DltFilterType.NEGATIVE, ...this._filterFragment }
-              Object.keys(filterFrag).forEach((key) => !(filterFrag[key] === null) || delete filterFrag[key])
-              console.log(` adding new neg ${JSON.stringify(filterFrag)}`)
-              const newFilter = new DltFilter(filterFrag, true)
-              this._doc!.onFilterAdd(newFilter, false)
+              this._filterFragments.forEach((f) => {
+                // add new neg one will all but null keys:
+                const filterFrag: any = { type: DltFilterType.NEGATIVE, ...f }
+                Object.keys(filterFrag).forEach((key) => !(filterFrag[key] === null) || delete filterFrag[key])
+                console.log(` adding new neg ${JSON.stringify(filterFrag)}`)
+                const newFilter = new DltFilter(filterFrag, true)
+                this._doc!.onFilterAdd(newFilter, false)
+              })
             }
           }
           break
         case 'setPosFilter':
-          const filterFrag = { type: DltFilterType.POSITIVE, ...this._filterFragment }
-          const newFilter = new DltFilter(filterFrag, true)
-          this._doc!.onFilterAdd(newFilter, false)
+          this._filterFragments.forEach((f) => {
+            const filterFrag = { type: DltFilterType.POSITIVE, ...f }
+            const newFilter = new DltFilter(filterFrag, true)
+            this._doc!.onFilterAdd(newFilter, false)
+          })
           break
       }
     } else if (this.cmdCtx !== undefined && cmd in this.cmdCtx) {
@@ -250,7 +276,15 @@ export class AdltPluginChildNode implements TreeViewNode {
     if (!this._doc) {
       return []
     }
-    return DltFilter.getSimilarFilters(lessRestrictive, includeDisabled, this._filterFragment, this._doc.allFilters)
+    const toRet: DltFilter[] = []
+    for (const filterFrag of this._filterFragments) {
+      for (const simFilter of DltFilter.getSimilarFilters(lessRestrictive, includeDisabled, filterFrag, this._doc.allFilters)) {
+        if (!toRet.includes(simFilter)) {
+          toRet.push(simFilter)
+        }
+      }
+    }
+    return toRet
   }
 
   getAdltDocumentAndPluginName(): [AdltDocument, string] | undefined {
