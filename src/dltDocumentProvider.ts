@@ -48,6 +48,7 @@ export class DltDocumentProvider implements vscode.FileSystemProvider, vscode.Do
   private _autoTimeSync = false // todo config
 
   constructor(
+    private log: vscode.LogOutputChannel,
     context: vscode.ExtensionContext,
     private _dltLifecycleTreeView: vscode.TreeView<TreeViewNode>,
     private _treeRootNodes: TreeViewNode[],
@@ -56,7 +57,7 @@ export class DltDocumentProvider implements vscode.FileSystemProvider, vscode.Do
     private _columns: ColumnConfig[],
     reporter?: TelemetryReporter,
   ) {
-    console.log(`dlt-logs.DltDocumentProvider()...`)
+    // console.log(`dlt-logs.DltDocumentProvider()...`)
     this._reporter = reporter
     this._subscriptions.push(
       vscode.workspace.onDidOpenTextDocument((event: vscode.TextDocument) => {
@@ -550,17 +551,17 @@ export class DltDocumentProvider implements vscode.FileSystemProvider, vscode.Do
               this.handleDidChangeSelectedTime(ev)
             })
             if (subscr !== undefined) {
-              console.log(`dlt-log.got onDidChangeSelectedTime api from ${value.id}`)
+              // console.log(`dlt-log.got onDidChangeSelectedTime api from ${value.id}`)
               newSubs.push(subscr)
             }
           }
         } catch (error) {
-          console.log(`dlt-log:extension ${value.id} throws: ${error}`)
+          // console.log(`dlt-log:extension ${value.id} throws: ${error}`)
         }
       }
     })
     this._didChangeSelectedTimeSubscriptions = newSubs
-    console.log(`dlt-log.checkActiveExtensions: got ${this._didChangeSelectedTimeSubscriptions.length} subscriptions.`)
+    // console.log(`dlt-log.checkActiveExtensions: got ${this._didChangeSelectedTimeSubscriptions.length} subscriptions.`)
   }
 
   // filesystem provider api:
@@ -572,6 +573,7 @@ export class DltDocumentProvider implements vscode.FileSystemProvider, vscode.Do
     if (!document && realStat.isFile() && true /* todo dlt extension */) {
       try {
         document = new DltDocument(
+          this.log,
           uri,
           this._onDidChangeFile,
           this._onDidChangeTreeData,
@@ -610,7 +612,15 @@ export class DltDocumentProvider implements vscode.FileSystemProvider, vscode.Do
     let doc = this._documents.get(uri.toString())
     console.log(`dlt-logs.readFile(uri=${uri.toString()})...`)
     if (!doc) {
-      doc = new DltDocument(uri, this._onDidChangeFile, this._onDidChangeTreeData, this._treeRootNodes, this._columns, this._reporter)
+      doc = new DltDocument(
+        this.log,
+        uri,
+        this._onDidChangeFile,
+        this._onDidChangeTreeData,
+        this._treeRootNodes,
+        this._columns,
+        this._reporter,
+      )
       this._documents.set(uri.toString(), doc)
       if (this._documents.size === 1) {
         this.checkActiveRestQueryDocChanged()

@@ -14,7 +14,7 @@ import { MultiStepInput, PickItem } from './quickPick'
  * @returns Promise with a Date
  */
 export async function askSingleTime(refTime: Date, maxTime: Date | undefined): Promise<Date> {
-  console.log(`dlt-logs.askSingleTime(${refTime}-${maxTime})...`)
+  //console.log(`dlt-logs.askSingleTime(${refTime}-${maxTime})...`)
 
   let results = {
     refTime: refTime.valueOf(),

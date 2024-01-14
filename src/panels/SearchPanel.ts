@@ -12,6 +12,7 @@ import {
   TextEditor,
   TextEditorEdit,
   ExtensionContext,
+  LogOutputChannel,
 } from 'vscode'
 import { getNonce, getUri } from '../util'
 import { ADltDocumentProvider, AdltDocument, StreamMsgData } from '../adltDocumentProvider'
@@ -35,11 +36,12 @@ export class SearchPanelProvider implements WebviewViewProvider {
   private _onApplyFilterDisp?: Disposable
 
   constructor(
+    private log: LogOutputChannel,
     context: ExtensionContext,
     private _adltDocProvider: ADltDocumentProvider,
     private _onDidChangeActiveRestQueryDoc: Event<Uri | undefined>,
   ) {
-    console.log(`SearchPanel()...`)
+    log.trace(`SearchPanel()...`)
     this._extensionUri = context.extensionUri
     context.subscriptions.push(vscodeWindow.registerWebviewViewProvider(SearchPanelProvider.viewType, this))
     context.subscriptions.push(
@@ -53,10 +55,11 @@ export class SearchPanelProvider implements WebviewViewProvider {
     )
 
     _onDidChangeActiveRestQueryDoc((uri) => {
+      const log = this.log
       //console.log(`SearchPanel. activeDocument:${uri?.toString()}`);
       const doc = uri ? this._adltDocProvider._documents.get(uri.toString()) : undefined
       if (doc !== this._activeDoc) {
-        console.log(`SearchPanel. new activeDocument:${doc?.uri.toString()}`)
+        log.info(`SearchPanel. new activeDocument:${doc?.uri.toString()}`)
         // stop pending searches
         if (this.curStreamLoader) {
           this.curStreamLoader.dispose()
@@ -76,7 +79,7 @@ export class SearchPanelProvider implements WebviewViewProvider {
         }
         if (doc) {
           this._onApplyFilterDisp = doc.onApplyFilter(() => {
-            console.log(`SearchPanel. onApplyFilter event`)
+            log.trace(`SearchPanel. onApplyFilter event`)
             this._view?.webview.postMessage({
               type: 'docUpdate',
               onApplyFilter: true,
@@ -92,7 +95,8 @@ export class SearchPanelProvider implements WebviewViewProvider {
     context: WebviewViewResolveContext<unknown>,
     token: CancellationToken,
   ): void | Thenable<void> {
-    console.log(`SearchPanel.resolveWebviewView()...`)
+    const log = this.log
+    log.trace(`SearchPanel.resolveWebviewView()...`)
     this._view = webviewView
     webviewView.webview.options = {
       // Enable JavaScript in the webview
@@ -108,7 +112,7 @@ export class SearchPanelProvider implements WebviewViewProvider {
     webviewView.webview.html = this._getWebviewContent(webviewView.webview)
     webviewView.onDidDispose(
       () => {
-        console.log(`SearchPanelProvider.webview.onDidDispose()...`)
+        log.trace(`SearchPanelProvider.webview.onDidDispose()...`)
         this._view = undefined
       },
       this,
@@ -116,12 +120,13 @@ export class SearchPanelProvider implements WebviewViewProvider {
     )
     this._setWebviewMessageListener(webviewView.webview)
     webviewView.onDidChangeVisibility(() => {
-      console.log(`SearchPanelProvider.webview.onDidChangeVisibility()...visible=${this._view?.visible}`)
+      log.trace(`SearchPanelProvider.webview.onDidChangeVisibility()...visible=${this._view?.visible}`)
     })
   }
 
   public async commandSearch(textEditor: TextEditor, edit: TextEditorEdit, ...args: any[]) {
-    console.log(`SearchPanel.commandSearch(#args=${args.length})...`)
+    const log = this.log
+    log.info(`SearchPanel.commandSearch(#args=${args.length})...`)
     if (!this._view) {
       await commands.executeCommand('workbench.view.extension.mbehr1DltLogsSearch')
       // dirty hack:
@@ -129,7 +134,7 @@ export class SearchPanelProvider implements WebviewViewProvider {
         if (this._view) {
           this._view.webview.postMessage({ type: 'focus' })
         } else {
-          console.warn(`SearchPanel.commandSearch after 1s no view...`)
+          log.warn(`SearchPanel.commandSearch after 1s no view...`)
         }
       }, 1000)
     } else {
@@ -143,7 +148,8 @@ export class SearchPanelProvider implements WebviewViewProvider {
    * Cleans up and disposes of webview resources when the webview panel is closed.
    */
   public dispose() {
-    console.log(`SearchPanel.dispose()...`)
+    const log = this.log
+    log.trace(`SearchPanel.dispose()...`)
     if (this._onApplyFilterDisp) {
       this._onApplyFilterDisp.dispose()
       this._onApplyFilterDisp = undefined
@@ -174,7 +180,8 @@ export class SearchPanelProvider implements WebviewViewProvider {
    * rendered within the webview panel
    */
   private _getWebviewContent(webview: Webview) {
-    console.log(`SearchPanel._getWebviewContent()...`)
+    const log = this.log
+    log.trace(`SearchPanel._getWebviewContent()...`)
     // The CSS file from the React build output
     const stylesUri = getUri(webview, this._extensionUri, ['webviews', 'search', 'build', 'assets', 'index.css'])
     // The JS file from the React build output
@@ -224,6 +231,7 @@ export class SearchPanelProvider implements WebviewViewProvider {
    * @param context A reference to the extension context
    */
   private _setWebviewMessageListener(webview: Webview) {
+    const log = this.log
     webview.onDidReceiveMessage(
       (message: any) => {
         const msgType = message.type
@@ -232,7 +240,7 @@ export class SearchPanelProvider implements WebviewViewProvider {
         switch (msgType) {
           case 'sAr':
             if (msgId < this.lastMsgId) {
-              console.error(`SearchPanel: msgId ${msgId} < last ${this.lastMsgId}`)
+              log.error(`SearchPanel: msgId ${msgId} < last ${this.lastMsgId}`)
             }
             // console.log(`SearchPanel: sAr cmd:${JSON.stringify(req)}`);
             // need to send a response for that id:
@@ -248,7 +256,7 @@ export class SearchPanelProvider implements WebviewViewProvider {
                     maxMsgsToReturn?: number
                   }
                   const findReq: FindReq = req.data
-                  console.log(`SearchPanel: sAr cmd find:${JSON.stringify(findReq)}`)
+                  log.info(`SearchPanel: sAr cmd find:${JSON.stringify(findReq)}`)
                   if (this.curStreamLoader) {
                     const searchFn = (streamLoader: DocStreamLoader, findReq: FindReq): { err: string } | undefined => {
                       try {
@@ -274,7 +282,7 @@ export class SearchPanelProvider implements WebviewViewProvider {
                             if (e && typeof e === 'object' && 'err' in e && typeof e.err === 'string') {
                               res = e as { err: string }
                               if ('retry' in e && !!e.retry) {
-                                console.warn(`SearchPanel: sAr cmd find: auto retrying...`)
+                                log.warn(`SearchPanel: sAr cmd find: auto retrying...`)
                                 setTimeout(() => {
                                   let res = searchFn(streamLoader, findReq)
                                   if (res !== undefined) {
@@ -297,7 +305,7 @@ export class SearchPanelProvider implements WebviewViewProvider {
                           },
                         )
                       } catch (e) {
-                        console.warn(`SearchPanel: sAr cmd find failed with: ${e}`)
+                        log.warn(`SearchPanel: sAr cmd find failed with: ${e}`)
                         res = { err: `find cmd failed outer with: ${e}` }
                       }
                       return res
@@ -341,6 +349,7 @@ export class SearchPanelProvider implements WebviewViewProvider {
                           ]
                         : [searchFilter]
                       this.curStreamLoader = new DocStreamLoader(
+                        log,
                         doc,
                         filters,
                         () => {
@@ -363,7 +372,7 @@ export class SearchPanelProvider implements WebviewViewProvider {
                         },
                       )
                     } catch (e) {
-                      console.warn(`SearchPanel: sAr cmd search new DocStreamLoader failed with: ${e}`)
+                      log.warn(`SearchPanel: sAr cmd search new DocStreamLoader failed with: ${e}`)
                       res = { err: `search cmd failed with: ${e}` }
                     }
                   } else {
@@ -423,7 +432,7 @@ export class SearchPanelProvider implements WebviewViewProvider {
                         processMsgs(msgs)
                       })
                       .catch((e) => {
-                        console.warn(`SearchPanel: promise rejected with '${e}'`)
+                        log.warn(`SearchPanel: promise rejected with '${e}'`)
                       })
                     res = undefined
                   }
@@ -432,7 +441,7 @@ export class SearchPanelProvider implements WebviewViewProvider {
                 }
                 break
               default:
-                console.warn(`SearchPanel: unexpected sAr cmd:${JSON.stringify(message)}`)
+                log.warn(`SearchPanel: unexpected sAr cmd:${JSON.stringify(message)}`)
             }
             if (res !== undefined) {
               webview.postMessage({
@@ -467,7 +476,7 @@ export class SearchPanelProvider implements WebviewViewProvider {
             }
             break
           case 'hello': // webview loaded/reloaded, send current doc if any (as the updates might have been missed)
-            console.log(`SearchPanel: webview send hello:${JSON.stringify(req)}`)
+            log.trace(`SearchPanel: webview send hello:${JSON.stringify(req)}`)
             if (this._activeDoc) {
               // inform webview about activeDoc
               webview.postMessage({
@@ -477,7 +486,7 @@ export class SearchPanelProvider implements WebviewViewProvider {
             }
             break
           default:
-            console.warn(`SearchPanel: unexpected msg:${JSON.stringify(message)}`)
+            log.warn(`SearchPanel: unexpected msg:${JSON.stringify(message)}`)
         }
       },
       undefined,
@@ -495,6 +504,7 @@ class DocStreamLoader {
   private curWindow: [number, number] // eg. [100-200)
 
   constructor(
+    private log: LogOutputChannel,
     private doc: AdltDocument,
     private filters: DltFilter[],
     private onOk: () => void,
@@ -517,18 +527,17 @@ class DocStreamLoader {
         onOk()
       })
       .catch((e) => {
-        console.error(`SearchPanel DocStreamLoader() got error:${e}`)
+        log.error(`SearchPanel DocStreamLoader() got error:${e}`)
         throw e
       })
   }
 
   requestNewWindow(newWindow: [number, number]) {
+    const log = this.log
     if (!this.streamIdUpdatePending) {
       this.streamData.msgs = []
       this.curWindow = [newWindow[0], newWindow[1]]
-      console.info(
-        `SearchPanel DocStreamLoader requestNewWindow([${newWindow[0]}-${newWindow[1]}))[${this.curWindow[0]}-${this.curWindow[1]})`,
-      )
+      log.info(`SearchPanel DocStreamLoader requestNewWindow([${newWindow[0]}-${newWindow[1]}))[${this.curWindow[0]}-${this.curWindow[1]})`)
       this.streamIdUpdatePending = true
       this.doc.changeMsgsStreamWindow(this.streamId, newWindow).then((streamId) => {
         //console.info(`SearchPanel DocStreamLoader requestNewWindow([${newWindow[0]}-${newWindow[1]})) got new streamId=${streamId}`);
@@ -536,16 +545,17 @@ class DocStreamLoader {
         this.streamIdUpdatePending = false
       })
     } else {
-      console.warn(`SearchPanel DocStreamLoader requestNewWindow update pending, ignored!`)
+      log.warn(`SearchPanel DocStreamLoader requestNewWindow update pending, ignored!`)
     }
   }
 
   private sinkOnDone() {
-    console.warn(`SearchPanel DocStreamLoader sink.onDone()...`)
+    this.log.trace(`SearchPanel DocStreamLoader sink.onDone()...`)
   }
 
   private sinkOnNewMessages(nrNewMsgs: number) {
-    console.info(`SearchPanel DocStreamLoader sink.onNewMessages(${nrNewMsgs}) queuedRequests=${this.queuedRequests.length}...`)
+    const log = this.log
+    log.info(`SearchPanel DocStreamLoader sink.onNewMessages(${nrNewMsgs}) queuedRequests=${this.queuedRequests.length}...`)
     // any pending requests that can be fulfilled?
     for (let i = 0; i < this.queuedRequests.length; ++i) {
       const [startIdx, maxNrMsgs, resolve, reject] = this.queuedRequests[i]
@@ -564,7 +574,7 @@ class DocStreamLoader {
       const [startIdx, maxNrMsgs, resolve, reject] = this.queuedRequests[0]
       const inWindow = startIdx >= this.curWindow[0] && startIdx < this.curWindow[1]
       if (!inWindow) {
-        console.log(
+        log.trace(
           `SearchPanel DocStreamLoader sink.onNewMessages(${nrNewMsgs}) queuedRequests ${this.queuedRequests.length} > 0: requesting new window with ${startIdx} ${maxNrMsgs}`,
         )
         this.tryRequestNewWindow(startIdx, maxNrMsgs, true)
@@ -620,6 +630,7 @@ class DocStreamLoader {
    * @param maxNumberOfMsgs - max number of msgs returned
    */
   getMsgs(startIdx: number, maxNumberOfMsgs: number): FilterableDltMsg[] | Promise<FilterableDltMsg[]> {
+    const log = this.log
     // is the startIdx available?
     const inWindow = startIdx >= this.curWindow[0] && startIdx < this.curWindow[1]
     if (inWindow) {
@@ -627,7 +638,7 @@ class DocStreamLoader {
       if (msgs) {
         return msgs
       } else {
-        console.log(`SearchPanel DocStreamLoader.getMsgs inWindow but not avail. Added to queue.`)
+        log.info(`SearchPanel DocStreamLoader.getMsgs inWindow but not avail. Added to queue.`)
         return new Promise<FilterableDltMsg[]>((resolve, reject) => {
           this.queuedRequests.push([startIdx, maxNumberOfMsgs, resolve, reject])
         })
