@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.80.0](https://github.com/mbehr1/dlt-logs/compare/v1.79.0...v1.80.0) (2024-01-21)
+
+
+### Features
+
+* **remote:** add new command dltOpenAdltRemoteFile ([d0f183a](https://github.com/mbehr1/dlt-logs/commit/d0f183af5bfcd12bf2797c6b6621b9be09ee18ea))
+
 ## [1.79.0](https://github.com/mbehr1/dlt-logs/compare/v1.78.0...v1.79.0) (2024-01-14)
 
 
