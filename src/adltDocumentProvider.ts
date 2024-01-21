@@ -46,6 +46,7 @@ import { assert } from 'console'
 import { fileURLToPath } from 'node:url'
 import { generateRegex } from './generateRegex'
 import * as JSON5 from 'json5'
+import { AdltRemoteFSProvider } from './adltRemoteFsProvider'
 
 //import { adltPath } from 'node-adlt';
 // with optionalDependency we use require to catch errors
@@ -231,11 +232,12 @@ export interface StreamMsgData {
 }
 
 export function decodeAdltUri(uri: vscode.Uri): string[] {
+  const isLocalAddress = uri.authority === undefined || uri.authority === ''
   let fileNames
   if (uri.query.length > 0) {
     // multiple ones encoded in query:
     // first filename is the path, the others part of the query
-    fileNames = [uri.with({ query: '' }).fsPath]
+    fileNames = isLocalAddress ? [uri.with({ query: '' }).fsPath] : [uri.path.startsWith('/fs') ? uri.path.slice(3) : uri.path]
     const basePath = path.parse(fileNames[0]).dir
     let jsonObj = JSON.parse(decodeURIComponent(uri.query))
     if (!('lf' in jsonObj)) {
@@ -262,8 +264,12 @@ export function decodeAdltUri(uri: vscode.Uri): string[] {
       }
     }
   } else {
-    const fileUri = uri.with({ scheme: 'file' })
-    fileNames = [fileUri.fsPath]
+    if (isLocalAddress) {
+      const fileUri = uri.with({ scheme: 'file' })
+      fileNames = [fileUri.fsPath]
+    } else {
+      fileNames = [uri.path.startsWith('/fs') ? uri.path.slice(3) : uri.path]
+    }
   }
   return fileNames
 }
@@ -283,7 +289,7 @@ type MsgTimeHighlight = { msgIndex: number; calculatedTimeInMs?: number }
 
 export class AdltDocument implements vscode.Disposable {
   private _fileNames: string[] // the real local file names
-  private realStat: fs.Stats
+  private _ctime: number
   private _mtime: number // last modification time in ms we report as part of stat()
   private webSocket?: WebSocket
   private webSocketIsConnected = false
@@ -405,7 +411,7 @@ export class AdltDocument implements vscode.Disposable {
 
   constructor(
     private log: vscode.LogOutputChannel,
-    adltPort: Promise<number>,
+    adltAddress: Promise<string>, // e.g. ws://localhost:<port>
     public uri: vscode.Uri,
     private emitDocChanges: vscode.EventEmitter<vscode.FileChangeEvent[]>,
     treeEventEmitter: vscode.EventEmitter<TreeViewNode | null>,
@@ -418,12 +424,21 @@ export class AdltDocument implements vscode.Disposable {
     this._treeEventEmitter = treeEventEmitter
 
     // support for multiple uris encoded...
+    log.trace(`AdltDocument: uri=${JSON.stringify(uri.toJSON())}`)
     this._fileNames = decodeAdltUri(uri)
-    if (!this._fileNames.length || !fs.existsSync(this._fileNames[0])) {
-      throw Error(`AdltDocument file ${uri.toString()} doesn't exist!`)
+    const isLocalAddress = uri.authority === undefined || uri.authority === ''
+    if (isLocalAddress) {
+      if (!this._fileNames.length || !fs.existsSync(this._fileNames[0])) {
+        log.warn(`AdltDocument file ${uri.toString()} doesn't exist!`)
+        throw Error(`AdltDocument file ${uri.toString()} doesn't exist!`)
+      }
+      const realStat = fs.statSync(this._fileNames[0]) // todo summarize all stats
+      this._ctime = realStat.ctimeMs.valueOf()
+      this._mtime = realStat.mtimeMs.valueOf()
+    } else {
+      this._ctime = Date.now()
+      this._mtime = this._ctime
     }
-    this.realStat = fs.statSync(this._fileNames[0]) // todo summarize all stats
-    this._mtime = this.realStat.mtime.valueOf()
 
     // configuration:
     const maxNrMsgsConf = vscode.workspace.getConfiguration().get<number>('dlt-logs.maxNumberLogs')
@@ -483,11 +498,10 @@ export class AdltDocument implements vscode.Disposable {
     this.text = `Loading logs via adlt from ${this._fileNames.join(', ')} with max ${this._maxNrMsgs} msgs per page...`
 
     // connect to adlt via websocket:
-    adltPort
-      .then((port) => {
-        log.trace(`adlt.Document.got port=${port}`)
-        const url = `ws://localhost:${port}`
-        this.webSocket = new WebSocket(url, [], { perMessageDeflate: false, origin: 'adlt-logs', maxPayload: 1_000_000_000 })
+    adltAddress
+      .then((address) => {
+        log.info(`adlt.Document using websocket address '${address}'`)
+        this.webSocket = new WebSocket(address, [], { perMessageDeflate: false, origin: 'adlt-logs', maxPayload: 1_000_000_000 })
         //console.warn(`adlt.webSocket.binaryType=`, this.webSocket.binaryType);
         //this.webSocket.binaryType = "nodebuffer"; // or Arraybuffer?
         this.webSocket.binaryType = 'arraybuffer' // ArrayBuffer needed for sink?
@@ -2863,7 +2877,7 @@ export class AdltDocument implements vscode.Disposable {
 
     return {
       size: this.text.length,
-      ctime: this.realStat.ctime.valueOf(),
+      ctime: this._ctime,
       mtime: this._mtime,
       type: vscode.FileType.File,
     }
@@ -3319,37 +3333,61 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider, /*vscode
   }
 
   // filesystem provider api:
+
+  // todo close them automatically after inactivity
+  private _remoteFsProvider: Map<string, AdltRemoteFSProvider> = new Map<string, AdltRemoteFSProvider>()
+
   get onDidChangeFile() {
     return this._onDidChangeFile.event
   }
-  stat(uri: vscode.Uri): vscode.FileStat {
+
+  stat(uri: vscode.Uri): vscode.FileStat | Thenable<vscode.FileStat> {
     const log = this.log
+    // log.info(`adlt-logs.stat(uri=${uri.toString().slice(0, 100)})...`)
     let document = this._documents.get(uri.toString())
     if (document) {
       return document.stat()
     }
     try {
-      let fileNames = decodeAdltUri(uri)
-      if (fileNames.length > 0) {
-        const realStat = fs.statSync(fileNames[0])
-        // console.log(`adlt-logs.stat(uri=${uri.toString().slice(0, 100)})... isDirectory=${realStat.isDirectory()}}`);
-        if (realStat.isFile() && true /* todo dlt extension */) {
-          try {
-            let port = this.getAdltProcessAndPort()
-            document = new AdltDocument(
-              this.log,
-              port,
-              uri,
-              this._onDidChangeFile,
-              this._onDidChangeTreeData,
-              this._treeRootNodes,
-              this._onDidChangeStatus,
-              this.checkActiveRestQueryDocChanged,
-              this._columns,
-              this._reporter,
-            )
-            this._documents.set(uri.toString(), document)
-          } catch (error) {
+      const isLocalAddress = uri.authority === undefined || uri.authority === ''
+      if (isLocalAddress) {
+        let fileNames = decodeAdltUri(uri)
+        if (fileNames.length > 0) {
+          const realStat = fs.statSync(fileNames[0])
+          // console.log(`adlt-logs.stat(uri=${uri.toString().slice(0, 100)})... isDirectory=${realStat.isDirectory()}}`);
+          if (realStat.isFile()) {
+            try {
+              let address = this.getAdltProcessAndPort().then((port) => `ws://localhost:${port}`)
+              document = new AdltDocument(
+                this.log,
+                address,
+                uri,
+                this._onDidChangeFile,
+                this._onDidChangeTreeData,
+                this._treeRootNodes,
+                this._onDidChangeStatus,
+                this.checkActiveRestQueryDocChanged,
+                this._columns,
+                this._reporter,
+              )
+              this._documents.set(uri.toString(), document)
+            } catch (error) {
+              log.info(` adlt-logs.stat(uri=${uri.toString().slice(0, 100)}) returning realStat ${realStat.size} size.`)
+              return {
+                size: realStat.size,
+                ctime: realStat.ctime.valueOf(),
+                mtime: realStat.mtime.valueOf(),
+                type: realStat.isDirectory()
+                  ? vscode.FileType.Directory
+                  : realStat.isFile()
+                    ? vscode.FileType.File
+                    : vscode.FileType.Unknown, // todo symlinks as file?
+              }
+            }
+          }
+          if (document) {
+            return document.stat()
+          } else {
             log.info(` adlt-logs.stat(uri=${uri.toString().slice(0, 100)}) returning realStat ${realStat.size} size.`)
             return {
               size: realStat.size,
@@ -3359,32 +3397,39 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider, /*vscode
             }
           }
         }
-        if (document) {
-          return document.stat()
-        } else {
-          log.info(` adlt-logs.stat(uri=${uri.toString().slice(0, 100)}) returning realStat ${realStat.size} size.`)
-          return {
-            size: realStat.size,
-            ctime: realStat.ctime.valueOf(),
-            mtime: realStat.mtime.valueOf(),
-            type: realStat.isDirectory() ? vscode.FileType.Directory : realStat.isFile() ? vscode.FileType.File : vscode.FileType.Unknown, // todo symlinks as file?
+      } else {
+        // !isLocalAddress
+        let rfsProvider = this._remoteFsProvider.get(uri.authority)
+        if (!rfsProvider || !rfsProvider.connectedOrPending()) {
+          if (rfsProvider) {
+            rfsProvider.dispose()
           }
+          rfsProvider = new AdltRemoteFSProvider(this.log, uri.authority)
+          this._remoteFsProvider.set(uri.authority, rfsProvider)
         }
+        return rfsProvider.stat(uri)
       }
     } catch (err) {
       log.warn(`adlt-logs.stat(uri=${uri.toString().slice(0, 100)}) got err '${err}'!`)
+      if (err instanceof vscode.FileSystemError) {
+        throw err
+      }
     }
+    // log.warn(`adlt-logs.stat(uri=${uri.toString().slice(0, 100)}) returning unknown stat!`)
     return { size: 0, ctime: 0, mtime: 0, type: vscode.FileType.Unknown }
   }
 
   readFile(uri: vscode.Uri): Uint8Array {
     let doc = this._documents.get(uri.toString())
-    // console.log(`adlt-logs.readFile(uri=${uri.toString().slice(0, 100)})...`)
+    // this.log.info(`ADltDocumentProvider.readFile(uri.authority='${uri.authority}' ${uri.toString().slice(0, 100)})...`)
     if (!doc) {
-      const port = this.getAdltProcessAndPort()
+      const isLocalAddress = uri.authority === undefined || uri.authority === ''
+      const address = isLocalAddress
+        ? this.getAdltProcessAndPort().then((port) => `ws://localhost:${port}`)
+        : Promise.resolve(uri.authority)
       doc = new AdltDocument(
         this.log,
-        port,
+        address,
         uri,
         this._onDidChangeFile,
         this._onDidChangeTreeData,
@@ -3400,7 +3445,7 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider, /*vscode
   }
 
   watch(uri: vscode.Uri): vscode.Disposable {
-    // console.log(`adlt-logs.watch(uri=${uri.toString().slice(0, 100)}...`)
+    // this.log.info(`adlt-logs.watch(uri=${uri.toString().slice(0, 100)}...`)
     return new vscode.Disposable(() => {
       // console.log(`adlt-logs.watch.Dispose ${uri}`)
       // const fileUri = uri.with({ scheme: 'file' });
@@ -3414,24 +3459,37 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider, /*vscode
     })
   }
 
-  readDirectory(uri: vscode.Uri): [string, vscode.FileType][] {
-    // console.log(`adlt-logs.readDirectory(uri=${uri.toString().slice(0, 100)}...`);
-    let entries: [string, vscode.FileType][] = []
-    // list all dirs and dlt files:
-    let dirPath = uri.with({ query: '' }).fsPath // for multiple files we take the first one as reference
-    const dirEnts = fs.readdirSync(dirPath, { withFileTypes: true })
-    for (var i = 0; i < dirEnts.length; ++i) {
-      this.log.trace(` adlt-logs.readDirectory found ${dirEnts[i].name}`)
-      if (dirEnts[i].isDirectory()) {
-        entries.push([dirEnts[i].name, vscode.FileType.Directory])
-      } else {
-        if (dirEnts[i].isFile() && dirEnts[i].name.endsWith('.dlt') /* todo config */) {
-          entries.push([dirEnts[i].name, vscode.FileType.File])
+  readDirectory(uri: vscode.Uri): [string, vscode.FileType][] | Thenable<[string, vscode.FileType][]> {
+    // this.log.info(`adlt-logs.readDirectory(uri=${uri.toString().slice(0, 100)}...`)
+    const isLocalAddress = uri.authority === undefined || uri.authority === ''
+    if (isLocalAddress) {
+      let entries: [string, vscode.FileType][] = []
+      // list all dirs and dlt files:
+      let dirPath = uri.with({ query: '' }).fsPath // for multiple files we take the first one as reference
+      const dirEnts = fs.readdirSync(dirPath, { withFileTypes: true })
+      for (var i = 0; i < dirEnts.length; ++i) {
+        this.log.trace(` adlt-logs.readDirectory found ${dirEnts[i].name}`)
+        if (dirEnts[i].isDirectory()) {
+          entries.push([dirEnts[i].name, vscode.FileType.Directory])
+        } else {
+          if (dirEnts[i].isFile() && dirEnts[i].name.endsWith('.dlt') /* todo config */) {
+            entries.push([dirEnts[i].name, vscode.FileType.File])
+          }
         }
       }
+      this.log.trace(` adlt-logs.readDirectory(uri=${uri.toString().slice(0, 100)}) returning ${entries.length} local entries.`)
+      return entries
+    } else {
+      let rfsProvider = this._remoteFsProvider.get(uri.authority)
+      if (!rfsProvider || !rfsProvider.connectedOrPending()) {
+        if (rfsProvider) {
+          rfsProvider.dispose()
+        }
+        rfsProvider = new AdltRemoteFSProvider(this.log, uri.authority)
+        this._remoteFsProvider.set(uri.authority, rfsProvider)
+      }
+      return rfsProvider.readDirectory(uri)
     }
-    this.log.trace(` adlt-logs.readDirectory(uri=${uri.toString().slice(0, 100)}) returning ${entries.length} entries.`)
-    return entries
   }
 
   writeFile(uri: vscode.Uri, content: Uint8Array, options: { create: boolean; overwrite: boolean }): void {
