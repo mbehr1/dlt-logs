@@ -22,6 +22,7 @@ import * as path from 'path'
 import { DltLifecycleInfo, DltLifecycleInfoMinIF } from './dltLifecycle'
 import { askSingleTime } from './ask_user'
 import { SearchPanelProvider } from './panels/SearchPanel'
+import { showOpenDialog } from './quickPick'
 
 // import { DltLogCustomReadonlyEditorProvider } from './dltCustomEditorProvider';
 
@@ -238,6 +239,45 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.workspace.registerFileSystemProvider(adltScheme, adltProvider, { isReadonly: false, isCaseSensitive: true }),
   )
 
+  const openAdltUris = async (isLocalAddress: boolean, uris: vscode.Uri[] | undefined) => {
+    if (uris && uris.length > 0) {
+      log.trace(`open dlt via adlt got URIs=${uris}`)
+      if (uris.length === 1) {
+        let dltUri = uris[0].with({ scheme: adltScheme })
+        vscode.workspace.openTextDocument(dltUri).then((value) => {
+          vscode.window.showTextDocument(value, { preview: false })
+        })
+      } else {
+        if (isLocalAddress) {
+          // we decode the file names with the pattern: path: (the common path and first file), query: json lf:[names of files]
+          // we use the name of all file to detect later if vscode changed e.g. due to breadcrumb selection the file. then (path file not first in files) we do ignore the files
+          // use path for common path of all files (to shorten uris)
+          const basePath = path.parse(uris[0].fsPath).dir
+          let uri = vscode.Uri.file(uris[0].fsPath).with({
+            scheme: adltScheme,
+            query: encodeURIComponent(JSON.stringify({ lf: uris.map((u) => path.relative(basePath, u.fsPath)) })),
+          })
+          log.trace(`open dlt via adlt encoded uris as=${uri.toString()}`)
+          vscode.workspace.openTextDocument(uri).then((value) => {
+            vscode.window.showTextDocument(value, { preview: false })
+          })
+        } else {
+          // we always use posix paths
+          const basePath = path.posix.parse(uris[0].path).dir
+          let uri = uris[0].with({
+            query: encodeURIComponent(JSON.stringify({ lf: uris.map((u) => path.posix.relative(basePath, u.path)) })),
+          })
+          log.trace(`open dlt via remote adlt encoded uris as=${uri.toString()}`)
+          vscode.workspace.openTextDocument(uri).then((value) => {
+            vscode.window.showTextDocument(value, { preview: false })
+          })
+        }
+      }
+    } else {
+      log.trace(`open dlt via adlt got no URIs`)
+    }
+  }
+
   const openADltFunction = async () => {
     let file_exts = <Array<string>>vscode.workspace.getConfiguration().get('dlt-logs.fileExtensions') || []
     if (Array.isArray(file_exts)) {
@@ -262,33 +302,66 @@ export function activate(context: vscode.ExtensionContext) {
         filters: { 'DLT Logs': file_exts },
         openLabel: 'Select DLT, CAN or Logcat file(s) to open...',
       })
-      .then(async (uris: vscode.Uri[] | undefined) => {
-        if (uris) {
-          log.trace(`open dlt via adlt got URIs=${uris}`)
-          /*const fileUri = uri.with({ scheme: "file" });
-					if (!fs.existsSync(fileUri.fsPath)*/
-          if (uris.length === 1) {
-            let dltUri = uris[0].with({ scheme: adltScheme })
-            vscode.workspace.openTextDocument(dltUri).then((value) => {
-              vscode.window.showTextDocument(value, { preview: false })
-            })
-          } else {
-            // we decode the file names with the pattern: path: (the common path and first file), query: json lf:[names of files]
-            // we use the name of all file to detect later if vscode changed e.g. due to breadcrumb selection the file. then (path file not first in files) we do ignore the files
-            // use path for common path of all files (to shorten uris)
-            const basePath = path.parse(uris[0].fsPath).dir
-            let uri = vscode.Uri.file(uris[0].fsPath).with({
-              scheme: adltScheme,
-              query: encodeURIComponent(JSON.stringify({ lf: uris.map((u) => path.relative(basePath, u.fsPath)) })),
-            })
-            log.trace(`open dlt via adlt encoded uris as=${uri.toString()}`)
-            vscode.workspace.openTextDocument(uri).then((value) => {
-              vscode.window.showTextDocument(value, { preview: false })
-            })
-          }
-        }
-      })
+      .then(async (uris: vscode.Uri[] | undefined) => openAdltUris(true, uris))
   }
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('dlt-logs.dltOpenAdltRemoteFile', async () => {
+      let file_exts = <Array<string>>vscode.workspace.getConfiguration().get('dlt-logs.fileExtensions') || []
+      if (Array.isArray(file_exts)) {
+        if (!file_exts.includes('dlt')) {
+          file_exts.push('dlt')
+        }
+        if (!file_exts.includes('asc')) {
+          file_exts.push('asc')
+        }
+        if (!file_exts.includes('txt')) {
+          file_exts.push('txt')
+        }
+      } else {
+        file_exts = ['dlt', 'asc', 'txt']
+      }
+      // todo directly multistep...
+      const lastStoredAuthority = context.globalState.get<string>('adlt.remote.lastAuthority')
+      const lastAuthority = lastStoredAuthority || 'ws://127.0.0.1:7777' // not using as default as we want to store only on change
+      vscode.window
+        .showInputBox({
+          ignoreFocusOut: true,
+          title: `Enter address of remote adlt instance`,
+          placeHolder: `ws://<ip>:<port>`,
+          value: lastAuthority,
+          valueSelection: lastAuthority.startsWith('ws://') ? [5, 5 + lastAuthority.length] : undefined,
+        })
+        .then((authority) => {
+          if (authority) {
+            try {
+              const defaultUri = vscode.Uri.from({ scheme: adltScheme, path: '/fs/', authority: authority })
+              return showOpenDialog({
+                defaultUri,
+                canSelectFiles: true,
+                canSelectMany: true,
+                canSelectFolders: false,
+                filters: { 'DLT Logs': file_exts },
+                openLabel: 'Select DLT, CAN or Logcat file(s) to open remotely...',
+              }).then(async (uris: vscode.Uri[] | undefined) => {
+                if (uris && uris.length > 0) {
+                  // persist that autority:
+                  // cannot persist last path as this would req. additional logic in case on reopen the path doesn't exist any longer
+                  if (lastStoredAuthority !== authority) {
+                    context.globalState.update('adlt.remote.lastAuthority', authority).then(() => {
+                      log.info(`adlt.remote.lastAuthority updated to '${authority}'`)
+                    })
+                  }
+                }
+                openAdltUris(false, uris)
+              })
+            } catch (err) {
+              log.error(`dlt-logs.dltOpenAdltRemoteFile got err=${err}`)
+            }
+          }
+        })
+    }),
+  )
 
   // register our command to open dlt files as "dlt-logs":
   context.subscriptions.push(

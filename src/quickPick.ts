@@ -4,6 +4,7 @@
 
 // todo export into module and unite/combine with the one from vsc.webshark
 
+import * as path from 'path'
 import * as vscode from 'vscode'
 
 export class PickItem implements vscode.QuickPickItem {
@@ -288,5 +289,39 @@ export class MultiStepInput {
         resolve()
       }
     })
+  }
+}
+
+/**
+ * Displays an open file dialog with the specified options.
+ *
+ * As vscode.window.showOpenDialog() doesn't support canSelectMany for non-local files we do our own implementation.
+ *
+ * @param options - The options for the open dialog. Same as vscode.window.showOpenDialog() but canSelectMany is supported.
+ * @returns A `Thenable` that resolves to an array of `vscode.Uri` objects representing the selected files, or `undefined` if no files were selected.
+ */
+export function showOpenDialog(options: vscode.OpenDialogOptions): Thenable<vscode.Uri[] | undefined> {
+  if (options.canSelectMany) {
+    // not supported for simpleDialog! https://github.com/microsoft/vscode/issues/129959 thus we do need our own way
+
+    // for now we do a loop: (dirty hack! todo replace by own quickpick. see vscode code here: https://github.com/microsoft/vscode/blob/main/src/vs/workbench/services/dialogs/browser/simpleFileDialog.ts )
+    const uris: vscode.Uri[] = []
+    const loop: any = () => {
+      if (uris.length > 0) {
+        options.title = `Select more files or cancel to open ${uris.length} ${uris.length === 1 ? 'file' : 'files'}`
+        options.defaultUri = uris[uris.length - 1].with({ path: path.posix.parse(uris[uris.length - 1].path).dir })
+      }
+      return vscode.window.showOpenDialog(options).then((uri) => {
+        if (uri) {
+          uris.push(...uri)
+          return loop()
+        } else {
+          return Promise.resolve(uris.length > 0 ? uris : undefined)
+        }
+      })
+    }
+    return loop()
+  } else {
+    return vscode.window.showOpenDialog(options)
   }
 }
