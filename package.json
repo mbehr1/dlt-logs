@@ -949,14 +949,14 @@
     "webdriverio": "^8.13.13"
   },
   "dependencies": {
-    "@vscode/codicons": "^0.0.33",
+    "@vscode/codicons": "^0.0.35",
     "@vscode/extension-telemetry": "^0.6.2",
     "@vscode/webview-ui-toolkit": "^1.2.2",
     "chart.js": "^4.2.1",
     "chartjs-adapter-moment": "^1.0.1",
     "chartjs-plugin-annotation": "^2.2.1",
     "chartjs-plugin-zoom": "^2.0.1",
-    "dlt-logs-utils": "0.0.2",
+    "dlt-logs-utils": "0.1.0",
     "fast-xml-parser": "^3.19.0",
     "hammerjs": "^2.0.8",
     "hw-chartjs-plugin-colorschemes": "0.5.4",
@@ -964,12 +964,12 @@
     "moment": "^2.29.4",
     "semver": "^7.5.4",
     "timelines-chart": "^2.12.1",
-    "uuid": "^9.0.0",
+    "uuid": "^9.0.1",
     "w3-css": "^4.1.0",
     "ws": "^8.13.0"
   },
   "optionalDependencies": {
-    "node-adlt": "0.51.0"
+    "node-adlt": "0.52.1"
   },
   "commitlint": {
     "extends": [
