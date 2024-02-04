@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.80.1](https://github.com/mbehr1/dlt-logs/compare/v1.80.0...v1.80.1) (2024-02-04)
+
+
+### Performance Improvements
+
+* use adlt 0.52.1 with performance improvements ([851350a](https://github.com/mbehr1/dlt-logs/commit/851350ae4f08abfd04cf2a8d775334bac30f92b8))
+
 ## [1.80.0](https://github.com/mbehr1/dlt-logs/compare/v1.79.0...v1.80.0) (2024-01-21)
 
 
