@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.81.0](https://github.com/mbehr1/dlt-logs/compare/v1.80.1...v1.81.0) (2024-02-12)
+
+
+### Features
+
+* use adlt 0.53.0 incl fibex warnings and perf optimizations ([8120e43](https://github.com/mbehr1/dlt-logs/commit/8120e438ca41a69809153a2b6bd9dcbb13c1b23a))
+
 ## [1.80.1](https://github.com/mbehr1/dlt-logs/compare/v1.80.0...v1.80.1) (2024-02-04)
 
 
