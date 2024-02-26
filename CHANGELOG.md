@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.82.0](https://github.com/mbehr1/dlt-logs/compare/v1.81.0...v1.82.0) (2024-02-26)
+
+
+### Features
+
+* **adlt:** improve lifecycle detection, performance ([68715a9](https://github.com/mbehr1/dlt-logs/commit/68715a960d99ab4a2e13f3946447814e0da6d77a))
+
 ## [1.81.0](https://github.com/mbehr1/dlt-logs/compare/v1.80.1...v1.81.0) (2024-02-12)
 
 
