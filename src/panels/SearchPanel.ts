@@ -120,7 +120,7 @@ export class SearchPanelProvider implements WebviewViewProvider {
     )
     this._setWebviewMessageListener(webviewView.webview)
     webviewView.onDidChangeVisibility(() => {
-      log.trace(`SearchPanelProvider.webview.onDidChangeVisibility()...visible=${this._view?.visible}`)
+      log.info(`SearchPanelProvider.webview.onDidChangeVisibility()...visible=${this._view?.visible}`)
     })
   }
 
@@ -534,15 +534,21 @@ class DocStreamLoader {
 
   requestNewWindow(newWindow: [number, number]) {
     const log = this.log
-    if (!this.streamIdUpdatePending) {
+    if (!this.streamIdUpdatePending && !isNaN(this.streamId)) {
       this.streamData.msgs = []
       this.curWindow = [newWindow[0], newWindow[1]]
       log.info(`SearchPanel DocStreamLoader requestNewWindow([${newWindow[0]}-${newWindow[1]}))[${this.curWindow[0]}-${this.curWindow[1]})`)
       this.streamIdUpdatePending = true
       this.doc.changeMsgsStreamWindow(this.streamId, newWindow).then((streamId) => {
         //console.info(`SearchPanel DocStreamLoader requestNewWindow([${newWindow[0]}-${newWindow[1]})) got new streamId=${streamId}`);
-        this.streamId = streamId
+        // avoid a race condition where the stop is send inbetween the request and the response:
         this.streamIdUpdatePending = false
+        if (!isNaN(this.streamId)) {
+          this.streamId = streamId
+        } else {
+          log.warn(`SearchPanel DocStreamLoader requestNewWindow ignored and stopped new streamId ${streamId}!`)
+          this.doc.stopMsgsStream(streamId)
+        }
       })
     } else {
       log.warn(`SearchPanel DocStreamLoader requestNewWindow update pending, ignored!`)
@@ -555,7 +561,9 @@ class DocStreamLoader {
 
   private sinkOnNewMessages(nrNewMsgs: number) {
     const log = this.log
-    log.info(`SearchPanel DocStreamLoader sink.onNewMessages(${nrNewMsgs}) queuedRequests=${this.queuedRequests.length}...`)
+    log.info(
+      `SearchPanel DocStreamLoader sink.onNewMessages(${nrNewMsgs}) queuedRequests=${this.queuedRequests.length} streamId=${this.streamId}...`,
+    )
     // any pending requests that can be fulfilled?
     for (let i = 0; i < this.queuedRequests.length; ++i) {
       const [startIdx, maxNrMsgs, resolve, reject] = this.queuedRequests[i]
@@ -690,6 +698,10 @@ class DocStreamLoader {
       this.doc.stopMsgsStream(this.streamId)
       this.streamId = NaN
       this.streamData.msgs = []
+      this.queuedRequests.forEach(([_startIdx, _maxNumberOfMsgs, _resolve, reject]) => {
+        reject('disposed')
+      })
+      this.queuedRequests.length = 0
     }
   }
 }
