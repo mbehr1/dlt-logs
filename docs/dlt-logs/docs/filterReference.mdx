@@ -48,7 +48,7 @@ attribute name | expected type | default value | description
 `ctid`| string | undefined| Context identifier / CTID. Up to 4 characters.
 `ctidIsRegex` | boolean | no value = 'autodetect' | Optional. See `apidIsRegex`.
 `logLevelMin`| number | undefined| Minimum log-level. I.e. log-level of the message has to be >= to match. If specified `mstp`is automatically set to 0. See [Log levels](#log-levels) for values and examples.
-`logLevelMax`| number | undefined| Same as `logLevelMin`but for the maximum log-level, i.e. log-level of the message has to be <= `logLevelMax` to match. See [Log levels](#log-levels) for values and examples.
+`logLevelMax`| number | undefined| Same as `logLevelMin`but for the maximum log-level, i.e. log-level of the message has to be `<= logLevelMax` to match. See [Log levels](#log-levels) for values and examples.
 `verbose`| boolean | undefined| `verbose` or `non-verbose` messages. Verbose flag is part of the extended header of a DLT msg and defaults to false if the ext. header doesn't exist.
 `payload`| string |undefined| String that is searched in the (textual) representation of the message payload. Matches if the string is contained within the payload.
 `payloadRegex`|string | undefined| Regular expression that the full (textual) representation of the message payload has to match against. This is in general faster than payload if e.g. `^` for the begin of the text is used. E.g. `^Exception:` is faster than `payload`=`"Exception:"` as the search can be stopped at the first characters already if the payload doesn't start with "Exc..."
