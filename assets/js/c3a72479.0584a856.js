@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkdlt_logs=self.webpackChunkdlt_logs||[]).push([[87],{1413:l=>{l.exports=JSON.parse('{"label":"dlt-logs","permalink":"/dlt-logs/blog/tags/dlt-logs","allTagsPath":"/dlt-logs/blog/tags","count":1,"unlisted":false}')}}]);

@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkdlt_logs=self.webpackChunkdlt_logs||[]).push([[38],{5475:l=>{l.exports=JSON.parse('[{"label":"visual studio code","permalink":"/dlt-logs/blog/tags/visual-studio-code","count":1},{"label":"dlt-logs","permalink":"/dlt-logs/blog/tags/dlt-logs","count":1}]')}}]);

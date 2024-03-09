@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkdlt_logs=self.webpackChunkdlt_logs||[]).push([[472],{5513:e=>{e.exports=JSON.parse('{"title":"Recent posts","items":[{"title":"Welcome","permalink":"/dlt-logs/blog/welcome","unlisted":false}]}')}}]);
