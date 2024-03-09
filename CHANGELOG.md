@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.82.1](https://github.com/mbehr1/dlt-logs/compare/v1.82.0...v1.82.1) (2024-03-09)
+
+
+### Bug Fixes
+
+* **Search:** deny requestNewWindow after dispose ([4d810cd](https://github.com/mbehr1/dlt-logs/commit/4d810cdf4f80616f807bb0c5da0766c7d898a64d))
+
 ## [1.82.0](https://github.com/mbehr1/dlt-logs/compare/v1.81.0...v1.82.0) (2024-02-26)
 
 
