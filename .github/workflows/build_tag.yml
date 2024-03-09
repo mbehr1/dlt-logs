@@ -52,10 +52,10 @@ jobs:
             npm_config_arch: arm64
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.tagname }}
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
           node-version: "lts/*"
       - run: npm --version
@@ -67,7 +67,7 @@ jobs:
       - shell: pwsh
         run: echo "target=${{ matrix.platform }}-${{ matrix.arch }}" >> $env:GITHUB_ENV
       - run: npx vsce package --target ${{ env.target }}
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: ${{ env.target }}
           path: "*.vsix"
@@ -77,13 +77,13 @@ jobs:
     needs: build
     if: success()
     steps:
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
       - run: npx @vscode/vsce publish --packagePath $(find . -iname *.vsix)
         env:
           VSCE_PAT: ${{ secrets.VSCE_TOKEN }}
       - run: echo $(find . -iname *.vsix)
       - name: Github release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           prerelease: false
           files: |
