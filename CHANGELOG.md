@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.83.0](https://github.com/mbehr1/dlt-logs/compare/v1.82.1...v1.83.0) (2024-03-09)
+
+
+### Features
+
+* **search:** add support for ecu/apid/ctid in search panel ([505590a](https://github.com/mbehr1/dlt-logs/commit/505590a4e9ed3f31f13fc8168c16028152340b4f))
+
 ## [1.82.1](https://github.com/mbehr1/dlt-logs/compare/v1.82.0...v1.82.1) (2024-03-09)
 
 
