@@ -493,7 +493,7 @@ export class SearchPanelProvider implements WebviewViewProvider {
  *
  * Supports the ECU/APID/CTID search syntax described in docs/.../searchPanel.md (short: starting with \@ECU )
  * @param searchReq
- * @returns array of filters
+ * @returns array of filters (as type EVENT to be applied after pos/neg)
  */
 export function getSearchFilters(searchReq: {
   searchString: string
@@ -551,8 +551,7 @@ export function getSearchFilters(searchReq: {
             const [ecu, apid, ctid] = eac
             return new DltFilter(
               {
-                type: DltFilterType.NEGATIVE,
-                not: true,
+                type: DltFilterType.EVENT,
                 ecu: ecu?.length > 0 ? ecu : undefined,
                 apid: apid?.length > 0 ? apid : undefined,
                 ctid: ctid?.length > 0 ? ctid : undefined,
@@ -567,8 +566,7 @@ export function getSearchFilters(searchReq: {
           return [
             new DltFilter(
               {
-                type: DltFilterType.NEGATIVE,
-                not: true,
+                type: DltFilterType.EVENT,
                 ignoreCasePayload: searchReq.useCaseSensitive ? undefined : true,
                 payloadRegex: searchRegex.length > 0 ? searchRegex : undefined,
               },
@@ -582,8 +580,7 @@ export function getSearchFilters(searchReq: {
       return [
         new DltFilter(
           {
-            type: DltFilterType.NEGATIVE,
-            not: true,
+            type: DltFilterType.EVENT,
             ignoreCasePayload: searchReq.useCaseSensitive ? undefined : true,
             payloadRegex: searchReq.searchString,
           },
@@ -608,8 +605,7 @@ export function getSearchFilters(searchReq: {
         const [ecu, apid, ctid] = eac.split(':')
         return new DltFilter(
           {
-            type: DltFilterType.NEGATIVE,
-            not: true,
+            type: DltFilterType.EVENT,
             ecu: ecu?.length > 0 ? ecu : undefined,
             apid: apid?.length > 0 ? apid : undefined,
             ctid: ctid?.length > 0 ? ctid : undefined,
@@ -626,8 +622,7 @@ export function getSearchFilters(searchReq: {
       return [
         new DltFilter(
           {
-            type: DltFilterType.NEGATIVE,
-            not: true,
+            type: DltFilterType.EVENT,
             ignoreCasePayload: searchReq.useCaseSensitive ? undefined : true,
             payload: searchString,
           },
