@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.83.1](https://github.com/mbehr1/dlt-logs/compare/v1.83.0...v1.83.1) (2024-03-09)
+
+
+### Bug Fixes
+
+* **search:** use EVENT instead of !NEGATIVE filter type ([78b58c6](https://github.com/mbehr1/dlt-logs/commit/78b58c66b695faae8921c0fce82703d7f3184d74))
+
 ## [1.83.0](https://github.com/mbehr1/dlt-logs/compare/v1.82.1...v1.83.0) (2024-03-09)
 
 
