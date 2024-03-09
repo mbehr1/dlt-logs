@@ -228,7 +228,7 @@ The `conversionFunction`can be used to modify the captured values for that event
 
 It can store values/properties in either the localObj to e.g. do calculations like "max" or even reportObj to exchange data between filters and their corresponding conversion functions.
 
-It needs to be a JS function returning an array of objects { valueName: value } and gets the regex 'matches' as parameter. Additional parameter is "params" which is an object with msg, localObj and reportObj. E.g. "return {'limit':42};" for a static value. or "return {'timeStamp': params.msg.timeStamp/10000};". 
+It needs to be a JS function returning an array of objects `{ valueName: value }` and gets the regex `matches` as parameter. Additional parameter is `params` which is an object with msg, localObj and reportObj. E.g. `"return {'limit':42};"` for a static value. or `"return {'timeStamp': params.msg.timeStamp/10000};"`. 
 
 `localObj` is initially an empty Object {} that can be used to store properties for that filter (e.g. interims data for calculations).  `reportObj` is an Object similar to localObj but shared between all filters.
 

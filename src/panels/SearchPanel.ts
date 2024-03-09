@@ -19,6 +19,8 @@ import { ADltDocumentProvider, AdltDocument, StreamMsgData } from '../adltDocume
 import { DltFilter, DltFilterType } from '../dltFilter'
 import { FilterableDltMsg, ViewableDltMsg } from '../dltParser'
 
+const RegExpParser = require('regexp-to-ast').RegExpParser
+
 /**
  * Provide a Search Dialog webview
  *
@@ -330,24 +332,15 @@ export class SearchPanelProvider implements WebviewViewProvider {
                     //console.log(`SearchPanel filters=${JSON.stringify(filters.map(f => f.asConfiguration()))}`); <- reports enabled possibly wrong
                     try {
                       const doc = this._activeDoc
-                      const searchFilter = new DltFilter(
-                        {
-                          type: DltFilterType.NEGATIVE,
-                          not: true,
-                          ignoreCasePayload: searchReq.useCaseSensitive ? undefined : true,
-                          payloadRegex: searchReq.useRegex ? searchReq.searchString : undefined,
-                          payload: searchReq.useRegex ? undefined : searchReq.searchString,
-                        },
-                        false,
-                      )
+                      const searchFilters = getSearchFilters(searchReq)
                       const filters = searchReq.useFilter
                         ? [
                             ...doc.allFilters.filter(
                               (f) => (f.type === DltFilterType.POSITIVE || f.type === DltFilterType.NEGATIVE) && f.enabled,
                             ),
-                            searchFilter,
+                            ...searchFilters,
                           ]
-                        : [searchFilter]
+                        : searchFilters
                       this.curStreamLoader = new DocStreamLoader(
                         log,
                         doc,
@@ -492,6 +485,156 @@ export class SearchPanelProvider implements WebviewViewProvider {
       undefined,
       this._disposables,
     )
+  }
+}
+
+/**
+ * create a set of filters for a search request
+ *
+ * Supports the ECU/APID/CTID search syntax described in docs/.../searchPanel.md (short: starting with \@ECU )
+ * @param searchReq
+ * @returns array of filters
+ */
+export function getSearchFilters(searchReq: {
+  searchString: string
+  useRegex: boolean
+  useCaseSensitive: boolean
+  // not needed here useFilter: boolean
+}): DltFilter[] {
+  if (searchReq.useRegex) {
+    const mightHaveEac = searchReq.searchString.includes('@')
+    if (mightHaveEac) {
+      // split with regex parser:
+      const regexpParser = new RegExpParser()
+      const escapedSearchString = '/' + searchReq.searchString + '/'
+      const astOutput = regexpParser.pattern(escapedSearchString)
+      // the disjunction alternatives: see https://github.com/bd82/regexp-to-ast?tab=readme-ov-file
+      const eacExprRegexArr: string[] = astOutput.value.value.map((alt: any) => {
+        //console.warn(`getSearchFilters  regex: alt=${JSON.stringify(alt, undefined, 2)}`)
+        return escapedSearchString.slice(alt.loc.begin, alt.loc.end)
+      })
+      console.info(`getSearchFilters regex: eacExprRegexArr=${JSON.stringify(eacExprRegexArr)}`)
+
+      const eacExprAndRegexArr: [string, string][] = eacExprRegexArr.map((eacExprRegex) => {
+        const hasEAC = eacExprRegex.startsWith('@')
+        if (hasEAC) {
+          const idxOfSpace = eacExprRegex.indexOf(' ')
+          const [eacExprWBr, searchString] =
+            idxOfSpace > 0 ? [eacExprRegex.slice(1, idxOfSpace), eacExprRegex.slice(idxOfSpace + 1)] : [eacExprRegex.slice(1), '']
+          const eacHasBrackets = eacExprWBr.startsWith('(') && eacExprWBr.endsWith(')')
+          const eacExpr = eacHasBrackets ? eacExprWBr.slice(1, -1) : eacExprWBr
+          return [eacExpr, searchString]
+        } else {
+          // starts with ' @' ? -> then remove the first space
+          const searchString = eacExprRegex.startsWith(' @') ? eacExprRegex.slice(1) : eacExprRegex
+          return ['', searchString]
+        }
+      })
+      console.info(`getSearchFilters regex: eacExprAndRegexArr=${JSON.stringify(eacExprAndRegexArr)}`)
+      // we group them by eacExpr:
+      const eacExprAndRegexMap: Map<string, string[]> = new Map()
+      eacExprAndRegexArr.forEach(([eacExpr, searchString]) => {
+        const arr = eacExprAndRegexMap.get(eacExpr)
+        if (arr) {
+          arr.push(searchString)
+        } else {
+          eacExprAndRegexMap.set(eacExpr, [searchString])
+        }
+      })
+
+      const eacFilters = [...eacExprAndRegexMap].map(([eacExpr, searchRegexs]) => {
+        const hasEAC = eacExpr.length > 0
+        const searchRegex = searchRegexs.filter((r) => r.length > 0).join('|')
+        if (hasEAC) {
+          const filters = eacExpr.split(',').map((eacExpr) => {
+            const eac = eacExpr.split(':')
+            const [ecu, apid, ctid] = eac
+            return new DltFilter(
+              {
+                type: DltFilterType.NEGATIVE,
+                not: true,
+                ecu: ecu?.length > 0 ? ecu : undefined,
+                apid: apid?.length > 0 ? apid : undefined,
+                ctid: ctid?.length > 0 ? ctid : undefined,
+                ignoreCasePayload: searchReq.useCaseSensitive ? undefined : true,
+                payloadRegex: searchRegex.length > 0 ? searchRegex : undefined,
+              },
+              false,
+            )
+          })
+          return filters
+        } else {
+          return [
+            new DltFilter(
+              {
+                type: DltFilterType.NEGATIVE,
+                not: true,
+                ignoreCasePayload: searchReq.useCaseSensitive ? undefined : true,
+                payloadRegex: searchRegex.length > 0 ? searchRegex : undefined,
+              },
+              false,
+            ),
+          ]
+        }
+      })
+      return eacFilters.flat()
+    } else {
+      return [
+        new DltFilter(
+          {
+            type: DltFilterType.NEGATIVE,
+            not: true,
+            ignoreCasePayload: searchReq.useCaseSensitive ? undefined : true,
+            payloadRegex: searchReq.searchString,
+          },
+          false,
+        ),
+      ]
+    }
+  } else {
+    // non regex case, starts with @? -> EAC search
+    const hasEAC = searchReq.searchString.startsWith('@')
+    if (hasEAC) {
+      // split at first space:
+      const idxOfSpace = searchReq.searchString.indexOf(' ')
+      const [eacExprWBr, searchString] =
+        idxOfSpace > 0
+          ? [searchReq.searchString.slice(1, idxOfSpace), searchReq.searchString.slice(idxOfSpace + 1)]
+          : [searchReq.searchString.slice(1), '']
+      const eacHasBrackets = eacExprWBr.startsWith('(') && eacExprWBr.endsWith(')')
+      console.info(`getSearchFilters non regex: eacExpr='${eacExprWBr}', hasBrackets=${eacHasBrackets} searchString='${searchString}'`)
+      const eacExpr = eacHasBrackets ? eacExprWBr.slice(1, -1) : eacExprWBr
+      const eacFilters = eacExpr.split(',').map((eac) => {
+        const [ecu, apid, ctid] = eac.split(':')
+        return new DltFilter(
+          {
+            type: DltFilterType.NEGATIVE,
+            not: true,
+            ecu: ecu?.length > 0 ? ecu : undefined,
+            apid: apid?.length > 0 ? apid : undefined,
+            ctid: ctid?.length > 0 ? ctid : undefined,
+            ignoreCasePayload: searchReq.useCaseSensitive ? undefined : true,
+            payload: searchString.length > 0 ? searchString : undefined,
+          },
+          false,
+        )
+      })
+      return eacFilters
+    } else {
+      // starts with ' @' ? -> then remove the first space
+      const searchString = searchReq.searchString.startsWith(' @') ? searchReq.searchString.slice(1) : searchReq.searchString
+      return [
+        new DltFilter(
+          {
+            type: DltFilterType.NEGATIVE,
+            not: true,
+            ignoreCasePayload: searchReq.useCaseSensitive ? undefined : true,
+            payload: searchString,
+          },
+          false,
+        ),
+      ]
+    }
   }
 }
 
