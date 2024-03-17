@@ -290,8 +290,11 @@ export function activate(context: vscode.ExtensionContext) {
       if (!file_exts.includes('txt')) {
         file_exts.push('txt')
       }
+      if (!file_exts.includes('log')) {
+        file_exts.push('log')
+      }
     } else {
-      file_exts = ['dlt', 'asc', 'txt']
+      file_exts = ['dlt', 'asc', 'txt', 'log']
     }
     log.info(`open dlt via adlt file_exts=${JSON.stringify(file_exts)}`)
     return vscode.window
@@ -318,8 +321,11 @@ export function activate(context: vscode.ExtensionContext) {
         if (!file_exts.includes('txt')) {
           file_exts.push('txt')
         }
+        if (!file_exts.includes('log')) {
+          file_exts.push('log')
+        }
       } else {
-        file_exts = ['dlt', 'asc', 'txt']
+        file_exts = ['dlt', 'asc', 'txt', 'log']
       }
       // todo directly multistep...
       const lastStoredAuthority = context.globalState.get<string>('adlt.remote.lastAuthority')
