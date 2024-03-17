@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.84.1](https://github.com/mbehr1/dlt-logs/compare/v1.84.0...v1.84.1) (2024-03-17)
+
+
+### Bug Fixes
+
+* **ci:** remove win32-ia32 builds ([9d8459f](https://github.com/mbehr1/dlt-logs/commit/9d8459f36df29ef0f350c5dbf793f2152c2f4d01))
+
 ## [1.84.0](https://github.com/mbehr1/dlt-logs/compare/v1.83.1...v1.84.0) (2024-03-17)
 
 
