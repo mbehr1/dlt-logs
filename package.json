@@ -970,7 +970,7 @@
     "ws": "^8.13.0"
   },
   "optionalDependencies": {
-    "node-adlt": "0.54.0"
+    "node-adlt": "0.55.1"
   },
   "commitlint": {
     "extends": [
