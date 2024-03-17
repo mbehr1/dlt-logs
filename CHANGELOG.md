@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.84.0](https://github.com/mbehr1/dlt-logs/compare/v1.83.1...v1.84.0) (2024-03-17)
+
+
+### Features
+
+* basic support of text log files and performance opt ([cab51a4](https://github.com/mbehr1/dlt-logs/commit/cab51a4b61d9d9bc334fb910e7d4b66576e0a87b))
+
 ## [1.83.1](https://github.com/mbehr1/dlt-logs/compare/v1.83.0...v1.83.1) (2024-03-09)
 
 
