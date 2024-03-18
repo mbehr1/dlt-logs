@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.84.3](https://github.com/mbehr1/dlt-logs/compare/v1.84.2...v1.84.3) (2024-03-18)
+
+
+### Bug Fixes
+
+* **adlt:** use adlt 0.55.3 with proper fix for access oob/wrong len ([ec5e9e5](https://github.com/mbehr1/dlt-logs/commit/ec5e9e5ba8a63238604fe668a9df4a0f66845f89))
+
 ## [1.84.2](https://github.com/mbehr1/dlt-logs/compare/v1.84.1...v1.84.2) (2024-03-18)
 
 
