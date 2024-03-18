@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.84.2](https://github.com/mbehr1/dlt-logs/compare/v1.84.1...v1.84.2) (2024-03-18)
+
+
+### Bug Fixes
+
+* **adlt:** update to 0.55.2 to avoid panic with oob access ([6fab365](https://github.com/mbehr1/dlt-logs/commit/6fab36504a5f1a1da55478902868622b3bbc8bee))
+
 ## [1.84.1](https://github.com/mbehr1/dlt-logs/compare/v1.84.0...v1.84.1) (2024-03-17)
 
 
