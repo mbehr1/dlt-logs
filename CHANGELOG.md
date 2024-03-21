@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.84.4](https://github.com/mbehr1/dlt-logs/compare/v1.84.3...v1.84.4) (2024-03-21)
+
+
+### Bug Fixes
+
+* upd vscode/telemetry and add infos on nrMsgs and errors ([9fe8405](https://github.com/mbehr1/dlt-logs/commit/9fe84053275aeacad239448fb2358b1f8b9ca3b4))
+
 ## [1.84.3](https://github.com/mbehr1/dlt-logs/compare/v1.84.2...v1.84.3) (2024-03-18)
 
 
