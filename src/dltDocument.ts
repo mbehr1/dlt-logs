@@ -2001,7 +2001,7 @@ export class DltDocument {
     const stats = fs.statSync(this._fileUri.fsPath)
     if (stats.size > this._parsedFileLen) {
       if (this._reporter && this._parsedFileLen === 0) {
-        this._reporter.sendTelemetryEvent('open file', undefined, { fileSize: stats.size })
+        this._reporter.sendTelemetryEvent('open file non adlt/legacy', undefined, { fileSize: stats.size })
       }
 
       const LOAD_TIME_ASSIST_TRIGGER_SIZE = 512 * 1024 * 1024 // 512mb todo config
