@@ -419,7 +419,7 @@ export class AdltDocument implements vscode.Disposable {
     private emitStatusChanges: vscode.EventEmitter<vscode.Uri | undefined>,
     private checkActiveRestQueryDocChanged: () => boolean,
     private _columns: ColumnConfig[],
-    reporter?: TelemetryReporter,
+    private reporter?: TelemetryReporter,
   ) {
     this._treeEventEmitter = treeEventEmitter
 
@@ -651,6 +651,9 @@ export class AdltDocument implements vscode.Disposable {
           log.warn(`dlt-logs.AdltDocumentProvider.on(error) wss got error:`, err)
           this.webSocketErrors.push(`error: ${err}`)
           this.emitStatusChanges.fire(this.uri)
+          if (reporter) {
+            reporter.sendTelemetryErrorEvent('adlt-wss-error', { error: `${err}` })
+          }
         })
       })
       .catch((reason) => {
@@ -1128,8 +1131,12 @@ export class AdltDocument implements vscode.Disposable {
     let p = new Promise<void>((resolve, reject) => {
       this.sendAndRecvAdltMsg(`close`)
         .then(() => {
+          const lastFileInfoNrMsgs = this.fileInfoNrMsgs
           this.processFileInfoUpdates({ nr_msgs: 0 })
           this.processLifecycleUpdates([]) // to remove any filters from lifecycles as they become invalid
+          if (this.reporter) {
+            this.reporter.sendTelemetryEvent('closeAdltFiles', undefined, { fileInfoNrMsgs: lastFileInfoNrMsgs })
+          }
           resolve()
         })
         .catch((r) => reject(r))
@@ -1937,6 +1944,13 @@ export class AdltDocument implements vscode.Disposable {
   ) {
     const log = this.log
     // console.log(`onOpenReport called...`);
+    if (this.reporter) {
+      this.reporter.sendTelemetryEvent(
+        'onOpenReport',
+        { newReport: newReport ? 'true' : 'false' },
+        { nrFilters: Array.isArray(filter) ? filter.length : 1 },
+      )
+    }
 
     if (!newReport && (this._reports.length > 0 || reportToAdd !== undefined)) {
       // we do add to the report that was last active or to the provided one

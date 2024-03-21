@@ -51,7 +51,7 @@ export function activate(context: vscode.ExtensionContext) {
     // the aik is not really sec_ret. but lets avoid bo_ts finding it too easy:
     const strKE = 'ZjJlMDA4NTQtNmU5NC00ZDVlLTkxNDAtOGFiNmIzNTllODBi'
     const strK = Buffer.from(strKE, 'base64').toString()
-    reporter = new TelemetryReporter(extensionId, extensionVersion, strK)
+    reporter = new TelemetryReporter(strK)
     context.subscriptions.push(reporter)
     reporter?.sendTelemetryEvent('activate')
   } else {
@@ -242,6 +242,9 @@ export function activate(context: vscode.ExtensionContext) {
   const openAdltUris = async (isLocalAddress: boolean, uris: vscode.Uri[] | undefined) => {
     if (uris && uris.length > 0) {
       log.trace(`open dlt via adlt got URIs=${uris}`)
+      if (reporter) {
+        reporter.sendTelemetryEvent('open adlt uris', { addressType: isLocalAddress ? 'local' : 'remote' }, { nrUris: uris.length })
+      }
       if (uris.length === 1) {
         let dltUri = uris[0].with({ scheme: adltScheme })
         vscode.workspace.openTextDocument(dltUri).then((value) => {
