@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.85.0](https://github.com/mbehr1/dlt-logs/compare/v1.84.4...v1.85.0) (2024-04-07)
+
+
+### Features
+
+* **export:** implement export feature using adlt ([7bc4a4c](https://github.com/mbehr1/dlt-logs/commit/7bc4a4c30143633c37f5fbfbf144eed8a9010de1))
+
 ## [1.84.4](https://github.com/mbehr1/dlt-logs/compare/v1.84.3...v1.84.4) (2024-03-21)
 
 
