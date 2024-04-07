@@ -655,6 +655,10 @@
         "title": "Open DLT file via a remote adlt instance..."
       },
       {
+        "command": "dlt-logs.dltExportFileDeprecated",
+        "title": "Export/filter DLT file via deprecated NodeJS implementation..."
+      },
+      {
         "command": "dlt-logs.dltOpenFileDeprecated",
         "title": "Open DLT file via deprecated NodeJS implementation..."
       },
@@ -970,7 +974,7 @@
     "ws": "^8.13.0"
   },
   "optionalDependencies": {
-    "node-adlt": "0.55.3"
+    "node-adlt": "0.56.0"
   },
   "commitlint": {
     "extends": [

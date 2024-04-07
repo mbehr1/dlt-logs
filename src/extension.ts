@@ -9,7 +9,8 @@ import * as vscode from 'vscode'
 import TelemetryReporter from '@vscode/extension-telemetry'
 import { extensionId, dltScheme, adltScheme, GlobalState } from './constants'
 import * as dltDocument from './dltDocumentProvider'
-import { exportDlt } from './dltExport'
+import { exportDlt } from './adltExport'
+import { exportDltOldTS } from './dltExport'
 import { ADltDocumentProvider, AdltDocument } from './adltDocumentProvider'
 import { FilterNode } from './dltTreeViewNodes'
 import { TreeviewAbleDocument } from './dltReport'
@@ -677,7 +678,30 @@ export function activate(context: vscode.ExtensionContext) {
         })
         .then(async (uris: vscode.Uri[] | undefined) => {
           if (uris && uris.length > 0) {
-            exportDlt(uris)
+            exportDlt(log, adltProvider, uris)
+              .then(() => {
+                log.info(`exportDlt finished`)
+              })
+              .catch((err) => {
+                log.info(`exportDlt cancelled/error=${err}`)
+              })
+          }
+        })
+    }),
+  )
+  context.subscriptions.push(
+    vscode.commands.registerCommand('dlt-logs.dltExportFileDeprecated', async () => {
+      return vscode.window
+        .showOpenDialog({
+          canSelectFiles: true,
+          canSelectFolders: false,
+          canSelectMany: true,
+          filters: { 'DLT Logs': <Array<string>>vscode.workspace.getConfiguration().get('dlt-logs.fileExtensions') },
+          openLabel: 'Select DLT files to filter/export...',
+        })
+        .then(async (uris: vscode.Uri[] | undefined) => {
+          if (uris && uris.length > 0) {
+            exportDltOldTS(uris)
               .then(() => {
                 log.info(`exportDlt finished`)
               })

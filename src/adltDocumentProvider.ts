@@ -64,7 +64,7 @@ try {
 //const MIN_ADLT_VERSION_SEMVER_RANGE = ">=0.16.0";
 const MIN_ADLT_VERSION_SEMVER_RANGE = require('../package.json')?.optionalDependencies['node-adlt']
 
-function char4U32LeToString(char4le: number): string {
+export function char4U32LeToString(char4le: number): string {
   let codes = [char4le & 0xff, 0xff & (char4le >> 8), 0xff & (char4le >> 16), 0xff & (char4le >> 24)]
   while (codes.length > 0 && codes[codes.length - 1] === 0) {
     codes.splice(-1)

@@ -10,6 +10,7 @@ import * as vscode from 'vscode'
 export class PickItem implements vscode.QuickPickItem {
   // name: string; // like label but icon will be added in front
   icon: string | undefined
+  iconPath?: vscode.Uri | { light: vscode.Uri; dark: vscode.Uri } | vscode.ThemeIcon | undefined
   description: string | undefined
   detail: string | undefined
   data: any
