@@ -47,6 +47,10 @@ As 2nd step you can specify an additional **time range** you want the export to 
 
 ### Step 3: reorder messages by calculated time
 
+:::note
+This step is only available in the deprecated Nodejs based implementation that can be called via the command "Export/filter dlt via deprecated Nodejs based implementation...". If you used this option please file an [issue](https://github.com/mbehr1/dlt-logs/issues/new/choose).
+:::
+
 DLT-Logs typically don't contain the single log messages in the order where they have been sent but where the logger has received them. Due to buffering effects there can be significant differences.
 Only messages from a single ECU/APID/CTID should always be sorted properly as in general they should be send from a single thread only.
 For details see [lifecycles](lifecycleDetection).
@@ -60,6 +64,10 @@ This eases understanding the timing behaviour of multi-process/threading/cpu/...
 If you think the resulting export files are wrong this might be due to problems detecting the lifecycles. Please feel free to open an [issue](https://github.com/mbehr1/dlt-logs/issues/new/choose).
 
 ### Step 4: rewrite msg times
+
+:::note
+This step is only available in the deprecated Nodejs based implementation that can be called via the command "Export/filter dlt via deprecated Nodejs based implementation...". If you used this option please file an [issue](https://github.com/mbehr1/dlt-logs/issues/new/choose).
+:::
 
 Similar to step 3 you can choose whether the **recorded time** should be rewritten to the calculated **created time**.
 

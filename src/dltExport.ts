@@ -148,7 +148,7 @@ const calcLifecycles = (lcs: PickItem[], options: ExportDltOptions, cancelToken:
   return onMoreItems.event
 }
 
-export async function exportDlt(srcUris: vscode.Uri[], allFilters: DltFilter[] | undefined = undefined) {
+export async function exportDltOldTS(srcUris: vscode.Uri[], allFilters: DltFilter[] | undefined = undefined) {
   // todo have to avoid reentrant call (as srcUriMap is global/static...)
   console.log(`export dlt called...(#allFilters=${allFilters?.length})`)
   if (srcUris.length === 0) {
