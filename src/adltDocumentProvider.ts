@@ -9,7 +9,6 @@
 /// [ ] opening of a stream (and support within reports)
 /// [ ] onDidChangeConfiguration
 /// [ ] timeSync, adjustTime support
-/// [ ] change exportDlt to use adlt
 /// [ ] move decorations parsing/mgmt to extension
 /// [ ] think about atLoadTime filters (use them as regular ones)
 

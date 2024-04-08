@@ -3,6 +3,7 @@
  */
 
 import * as vscode from 'vscode'
+import { stringify } from 'safe-stable-stringify'
 
 let _nextUniqueId: number = 1
 
@@ -276,4 +277,17 @@ export function partitionPoint(arr: any[], predicate: (value: any) => boolean): 
   }
 
   return first
+}
+
+/**
+ * Safely converts an object to a string representation, including support for BigInts.
+ *
+ * @param obj - The object to stringify.
+ * @returns The string representation of the object.
+ */
+export function safeStableStringify(obj: any): string | undefined {
+  // safe-stable-stringify handles bigints but by representing as number strings that
+  // later on cannot be parsed and where the info that it was a bigint got lost
+  // so we convert bigints to strings with the number + 'n' here
+  return stringify(obj, (_, v) => (typeof v === 'bigint' ? v.toString() + 'n' : v))
 }
