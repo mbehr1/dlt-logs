@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.85.2](https://github.com/mbehr1/dlt-logs/compare/v1.85.1...v1.85.2) (2024-04-08)
+
+
+### Bug Fixes
+
+* **export:** provide a human readable lifecycle number ([90a2579](https://github.com/mbehr1/dlt-logs/commit/90a25792a84b229863da58a5217fe3b16be14b6c))
+
 ## [1.85.1](https://github.com/mbehr1/dlt-logs/compare/v1.85.0...v1.85.1) (2024-04-08)
 
 
