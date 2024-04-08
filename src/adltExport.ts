@@ -11,6 +11,7 @@ import { DltFilter } from './dltFilter'
 import { ADltDocumentProvider, char4U32LeToString } from './adltDocumentProvider'
 import * as remote_types from './remote_types'
 import { MultiStepInput, PickItem } from './quickPick'
+import { safeStableStringify } from './util'
 
 interface AdltExportOptions {
   srcUris: vscode.Uri[]
@@ -118,10 +119,12 @@ export async function exportDlt(
                 for (const state of states) {
                   let stateObj = JSON.parse(state)
                   if (stateObj?.name === 'Export') {
-                    log.info(`exportDlt: export state: ${JSON.stringify(stateObj, undefined, 2)}`)
+                    log.info(`exportDlt: export state: ${safeStableStringify(stateObj)}`)
                   }
                 }
               }
+              break
+            case 'EacInfo':
               break
             default:
               log.info(`exportDlt: export got binary message type=${msg.tag}`)
@@ -138,7 +141,7 @@ export async function exportDlt(
             filter: exportOptions.filters,
           }
           adltClient
-            .sendAndRecvReq(`open ${JSON.stringify(openParam)}`)
+            .sendAndRecvReq(`open ${safeStableStringify(openParam)}`)
             .then((resp) => {
               log.info(`exportDlt: open pass 1(lcs) succeeded with: ${resp}`)
 
@@ -260,11 +263,7 @@ export async function exportDlt(
               stepInput
                 .run()
                 .then(async () => {
-                  log.info(
-                    `exportDlt: MultiStepInput.run succeeded. exportOptions=${JSON.stringify(exportOptions, (_, v) =>
-                      typeof v === 'bigint' ? v.toString() + 'n' : v,
-                    )}`,
-                  )
+                  log.info(`exportDlt: MultiStepInput.run succeeded. exportOptions=${safeStableStringify(exportOptions)}`)
                   adltClient
                     .sendAndRecvReq(`close`)
                     .then(async (resp) => {
@@ -361,9 +360,8 @@ function performExport(exportOptions: AdltExportOptions, adltClient: AdltClient,
                       log.info(
                         `exportDlt: export processing done, got ${
                           fileInfo.nr_msgs
-                        } msgs, #exported=${lastNrExportedMsgs} #processed=${lastNrProcessedMsgs} exported lifecycles=${JSON.stringify(
+                        } msgs, #exported=${lastNrExportedMsgs} #processed=${lastNrProcessedMsgs} exported lifecycles=${safeStableStringify(
                           exportedLifecycles,
-                          (_, v) => (typeof v === 'bigint' ? v.toString() + 'n' : v),
                         )})}`,
                       )
                       resolve({
@@ -381,7 +379,6 @@ function performExport(exportOptions: AdltExportOptions, adltClient: AdltClient,
                     for (const state of states) {
                       let stateObj = JSON.parse(state)
                       if (stateObj?.name === 'Export') {
-                        // log.info(`exportDlt: export state: ${JSON.stringify(stateObj, undefined, 2)}`)
                         let infos = stateObj.infos
                         if (infos !== undefined) {
                           lastNrExportedMsgs = infos.nrExportedMsgs
@@ -443,7 +440,7 @@ function performExport(exportOptions: AdltExportOptions, adltClient: AdltClient,
               ],
             }
             adltClient
-              .sendAndRecvReq(`open ${JSON.stringify(openParam)}`)
+              .sendAndRecvReq(`open ${safeStableStringify(openParam)}`)
               .then((resp) => {
                 progress.report({ message: `opened files...` })
                 token.onCancellationRequested(() => {
@@ -462,7 +459,7 @@ function performExport(exportOptions: AdltExportOptions, adltClient: AdltClient,
       )
       .then(
         (value) => {
-          log.info(`exportDlt: export succeeded with: ${JSON.stringify(value)}`)
+          log.info(`exportDlt: export succeeded with: ${safeStableStringify(value)}`)
           resolve(value)
         },
         (rejectReason) => {
