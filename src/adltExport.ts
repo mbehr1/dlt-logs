@@ -66,6 +66,7 @@ export async function exportDlt(
 
         const onMoreLcsItems: vscode.EventEmitter<PickItem[] | undefined> = new vscode.EventEmitter<PickItem[] | undefined>()
         const lcs: PickItem[] = []
+        const lcsPerEcu: Map<number, remote_types.BinLifecycle[]> = new Map()
 
         let last_nr_msgs = 0
 
@@ -91,8 +92,28 @@ export async function exportDlt(
               {
                 let lifecycles: Array<remote_types.BinLifecycle> = msg.value
                 // log.info(`exportDlt: got ${lifecycles.length} lifecycle updates`)
+
+                const getLcHumanReadableNr = (lc: remote_types.BinLifecycle): number => {
+                  // we assume the lcs in lcs are sorted by start_time (per ecu)
+                  const lcsForThatEcu = lcsPerEcu.get(lc.ecu)
+                  if (lcsForThatEcu === undefined) {
+                    lcsPerEcu.set(lc.ecu, [lc])
+                    return 1
+                  } else {
+                    const lcIdx = lcsForThatEcu.findIndex((curLc) => curLc.id === lc.id)
+                    if (lcIdx === -1) {
+                      lcsForThatEcu.push(lc)
+                      return lcsForThatEcu.length
+                    } else {
+                      return lcIdx + 1
+                    }
+                  }
+                }
+
                 lifecycles.forEach((lc) => {
-                  const name = `${char4U32LeToString(lc.ecu)} LC#${lc.id}: ${
+                  // is it know already?
+                  const humanReadableNumber = getLcHumanReadableNr(lc)
+                  const name = `${char4U32LeToString(lc.ecu)} LC#${humanReadableNumber}: ${
                     lc.resume_time !== undefined
                       ? `${new Date(Number(lc.resume_time / 1000n)).toLocaleString()} RESUME `
                       : new Date(Number(lc.start_time / 1000n)).toLocaleString()
