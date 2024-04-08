@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.85.1](https://github.com/mbehr1/dlt-logs/compare/v1.85.0...v1.85.1) (2024-04-08)
+
+
+### Bug Fixes
+
+* introduce safeStableStringify to avoid bigints not being handled properly ([46139d3](https://github.com/mbehr1/dlt-logs/commit/46139d31ed2be17b57d548b9d132fee74810fa2d))
+
 ## [1.85.0](https://github.com/mbehr1/dlt-logs/compare/v1.84.4...v1.85.0) (2024-04-07)
 
 
