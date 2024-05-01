@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.85.3](https://github.com/mbehr1/dlt-logs/compare/v1.85.2...v1.85.3) (2024-05-01)
+
+
+### Bug Fixes
+
+* **someip:** dont stop parsing fibex on first service failure ([ce7314f](https://github.com/mbehr1/dlt-logs/commit/ce7314f17ca18e457c4737e2b8a291bc005b834e))
+
 ## [1.85.2](https://github.com/mbehr1/dlt-logs/compare/v1.85.1...v1.85.2) (2024-04-08)
 
 
