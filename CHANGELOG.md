@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.85.4](https://github.com/mbehr1/dlt-logs/compare/v1.85.3...v1.85.4) (2024-05-07)
+
+
+### Bug Fixes
+
+* **can:** support asc files with multiple whitespaces ([1eb2e5e](https://github.com/mbehr1/dlt-logs/commit/1eb2e5e9a8a8be96ee4e90ecbe61f0920a6e209d))
+
 ## [1.85.3](https://github.com/mbehr1/dlt-logs/compare/v1.85.2...v1.85.3) (2024-05-01)
 
 
