@@ -899,7 +899,8 @@
       {
         "id": "can-asc",
         "extensions": [
-          ".asc"
+          ".asc",
+          ".blf"
         ]
       }
     ]
@@ -975,7 +976,7 @@
     "ws": "^8.13.0"
   },
   "optionalDependencies": {
-    "node-adlt": "0.56.2"
+    "node-adlt": "0.57.0"
   },
   "commitlint": {
     "extends": [
