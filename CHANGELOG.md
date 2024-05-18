@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.86.0](https://github.com/mbehr1/dlt-logs/compare/v1.85.4...v1.86.0) (2024-05-18)
+
+
+### Features
+
+* **blf:** support opening of Vector binlog blf files ([41ca424](https://github.com/mbehr1/dlt-logs/commit/41ca424560b4bff6a636711232ee9bfe969c5bf3))
+
 ## [1.85.4](https://github.com/mbehr1/dlt-logs/compare/v1.85.3...v1.85.4) (2024-05-07)
 
 
