@@ -46,6 +46,7 @@ import { fileURLToPath } from 'node:url'
 import { generateRegex } from './generateRegex'
 import * as JSON5 from 'json5'
 import { AdltRemoteFSProvider } from './adltRemoteFsProvider'
+import { AdltCommentThread, AdltComment, restoreComments, persistComments, purgeOldComments } from './adltComments'
 
 //import { adltPath } from 'node-adlt';
 // with optionalDependency we use require to catch errors
@@ -167,7 +168,7 @@ class AdltLifecycleInfo implements DltLifecycleInfoMinIF {
   }
 }
 
-class AdltMsg implements ViewableDltMsg {
+export class AdltMsg implements ViewableDltMsg {
   _eac: EAC
   index: number
   htyp: number
@@ -286,6 +287,7 @@ interface DecorationsInfo {
  */
 type MsgTimeHighlight = { msgIndex: number; calculatedTimeInMs?: number }
 
+// MARK: AdltDocument
 export class AdltDocument implements vscode.Disposable {
   private _fileNames: string[] // the real local file names
   private _ctime: number
@@ -410,6 +412,8 @@ export class AdltDocument implements vscode.Disposable {
 
   constructor(
     private log: vscode.LogOutputChannel,
+    private globalState: vscode.Memento,
+    private commentController: vscode.CommentController,
     adltAddress: Promise<string>, // e.g. ws://localhost:<port>
     public uri: vscode.Uri,
     private emitDocChanges: vscode.EventEmitter<vscode.FileChangeEvent[]>,
@@ -1122,6 +1126,12 @@ export class AdltDocument implements vscode.Disposable {
           this.startStream()
         }
       }, 5000)
+      // trigger loading of comments:
+      setTimeout(() => {
+        if (this.commentThreads.length === 0) {
+          this.loadComments()
+        }
+      }, 5100)
     })
   }
 
@@ -1522,6 +1532,91 @@ export class AdltDocument implements vscode.Disposable {
     })
   }
 
+  // todo what to do on toggle sortOrder?
+  commentThreads: AdltCommentThread[] = []
+
+  /**
+   * Comments support
+   */
+
+  loadComments() {
+    // for now only when commentThreads is empty:
+    if (this.commentThreads.length > 0) {
+      return
+    } else {
+      // purge old comments:
+      purgeOldComments(this.log, this.globalState)
+
+      this.commentThreads = restoreComments(this.log, this, this.globalState, this.commentController)
+      this.updateCommentThreads()
+    }
+  }
+
+  updateCommentThreads() {
+    for (let thread of this.commentThreads) {
+      thread.update(this)
+    }
+  }
+
+  commentsCreate(reply: vscode.CommentReply) {
+    try {
+      const thread = AdltCommentThread.newFromReply(this.log, this, reply) // can throw
+      this.commentThreads.push(thread)
+
+      // sort them so that commentsExport will have the correct order
+      // we usually have a few entries only so we can sort them here
+      if (this._sortOrderByTime) {
+        this.commentThreads.sort((a, b) => {
+          return a.minMsgTimeInMs - b.minMsgTimeInMs
+        })
+      } else {
+        // msgs are sorted by index
+        this.commentThreads.sort((a, b) => {
+          return a.minMsgIndex - b.minMsgIndex
+        })
+      }
+      persistComments(this.log, this.commentThreads, this, this.globalState) // todo after edit/delete as well!
+    } catch (e) {
+      this.log.error(`AdltDocument.commentCreate(reply) got error: ${e}!`)
+    }
+    // no update needed for comments here
+  }
+
+  commentUpdated(comment: AdltComment) {
+    comment.parent?.saveComment(comment)
+    persistComments(this.log, this.commentThreads, this, this.globalState)
+  }
+
+  commentsDelete(thread: vscode.CommentThread) {
+    this.log.warn(`AdltDocument.commentsDelete(thread)`)
+    let idx = this.commentThreads.findIndex((t) => t.thread === thread)
+    if (idx >= 0) {
+      const delThreads = this.commentThreads.splice(idx, 1)
+      for (let delThread of delThreads) {
+        delThread.dispose()
+      }
+    }
+    persistComments(this.log, this.commentThreads, this, this.globalState)
+  }
+
+  /**
+   * Export the comments to the clipboard
+   * @param thread the thread to export, if undefined all threads will be exported
+   */
+  commentsExport(thread: vscode.CommentThread | undefined) {
+    const threads = thread ? [this.commentThreads.find((t) => t.thread === thread)] : this.commentThreads
+    let exportStr = ''
+    for (const thread of threads) {
+      if (thread !== undefined) {
+        exportStr += thread.asMarkupText() // asMarkdownText()
+      }
+    }
+    vscode.env.clipboard.writeText(exportStr)
+    vscode.window.showInformationMessage(
+      `Exported ${threads.length} comment ${threads.length > 1 ? 'threads' : 'thread'} to clipboard as markup text`,
+    )
+  }
+
   /**
    * Clears all decorations from the text editors.
    *
@@ -1550,6 +1645,9 @@ export class AdltDocument implements vscode.Disposable {
         editor.setDecorations(key, value)
       })
     })
+
+    // update all commentThreads: (todo not needed on active text editor change)
+    this.updateCommentThreads()
   }
 
   /**
@@ -2113,6 +2211,22 @@ export class AdltDocument implements vscode.Disposable {
         })
     }
     return -1
+  }
+
+  /**
+   * Return the line number of the given message index (not the index in visibleMsgs but the orig msg index).
+   *
+   * This is currently really slow! (O(n))
+   * @param msg
+   * @returns line number (0-based) or -1/-2 if not found
+   */
+  public lineByMsgIndex(msgIndex: number): number {
+    if (this.visibleMsgs) {
+      // todo might optimize by binary search (if sorted by index)
+      // or by time based binary search (or by asking adlt)
+      return this.visibleMsgs.findIndex((m) => m.index === msgIndex)
+    }
+    return -2
   }
 
   msgByLine(line: number): AdltMsg | undefined {
@@ -2906,6 +3020,8 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider, /*vscode
   private _adltPort: number = 0
   private _adltProcess?: ChildProcess
   private _adltCommand: string
+  private globalState: vscode.Memento
+  private commentController: vscode.CommentController
 
   constructor(
     private log: vscode.LogOutputChannel,
@@ -2922,6 +3038,8 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider, /*vscode
     if (!semver.validRange(MIN_ADLT_VERSION_SEMVER_RANGE)) {
       throw Error(`MIN_ADLT_VERSION_SEMVER_RANGE is not valied!`)
     }
+    this.globalState = context.globalState
+    this.commentController = vscode.comments.createCommentController('dlt-logs', 'dlt-logs')
 
     log.trace('adlt.ADltDocumentProvider adltPath=', adltPath)
     this._adltCommand =
@@ -3024,6 +3142,110 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider, /*vscode
     )
 
     context.subscriptions.push(vscode.languages.registerHoverProvider({ scheme: 'adlt-log' }, this))
+
+    this.commentController.options = {
+      placeHolder: 'Comment on selected log:', // shown inside if not comment is typed yet
+      prompt: 'Comment prompt',
+    }
+    this.commentController.commentingRangeProvider = {
+      provideCommentingRanges: (document: vscode.TextDocument, token: vscode.CancellationToken) => {
+        const data = this._documents.get(document.uri.toString())
+        if (data) {
+          // log.info(`AdltDocumentProvider provideCommentingRanges called for ${document.uri.toString()}`)
+          const lineCount = document.lineCount
+          if (lineCount > 1) {
+            // last line is empty (not assigned to a msg)
+            return [new vscode.Range(0, 0, lineCount - 2, 0)]
+          }
+        }
+        return []
+      },
+    }
+    this.commentController.reactionHandler = async (comment, reaction) => {
+      log.warn(`AdltDocumentProvider reactionHandler called for ${comment} reaction=${reaction}`)
+    }
+    context.subscriptions.push(this.commentController)
+
+    context.subscriptions.push(
+      vscode.commands.registerCommand('dlt-logs.commentEdit', (comment: AdltComment) => {
+        if (!comment.parent) {
+          return
+        }
+        comment.parent.editComment(comment)
+      }),
+    )
+    context.subscriptions.push(
+      vscode.commands.registerCommand('dlt-logs.commentCancelEdit', (comment: AdltComment) => {
+        if (!comment.parent) {
+          return
+        }
+        return comment.parent.cancelEditComment(comment)
+      }),
+    )
+    context.subscriptions.push(
+      vscode.commands.registerCommand('dlt-logs.commentSave', (comment: AdltComment) => {
+        if (!comment.parent) {
+          return
+        }
+        const document = this._documents.get(comment.parent.thread.uri.toString())
+        if (document) {
+          document.commentUpdated(comment)
+        }
+      }),
+    )
+    context.subscriptions.push(
+      vscode.commands.registerCommand('dlt-logs.commentCreate', (reply: vscode.CommentReply) => {
+        const document = this._documents.get(reply.thread.uri.toString())
+        if (document) {
+          document.commentsCreate(reply)
+        } else {
+          log.warn(`AdltDocumentProvider commentCreate called but no document for reply`, reply)
+        }
+      }),
+    )
+    context.subscriptions.push(
+      vscode.commands.registerCommand('dlt-logs.commentThreadDelete', (thread: vscode.CommentThread) => {
+        const document = this._documents.get(thread.uri.toString())
+        if (document) {
+          // ask for confirmation
+          vscode.window
+            .showWarningMessage(
+              'Do you want to delete this comment thread?',
+              { modal: true, detail: 'This cannot be undone!' },
+              { isCloseAffordance: true, title: 'Cancel' },
+              { title: 'Delete' },
+            )
+            .then((value) => {
+              if (value?.title === 'Delete') {
+                document.commentsDelete(thread)
+              }
+            })
+        } else {
+          log.warn(`AdltDocumentProvider commentThreadDelete called but no document for thread`, thread)
+          thread.dispose()
+        }
+      }),
+    )
+    context.subscriptions.push(
+      vscode.commands.registerCommand('dlt-logs.commentThreadExport', (thread: vscode.CommentThread) => {
+        const document = this._documents.get(thread.uri.toString())
+        if (document) {
+          document.commentsExport(thread)
+        } else {
+          log.warn(`AdltDocumentProvider commentThreadExport called but no document for thread`, thread)
+        }
+      }),
+    )
+    context.subscriptions.push(
+      vscode.commands.registerCommand('dlt-logs.commentThreadExportAll', (thread: vscode.CommentThread) => {
+        const document = this._documents.get(thread.uri.toString())
+        if (document) {
+          document.commentsExport(undefined)
+        } else {
+          log.warn(`AdltDocumentProvider commentThreadExportAll called but no document for thread`, thread)
+        }
+      }),
+    )
 
     /* this.timerId = setInterval(() => {
             // dump mem usage:
@@ -3373,6 +3595,8 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider, /*vscode
               let address = this.getAdltProcessAndPort().then((port) => `ws://localhost:${port}`)
               document = new AdltDocument(
                 this.log,
+                this.globalState,
+                this.commentController,
                 address,
                 uri,
                 this._onDidChangeFile,
@@ -3442,6 +3666,8 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider, /*vscode
         : Promise.resolve(uri.authority)
       doc = new AdltDocument(
         this.log,
+        this.globalState,
+        this.commentController,
         address,
         uri,
         this._onDidChangeFile,

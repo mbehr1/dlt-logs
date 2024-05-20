@@ -21,7 +21,7 @@
   },
   "homepage": "https://mbehr1.github.io/dlt-logs/",
   "engines": {
-    "vscode": "^1.83.0"
+    "vscode": "^1.87.0"
   },
   "categories": [
     "Other"
@@ -762,9 +762,84 @@
       {
         "command": "dlt-logs.testRestQuery",
         "title": "test rest query"
+      },
+      {
+        "command": "dlt-logs.commentEdit",
+        "title": "Edit",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "dlt-logs.commentCancelEdit",
+        "title": "Cancel"
+      },
+      {
+        "command": "dlt-logs.commentSave",
+        "title": "Save"
+      },
+      {
+        "command": "dlt-logs.commentCreate",
+        "title": "Create"
+      },
+      {
+        "command": "dlt-logs.commentThreadDelete",
+        "title": "Delete",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "dlt-logs.commentThreadExport",
+        "title": "Export to clipboard as markup",
+        "icon": "$(clippy)"
+      },
+      {
+        "command": "dlt-logs.commentThreadExportAll",
+        "title": "Export all to clipboard as markup",
+        "icon": "$(markdown)"
       }
     ],
     "menus": {
+      "comments/commentThread/title": [
+        {
+          "command": "dlt-logs.commentThreadExportAll",
+          "group": "navigation@3",
+          "when": "commentController == dlt-logs && !commentThreadIsEmpty"
+        },
+        {
+          "command": "dlt-logs.commentThreadExport",
+          "group": "navigation@2",
+          "when": "commentController == dlt-logs && !commentThreadIsEmpty"
+        },
+        {
+          "command": "dlt-logs.commentThreadDelete",
+          "group": "navigation@1",
+          "when": "commentController == dlt-logs && !commentThreadIsEmpty"
+        }
+      ],
+      "comments/commentThread/context": [
+        {
+          "command": "dlt-logs.commentCreate",
+          "group": "inline",
+          "when": "commentController == dlt-logs"
+        }
+      ],
+      "comments/comment/title": [
+        {
+          "command": "dlt-logs.commentEdit",
+          "group": "group@1",
+          "when": "commentController == dlt-logs"
+        }
+      ],
+      "comments/comment/context": [
+        {
+          "command": "dlt-logs.commentCancelEdit",
+          "group": "inline@1",
+          "when": "commentController == dlt-logs"
+        },
+        {
+          "command": "dlt-logs.commentSave",
+          "group": "inline@2",
+          "when": "commentController == dlt-logs"
+        }
+      ],
       "editor/context": [
         {
           "group": "1_modification",
@@ -930,7 +1005,7 @@
     "@types/node": "^18.18.0",
     "@types/semver": "^7.5.4",
     "@types/uuid": "^9.0.1",
-    "@types/vscode": "1.83.0",
+    "@types/vscode": "1.87.0",
     "@types/ws": "^8.5.4",
     "@typescript-eslint/eslint-plugin": "^6.8.0",
     "@typescript-eslint/parser": "^6.8.0",
@@ -954,8 +1029,8 @@
     "webdriverio": "^8.13.13"
   },
   "dependencies": {
-    "@vscode/codicons": "^0.0.35",
-    "@vscode/extension-telemetry": "^0.9.5",
+    "@vscode/codicons": "^0.0.36",
+    "@vscode/extension-telemetry": "^0.9.6",
     "@vscode/webview-ui-toolkit": "^1.2.2",
     "chart.js": "^4.2.1",
     "chartjs-adapter-moment": "^1.0.1",
