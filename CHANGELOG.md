@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.87.0](https://github.com/mbehr1/dlt-logs/compare/v1.86.0...v1.87.0) (2024-05-20)
+
+
+### Features
+
+* **comment:** first minimal version of comments ([fac160e](https://github.com/mbehr1/dlt-logs/commit/fac160efc3448e951bc91f8199aca97248a146b2))
+
 ## [1.86.0](https://github.com/mbehr1/dlt-logs/compare/v1.85.4...v1.86.0) (2024-05-18)
 
 
