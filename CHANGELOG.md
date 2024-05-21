@@ -1,5 +1,13 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.87.1](https://github.com/mbehr1/dlt-logs/compare/v1.87.0...v1.87.1) (2024-05-21)
+
+
+### Bug Fixes
+
+* **comments:** move log level symbol to end of the log line ([7e134fd](https://github.com/mbehr1/dlt-logs/commit/7e134fdad449144ed323aa919a42fdcb4d9c6ac8))
+* **someip:** improve log output on decoding errors ([5953c88](https://github.com/mbehr1/dlt-logs/commit/5953c886d7d84310cc531a628c418285d2ab3f40))
+
 ## [1.87.0](https://github.com/mbehr1/dlt-logs/compare/v1.86.0...v1.87.0) (2024-05-20)
 
 
