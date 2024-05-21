@@ -198,18 +198,18 @@ export class AdltCommentThread {
       let levelSymbol
       switch (msg.mtin) {
         case MTIN_LOG.LOG_WARN:
-          levelSymbol = '⚠️'
+          levelSymbol = ' ⚠️'
           break
         case MTIN_LOG.LOG_ERROR:
-          levelSymbol = '❗'
+          levelSymbol = ' ❗'
         case MTIN_LOG.LOG_FATAL:
-          levelSymbol = '🛑'
+          levelSymbol = ' 🛑'
           break
         default:
-          levelSymbol = ' '
+          levelSymbol = ''
           break
       }
-      md += `${levelSymbol}${msg.text}\n`
+      md += `${msg.text}${levelSymbol}\n`
     })
     md += '{noformat}\n\n'
     return md
