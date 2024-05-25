@@ -174,6 +174,21 @@ export class AdltCommentThread {
     }
   }
 
+  /**
+   * return a headline (single line summary) for the thread
+   *
+   * Currently this is the first line of the first comment
+   */
+  summary(): string {
+    if (this.thread.comments.length === 0) {
+      return 'no comments'
+    }
+    const comment1 = this.thread.comments[0]
+    const comment1Text = typeof comment1.body === 'string' ? comment1.body : comment1.body.value
+    // first line
+    return comment1Text.split('\n')[0]
+  }
+
   asMarkdownText(): string {
     let md = ''
     this.thread.comments.forEach((comment) => {

@@ -791,6 +791,11 @@
         "icon": "$(clippy)"
       },
       {
+        "command": "dlt-logs.commentThreadExportMulti",
+        "title": "Select comments to export to clipboard as markup...",
+        "icon": "$(checklist)"
+      },
+      {
         "command": "dlt-logs.commentThreadExportAll",
         "title": "Export all to clipboard as markup",
         "icon": "$(markdown)"
@@ -800,6 +805,11 @@
       "comments/commentThread/title": [
         {
           "command": "dlt-logs.commentThreadExportAll",
+          "group": "navigation@4",
+          "when": "commentController == dlt-logs && !commentThreadIsEmpty"
+        },
+        {
+          "command": "dlt-logs.commentThreadExportMulti",
           "group": "navigation@3",
           "when": "commentController == dlt-logs && !commentThreadIsEmpty"
         },
