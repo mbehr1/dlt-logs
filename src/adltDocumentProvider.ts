@@ -1601,10 +1601,16 @@ export class AdltDocument implements vscode.Disposable {
 
   /**
    * Export the comments to the clipboard
-   * @param thread the thread to export, if undefined all threads will be exported
+   * @param thread the thread to export or the commentThreads to export or if undefined all threads will be exported
    */
-  commentsExport(thread: vscode.CommentThread | undefined) {
-    const threads = thread ? [this.commentThreads.find((t) => t.thread === thread)] : this.commentThreads
+  commentsExport(thread: vscode.CommentThread | AdltCommentThread[] | undefined) {
+    let threads =
+      thread !== undefined ? (Array.isArray(thread) ? thread : [this.commentThreads.find((t) => t.thread === thread)]) : this.commentThreads
+    threads = threads.filter((t) => t !== undefined)
+    if (threads.length === 0) {
+      vscode.window.showInformationMessage('No comments to export')
+      return
+    }
     let exportStr = ''
     for (const thread of threads) {
       if (thread !== undefined) {
@@ -1615,6 +1621,32 @@ export class AdltDocument implements vscode.Disposable {
     vscode.window.showInformationMessage(
       `Exported ${threads.length} comment ${threads.length > 1 ? 'threads' : 'thread'} to clipboard as markup text`,
     )
+  }
+
+  /**
+   * Show a quick pick to select which threads/comments to export and export them to the clipboard
+   * @param thread the thread that should be pre-selected
+   */
+  commentsExportMulti(thread: vscode.CommentThread) {
+    const threads = this.commentThreads
+    const items = threads.map((t) => ({
+      label: t.summary().slice(0, 60),
+      description:
+        t.msgs.length > 1
+          ? `${t.msgs.length} logs #${t.minMsgIndex}..${t.msgs[t.msgs.length - 1].index} ${new Date(
+              t.minMsgTimeInMs,
+            ).toLocaleTimeString()}..`
+          : `log #${t.minMsgIndex} ${new Date(t.minMsgTimeInMs).toLocaleTimeString()} (calc.time)`,
+      picked: t.thread === thread, // determines whether it's pre-selected only
+      _thread: t,
+    }))
+    vscode.window.showQuickPick(items, { canPickMany: true, placeHolder: 'Select the comment threads to export' }).then((selected) => {
+      if (selected) {
+        const selectedThreads = selected.map((s) => s._thread)
+        this.log.info(`AdltDocument.commentsExportMulti() selected ${selectedThreads.length} threads`)
+        this.commentsExport(selectedThreads)
+      }
+    })
   }
 
   /**
@@ -3243,6 +3275,16 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider, /*vscode
           document.commentsExport(undefined)
         } else {
           log.warn(`AdltDocumentProvider commentThreadExportAll called but no document for thread`, thread)
+        }
+      }),
+    )
+    context.subscriptions.push(
+      vscode.commands.registerCommand('dlt-logs.commentThreadExportMulti', (thread: vscode.CommentThread) => {
+        const document = this._documents.get(thread.uri.toString())
+        if (document) {
+          document.commentsExportMulti(thread)
+        } else {
+          log.warn(`AdltDocumentProvider commentThreadExportMulti called but no document for thread`, thread)
         }
       }),
     )
