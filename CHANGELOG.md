@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.88.0](https://github.com/mbehr1/dlt-logs/compare/v1.87.1...v1.88.0) (2024-05-25)
+
+
+### Features
+
+* **comments:** add command to select comments to export ([3e50866](https://github.com/mbehr1/dlt-logs/commit/3e5086655de4e0a350998dbcce82616b29a4a9ab))
+
 ## [1.87.1](https://github.com/mbehr1/dlt-logs/compare/v1.87.0...v1.87.1) (2024-05-21)
 
 
