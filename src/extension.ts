@@ -343,7 +343,7 @@ export function activate(context: vscode.ExtensionContext) {
                 // open new file dialog if more than 1 supported file is contained
 
                 log.info(`open dlt via adlt got archive URI=${uri.toString()}`) // e.g. file:///Users/mbehr/Downloads/logs_25091896545.zip
-                const fsUri = vscode.Uri.from({ scheme: adltScheme, path: `/fs/${uri.fsPath}!/`, authority: localAddr })
+                const fsUri = vscode.Uri.from({ scheme: adltScheme, path: `/fs${uri.fsPath}!/`, authority: localAddr })
 
                 const dirEntries = await adltProvider.readDirectory(fsUri)
                 const onlyFiles = !dirEntries.some((e) => e[1] !== vscode.FileType.File)
@@ -367,7 +367,7 @@ export function activate(context: vscode.ExtensionContext) {
                   })
                   return res !== undefined
                     ? res.map((r) => {
-                        const mr = r.path.startsWith('/fs/') ? vscode.Uri.from({ scheme: uri.scheme, path: r.path.slice(4) }) : r
+                        const mr = r.path.startsWith('/fs') ? vscode.Uri.from({ scheme: uri.scheme, path: r.path.slice(3) }) : r
                         log.warn(`mapping ${r} to ${mr}`)
                         return mr
                       })
