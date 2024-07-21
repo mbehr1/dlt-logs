@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.89.2](https://github.com/mbehr1/dlt-logs/compare/v1.89.1...v1.89.2) (2024-07-21)
+
+
+### Bug Fixes
+
+* **unzip:** accept !\ for windows ([6823277](https://github.com/mbehr1/dlt-logs/commit/6823277290b0cd26bdf6b4f8b325dd5c5c0f6674))
+
 ## [1.89.1](https://github.com/mbehr1/dlt-logs/compare/v1.89.0...v1.89.1) (2024-07-21)
 
 
