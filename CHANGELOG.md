@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.89.1](https://github.com/mbehr1/dlt-logs/compare/v1.89.0...v1.89.1) (2024-07-21)
+
+
+### Bug Fixes
+
+* **unzip:** dont add two slashes to support win paths ([82a11a2](https://github.com/mbehr1/dlt-logs/commit/82a11a2c20a63f97e8e3ff5fe668c5ccca1a696f))
+
 ## [1.89.0](https://github.com/mbehr1/dlt-logs/compare/v1.88.0...v1.89.0) (2024-07-21)
 
 
