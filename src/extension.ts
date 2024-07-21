@@ -304,6 +304,27 @@ export function activate(context: vscode.ExtensionContext) {
       file_exts = ['dlt', 'asc', 'blf', 'txt', 'log']
     }
     log.info(`open dlt via adlt file_exts=${JSON.stringify(file_exts)}`)
+    const getLlocalADltInfo = async () => {
+      try {
+        return await adltProvider.getLocalADltInfo()
+      } catch (e) {
+        log.warn(`failed to get local adlt info: ${e}`)
+        return {}
+      }
+    }
+    const localADltInfo = await getLlocalADltInfo()
+    log.info(`open dlt via adlt localADltInfo=${JSON.stringify(localADltInfo)}`)
+    let adltArchivesSupported: string[] = []
+    let file_exts_wo_archives = file_exts.slice() // shallow copy
+    if (localADltInfo && Array.isArray(localADltInfo['adlt-archives-supported'])) {
+      adltArchivesSupported = localADltInfo['adlt-archives-supported']
+      for (const ext of adltArchivesSupported) {
+        const ext_wo_dot = ext.slice(1)
+        if (!file_exts.includes(ext_wo_dot)) {
+          file_exts.push(ext_wo_dot)
+        }
+      }
+    }
     return vscode.window
       .showOpenDialog({
         canSelectFiles: true,
@@ -312,7 +333,54 @@ export function activate(context: vscode.ExtensionContext) {
         filters: { 'DLT Logs': file_exts },
         openLabel: 'Select DLT, CAN or Logcat file(s) to open...',
       })
-      .then(async (uris: vscode.Uri[] | undefined) => openAdltUris(true, uris))
+      .then(async (uris: vscode.Uri[] | undefined) => {
+        // check whether some uris are archives:
+        if (uris && Array.isArray(uris) && uris.length > 0) {
+          let localAddr = await adltProvider.getAdltProcessAndPort().then((port) => `ws://localhost:${port}`)
+          let arch_uris = await Promise.all(
+            uris.map(async (uri) => {
+              if (adltArchivesSupported.some((ext) => uri.fsPath.endsWith(ext))) {
+                // open new file dialog if more than 1 supported file is contained
+
+                log.info(`open dlt via adlt got archive URI=${uri.toString()}`) // e.g. file:///Users/mbehr/Downloads/logs_25091896545.zip
+                const fsUri = vscode.Uri.from({ scheme: adltScheme, path: `/fs/${uri.fsPath}!/`, authority: localAddr })
+
+                const dirEntries = await adltProvider.readDirectory(fsUri)
+                const onlyFiles = !dirEntries.some((e) => e[1] !== vscode.FileType.File)
+                const supportedFiles = dirEntries.filter((e) => file_exts_wo_archives.some((ext) => e[0].endsWith(ext)))
+                const isSingleFile = onlyFiles && supportedFiles.length === 1
+                log.info(
+                  `readDirectory(${fsUri.toString()}) got ${dirEntries.length} entries, supportedFiles=${
+                    supportedFiles.length
+                  } isSingleFile=${isSingleFile} onlyFiles=${onlyFiles} dirEntries=${JSON.stringify(dirEntries)}`,
+                )
+                if (isSingleFile) {
+                  return [vscode.Uri.from({ scheme: uri.scheme, path: `${uri.fsPath}!/${supportedFiles[0][0]}` })]
+                } else {
+                  const res = await showOpenDialog({
+                    defaultUri: fsUri,
+                    canSelectFiles: true,
+                    canSelectMany: true,
+                    canSelectFolders: false,
+                    filters: { 'DLT Logs': file_exts_wo_archives },
+                    openLabel: 'Select DLT, CAN or Logcat file(s) to open from archive...',
+                  })
+                  return res !== undefined
+                    ? res.map((r) => {
+                        const mr = r.path.startsWith('/fs/') ? vscode.Uri.from({ scheme: uri.scheme, path: r.path.slice(4) }) : r
+                        log.warn(`mapping ${r} to ${mr}`)
+                        return mr
+                      })
+                    : []
+                }
+              } else {
+                return uri
+              }
+            }),
+          )
+          return openAdltUris(true, arch_uris.flat())
+        }
+      })
   }
 
   context.subscriptions.push(

@@ -8,6 +8,7 @@ export type BinType =
   | { tag: 'EacInfo'; value: Array<BinEcuStats> }
   | { tag: 'PluginState'; value: Array<string> }
   | { tag: 'StreamInfo'; value: BinStreamInfo }
+  | { tag: 'Progress'; value: BinProgress }; 
 
 export module BinType {
   export const FileInfo = (value: BinFileInfo): BinType => ({ tag: 'FileInfo', value })
@@ -16,6 +17,7 @@ export module BinType {
   export const EacInfo = (value: Array<BinEcuStats>): BinType => ({ tag: 'EacInfo', value })
   export const PluginState = (value: Array<string>): BinType => ({ tag: 'PluginState', value })
   export const StreamInfo = (value: BinStreamInfo): BinType => ({ tag: 'StreamInfo', value })
+  export const Progress = (value: BinProgress): BinType => ({ tag: 'Progress', value })
 }
 
 export function writeBinType(value: BinType, sinkOrBuf?: SinkOrBuf): Sink {
@@ -51,6 +53,11 @@ export function writeBinType(value: BinType, sinkOrBuf?: SinkOrBuf): Sink {
       const val6 = value as { value: BinStreamInfo }
       writeBinStreamInfo(val6.value, sink)
       break
+    case 'Progress':
+      writeU32(6, sink)
+      const val7 = value as { value: BinProgress }
+      writeBinProgress(val7.value, sink)
+      break
     default:
       throw new Error(`'${(value as any).tag}' is invalid tag for enum 'BinType'`)
   }
@@ -74,6 +81,8 @@ export function readBinType(sinkOrBuf: SinkOrBuf): BinType {
       return BinType.PluginState(readSeq(readString)(sink))
     case 5:
       return BinType.StreamInfo(readBinStreamInfo(sink))
+    case 6:
+      return BinType.Progress(readBinProgress(sink))
     default:
       throw new Error(`'${value}' is invalid value for enum 'BinType'`)
   }
@@ -273,6 +282,29 @@ export function readBinStreamInfo(sinkOrBuf: SinkOrBuf): BinStreamInfo {
     nr_stream_msgs: readU32(sink),
     nr_file_msgs_processed: readU32(sink),
     nr_file_msgs_total: readU32(sink),
+  }
+}
+
+export interface BinProgress {
+  cur_progress: number
+  max_progress: number
+  action: string
+}
+
+export function writeBinProgress(value: BinProgress, sinkOrBuf?: SinkOrBuf): Sink {
+  const sink = Sink.create(sinkOrBuf)
+  writeU32(value.cur_progress, sink)
+  writeU32(value.max_progress, sink)
+  writeString(value.action, sink)
+  return sink
+}
+
+export function readBinProgress(sinkOrBuf: SinkOrBuf): BinProgress {
+  const sink = Sink.create(sinkOrBuf)
+  return {
+    cur_progress: readU32(sink),
+    max_progress: readU32(sink),
+    action: readString(sink),
   }
 }
 
