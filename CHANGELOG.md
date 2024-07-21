@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.89.0](https://github.com/mbehr1/dlt-logs/compare/v1.88.0...v1.89.0) (2024-07-21)
+
+
+### Features
+
+* **unzip:** support direct opening of zip archives ([aa7b1bb](https://github.com/mbehr1/dlt-logs/commit/aa7b1bb9d8abadf5c7b2b54464e80ad8c0c920f7))
+
 ## [1.88.0](https://github.com/mbehr1/dlt-logs/compare/v1.87.1...v1.88.0) (2024-05-25)
 
 
