@@ -363,6 +363,9 @@ export class AdltDocument implements vscode.Disposable {
   // messages of current files:
   fileInfoNrMsgs = 0
 
+  // progress for status bar
+  private statusProgress: remote_types.BinProgress | undefined
+
   // messages for streams:
   private streamMsgs = new Map<number, StreamMsgData | remote_types.BinType[]>()
 
@@ -431,13 +434,21 @@ export class AdltDocument implements vscode.Disposable {
     this._fileNames = decodeAdltUri(uri)
     const isLocalAddress = uri.authority === undefined || uri.authority === ''
     if (isLocalAddress) {
-      if (!this._fileNames.length || !fs.existsSync(this._fileNames[0])) {
-        log.warn(`AdltDocument file ${uri.toString()} doesn't exist!`)
+      const fileExists = this._fileNames.length > 0 && fs.existsSync(this._fileNames[0])
+      const isLocalArchive = !fileExists && this._fileNames.length > 0 && this._fileNames[0].includes('!/')
+      if (!(fileExists || isLocalArchive)) {
+        log.warn(`AdltDocument file ${uri.toString()} ('${JSON.stringify(this._fileNames)}') doesn't exist!`)
         throw Error(`AdltDocument file ${uri.toString()} doesn't exist!`)
       }
-      const realStat = fs.statSync(this._fileNames[0]) // todo summarize all stats
-      this._ctime = realStat.ctimeMs.valueOf()
-      this._mtime = realStat.mtimeMs.valueOf()
+      if (fileExists) {
+        const realStat = fs.statSync(this._fileNames[0]) // todo summarize all stats
+        this._ctime = realStat.ctimeMs.valueOf()
+        this._mtime = realStat.mtimeMs.valueOf()
+      } else {
+        log.info(`AdltDocument file ${uri.toString()} is an archive`)
+        this._ctime = Date.now()
+        this._mtime = this._ctime
+      }
     } else {
       this._ctime = Date.now()
       this._mtime = this._ctime
@@ -594,6 +605,12 @@ export class AdltDocument implements vscode.Disposable {
                       this.processPluginStateUpdates(states)
                     }
                     break
+                  case 'Progress':
+                    {
+                      let progress: remote_types.BinProgress = bin_type.value
+                      this.processProgress(progress)
+                    }
+                    break
                   default:
                     log.warn(`adlt.on(binary): unhandled tag:'${JSON.stringify(bin_type)}'`)
                     break
@@ -637,6 +654,14 @@ export class AdltDocument implements vscode.Disposable {
               log.info(`adlt.AdltDocumentProvider got matching adlt version ${this.adltVersion} vs ${MIN_ADLT_VERSION_SEMVER_RANGE}.`)
             }
           }
+          let hdr_archives_supported = response.headers['adlt-archives-supported']
+          let archives_supported =
+            hdr_archives_supported && !Array.isArray(hdr_archives_supported)
+              ? hdr_archives_supported.length > 0
+                ? hdr_archives_supported.split(',')
+                : []
+              : []
+          log.info(`adlt.AdltDocumentProvider got archives_supported=${JSON.stringify(archives_supported)}`)
         })
         this.webSocket.on('open', () => {
           this.webSocketIsConnected = true
@@ -1140,6 +1165,7 @@ export class AdltDocument implements vscode.Disposable {
     let p = new Promise<void>((resolve, reject) => {
       this.sendAndRecvAdltMsg(`close`)
         .then(() => {
+          this.statusProgress = undefined
           const lastFileInfoNrMsgs = this.fileInfoNrMsgs
           this.processFileInfoUpdates({ nr_msgs: 0 })
           this.processLifecycleUpdates([]) // to remove any filters from lifecycles as they become invalid
@@ -2388,23 +2414,37 @@ export class AdltDocument implements vscode.Disposable {
   updateStatusBarItem(item: vscode.StatusBarItem) {
     this.lastUpdatedStatusBar = Date.now()
     if (this.webSocketIsConnected) {
-      item.text =
-        this.visibleMsgs !== undefined && this.visibleMsgs.length !== this.fileInfoNrMsgs
-          ? `${this.visibleMsgs.length}/${this.fileInfoNrMsgs} msgs`
-          : `${this.fileInfoNrMsgs} msgs`
-      let nrEnabledFilters: number = 0
-      this.allFilters.forEach((filter) => {
-        if (!filter.atLoadTime && filter.enabled && (filter.type === DltFilterType.POSITIVE || filter.type === DltFilterType.NEGATIVE)) {
-          nrEnabledFilters++
+      if (this.statusProgress !== undefined) {
+        item.text = `$(sync~spin) ${this.statusProgress.action}:${this.statusProgress.cur_progress}/${this.statusProgress.max_progress}`
+        if (this.statusProgress.cur_progress === this.statusProgress.max_progress) {
+          // remove in 1s
+          setTimeout(() => {
+            if (this.statusProgress && this.statusProgress.cur_progress === this.statusProgress.max_progress) {
+              this.statusProgress = undefined
+              this.emitStatusChanges.fire(this.uri)
+            }
+          }, 1000)
         }
-      })
-      const nrAllFilters = this.allFilters.length
-      // todo show wss connection status
-      item.tooltip = `ADLT v${this.adltVersion || ':unknown!'}: ${this._fileNames.join(', ')}, showing max ${this._maxNrMsgs} msgs, ${
-        0 /*this._timeAdjustMs / 1000*/
-      }s time-adjust, ${
-        0 /* todo this.timeSyncs.length*/
-      } time-sync events, ${nrEnabledFilters}/${nrAllFilters} enabled filters, sorted by ${this._sortOrderByTime ? 'time' : 'index'}`
+        this.statusProgress = undefined // we let any other msg overwrite it
+      } else {
+        item.text =
+          this.visibleMsgs !== undefined && this.visibleMsgs.length !== this.fileInfoNrMsgs
+            ? `${this.visibleMsgs.length}/${this.fileInfoNrMsgs} msgs`
+            : `${this.fileInfoNrMsgs} msgs`
+        let nrEnabledFilters: number = 0
+        this.allFilters.forEach((filter) => {
+          if (!filter.atLoadTime && filter.enabled && (filter.type === DltFilterType.POSITIVE || filter.type === DltFilterType.NEGATIVE)) {
+            nrEnabledFilters++
+          }
+        })
+        const nrAllFilters = this.allFilters.length
+        // todo show wss connection status
+        item.tooltip = `ADLT v${this.adltVersion || ':unknown!'}: ${this._fileNames.join(', ')}, showing max ${this._maxNrMsgs} msgs, ${
+          0 /*this._timeAdjustMs / 1000*/
+        }s time-adjust, ${
+          0 /* todo this.timeSyncs.length*/
+        } time-sync events, ${nrEnabledFilters}/${nrAllFilters} enabled filters, sorted by ${this._sortOrderByTime ? 'time' : 'index'}`
+      }
     } else {
       item.text = '$(alert) adlt not con!'
       item.tooltip = `ADLT: ${this._fileNames.join(', ')}, not connected to adlt via websocket!`
@@ -2420,6 +2460,12 @@ export class AdltDocument implements vscode.Disposable {
     this.fileInfoNrMsgs = fileInfo.nr_msgs
     this.emitStatusChanges.fire(this.uri)
     this.checkActiveRestQueryDocChanged()
+  }
+
+  processProgress(progress: remote_types.BinProgress) {
+    this.log.info(`adlt progress: ${progress.cur_progress}/${progress.max_progress} '${progress.action}'`)
+    this.statusProgress = progress
+    this.emitStatusChanges.fire(this.uri)
   }
 
   clearLifecycleInfos() {
@@ -3616,6 +3662,53 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider, /*vscode
 
   get onDidChangeFile() {
     return this._onDidChangeFile.event
+  }
+
+  localADltInfo: Record<string, string | string[]> | undefined
+
+  async getLocalADltInfo(): Promise<Record<string, string | string[]>> {
+    const log = this.log
+    if (this.localADltInfo !== undefined) {
+      return this.localADltInfo
+    } else {
+      return new Promise(async (resolve, reject) => {
+        try {
+          let res: Record<string, string | string[]> = {}
+          const address = await this.getAdltProcessAndPort().then((port) => `ws://localhost:${port}`)
+          log.info(`getLocalADltInfo using:'${address}'`)
+          const webSocket = new WebSocket(address, [], { perMessageDeflate: false, origin: 'adlt-logs', maxPayload: 1_000_000_000 })
+          webSocket.on('upgrade', (response) => {
+            const ah = response.headers['adlt-version']
+            const adltVersion = ah && !Array.isArray(ah) ? ah : ah && Array.isArray(ah) ? ah.join(',') : undefined
+            if (adltVersion) {
+              res['adlt-version'] = adltVersion
+            }
+            let hdr_archives_supported = response.headers['adlt-archives-supported']
+            let archives_supported =
+              hdr_archives_supported && !Array.isArray(hdr_archives_supported)
+                ? hdr_archives_supported.length > 0
+                  ? hdr_archives_supported.split(',')
+                  : []
+                : []
+            res['adlt-archives-supported'] = archives_supported
+            webSocket.close()
+            this.localADltInfo = res
+            log.info(`getLocalADltInfo returning: ${JSON.stringify(res)}`)
+            resolve(res)
+          })
+          // wait 3s (otherwise the webSocket gets closed instantly...)
+          await util.sleep(3000)
+          if (this.localADltInfo === undefined) {
+            log.info(`getLocalADltInfo 3s timeout`)
+            reject('timeout')
+          }
+          webSocket.close()
+        } catch (e) {
+          log.warn(`getLocalADltInfo got error: ${e}`)
+          reject(e)
+        }
+      })
+    }
   }
 
   stat(uri: vscode.Uri): vscode.FileStat | Thenable<vscode.FileStat> {

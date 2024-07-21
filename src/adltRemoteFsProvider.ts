@@ -162,7 +162,7 @@ export class AdltRemoteFSProvider implements vscode.FileSystemProvider {
 
   stat(uri: vscode.Uri): vscode.FileStat | Thenable<vscode.FileStat> {
     const log = this.log
-    log.trace(`AdltRemoteFSProvider.stat(uri=${uri.toString().slice(0, 100)}...`)
+    log.trace(`AdltRemoteFSProvider.stat(uri=${uri.toString().slice(0, 100)})...`)
     // this is a weird hack as the openFileDialog has issues if the path is only /
     // so we add /fs/ to the path and remove it towards adlt then
     if (!uri.path.startsWith('/fs')) {
@@ -172,7 +172,7 @@ export class AdltRemoteFSProvider implements vscode.FileSystemProvider {
     const path = uri.path.startsWith('/fs') ? uri.path.slice(3) : uri.path
     return this.sendAndRecv(`fs ${JSON.stringify({ cmd: 'stat', path })}`).then(
       (resp) => {
-        log.trace(`AdltRemoteFSProvider.stat(uri=${uri.toString().slice(0, 100)}... got resp='${resp.slice(0, 100)}...'`)
+        log.info(`AdltRemoteFSProvider.stat(uri=${uri.toString().slice(0, 100)})... got resp='${resp.slice(0, 100)}...'`)
         if (resp.startsWith('ok: fs:')) {
           const respObj = JSON.parse(resp.slice(7))
           // log.info(`AdltRemoteFSProvider.stat(${uri.path}) respObj=${JSON.stringify(respObj)}`)
@@ -185,7 +185,7 @@ export class AdltRemoteFSProvider implements vscode.FileSystemProvider {
               mtime: stat.mtime || 0,
               type: AdltRemoteFSProvider.convertAdltFileTypeToVscodeFileType(stat.type),
             }
-            log.trace(`AdltRemoteFSProvider.stat(${uri.path})=${JSON.stringify(toRet)}`)
+            log.info(`AdltRemoteFSProvider.stat(${uri.path})=${JSON.stringify(toRet)}`)
             return toRet
           }
         } else {
@@ -230,11 +230,11 @@ export class AdltRemoteFSProvider implements vscode.FileSystemProvider {
               return [entry.name, AdltRemoteFSProvider.convertAdltFileTypeToVscodeFileType(entry.type)]
             })
             entries = entries.filter((e) => !e[0].startsWith('.')) // we remove all hidden files
-            // log.info(`AdltRemoteFSProvider.readDirectory entries=${JSON.stringify(entries)}`)
+            log.info(`AdltRemoteFSProvider.readDirectory entries=${JSON.stringify(entries)}`)
             return entries
           }
         }
-        log.warn(`AdltRemoteFSProvider.readDirectory(uri=${uri.toString().slice(0, 100)}... got nok resp='${resp.slice(0, 100)}...'`)
+        log.warn(`AdltRemoteFSProvider.readDirectory(uri=${uri.toString().slice(0, 200)}... got nok resp='${resp.slice(0, 100)}...'`)
         return []
       },
       (reason) => {
