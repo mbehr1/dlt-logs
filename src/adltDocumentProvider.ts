@@ -435,7 +435,8 @@ export class AdltDocument implements vscode.Disposable {
     const isLocalAddress = uri.authority === undefined || uri.authority === ''
     if (isLocalAddress) {
       const fileExists = this._fileNames.length > 0 && fs.existsSync(this._fileNames[0])
-      const isLocalArchive = !fileExists && this._fileNames.length > 0 && this._fileNames[0].includes('!/')
+      const isLocalArchive =
+        !fileExists && this._fileNames.length > 0 && (this._fileNames[0].includes('!/') || this._fileNames[0].includes('!\\'))
       if (!(fileExists || isLocalArchive)) {
         log.warn(`AdltDocument file ${uri.toString()} ('${JSON.stringify(this._fileNames)}') doesn't exist!`)
         throw Error(`AdltDocument file ${uri.toString()} doesn't exist!`)
