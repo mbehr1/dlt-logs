@@ -266,7 +266,15 @@ export function decodeAdltUri(uri: vscode.Uri): string[] {
   } else {
     if (isLocalAddress) {
       const fileUri = uri.with({ scheme: 'file' })
-      fileNames = [fileUri.fsPath]
+      if (uri.path.includes('!/')) {
+        // we want the first part as fsPath but the 2nd part with regular / (and not \ on windows)
+        const parts = fileUri.path.split('!/')
+        const firstPartUri = uri.with({ scheme: 'file', path: parts[0] })
+        const otherParts = parts.slice(1).join('!/').replaceAll('\\', '/')
+        fileNames = [firstPartUri.fsPath + '!/' + otherParts]
+      } else {
+        fileNames = [fileUri.fsPath]
+      }
     } else {
       fileNames = [uri.path.startsWith('/fs') ? uri.path.slice(3) : uri.path]
     }
@@ -435,8 +443,7 @@ export class AdltDocument implements vscode.Disposable {
     const isLocalAddress = uri.authority === undefined || uri.authority === ''
     if (isLocalAddress) {
       const fileExists = this._fileNames.length > 0 && fs.existsSync(this._fileNames[0])
-      const isLocalArchive =
-        !fileExists && this._fileNames.length > 0 && (this._fileNames[0].includes('!/') || this._fileNames[0].includes('!\\'))
+      const isLocalArchive = !fileExists && this._fileNames.length > 0 && this._fileNames[0].includes('!/')
       if (!(fileExists || isLocalArchive)) {
         log.warn(`AdltDocument file ${uri.toString()} ('${JSON.stringify(this._fileNames)}') doesn't exist!`)
         throw Error(`AdltDocument file ${uri.toString()} doesn't exist!`)
