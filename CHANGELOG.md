@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.89.4](https://github.com/mbehr1/dlt-logs/compare/v1.89.3...v1.89.4) (2024-07-22)
+
+
+### Bug Fixes
+
+* **unzip:** normalize paths within multiple files ([6838074](https://github.com/mbehr1/dlt-logs/commit/683807432f8daa1a880ee78ade4ecb55de1badb3))
+
 ## [1.89.3](https://github.com/mbehr1/dlt-logs/compare/v1.89.2...v1.89.3) (2024-07-21)
 
 
