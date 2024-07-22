@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.89.5](https://github.com/mbehr1/dlt-logs/compare/v1.89.4...v1.89.5) (2024-07-22)
+
+
+### Bug Fixes
+
+* **unzip:** support archive filenames with glob pattern chars ([c208488](https://github.com/mbehr1/dlt-logs/commit/c208488548564208c34581bfe0ea65c5f0bbe164))
+
 ## [1.89.4](https://github.com/mbehr1/dlt-logs/compare/v1.89.3...v1.89.4) (2024-07-22)
 
 
