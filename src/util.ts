@@ -291,3 +291,24 @@ export function safeStableStringify(obj: any): string | undefined {
   // so we convert bigints to strings with the number + 'n' here
   return stringify(obj, (_, v) => (typeof v === 'bigint' ? v.toString() + 'n' : v))
 }
+
+/**
+ * Normalize the slashes used as internal paths within an archive uri.
+ * Archive Uris have <filepath>!/<internal path>
+ * 
+ * @param fsPath - an fsPath from an Uri. E.g. under windows having \ and not /
+ * @returns a fsPath to the archive filename but the internal part with / instead of \
+ */
+export function normalizeArchivePaths(fsPath: string): string {
+  if (fsPath.includes('!\\')) {
+    const parts = fsPath.split('!\\')
+    if (parts.length<2){
+      return fsPath
+    }
+    const firstPart = parts[0] + '!/'
+    const otherParts = parts.slice(1).join('!/').replaceAll('\\', '/')
+    return firstPart + otherParts
+  } else {
+    return fsPath
+  }
+}
