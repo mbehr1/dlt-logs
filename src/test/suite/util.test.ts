@@ -1,7 +1,7 @@
 import * as assert from 'assert'
 
 import { generateRegex } from '../../generateRegex'
-import { partitionPoint } from '../../util'
+import { partitionPoint, normalizeArchivePaths } from '../../util'
 
 suite('Util Test Suite', () => {
   test('partitionPoint', () => {
@@ -27,5 +27,15 @@ suite('Util Test Suite', () => {
     const arr: any[] = []
     const index = partitionPoint(arr, (x) => x < 8)
     assert.strictEqual(index, 0) // returns 0 for empty arrays
+  })
+  test('normalizearchivePaths', () => {
+    assert.strictEqual(normalizeArchivePaths('foo'), 'foo')
+    assert.strictEqual(normalizeArchivePaths('/mount/dir/filename'), '/mount/dir/filename')
+    assert.strictEqual(normalizeArchivePaths('c:\\dir\\filename'), 'c:\\dir\\filename')
+    assert.strictEqual(normalizeArchivePaths('c:\\dir\\filename!'), 'c:\\dir\\filename!')
+    assert.strictEqual(normalizeArchivePaths('c:\\dir\\filename!\\path2'), 'c:\\dir\\filename!/path2')
+    assert.strictEqual(normalizeArchivePaths('c:\\dir\\filename!\\path2\\path3'), 'c:\\dir\\filename!/path2/path3')
+    assert.strictEqual(normalizeArchivePaths('c:\\dir\\filename!\\path2\\path3\\'), 'c:\\dir\\filename!/path2/path3/')
+    assert.strictEqual(normalizeArchivePaths('c:\\dir\\filename!\\path2!\\path3'), 'c:\\dir\\filename!/path2!/path3')
   })
 })

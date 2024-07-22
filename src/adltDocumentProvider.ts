@@ -47,6 +47,7 @@ import { generateRegex } from './generateRegex'
 import * as JSON5 from 'json5'
 import { AdltRemoteFSProvider } from './adltRemoteFsProvider'
 import { AdltCommentThread, AdltComment, restoreComments, persistComments, purgeOldComments } from './adltComments'
+import { normalizeArchivePaths } from './util'
 
 //import { adltPath } from 'node-adlt';
 // with optionalDependency we use require to catch errors
@@ -249,9 +250,9 @@ export function decodeAdltUri(uri: vscode.Uri): string[] {
         // console.warn(`adlt got encoded jsonObj=${JSON.stringify(jsonObj)}`);
         // we use the multiple files only if the first entry is same as path
         // this is to prevent vscode automatic changes of uris e.g. on breadcrumb selecction
-        let allFileNames = jsonObj.lf.filter((f: any) => typeof f === 'string').map((f: string) => path.resolve(basePath, f))
+        let allFileNames: string[] = jsonObj.lf.filter((f: any) => typeof f === 'string').map((f: string) => path.resolve(basePath, f))
         if (allFileNames.length > 1 && allFileNames[0] === fileNames[0]) {
-          fileNames = allFileNames
+          fileNames = allFileNames.map(normalizeArchivePaths)
         } else {
           // this is not a bug:
           //console.log(`adlt got encoded allFiles not matching first file`, allFileNames, fileNames[0])
