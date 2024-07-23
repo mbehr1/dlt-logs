@@ -17,6 +17,7 @@ A more detailed documentation is available here: [Docs](https://mbehr1.github.io
 - Open DLT files (Mac: &#8679;&#8984;P "Open DLT file...", Linux/Win: Ctrl+Shift+P "Open DLT file..." ) command that uses the provided adlt binary and is only limited by your virtual address space. Tested with 20GB DLT file.
   - supports opening multiple files at once
   - supports opening of CAN .asc files (simply choose the .asc file instead of .dlt files during "Open DLT file..." command)
+  - supports opening of archives directly (win/mac: .zip, .7z, .bz2, .gz, .tar.gz, .tar.bz2, others: .zip) incl. multi-volume archives
   - supports all plugins including a 'CAN' plugin.
   - sorts DLT messages automatically by the monotonic timestamp (and first by lifecycles)
   - an adlt binary is provided with the extension and the path to it is available in VS code terminals or via command "New terminal with adlt in path".
