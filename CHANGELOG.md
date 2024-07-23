@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.90.0](https://github.com/mbehr1/dlt-logs/compare/v1.89.5...v1.90.0) (2024-07-23)
+
+
+### Features
+
+* **unzip:** add .7z, .bz2, ... to windows version ([909bec1](https://github.com/mbehr1/dlt-logs/commit/909bec1a2854feba5625ce15730dfcab241ea86e))
+
 ## [1.89.5](https://github.com/mbehr1/dlt-logs/compare/v1.89.4...v1.89.5) (2024-07-22)
 
 
