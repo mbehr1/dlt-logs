@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.91.0](https://github.com/mbehr1/dlt-logs/compare/v1.90.0...v1.91.0) (2024-07-24)
+
+
+### Features
+
+* **unzip:** cache archive listing ([a8287be](https://github.com/mbehr1/dlt-logs/commit/a8287be730d6357fa91bbd3a319ae13264b78b24))
+
 ## [1.90.0](https://github.com/mbehr1/dlt-logs/compare/v1.89.5...v1.90.0) (2024-07-23)
 
 
