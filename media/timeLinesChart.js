@@ -122,15 +122,19 @@ colorScale.domain = (a) => {
 };
 
 const segmentTooltipContent = (seg) => {
-    const startTime = seg.timeRange[0];
-    const endTime = seg.timeRange[1];
-    const toolTip = seg?.val.t;
-    if (startTime === endTime) {
-        return `'${seg.group}.${seg.label}' = '<strong>${seg.labelVal}</strong>'${toolTip ? `<br>${toolTip}<br>` : '<br>'}${moment(startTime).format('LTS.SSS [ms]')}`;
-    } else {
-        const durS = (endTime - startTime) / 1000;
-        return `'${seg.group}.${seg.label}' = '<strong>${seg.labelVal}</strong>'${toolTip ? `<br>${toolTip}<br>` : '<br>'}${moment(startTime).format('LTS.SSS [ms]')}-${moment(endTime).format('LTS.SSS [ms]')}<br>duration ${durS.toFixed(3)}s`;
-    }
+  const startTime = seg.timeRange[0]
+  const endTime = seg.timeRange[1]
+  const toolTip = seg?.val.t
+  if (startTime === endTime) {
+    return `'${seg.group}.${seg.label}' = '<strong>${seg.labelVal}</strong>'${toolTip ? `<br>${toolTip}<br>` : '<br>'}${moment(
+      startTime,
+    ).format('LTS.SSS [ms]')}`
+  } else {
+    const durS = (endTime - startTime) / 1000
+    return `'${seg.group}.${seg.label}' = '<strong>${seg.labelVal}</strong>'${toolTip ? `<br>${toolTip}<br>` : '<br>'}${moment(
+      startTime,
+    ).format('LTS.SSS [ms]')}-${moment(endTime).format('LTS.SSS [ms]')}<br>duration ${durS.toFixed(3)}s`
+  }
 };
 
 const handleSegmentClick = (ev) => {
