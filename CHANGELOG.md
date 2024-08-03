@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.92.0](https://github.com/mbehr1/dlt-logs/compare/v1.91.0...v1.92.0) (2024-08-03)
+
+
+### Features
+
+* **report:** use dlt-logs-utils v0.2.0 providing tlAll ([6d771cd](https://github.com/mbehr1/dlt-logs/commit/6d771cd2d7bd62b9a5304db0f9f4030ad77ef226))
+
 ## [1.91.0](https://github.com/mbehr1/dlt-logs/compare/v1.90.0...v1.91.0) (2024-07-24)
 
 
