@@ -467,6 +467,77 @@ TL_name:value | description
 <code>TL_group1_lane2:"up\|startup done"</code> | lane2 in group1 showing value "up" and tooltip "startup done" in any of the default colors.
 <code>TL_group1_lane2:"unavailable\|port not open\|\|$"</code> | lane2 in group1 showing value "unavailable" and tooltip "port not open" until next value even if in new lifecycle.
 
+### Utility library
+
+To ease generation/handling of the timelines the [dlt-logs-util](https://github.com/mbehr1/dlt-logs-utils) library is accessible from within the conversion functions.
+
+The library is currently imported as `uv0`. (utility version 0 mapping to the library major version 0).
+
+#### TL class
+
+The `TL`class helps to create the [timeline format](#timeline-value-format-details):
+
+From inside the [conversion function](#using-a-function-to-calculate-values) use e.g.:
+```javascript
+const value = matches[1]
+return new uv0.TL('group','lane', value,
+  { tooltip: 'a tooltip for value', 
+    color: 'green',
+    tlEnds: false,
+    persistsLcs: true
+  } )
+```
+
+TL constructor parameters | description
+---------------------- | -----------
+group | group name. Invalid chars will be removed.
+lane | lane name. Invalid chars will be removed.
+value | the value to use for the lane
+options | optional object with the following optional parameters:
+options.tooltip | tooltip to use. `\|` will be replaced with `' '` (space)
+options.color | the html color name to use.
+options.tlEnds | boolean whether the timeline should end after this value. Default false
+options.persistsLcs | shall the timeline end at the current lifecycle end? Default false
+options.lateEval | Indicates whether the value should be evaluated at constructor time or at the end of report generation. Default false
+
+#### tlAll function
+
+The `tlAll(...)` function helps to manage a timeline that represents multiple states in a single lane.
+Example:
+
+```javascript
+
+// this example expects the regex to capture to names groups name "state1" and "state2".
+// e.g. from a regex like ^state1:(<?state1>.*?), state2:(<?state2>.*)$
+// for log lines like: "state1: available, state2: AVAIL"
+// here if state1 is "available" and state2 is "AVAIL" the overall timeline gets "ok"/green. 
+
+return tlAll(matches, params, 'group1', 'lane1',
+  () => [
+    new TLStRegExpNamedGroup('state1', (v)=> v === 'available' ? 'ok':'error', 'a tooltip for state1'), // tooltip is optional, no default value here,
+    new TLStRegExpNamedGroup('state2', (v)=> v === 'AVAIL' ? 'ok':'error', 'a tooltip for state2', 'warning'), // default value here 'warning'
+    ],
+  () => uv0.TLStateColorMap3S // contains error/red, warning/yellow, undefined/gray and ok/green (so 3 color states and undefined)
+)
+```
+
+`tlAll` creates a singleton / single class instance of uv0.TLAll per group/lane. That class debounces similar values, i.e. only returns a new TL object in case of value changes.
+
+See [tlAll.ts](https://github.com/mbehr1/dlt-logs-utils/blob/d76aec06310b720de5fe5ef2353c8f3819397345/src/tlAll.ts#L304) for the full parameters of `tlAll`.
+
+The [TLStRegExpNamedGroup](https://github.com/mbehr1/dlt-logs-utils/blob/d76aec06310b720de5fe5ef2353c8f3819397345/src/tlAll.ts#L178) captures the values of a named capture group.
+
+There is a more generic [TLState](https://github.com/mbehr1/dlt-logs-utils/blob/d76aec06310b720de5fe5ef2353c8f3819397345/src/tlAll.ts#L178) class and a [TLStRegExpIdxGroup](https://github.com/mbehr1/dlt-logs-utils/blob/d76aec06310b720de5fe5ef2353c8f3819397345/src/tlAll.ts#L230) available as well.
+
+You can as well use your own state to color map like:
+```javascript
+...,
+() => new Map([['disconnected', 'red'], ['connected','green']])
+// instead of () => uv0.TLStateColorMap3S
+```
+in this case an `undefined/gray` will be inserted automatically before `connected/green`.
+The overall state for the timeline is the first value from the map used by any of the states. E.g. if all are `connected` then `connected/green` is used. If any is `disconnected` or `undefined`then that value is used.  
+
 ###  Sort order within a timeline chart
 
 By default the groups will be ordered by their group name (alphabetic / locale compare).
