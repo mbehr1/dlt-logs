@@ -15,36 +15,30 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            platform: win32
-            arch: x64
+            vsce_target: win32-x64
             npm_config_arch: x64
           # - os: windows-latest
           #  platform: win32
           #  arch: arm64
           #  npm_config_arch: arm
           - os: ubuntu-latest
-            platform: linux
-            arch: x64
+            vsce_target: linux-x64
             npm_config_arch: x64
           - os: ubuntu-latest
-            platform: linux
-            arch: arm64
+            vsce_target: linux-arm64
             npm_config_arch: arm64
           # - os: ubuntu-latest
           #  platform: linux
           #  arch: armhf
           #  npm_config_arch: arm
           - os: ubuntu-latest
-            platform: alpine
-            arch: x64
+            vsce_target: alpine-x64
             npm_config_arch: x64
           - os: macos-latest
-            platform: darwin
-            arch: x64
+            vsce_target: darwin-x64
             npm_config_arch: x64
           - os: macos-latest
-            platform: darwin
-            arch: arm64
+            vsce_target: darwin-arm64
             npm_config_arch: arm64
     runs-on: ${{ matrix.os }}
     steps:
@@ -60,12 +54,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           npm_config_arch: ${{ matrix.npm_config_arch }}
       - run: npx vsce --version
-      - shell: pwsh
-        run: echo "target=${{ matrix.platform }}-${{ matrix.arch }}" >> $env:GITHUB_ENV
-      - run: npx vsce package --target ${{ env.target }}
+      - run: npx vsce package --target ${{ matrix.vsce_target }}
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.target }}
+          name: ${{ matrix.vsce_target }}
           path: "*.vsix"
 
   publish:
@@ -75,6 +67,9 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
       - run: npx @vscode/vsce publish --packagePath $(find . -iname *.vsix)
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_TOKEN }}
+      - run: npx @vscode/vsce publish --target win32-arm64 --packagePath $(find . -iname dlt-logs-win32-x64-*.vsix)
         env:
           VSCE_PAT: ${{ secrets.VSCE_TOKEN }}
       - run: echo $(find . -iname *.vsix)
