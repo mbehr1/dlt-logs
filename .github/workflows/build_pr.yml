@@ -13,10 +13,11 @@ jobs:
             platform: win32
             arch: x64
             npm_config_arch: x64
-          # - os: windows-latest
-          #  platform: win32
-          #  arch: arm64
-          #  npm_config_arch: arm
+          - os: windows-latest
+            vsce_target: win32-arm64
+            platform: win32
+            arch: x64_for_arm64 # for now we do use the win build
+            npm_config_arch: x64
           - os: ubuntu-latest
             vsce_target: linux-x64
             platform: linux
