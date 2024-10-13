@@ -15,7 +15,7 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            vsce_target: win32-x64 win32-arm64
+            vsce_target: win32-x64
             npm_config_arch: x64
           # - os: windows-latest
           #  platform: win32
@@ -67,6 +67,9 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
       - run: npx @vscode/vsce publish --packagePath $(find . -iname *.vsix)
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_TOKEN }}
+      - run: npx @vscode/vsce publish --target win32-arm64 --packagePath $(find . -iname dlt-logs-win32-x64-*.vsix)
         env:
           VSCE_PAT: ${{ secrets.VSCE_TOKEN }}
       - run: echo $(find . -iname *.vsix)

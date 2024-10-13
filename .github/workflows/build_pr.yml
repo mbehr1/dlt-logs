@@ -9,7 +9,7 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            vsce_target: win32-x64 win32-arm64
+            vsce_target: win32-x64
             platform: win32
             arch: x64
             npm_config_arch: x64
