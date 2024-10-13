@@ -195,13 +195,13 @@ Currently the binaries are included for:
 - macOS, x64, x86_64-apple-darwin
 - macOS, arm64, aarch64-apple-darwin (e.g. M1 Macs)
 - Windows, win32 x64 64bit, x86_64-pc-windows-msvc
-- Windows, win32 ia32 32bit, i686-pc-windows-msvc
+- Windows, win32 arm64 <- includes the binaries for win32-x64 relying on win emulation. (native arm64 binaries in preparation)
 - Linux, x64,  (MUSL), x86_64-unknown-linux-musl
 - Linux, arm64, aarch64-unknown-linux-gnu
 - Alpine, x64, (MUSL), x86_64-unknown-linux-musl
 
 So missing are:
-- Windows, win32-arm64
+- Windows, win32-arm64 (native binaries)
 - Linux, linux-armhf
 - Alpine Linux, alpine-arm64.
 
