@@ -17,10 +17,9 @@ jobs:
           - os: windows-latest
             vsce_target: win32-x64
             npm_config_arch: x64
-          # - os: windows-latest
-          #  platform: win32
-          #  arch: arm64
-          #  npm_config_arch: arm
+          - os: windows-latest
+            vsce_target: win32-arm64
+            npm_config_arch: x64 # for now we use the win32 build
           - os: ubuntu-latest
             vsce_target: linux-x64
             npm_config_arch: x64
@@ -66,10 +65,10 @@ jobs:
     if: success()
     steps:
       - uses: actions/download-artifact@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
       - run: npx @vscode/vsce publish --packagePath $(find . -iname *.vsix)
-        env:
-          VSCE_PAT: ${{ secrets.VSCE_TOKEN }}
-      - run: npx @vscode/vsce publish --target win32-arm64 --packagePath $(find . -iname dlt-logs-win32-x64-*.vsix)
         env:
           VSCE_PAT: ${{ secrets.VSCE_TOKEN }}
       - run: echo $(find . -iname *.vsix)
