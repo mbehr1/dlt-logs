@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.92.2](https://github.com/mbehr1/dlt-logs/compare/v1.92.1...v1.92.2) (2024-10-13)
+
+
+### Bug Fixes
+
+* **readme:** update supported platforms ([8108d26](https://github.com/mbehr1/dlt-logs/commit/8108d26a7dfd5eec2197e73a06a18e14be5758bd))
+
 ## [1.92.1](https://github.com/mbehr1/dlt-logs/compare/v1.92.0...v1.92.1) (2024-10-13)
 
 
