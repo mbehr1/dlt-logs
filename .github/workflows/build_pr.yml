@@ -9,6 +9,7 @@ jobs:
       matrix:
         include:
           - os: windows-latest
+            vsce_target: win32-x64 win32-arm64
             platform: win32
             arch: x64
             npm_config_arch: x64
@@ -17,10 +18,12 @@ jobs:
           #  arch: arm64
           #  npm_config_arch: arm
           - os: ubuntu-latest
+            vsce_target: linux-x64
             platform: linux
             arch: x64
             npm_config_arch: x64
           - os: ubuntu-latest
+            vsce_target: linux-arm64
             platform: linux
             arch: arm64
             npm_config_arch: arm64
@@ -29,14 +32,17 @@ jobs:
           #  arch: armhf
           #  npm_config_arch: arm
           - os: ubuntu-latest
+            vsce_target: alpine-x64
             platform: alpine
             arch: x64
             npm_config_arch: x64
           - os: macos-latest
+            vsce_target: darwin-x64
             platform: darwin
             arch: x64
             npm_config_arch: x64
           - os: macos-latest
+            vsce_target: darwin-arm64
             platform: darwin
             arch: arm64
             npm_config_arch: arm64
@@ -56,7 +62,7 @@ jobs:
       - run: npx vsce --version
       - shell: pwsh
         run: echo "target=${{ matrix.platform }}-${{ matrix.arch }}" >> $env:GITHUB_ENV
-      - run: npx vsce package --out dlt-logs-${{env.target}}-PR${{github.event.number}}.vsix --target ${{ env.target }}
+      - run: npx vsce package --out dlt-logs-${{env.target}}-PR${{github.event.number}}.vsix --target ${{ matrix.vsce_target }}
       - uses: actions/upload-artifact@v4
         with:
           name: dlt-logs-vsix-${{ env.target }}
