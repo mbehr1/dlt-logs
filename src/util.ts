@@ -312,3 +312,47 @@ export function normalizeArchivePaths(fsPath: string): string {
     return fsPath
   }
 }
+
+// define a type that has just the readDirectory method from the vscode.FileSystem
+interface FsProvider {
+  readDirectory(uri: vscode.Uri): [string, vscode.FileType][] |Thenable<[string, vscode.FileType][]>,
+}
+
+/**
+ * search a fsProvider recursively for matches
+ * Aborts once the number of matches is reached or the search is finished.
+ * 
+ * Intended use-case is for the comfort function on opening a zip archive
+ * that it doesn't ask for file selection within the archive if just a single
+ * file is found.
+ */
+export async function recursiveFsSearch(fsp: FsProvider, uri: vscode.Uri,
+  match:(entry: [string, vscode.FileType])=>boolean,
+  maxMatches:number|undefined, 
+): Promise<[string, vscode.FileType][]> {
+  return new Promise((resolve, reject) => {
+    const matches: [string, vscode.FileType][] = []
+    let matchesLeft = maxMatches
+    const search = async (relPath: string, uri: vscode.Uri) => {
+      console.warn(`recursiveFsSearch: searching relPath='${relPath}' uri='${uri.toString()}'`)
+      const entries = await fsp.readDirectory(uri)
+      for (const entry of entries) {
+        if (match(entry)) {
+          matches.push([relPath + entry[0], entry[1]])
+          if (matchesLeft !== undefined) {
+            matchesLeft--
+            if (matchesLeft <= 0) {
+              resolve(matches)
+              return
+            }
+          }
+        }
+        if (entry[1] === vscode.FileType.Directory) {
+          const newPath = uri.path.endsWith('/') ? uri.path + entry[0] : uri.path + '/' + entry[0]
+          await search(relPath+entry[0]+'/',uri.with({ path: newPath }))
+        }
+      }
+    }
+    search('',uri).then(() => resolve(matches)).catch(reject)
+  })
+}

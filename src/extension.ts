@@ -345,18 +345,29 @@ export function activate(context: vscode.ExtensionContext) {
                 log.info(`open dlt via adlt got archive URI=${uri.toString()}`) // e.g. file:///Users/mbehr/Downloads/logs_25091896545.zip
                 const fsUri = vscode.Uri.from({ scheme: adltScheme, path: `/fs${uri.fsPath}!/`, authority: localAddr })
 
-                const dirEntries = await adltProvider.readDirectory(fsUri)
-                const onlyFiles = !dirEntries.some((e) => e[1] !== vscode.FileType.File)
-                const supportedFiles = dirEntries.filter((e) => file_exts_wo_archives.some((ext) => e[0].endsWith(ext)))
-                const isSingleFile = onlyFiles && supportedFiles.length === 1
-                log.info(
-                  `readDirectory(${fsUri.toString()}) got ${dirEntries.length} entries, supportedFiles=${
-                    supportedFiles.length
-                  } isSingleFile=${isSingleFile} onlyFiles=${onlyFiles} dirEntries=${JSON.stringify(dirEntries)}`,
-                )
+                // we search recursively for files in the archive and stop once we have 2
+                // as we want to support the comfort function of opening the zip file
+                // if just one supported file is inside
+                const getSupportedFiles = async () => {
+                  try {
+                    return await util.recursiveFsSearch(
+                      adltProvider,
+                      fsUri,
+                      (e) => e[1] === vscode.FileType.File && file_exts_wo_archives.some((ext) => e[0].endsWith(ext)),
+                      2,
+                    )
+                  } catch (err) {
+                    log.error(`open dlt: recursiveFsSearch got err=${err}`)
+                    return []
+                  }
+                }
+                const supportedFiles = await getSupportedFiles()
+                
+                const isSingleFile = supportedFiles.length === 1
                 if (isSingleFile) {
                   return [vscode.Uri.from({ scheme: uri.scheme, path: `${uri.fsPath}!/${supportedFiles[0][0]}` })]
                 } else {
+                  // todo could reject if no supported file is found
                   const res = await showOpenDialog({
                     defaultUri: fsUri,
                     canSelectFiles: true,
