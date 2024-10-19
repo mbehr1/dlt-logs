@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.92.3](https://github.com/mbehr1/dlt-logs/compare/v1.92.2...v1.92.3) (2024-10-19)
+
+
+### Bug Fixes
+
+* automatically open zip file with 1 embedded file ([ba6ee85](https://github.com/mbehr1/dlt-logs/commit/ba6ee85c26371c37869992ecdf614867d987c9c0))
+
 ## [1.92.2](https://github.com/mbehr1/dlt-logs/compare/v1.92.1...v1.92.2) (2024-10-13)
 
 
