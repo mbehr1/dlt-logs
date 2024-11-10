@@ -25,7 +25,8 @@
 import * as vscode from 'vscode'
 import TelemetryReporter from '@vscode/extension-telemetry'
 import * as fs from 'fs'
-import * as WebSocket from 'ws'
+//import * as WebSocket from 'ws' // fails with esbuild with TypeError: ... is not a constructor
+import { WebSocket } from 'ws'
 import * as util from './util'
 import * as path from 'path'
 import * as semver from 'semver'
@@ -55,8 +56,9 @@ let adltPath: string | undefined = undefined
 try {
   var adltModule = require('node-adlt')
   adltPath = adltModule ? adltModule.adltPath : undefined
+  console.log(`node-adlt.adltPath=${adltPath}`)
 } catch (err) {
-  console.warn('node-adlt not available!')
+  console.warn(`node-adlt not available! (err=${err}`)
 }
 
 /// minimum adlt version required
@@ -64,6 +66,7 @@ try {
 /// see https://www.npmjs.com/package/semver#prerelease-identifiers
 //const MIN_ADLT_VERSION_SEMVER_RANGE = ">=0.16.0";
 const MIN_ADLT_VERSION_SEMVER_RANGE = require('../package.json')?.optionalDependencies['node-adlt']
+console.log(`MIN_ADLT_VERSION_SEMVER_RANGE=${MIN_ADLT_VERSION_SEMVER_RANGE}`)
 
 export function char4U32LeToString(char4le: number): string {
   let codes = [char4le & 0xff, 0xff & (char4le >> 8), 0xff & (char4le >> 16), 0xff & (char4le >> 24)]
@@ -525,6 +528,7 @@ export class AdltDocument implements vscode.Disposable {
       .then((address) => {
         log.info(`adlt.Document using websocket address '${address}'`)
         this.webSocket = new WebSocket(address, [], { perMessageDeflate: false, origin: 'adlt-logs', maxPayload: 1_000_000_000 })
+        //log.info(`adlt.Document got the websocket`)
         //console.warn(`adlt.webSocket.binaryType=`, this.webSocket.binaryType);
         //this.webSocket.binaryType = "nodebuffer"; // or Arraybuffer?
         this.webSocket.binaryType = 'arraybuffer' // ArrayBuffer needed for sink?
@@ -532,7 +536,7 @@ export class AdltDocument implements vscode.Disposable {
         this.webSocket.on('message', (data: ArrayBuffer, isBinary) => {
           try {
             if (isBinary) {
-              //console.warn(`dlt-logs.AdltDocumentProvider.on(message)`, data.byteLength, isBinary);
+              //log.warn(`dlt-logs.AdltDocumentProvider.on(message) binary`, data.byteLength)
               try {
                 let bin_type = remote_types.readBinType(data)
                 // console.warn(`adlt.on(binary):`, bin_type.tag);
@@ -629,6 +633,7 @@ export class AdltDocument implements vscode.Disposable {
                 log.warn(`adlt got err=${e}`)
               }
             } else {
+              //log.warn(`dlt-logs.AdltDocumentProvider.on(message) text`, data.byteLength)
               // !isBinary
               const text = data.toString()
               if (text.startsWith('info:')) {
@@ -650,7 +655,7 @@ export class AdltDocument implements vscode.Disposable {
           }
         })
         this.webSocket.on('upgrade', (response) => {
-          // console.log(`dlt-logs.AdltDocumentProvider.on(upgrade) got response:`, response);
+          // log.info(`adlt.Document.on(upgrade) got response:`, response)
           let ah = response.headers['adlt-version']
           this.adltVersion = ah && !Array.isArray(ah) ? ah : ah && Array.isArray(ah) ? ah.join(',') : undefined
           if (this.adltVersion) {
@@ -673,6 +678,7 @@ export class AdltDocument implements vscode.Disposable {
           log.info(`adlt.AdltDocumentProvider got archives_supported=${JSON.stringify(archives_supported)}`)
         })
         this.webSocket.on('open', () => {
+          //log.info(`adlt.Document.on(open)`)
           this.webSocketIsConnected = true
           this.webSocketErrors = []
           this.openAdltFiles()
@@ -3006,6 +3012,7 @@ export class AdltDocument implements vscode.Disposable {
             // console.log(`adtl.streamMessages streamObj`, JSON.stringify(streamObj));
             let curStreamMsgData = this.streamMsgs.get(streamObj.id)
             this.streamMsgs.set(streamObj.id, streamData)
+            // this.log.warn(`AdltDocument.startMsgsStream(streamId=${streamObj.id})...`)
             if (curStreamMsgData && Array.isArray(curStreamMsgData)) {
               // process the data now:
               curStreamMsgData.forEach((msgs) => this.processBinStreamMsgs(msgs, streamData))
@@ -3020,6 +3027,7 @@ export class AdltDocument implements vscode.Disposable {
   }
 
   stopMsgsStream(streamId: number): Promise<string> {
+    // this.log.warn(`AdltDocument.stopMsgsStream(streamId=${streamId})...`)
     this.streamMsgs.delete(streamId)
     return this.sendAndRecvAdltMsg(`stop ${streamId}`)
   }

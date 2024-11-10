@@ -3,7 +3,14 @@
 out/test/**
 src/**
 .gitignore
+.github
+.husky
 vsc-extension-quickstart.md
+esbuild.js
+node_modules
+!node_modules/node-adlt
+!node_modules/@vscode/codicons/dist
+tsconfig_test.json
 **/tsconfig.json
 **/vite.config.ts
 **/.eslintrc.json
