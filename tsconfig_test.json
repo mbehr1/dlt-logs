@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "typeRoots": ["./node_modules/@types", "./types"],
+    "module": "commonjs",
+    "target": "es2021",
+    "outDir": "out/test",
+    "lib": ["es2021"],
+    "sourceMap": true,
+    "strict": true,
+    "rootDirs": ["src", "test"]
+  },
+  "exclude": ["node_modules", ".vscode-test", "webviews", "src/extension.ts", "test/**/*"]
+}
