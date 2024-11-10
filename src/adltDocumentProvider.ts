@@ -2778,6 +2778,8 @@ export class AdltDocument implements vscode.Disposable {
                                 ecu: ecu, // todo or without <SH>_ ?
                                 label: lc.getTreeNodeLabel(),
                                 startTimeUtc: lc.lifecycleStart.toUTCString(),
+                                isResume: lc.isResume,
+                                resumeTimeUtc: lc.isResume ? lc.lifecycleResume?.toUTCString() : undefined,
                                 endTimeUtc: lc.lifecycleEnd.toUTCString(),
                                 sws: lc.swVersions,
                                 msgs: lc.nrMsgs,
