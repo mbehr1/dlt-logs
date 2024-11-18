@@ -1,5 +1,13 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.93.0](https://github.com/mbehr1/dlt-logs/compare/v1.92.3...v1.93.0) (2024-11-18)
+
+
+### Features
+
+* add resume info to rq query lifecycles ([eb4e91b](https://github.com/mbehr1/dlt-logs/commit/eb4e91b21cbcc01a888dfbc039cb3d1067d60d1e))
+* **sequence:** add first support for sequences ([4ee0f8e](https://github.com/mbehr1/dlt-logs/commit/4ee0f8ea6cf18973a64e8b123d4b5039c75efabf))
+
 ## [1.92.3](https://github.com/mbehr1/dlt-logs/compare/v1.92.2...v1.92.3) (2024-10-19)
 
 
