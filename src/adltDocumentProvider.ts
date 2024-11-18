@@ -49,6 +49,9 @@ import * as JSON5 from 'json5'
 import { AdltRemoteFSProvider } from './adltRemoteFsProvider'
 import { AdltCommentThread, AdltComment, restoreComments, persistComments, purgeOldComments } from './adltComments'
 import { normalizeArchivePaths } from './util'
+import { FbEvent, FbSeqOccurrence, FbSequenceResult, SeqChecker, resAsEmoji, seqResultToMdAst } from 'dlt-logs-utils/sequence'
+import { toMarkdown } from 'mdast-util-to-markdown'
+import { gfmTableToMarkdown } from 'mdast-util-gfm-table'
 
 //import { adltPath } from 'node-adlt';
 // with optionalDependency we use require to catch errors
@@ -74,6 +77,18 @@ export function char4U32LeToString(char4le: number): string {
     codes.splice(-1)
   }
   return String.fromCharCode(...codes)
+}
+
+const createTreeNode = (label: string, uri: vscode.Uri, parent: TreeViewNode | null, iconName: string | undefined): TreeViewNode => {
+  return {
+    id: util.createUniqueId(),
+    label: label,
+    uri: uri,
+    parent,
+    children: [],
+    tooltip: undefined,
+    iconPath: iconName ? new vscode.ThemeIcon(iconName) : undefined,
+  }
 }
 
 class AdltLifecycleInfo implements DltLifecycleInfoMinIF {
@@ -355,6 +370,7 @@ export class AdltDocument implements vscode.Disposable {
   filterTreeNode: FilterRootNode
   //configTreeNode: TreeViewNode;
   pluginTreeNode: TreeViewNode
+  eventsTreeNode: TreeViewNode
 
   private _treeEventEmitter: vscode.EventEmitter<TreeViewNode | null>
 
@@ -478,15 +494,9 @@ export class AdltDocument implements vscode.Disposable {
     this.lifecycleTreeNode = new LifecycleRootNode(this)
     this.filterTreeNode = new FilterRootNode(this.uri)
     //this.configTreeNode = { id: util.createUniqueId(), label: "Configs", uri: this.uri, parent: null, children: [], tooltip: undefined, iconPath: new vscode.ThemeIcon('references') };
-    this.pluginTreeNode = {
-      id: util.createUniqueId(),
-      label: 'Plugins',
-      uri: this.uri,
-      parent: null,
-      children: [],
-      tooltip: undefined,
-      iconPath: new vscode.ThemeIcon('package'),
-    }
+    this.pluginTreeNode = createTreeNode('Plugins', this.uri, null, 'package')
+
+    this.eventsTreeNode = createTreeNode('Events', this.uri, null, 'calendar')
 
     this.treeNode = {
       id: util.createUniqueId(),
@@ -498,6 +508,7 @@ export class AdltDocument implements vscode.Disposable {
         this.filterTreeNode,
         //      this.configTreeNode,
         this.pluginTreeNode,
+        this.eventsTreeNode,
       ],
       tooltip: undefined,
       iconPath: new vscode.ThemeIcon('file'),
@@ -2797,6 +2808,177 @@ export class AdltDocument implements vscode.Disposable {
                       retObj.error = []
                     }
                     retObj.error?.push({ title: `query failed as no filters defined` })
+                  }
+                } else {
+                  if (!Array.isArray(retObj.error)) {
+                    retObj.error = []
+                  }
+                  retObj.error?.push({ title: `query failed as commandParams wasn't an array` })
+                }
+              } catch (e) {
+                if (!Array.isArray(retObj.error)) {
+                  retObj.error = []
+                }
+                retObj.error?.push({ title: `query failed due to error e=${e}` })
+              }
+            }
+            break
+          case 'sequences':
+            {
+              try {
+                const resAsCodicon = (res: string): string | undefined => {
+                  if (res.startsWith('ok')) {
+                    return 'check'
+                  } else if (res.startsWith('warn')) {
+                    return 'warning'
+                  } else if (res.startsWith('error')) {
+                    return 'error'
+                  }
+                  return undefined
+                }
+
+                const sequences = JSON5.parse(commandParams)
+                if (Array.isArray(sequences) && sequences.length > 0) {
+                  log.info(`restQueryDocsFilters.sequences #=${sequences.length}`)
+                  // process the sequences and return for each sequence the summary (nr of err, warn, undefined, ok)
+                  const sumArr: util.RestObject[] = []
+                  retObj.data = sumArr
+                  for (const jsonSeq of sequences) {
+                    const seqResult: FbSequenceResult = {
+                      sequence: jsonSeq,
+                      occurrences: [],
+                      logs: [],
+                    }
+                    const seqChecker = new SeqChecker(jsonSeq, seqResult, DltFilter)
+                    const allFilters = seqChecker.getAllFilters()
+                    if (allFilters.length === 0) {
+                      seqResult.logs.push(`no filters found for sequence '${seqChecker.name}'`)
+                    } else {
+                      const dltFilters = allFilters.map((f) => new DltFilter({ type: 3, ...f }, false))
+                      const maxNrMsgs = 1_000_000
+                      const matches = (await this.getMatchingMessages(dltFilters, maxNrMsgs)) as ViewableDltMsg[]
+                      if (matches.length > 0) {
+                        log.info(
+                          `restQueryDocsFilters.sequences got ${matches.length} matches for sequence '${
+                            seqChecker.name
+                          }'msg#0 = ${util.safeStableStringify(Object.keys(matches[0]))}`,
+                        )
+                      }
+                      seqChecker.processMsgs(matches)
+                    }
+
+                    const summary = Array.from(
+                      seqResult.occurrences
+                        .reduce(
+                          (acc, cur) => {
+                            const curVal = acc.get(cur.result)
+                            return curVal ? acc.set(cur.result, curVal + 1) : acc.set(cur.result, 1), acc
+                          },
+                          new Map<string, number>([
+                            ['error', 0],
+                            ['warning', 0],
+                            ['undefined', 0],
+                            ['ok', 0],
+                          ]),
+                        )
+                        .entries(),
+                    )
+                      .filter((entry) => entry[1] > 0)
+                      .map((entry) => `${resAsEmoji(entry[0])}: ${entry[1]}`)
+                      .join(', ')
+
+                    // update tree view event/sequences/<name> with the summary
+                    // do we have a event/sequences node yet?
+                    let seqNode = this.eventsTreeNode.children.find((n) => n.label === 'Sequences')
+                    if (seqNode === undefined) {
+                      seqNode = createTreeNode('Sequences', this.uri, this.eventsTreeNode, 'checklist')
+                      this.eventsTreeNode.children.push(seqNode)
+                      this._treeEventEmitter.fire(this.eventsTreeNode)
+                    }
+                    let thisSequenceNode = seqNode.children.find((n) => n.label === seqChecker.name)
+                    if (thisSequenceNode === undefined) {
+                      thisSequenceNode = createTreeNode(seqChecker.name, this.uri, seqNode, undefined)
+                      seqNode.children.push(thisSequenceNode)
+                      this._treeEventEmitter.fire(seqNode)
+                    }
+                    // get the full md from the sequence result:
+                    /* todo support export command or preview as md
+                    let tooltipSummary = summary
+                    try {
+                      const resAsMd = seqResultToMdAst(seqResult)
+                      const resAsMarkdown = toMarkdown(
+                        { type: 'root', children: resAsMd },
+                        { extensions: [gfmTableToMarkdown({ tablePipeAlign: false })] },
+                      )
+                      tooltipSummary += `\n${resAsMarkdown}`
+                    } catch (e) {
+                      tooltipSummary += `\n... error in generating markdown: ${e}`
+                    }*/
+                    thisSequenceNode.description = summary
+                    //thisSequenceNode.tooltip = new vscode.MarkdownString(tooltipSummary)
+                    //thisSequenceNode.tooltip.supportHtml = true
+
+                    // fill children with the occurrences:
+                    thisSequenceNode.children.length = 0
+                    // todo skip long rows of "ok"
+                    // todo limit to 1000 occurrences and add a '... skipped ...' node if more
+                    seqResult.occurrences.slice(0, 1000).forEach((occ, idx) => {
+                      if (idx < 1000) {
+                        const occNode = createTreeNode(
+                          `occ. #${idx + 1}:${occ.result} ${occ.stepsResult.filter((sr) => sr.length > 0).length} steps`,
+                          this.uri.with({ fragment: occ.startEvent.timeInMs ? occ.startEvent.timeInMs.toString() : '' }), // todo change to msg index!
+                          thisSequenceNode,
+                          resAsCodicon(occ.result),
+                        )
+                        thisSequenceNode.children.push(occNode)
+                        // add step details as children:
+                        occ.stepsResult.forEach((step, stepIdx) => {
+                          if (step.length > 0) {
+                            if (step[0] instanceof FbSeqOccurrence) {
+                              const stepLabel = `${step.length}*: ${(step as FbSeqOccurrence[]).map((occ) => occ.result).join(',')}`
+                              const stepNode = createTreeNode(
+                                `step #${stepIdx + 1} '${seqResult.sequence.steps[stepIdx].sequence?.name || ''}': ${stepLabel}`,
+                                this.uri.with({
+                                  fragment: step.length > 0 && step[0].startEvent.timeInMs ? step[0].startEvent.timeInMs.toString() : '',
+                                }), // todo change to msg index!
+                                occNode,
+                                undefined, // resAsCodicon(step[0].result),
+                              )
+                              stepNode.tooltip = step.length > 0 ? step[0].startEvent?.msgText || '' : ''
+                              occNode.children.push(stepNode)
+                            } else {
+                              const stepLabel =
+                                step.length === 0
+                                  ? ''
+                                  : step.length === 1
+                                    ? step[0].summary || step[0].title
+                                    : `${step.length}*: ${(step as FbEvent[]).map((e) => e.summary || e.title).join(',')}`
+
+                              const stepNode = createTreeNode(
+                                `step #${stepIdx + 1} '${seqResult.sequence.steps[stepIdx].name || ''}': ${stepLabel}`,
+                                this.uri.with({ fragment: step.length > 0 && step[0].timeInMs ? step[0].timeInMs.toString() : '' }), // todo change to msg index!
+                                occNode,
+                                undefined, // todo icon for step result (summary)
+                              )
+                              stepNode.tooltip = step.length > 0 ? step[0].msgText || '' : ''
+                              occNode.children.push(stepNode)
+                            }
+                          }
+                        })
+                      }
+                    })
+
+                    this._treeEventEmitter.fire(thisSequenceNode)
+
+                    sumArr.push({
+                      type: 'seqSummary',
+                      id: thisSequenceNode.id,
+                      attributes: {
+                        name: jsonSeq.name,
+                        summary,
+                        logs: seqResult.logs,
+                      },
+                    })
                   }
                 } else {
                   if (!Array.isArray(retObj.error)) {

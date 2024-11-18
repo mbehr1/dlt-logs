@@ -1,5 +1,5 @@
 import * as vscode from 'vscode'
-import * as WebSocket from 'ws'
+import { WebSocket } from 'ws'
 import * as semver from 'semver'
 
 const MIN_ADLT_VERSION_SEMVER_RANGE = '>= 0.51.0' // first version that supports the fs command
