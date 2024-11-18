@@ -5,7 +5,7 @@
  */
 
 import * as vscode from 'vscode'
-import * as WebSocket from 'ws'
+import { WebSocket } from 'ws'
 
 import { DltFilter } from './dltFilter'
 import { ADltDocumentProvider, char4U32LeToString } from './adltDocumentProvider'

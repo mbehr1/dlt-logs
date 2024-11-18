@@ -9,7 +9,7 @@ import { DltFilter, DltFilterType } from './dltFilter'
 export interface TreeViewNode {
   id: string // unique id
   label: string
-  tooltip: string | undefined
+  tooltip: string | vscode.MarkdownString | undefined
   uri: vscode.Uri | null // index provided as fragment #<index>
   parent: TreeViewNode | null
   children: TreeViewNode[]
