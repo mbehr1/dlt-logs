@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.94.0](https://github.com/mbehr1/dlt-logs/compare/v1.93.0...v1.94.0) (2024-11-19)
+
+
+### Features
+
+* **sequence:** add copy to clipboard for events/sequence ([21a0f97](https://github.com/mbehr1/dlt-logs/commit/21a0f9785ad9d536e71d6887ee8873bb33bfbab0))
+
 ## [1.93.0](https://github.com/mbehr1/dlt-logs/compare/v1.92.3...v1.93.0) (2024-11-18)
 
 
