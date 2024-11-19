@@ -2111,9 +2111,15 @@ export class AdltDocument implements vscode.Disposable {
    */
   onTreeViewDidChangeSelection(event: vscode.TreeViewSelectionChangeEvent<TreeViewNode>) {
     if (event.selection.length && event.selection[0].uri && event.selection[0].uri.fragment.length) {
-      // console.log(`adlt.onTreeViewDidChangeSelection(${event.selection.length} ${event.selection[0].uri} fragment='${event.selection[0].uri ? event.selection[0].uri.fragment : ''}')`);
-      const index = +event.selection[0].uri.fragment
-      this.revealDate(new Date(index))
+      const firstFrag = event.selection[0].uri.fragment
+      if (firstFrag.startsWith('msgIndex:')) {
+        const index = +firstFrag.substring(9)
+        this.log.info(`adlt.onTreeViewDidChangeSelection() msgIndex=${index}`)
+        this.revealMsgIndex(index)
+      } else {
+        const index = +event.selection[0].uri.fragment
+        this.revealDate(new Date(index))
+      }
     }
   }
 
@@ -2927,9 +2933,16 @@ export class AdltDocument implements vscode.Disposable {
                     // todo limit to 1000 occurrences and add a '... skipped ...' node if more
                     seqResult.occurrences.slice(0, 1000).forEach((occ, idx) => {
                       if (idx < 1000) {
+                        const msgIndex = occ.startEvent.msgText?.match(/^#(\d+) /)
                         const occNode = createTreeNode(
                           `occ. #${idx + 1}:${occ.result} ${occ.stepsResult.filter((sr) => sr.length > 0).length} steps`,
-                          this.uri.with({ fragment: occ.startEvent.timeInMs ? occ.startEvent.timeInMs.toString() : '' }), // todo change to msg index!
+                          this.uri.with({
+                            fragment: msgIndex
+                              ? `msgIndex:${msgIndex[1]}`
+                              : occ.startEvent.timeInMs
+                                ? occ.startEvent.timeInMs.toString()
+                                : '',
+                          }), // todo change to proper msg index! from startEvent...
                           thisSequenceNode,
                           resAsCodicon(occ.result),
                         )
@@ -2938,11 +2951,16 @@ export class AdltDocument implements vscode.Disposable {
                         occ.stepsResult.forEach((step, stepIdx) => {
                           if (step.length > 0) {
                             if (step[0] instanceof FbSeqOccurrence) {
+                              const msgIndex = step[0].startEvent.msgText?.match(/^#(\d+) /)
                               const stepLabel = `${step.length}*: ${(step as FbSeqOccurrence[]).map((occ) => occ.result).join(',')}`
                               const stepNode = createTreeNode(
                                 `step #${stepIdx + 1} '${seqResult.sequence.steps[stepIdx].sequence?.name || ''}': ${stepLabel}`,
                                 this.uri.with({
-                                  fragment: step.length > 0 && step[0].startEvent.timeInMs ? step[0].startEvent.timeInMs.toString() : '',
+                                  fragment: msgIndex
+                                    ? `msgIndex:${msgIndex[1]}`
+                                    : step.length > 0 && step[0].startEvent.timeInMs
+                                      ? step[0].startEvent.timeInMs.toString()
+                                      : '',
                                 }), // todo change to msg index!
                                 occNode,
                                 undefined, // resAsCodicon(step[0].result),
@@ -2950,6 +2968,7 @@ export class AdltDocument implements vscode.Disposable {
                               stepNode.tooltip = step.length > 0 ? step[0].startEvent?.msgText || '' : ''
                               occNode.children.push(stepNode)
                             } else {
+                              const msgIndex = step.length > 0 ? step[0].msgText?.match(/^#(\d+) /) : undefined
                               const stepLabel =
                                 step.length === 0
                                   ? ''
@@ -2959,7 +2978,13 @@ export class AdltDocument implements vscode.Disposable {
 
                               const stepNode = createTreeNode(
                                 `step #${stepIdx + 1} '${seqResult.sequence.steps[stepIdx].name || ''}': ${stepLabel}`,
-                                this.uri.with({ fragment: step.length > 0 && step[0].timeInMs ? step[0].timeInMs.toString() : '' }), // todo change to msg index!
+                                this.uri.with({
+                                  fragment: msgIndex
+                                    ? `msgIndex:${msgIndex[1]}`
+                                    : step.length > 0 && step[0].timeInMs
+                                      ? step[0].timeInMs.toString()
+                                      : '',
+                                }),
                                 occNode,
                                 undefined, // todo icon for step result (summary)
                               )
