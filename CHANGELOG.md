@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.94.1](https://github.com/mbehr1/dlt-logs/compare/v1.94.0...v1.94.1) (2024-11-19)
+
+
+### Bug Fixes
+
+* tree view selection for sequence events use msg index ([41a6754](https://github.com/mbehr1/dlt-logs/commit/41a6754b8cb3089a9bb4836a77222ddfff779591))
+
 ## [1.94.0](https://github.com/mbehr1/dlt-logs/compare/v1.93.0...v1.94.0) (2024-11-19)
 
 
