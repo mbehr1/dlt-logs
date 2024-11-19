@@ -691,6 +691,12 @@ export function activate(context: vscode.ExtensionContext) {
   )
 
   context.subscriptions.push(
+    vscode.commands.registerCommand('dlt-logs.treeItemToClipboard', async (...args: any[]) => {
+      adltProvider.onTreeNodeCommand('copyToClipboard', args[0])
+    }),
+  )
+
+  context.subscriptions.push(
     vscode.commands.registerCommand('dlt-logs.openReport', async (...args: any[]) => {
       // we can be called with two types of args:
       // filterNode or
