@@ -2902,18 +2902,21 @@ export class AdltDocument implements vscode.Disposable {
                       this._treeEventEmitter.fire(seqNode)
                     }
                     // get the full md from the sequence result:
-                    /* todo support export command or preview as md
-                    let tooltipSummary = summary
                     try {
                       const resAsMd = seqResultToMdAst(seqResult)
                       const resAsMarkdown = toMarkdown(
                         { type: 'root', children: resAsMd },
                         { extensions: [gfmTableToMarkdown({ tablePipeAlign: false })] },
                       )
-                      tooltipSummary += `\n${resAsMarkdown}`
+                      thisSequenceNode.contextValue = 'canCopyToClipboard'
+                      thisSequenceNode.applyCommand = (command) => {
+                        // command should be 'copyToClipboard' but we can ignore it here
+                        vscode.env.clipboard.writeText(resAsMarkdown)
+                        vscode.window.showInformationMessage(`Exported sequence ${thisSequenceNode.label} to clipboard as markup text`)
+                      }
                     } catch (e) {
-                      tooltipSummary += `\n... error in generating markdown: ${e}`
-                    }*/
+                      log.warn(`restQueryDocsFilters failed toMarkdown due to: ${e}`)
+                    }
                     thisSequenceNode.description = summary
                     //thisSequenceNode.tooltip = new vscode.MarkdownString(tooltipSummary)
                     //thisSequenceNode.tooltip.supportHtml = true
@@ -3604,6 +3607,7 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider, /*vscode
       case 'setPosFilter':
         this.modifyNode(node, 'setPosFilter')
         break
+      case 'copyToClipboard':
       case 'save':
         if (node.uri !== null && this._documents.get(node.uri.toString()) !== undefined && node.applyCommand) {
           node.applyCommand(command)

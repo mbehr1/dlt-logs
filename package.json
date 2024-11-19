@@ -799,6 +799,11 @@
         "command": "dlt-logs.commentThreadExportAll",
         "title": "Export all to clipboard as markup",
         "icon": "$(markdown)"
+      },
+      {
+        "command": "dlt-logs.treeItemToClipboard",
+        "title": "Export to clipboard",
+        "icon": "$(clippy)"
       }
     ],
     "menus": {
@@ -903,6 +908,11 @@
         {
           "command": "dlt-logs.setPosFilter",
           "when": "view == dltLifecycleExplorer && viewItem =~ /canSetPosF/",
+          "group": "inline"
+        },
+        {
+          "command": "dlt-logs.treeItemToClipboard",
+          "when": "view == dltLifecycleExplorer && viewItem =~ /canCopyToClipboard/",
           "group": "inline"
         }
       ],
