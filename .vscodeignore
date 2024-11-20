@@ -10,6 +10,16 @@ esbuild.js
 node_modules
 !node_modules/node-adlt
 !node_modules/@vscode/codicons/dist
+!node_modules/@vscode/webview-ui-toolkit/dist
+!node_modules/moment/min
+!node_modules/chart.js/dist
+!node_modules/chartjs-adapter-moment/dist
+!node_modules/chartjs-plugin-zoom/dist
+!node_modules/chartjs-plugin-annotation/dist
+!node_modules/hw-chartjs-plugin-colorschemes/dist
+!node_modules/hammerjs
+!node_modules/timelines-chart/dist
+!node_modules/w3-css
 tsconfig_test.json
 **/tsconfig.json
 **/vite.config.ts
