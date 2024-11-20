@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.94.2](https://github.com/mbehr1/dlt-logs/compare/v1.94.1...v1.94.2) (2024-11-20)
+
+
+### Bug Fixes
+
+* **report:** provide needed modules for report ([258ee9f](https://github.com/mbehr1/dlt-logs/commit/258ee9f8dfde0643f2ec351a320a3c9fafcbff52))
+
 ## [1.94.1](https://github.com/mbehr1/dlt-logs/compare/v1.94.0...v1.94.1) (2024-11-19)
 
 
