@@ -2945,6 +2945,19 @@ export class AdltDocument implements vscode.Disposable {
                         thisSequenceNode,
                         resAsCodicon(occ.result),
                       )
+                      // summary of each step as description for the occurrence node:
+                      occNode.description = occ.stepsResult
+                        .map((step) => {
+                          if (step.length === 0) {
+                            return ''
+                          }
+                          if (step[0] instanceof FbSeqOccurrence) {
+                            return `${(step as FbSeqOccurrence[]).map((occ) => resAsEmoji(occ.result)).join('')}`
+                          } else {
+                            return `${(step as FbEvent[]).map((e) => resAsEmoji(e.summary)).join('')}`
+                          }
+                        })
+                        .join(',')
                       if (occ.context.length > 0) {
                         occNode.tooltip = occ.context.map(([key, value]) => `${key}: ${value}`).join('\n')
                       }
@@ -2953,7 +2966,9 @@ export class AdltDocument implements vscode.Disposable {
                         if (step.length > 0) {
                           if (step[0] instanceof FbSeqOccurrence) {
                             const msgIndex = step[0].startEvent.msgText?.match(/^#(\d+) /)
-                            const stepLabel = `${step.length}*: ${(step as FbSeqOccurrence[]).map((occ) => occ.result).join(',')}`
+                            const stepLabel = `${step.length}*: ${(step as FbSeqOccurrence[])
+                              .map((occ) => resAsEmoji(occ.result))
+                              .join('')}`
                             const stepNode = createTreeNode(
                               `step #${stepIdx + 1} '${seqResult.sequence.steps[stepIdx].sequence?.name || ''}': ${stepLabel}`,
                               this.uri.with({
@@ -2982,8 +2997,8 @@ export class AdltDocument implements vscode.Disposable {
                               step.length === 0
                                 ? ''
                                 : step.length === 1
-                                  ? step[0].summary || step[0].title
-                                  : `${step.length}*: ${(step as FbEvent[]).map((e) => e.summary || e.title).join(',')}`
+                                  ? resAsEmoji(step[0].summary) || step[0].title
+                                  : `${step.length}*: ${(step as FbEvent[]).map((e) => resAsEmoji(e.summary) || e.title).join('')}`
 
                             const stepNode = createTreeNode(
                               `step #${stepIdx + 1} '${seqResult.sequence.steps[stepIdx].name || ''}': ${stepLabel}`,
