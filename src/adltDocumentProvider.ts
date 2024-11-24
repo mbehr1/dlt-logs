@@ -2930,69 +2930,100 @@ export class AdltDocument implements vscode.Disposable {
                     // fill children with the occurrences:
                     thisSequenceNode.children.length = 0
                     // todo skip long rows of "ok"
+
+                    const createOccNode = (occ: FbSeqOccurrence, idx: number): TreeViewNode => {
+                      const msgIndex = occ.startEvent.msgText?.match(/^#(\d+) /)
+                      const occNode = createTreeNode(
+                        `occ. #${idx + 1}:${occ.result} ${occ.stepsResult.filter((sr) => sr.length > 0).length} steps`,
+                        this.uri.with({
+                          fragment: msgIndex
+                            ? `msgIndex:${msgIndex[1]}`
+                            : occ.startEvent.timeInMs
+                              ? occ.startEvent.timeInMs.toString()
+                              : '',
+                        }), // todo change to proper msg index! from startEvent...
+                        thisSequenceNode,
+                        resAsCodicon(occ.result),
+                      )
+                      // summary of each step as description for the occurrence node:
+                      occNode.description = occ.stepsResult
+                        .map((step) => {
+                          if (step.length === 0) {
+                            return ''
+                          }
+                          if (step[0] instanceof FbSeqOccurrence) {
+                            return `${(step as FbSeqOccurrence[]).map((occ) => resAsEmoji(occ.result)).join('')}`
+                          } else {
+                            return `${(step as FbEvent[]).map((e) => resAsEmoji(e.summary)).join('')}`
+                          }
+                        })
+                        .join(',')
+                      if (occ.context.length > 0) {
+                        occNode.tooltip = occ.context.map(([key, value]) => `${key}: ${value}`).join('\n')
+                      }
+                      // add step details as children:
+                      occ.stepsResult.forEach((step, stepIdx) => {
+                        if (step.length > 0) {
+                          if (step[0] instanceof FbSeqOccurrence) {
+                            const msgIndex = step[0].startEvent.msgText?.match(/^#(\d+) /)
+                            const stepLabel = `${step.length}*: ${(step as FbSeqOccurrence[])
+                              .map((occ) => resAsEmoji(occ.result))
+                              .join('')}`
+                            const stepNode = createTreeNode(
+                              `step #${stepIdx + 1} '${seqResult.sequence.steps[stepIdx].sequence?.name || ''}': ${stepLabel}`,
+                              this.uri.with({
+                                fragment: msgIndex
+                                  ? `msgIndex:${msgIndex[1]}`
+                                  : step.length > 0 && step[0].startEvent.timeInMs
+                                    ? step[0].startEvent.timeInMs.toString()
+                                    : '',
+                              }), // todo change to msg index!
+                              occNode,
+                              undefined, // resAsCodicon(step[0].result),
+                            )
+                            stepNode.tooltip = step.length > 0 ? step[0].startEvent?.msgText || '' : ''
+
+                            // add the occurrences as children:
+                            step.forEach((stepOcc, occIdx) => {
+                              if (occIdx < 1000 && stepOcc instanceof FbSeqOccurrence) {
+                                stepNode.children.push(createOccNode(stepOcc, occIdx))
+                              }
+                            })
+
+                            occNode.children.push(stepNode)
+                          } else {
+                            const msgIndex = step.length > 0 ? step[0].msgText?.match(/^#(\d+) /) : undefined
+                            const stepLabel =
+                              step.length === 0
+                                ? ''
+                                : step.length === 1
+                                  ? resAsEmoji(step[0].summary) || step[0].title
+                                  : `${step.length}*: ${(step as FbEvent[]).map((e) => resAsEmoji(e.summary) || e.title).join('')}`
+
+                            const stepNode = createTreeNode(
+                              `step #${stepIdx + 1} '${seqResult.sequence.steps[stepIdx].name || ''}': ${stepLabel}`,
+                              this.uri.with({
+                                fragment: msgIndex
+                                  ? `msgIndex:${msgIndex[1]}`
+                                  : step.length > 0 && step[0].timeInMs
+                                    ? step[0].timeInMs.toString()
+                                    : '',
+                              }),
+                              occNode,
+                              undefined, // todo icon for step result (summary)
+                            )
+                            stepNode.tooltip = step.length > 0 ? step[0].msgText || '' : ''
+                            occNode.children.push(stepNode)
+                          }
+                        }
+                      })
+                      return occNode
+                    }
+
                     // todo limit to 1000 occurrences and add a '... skipped ...' node if more
                     seqResult.occurrences.slice(0, 1000).forEach((occ, idx) => {
                       if (idx < 1000) {
-                        const msgIndex = occ.startEvent.msgText?.match(/^#(\d+) /)
-                        const occNode = createTreeNode(
-                          `occ. #${idx + 1}:${occ.result} ${occ.stepsResult.filter((sr) => sr.length > 0).length} steps`,
-                          this.uri.with({
-                            fragment: msgIndex
-                              ? `msgIndex:${msgIndex[1]}`
-                              : occ.startEvent.timeInMs
-                                ? occ.startEvent.timeInMs.toString()
-                                : '',
-                          }), // todo change to proper msg index! from startEvent...
-                          thisSequenceNode,
-                          resAsCodicon(occ.result),
-                        )
-                        thisSequenceNode.children.push(occNode)
-                        // add step details as children:
-                        occ.stepsResult.forEach((step, stepIdx) => {
-                          if (step.length > 0) {
-                            if (step[0] instanceof FbSeqOccurrence) {
-                              const msgIndex = step[0].startEvent.msgText?.match(/^#(\d+) /)
-                              const stepLabel = `${step.length}*: ${(step as FbSeqOccurrence[]).map((occ) => occ.result).join(',')}`
-                              const stepNode = createTreeNode(
-                                `step #${stepIdx + 1} '${seqResult.sequence.steps[stepIdx].sequence?.name || ''}': ${stepLabel}`,
-                                this.uri.with({
-                                  fragment: msgIndex
-                                    ? `msgIndex:${msgIndex[1]}`
-                                    : step.length > 0 && step[0].startEvent.timeInMs
-                                      ? step[0].startEvent.timeInMs.toString()
-                                      : '',
-                                }), // todo change to msg index!
-                                occNode,
-                                undefined, // resAsCodicon(step[0].result),
-                              )
-                              stepNode.tooltip = step.length > 0 ? step[0].startEvent?.msgText || '' : ''
-                              occNode.children.push(stepNode)
-                            } else {
-                              const msgIndex = step.length > 0 ? step[0].msgText?.match(/^#(\d+) /) : undefined
-                              const stepLabel =
-                                step.length === 0
-                                  ? ''
-                                  : step.length === 1
-                                    ? step[0].summary || step[0].title
-                                    : `${step.length}*: ${(step as FbEvent[]).map((e) => e.summary || e.title).join(',')}`
-
-                              const stepNode = createTreeNode(
-                                `step #${stepIdx + 1} '${seqResult.sequence.steps[stepIdx].name || ''}': ${stepLabel}`,
-                                this.uri.with({
-                                  fragment: msgIndex
-                                    ? `msgIndex:${msgIndex[1]}`
-                                    : step.length > 0 && step[0].timeInMs
-                                      ? step[0].timeInMs.toString()
-                                      : '',
-                                }),
-                                occNode,
-                                undefined, // todo icon for step result (summary)
-                              )
-                              stepNode.tooltip = step.length > 0 ? step[0].msgText || '' : ''
-                              occNode.children.push(stepNode)
-                            }
-                          }
-                        })
+                        thisSequenceNode.children.push(createOccNode(occ, idx))
                       }
                     })
 
