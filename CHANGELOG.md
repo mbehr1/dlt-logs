@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.95.0](https://github.com/mbehr1/dlt-logs/compare/v1.94.2...v1.95.0) (2024-11-24)
+
+
+### Features
+
+* **sequence:** add context support ([96471b9](https://github.com/mbehr1/dlt-logs/commit/96471b9a54463f68c4b5916b6f9f7de3e514a828))
+
 ## [1.94.2](https://github.com/mbehr1/dlt-logs/compare/v1.94.1...v1.94.2) (2024-11-20)
 
 
