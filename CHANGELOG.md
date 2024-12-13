@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.95.1](https://github.com/mbehr1/dlt-logs/compare/v1.95.0...v1.95.1) (2024-12-13)
+
+
+### Bug Fixes
+
+* **sequences:** sub-sequences had wrong names ([fc56cc6](https://github.com/mbehr1/dlt-logs/commit/fc56cc6d025493869eec7bd62f4493ca1ca8a751))
+
 ## [1.95.0](https://github.com/mbehr1/dlt-logs/compare/v1.94.2...v1.95.0) (2024-11-24)
 
 
