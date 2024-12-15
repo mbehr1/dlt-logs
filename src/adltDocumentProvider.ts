@@ -3093,12 +3093,12 @@ export class AdltDocument implements vscode.Disposable {
 
   /**
    * create a tree node for the occurrence of a sequence and add the steps as children
-   * @param parentNode 
+   * @param parentNode
    * @param sequence - sequence data
    * @param occ - occurrence data
    * @param idx - idx of the occurrence (0-based)
    * @returns the created node
-   * 
+   *
    * Calls itself recursively for each step that is a sub-sequence.
    */
   createOccNode(parentNode: TreeViewNode, sequence: FBSequence, occ: FbSeqOccurrence, idx: number): TreeViewNode {
@@ -3106,11 +3106,7 @@ export class AdltDocument implements vscode.Disposable {
     const occNode = createTreeNode(
       `occ. #${idx + 1}:${occ.result} ${occ.stepsResult.filter((sr) => sr.length > 0).length} steps`,
       this.uri.with({
-        fragment: msgIndex
-          ? `msgIndex:${msgIndex[1]}`
-          : occ.startEvent.timeInMs
-            ? occ.startEvent.timeInMs.toString()
-            : '',
+        fragment: msgIndex ? `msgIndex:${msgIndex[1]}` : occ.startEvent.timeInMs ? occ.startEvent.timeInMs.toString() : '',
       }), // todo change to proper msg index! from startEvent...
       parentNode,
       AdltDocument.resAsCodicon(occ.result),
@@ -3135,11 +3131,9 @@ export class AdltDocument implements vscode.Disposable {
     occ.stepsResult.forEach((step, stepIdx) => {
       if (step.length > 0) {
         if (step[0] instanceof FbSeqOccurrence) {
-          const stepSequence = sequence.steps[stepIdx].sequence;
+          const stepSequence = sequence.steps[stepIdx].sequence
           const msgIndex = step[0].startEvent.msgText?.match(/^#(\d+) /)
-          const stepLabel = `${step.length}*: ${(step as FbSeqOccurrence[])
-            .map((occ) => resAsEmoji(occ.result))
-            .join('')}`
+          const stepLabel = `${step.length}*: ${(step as FbSeqOccurrence[]).map((occ) => resAsEmoji(occ.result)).join('')}`
           const stepNode = createTreeNode(
             `step #${stepIdx + 1} '${stepSequence?.name || ''}': ${stepLabel}`,
             this.uri.with({
@@ -3155,7 +3149,7 @@ export class AdltDocument implements vscode.Disposable {
           stepNode.tooltip = step.length > 0 ? step[0].startEvent?.msgText || '' : ''
 
           // add the occurrences as children:
-          if (stepSequence){
+          if (stepSequence) {
             step.forEach((stepOcc, occIdx) => {
               if (occIdx < 1000 && stepOcc instanceof FbSeqOccurrence) {
                 stepNode.children.push(this.createOccNode(stepNode, stepSequence, stepOcc, occIdx))
@@ -3176,11 +3170,7 @@ export class AdltDocument implements vscode.Disposable {
           const stepNode = createTreeNode(
             `step #${stepIdx + 1} '${sequence.steps[stepIdx].name || ''}': ${stepLabel}`,
             this.uri.with({
-              fragment: msgIndex
-                ? `msgIndex:${msgIndex[1]}`
-                : step.length > 0 && step[0].timeInMs
-                  ? step[0].timeInMs.toString()
-                  : '',
+              fragment: msgIndex ? `msgIndex:${msgIndex[1]}` : step.length > 0 && step[0].timeInMs ? step[0].timeInMs.toString() : '',
             }),
             occNode,
             undefined, // todo icon for step result (summary)
@@ -3192,7 +3182,6 @@ export class AdltDocument implements vscode.Disposable {
     })
     return occNode
   }
-
 
   /**
    * calculate and return the matching messages. Does not modify the current content/view.
