@@ -11,6 +11,5 @@ updates:
       interval: "daily"
     versioning-strategy: increase
     allow:
-      dependency-name:
-        dlt-logs-utils
-        node-adlt
+      - dependency-name: dlt-logs-utils
+      - dependency-name: node-adlt
