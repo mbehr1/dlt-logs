@@ -14,4 +14,3 @@ updates:
       dependency-name:
         dlt-logs-utils
         node-adlt
-    insecure-external-code-execution: allow
