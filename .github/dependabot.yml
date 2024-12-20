@@ -9,6 +9,10 @@ updates:
     directory: "/" # Location of package manifests
     schedule:
       interval: "daily"
+    commit-message:
+      prefix: fix
+      prefix-development: chore
+      include: scope
     versioning-strategy: increase
     allow:
       - dependency-name: dlt-logs-utils
