@@ -49,7 +49,16 @@ import * as JSON5 from 'json5'
 import { AdltRemoteFSProvider } from './adltRemoteFsProvider'
 import { AdltCommentThread, AdltComment, restoreComments, persistComments, purgeOldComments } from './adltComments'
 import { normalizeArchivePaths } from './util'
-import { FBSequence, FbEvent, FbSeqOccurrence, FbSequenceResult, SeqChecker, resAsEmoji, seqResultToMdAst } from 'dlt-logs-utils/sequence'
+import {
+  FbEvent,
+  FbSeqOccurrence,
+  FbSequenceResult,
+  FbStepRes,
+  SeqChecker,
+  resAsEmoji,
+  seqResultToMdAst,
+  summaryForStepRes,
+} from 'dlt-logs-utils/sequence'
 import { toMarkdown } from 'mdast-util-to-markdown'
 import { gfmTableToMarkdown } from 'mdast-util-gfm-table'
 
@@ -2913,8 +2922,6 @@ export class AdltDocument implements vscode.Disposable {
                       log.warn(`restQueryDocsFilters failed toMarkdown due to: ${e}`)
                     }
                     thisSequenceNode.description = summary
-                    //thisSequenceNode.tooltip = new vscode.MarkdownString(tooltipSummary)
-                    //thisSequenceNode.tooltip.supportHtml = true
 
                     // fill children with the occurrences:
                     thisSequenceNode.children.length = 0
@@ -2923,7 +2930,7 @@ export class AdltDocument implements vscode.Disposable {
                     // todo limit to 1000 occurrences and add a '... skipped ...' node if more
                     seqResult.occurrences.slice(0, 1000).forEach((occ, idx) => {
                       if (idx < 1000) {
-                        thisSequenceNode.children.push(this.createOccNode(thisSequenceNode, seqResult.sequence, occ, idx))
+                        thisSequenceNode.children.push(this.createOccNode(thisSequenceNode, occ, idx))
                       }
                     })
 
@@ -3101,7 +3108,7 @@ export class AdltDocument implements vscode.Disposable {
    *
    * Calls itself recursively for each step that is a sub-sequence.
    */
-  createOccNode(parentNode: TreeViewNode, sequence: FBSequence, occ: FbSeqOccurrence, idx: number): TreeViewNode {
+  createOccNode(parentNode: TreeViewNode, occ: FbSeqOccurrence, idx: number): TreeViewNode {
     const msgIndex = occ.startEvent.msgText?.match(/^#(\d+) /)
     const occNode = createTreeNode(
       `occ. #${idx + 1}:${occ.result} ${occ.stepsResult.filter((sr) => sr.length > 0).length} steps`,
@@ -3117,70 +3124,79 @@ export class AdltDocument implements vscode.Disposable {
         if (step.length === 0) {
           return ''
         }
-        if (step[0] instanceof FbSeqOccurrence) {
-          return `${(step as FbSeqOccurrence[]).map((occ) => resAsEmoji(occ.result)).join('')}`
-        } else {
-          return `${(step as FbEvent[]).map((e) => resAsEmoji(e.summary)).join('')}`
-        }
+        return step.map((e) => resAsEmoji(summaryForStepRes(e))).join('')
       })
       .join(',')
     if (occ.context.length > 0) {
       occNode.tooltip = occ.context.map(([key, value]) => `${key}: ${value}`).join('\n')
     }
     // add step details as children:
-    occ.stepsResult.forEach((step, stepIdx) => {
-      if (step.length > 0) {
-        if (step[0] instanceof FbSeqOccurrence) {
-          const stepSequence = sequence.steps[stepIdx].sequence
-          const msgIndex = step[0].startEvent.msgText?.match(/^#(\d+) /)
-          const stepLabel = `${step.length}*: ${(step as FbSeqOccurrence[]).map((occ) => resAsEmoji(occ.result)).join('')}`
-          const stepNode = createTreeNode(
-            `step #${stepIdx + 1} '${stepSequence?.name || ''}': ${stepLabel}`,
-            this.uri.with({
-              fragment: msgIndex
-                ? `msgIndex:${msgIndex[1]}`
-                : step.length > 0 && step[0].startEvent.timeInMs
-                  ? step[0].startEvent.timeInMs.toString()
-                  : '',
-            }),
-            occNode,
-            undefined, // resAsCodicon(step[0].result),
-          )
-          stepNode.tooltip = step.length > 0 ? step[0].startEvent?.msgText || '' : ''
+    // occ.stepsResult: StepResult[] <- step result for each step
+    // type StepResult = FbStepRes[] <- results for each occurrence of this step
+    // type FbStepRes = FbFilterStepRes | FbAltStepRes | FbSeqStepRes
 
-          // add the occurrences as children:
-          if (stepSequence) {
-            step.forEach((stepOcc, occIdx) => {
-              if (occIdx < 1000 && stepOcc instanceof FbSeqOccurrence) {
-                stepNode.children.push(this.createOccNode(stepNode, stepSequence, stepOcc, occIdx))
-              }
-            })
+    occ.stepsResult.forEach((stepResult, stepIdx) => {
+      if (stepResult.length > 0) {
+        // create one node for the first occurrence using:
+        // msgIndex or timeInMs from the startEvent or first occ event
+        const firstOcc = stepResult[0]
+        const msgIndex = AdltDocument.getMsgIndexForStepRes(firstOcc)
+
+        const getFirstEvent = (stepRes: FbStepRes): FbEvent | undefined => {
+          switch (stepRes.stepType) {
+            case 'sequence':
+              return stepRes.res.startEvent
+            case 'filter':
+              return stepRes.res
+            case 'alt':
+              return getFirstEvent(stepRes.res)
           }
-
-          occNode.children.push(stepNode)
-        } else {
-          const msgIndex = step.length > 0 ? step[0].msgText?.match(/^#(\d+) /) : undefined
-          const stepLabel =
-            step.length === 0
-              ? ''
-              : step.length === 1
-                ? resAsEmoji(step[0].summary) || step[0].title
-                : `${step.length}*: ${(step as FbEvent[]).map((e) => resAsEmoji(e.summary) || e.title).join('')}`
-
-          const stepNode = createTreeNode(
-            `step #${stepIdx + 1} '${sequence.steps[stepIdx].name || ''}': ${stepLabel}`,
-            this.uri.with({
-              fragment: msgIndex ? `msgIndex:${msgIndex[1]}` : step.length > 0 && step[0].timeInMs ? step[0].timeInMs.toString() : '',
-            }),
-            occNode,
-            undefined, // todo icon for step result (summary)
-          )
-          stepNode.tooltip = step.length > 0 ? step[0].msgText || '' : ''
-          occNode.children.push(stepNode)
         }
+
+        const firstEvent = getFirstEvent(firstOcc)
+
+        const stepLabel =
+          stepResult.length === 1
+            ? resAsEmoji(summaryForStepRes(firstOcc)) || (firstOcc.stepType === 'filter' ? firstOcc.res.title : '')
+            : `${stepResult.length}*: ${stepResult
+                .map((e) => resAsEmoji(summaryForStepRes(e)) || (e.stepType === 'filter' ? e.res.title : ''))
+                .join('')}`
+
+        const stepNode = createTreeNode(
+          `step #${stepIdx + 1} '${firstOcc.step.name || ''}': ${stepLabel}`,
+          this.uri.with({
+            fragment: msgIndex ? `msgIndex:${msgIndex}` : firstEvent && firstEvent.timeInMs ? firstEvent.timeInMs.toString() : '',
+          }),
+          occNode,
+          undefined, // todo icon for step result (summary)
+        )
+        stepNode.tooltip = firstEvent ? firstEvent.msgText || '' : ''
+        occNode.children.push(stepNode)
+        // add childs for each occurrence that reflects a sequence:
+        stepResult.forEach((stepOcc, occIdx) => {
+          if (occIdx < 1000 && stepOcc.stepType === 'sequence') {
+            stepNode.children.push(this.createOccNode(stepNode, stepOcc.res, occIdx))
+          }
+        })
       }
     })
     return occNode
+  }
+
+  static getMsgIndexForStepRes(stepRes: FbStepRes): number | undefined {
+    let msgIndex: RegExpMatchArray | null | undefined = undefined
+    switch (stepRes.stepType) {
+      case 'filter':
+        msgIndex = stepRes.res.msgText?.match(/^#(\d+) /)
+        break
+      case 'sequence':
+        msgIndex = stepRes.res.startEvent.msgText?.match(/^#(\d+) /)
+        break
+      case 'alt':
+        return this.getMsgIndexForStepRes(stepRes.res)
+        break
+    }
+    return msgIndex ? Number(msgIndex[1]) : undefined
   }
 
   /**
