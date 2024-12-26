@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.95.5](https://github.com/mbehr1/dlt-logs/compare/v1.95.4...v1.95.5) (2024-12-26)
+
+
+### Bug Fixes
+
+* **sequences:** support new alt sequences ([1615fe4](https://github.com/mbehr1/dlt-logs/commit/1615fe4282e1d8b7e642b3abed2cc12b8a6c8438))
+
 ## [1.95.4](https://github.com/mbehr1/dlt-logs/compare/v1.95.3...v1.95.4) (2024-12-22)
 
 
