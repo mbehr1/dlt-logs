@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.96.0](https://github.com/mbehr1/dlt-logs/compare/v1.95.5...v1.96.0) (2024-12-30)
+
+
+### Features
+
+* **sequences:** add par(allel) steps support ([be30dd3](https://github.com/mbehr1/dlt-logs/commit/be30dd3e69fd46050becd717f5cd53edac9707e6))
+
 ## [1.95.5](https://github.com/mbehr1/dlt-logs/compare/v1.95.4...v1.95.5) (2024-12-26)
 
 
