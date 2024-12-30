@@ -57,6 +57,7 @@ import {
   SeqChecker,
   resAsEmoji,
   seqResultToMdAst,
+  startEventForStepRes,
   summaryForStepRes,
 } from 'dlt-logs-utils/sequence'
 import { toMarkdown } from 'mdast-util-to-markdown'
@@ -3098,6 +3099,57 @@ export class AdltDocument implements vscode.Disposable {
     return undefined
   }
 
+  createSubStepNode(parentNode: TreeViewNode, stepPrefix: string, subStepName: string, stepResults: FbStepRes[]): TreeViewNode {
+    let stepNode: TreeViewNode
+    if (stepResults && stepResults.length > 0) {
+      const events = stepResults.map((e) => startEventForStepRes(e)).filter((e) => e !== undefined)
+      const firstEvent = events.length > 0 ? events[0] : undefined
+      const msgIndex = firstEvent ? AdltDocument.getMsgIndexForStepRes(firstEvent) : undefined
+
+      const stepLabel =
+        stepResults.length === 1
+          ? resAsEmoji(summaryForStepRes(stepResults[0])) || (firstEvent ? firstEvent.title : '')
+          : `${stepResults.length}*: ${stepResults
+              .map((e) => resAsEmoji(summaryForStepRes(e)) || (e.stepType === 'filter' ? e.res.title : ''))
+              .join('')}`
+      stepNode = createTreeNode(
+        `${stepPrefix} '${subStepName}': ${stepLabel}`,
+        this.uri.with({
+          fragment: msgIndex ? `msgIndex:${msgIndex}` : firstEvent && firstEvent.timeInMs ? firstEvent.timeInMs.toString() : '',
+        }),
+        parentNode,
+        undefined, // todo icon for step result (summary)
+      )
+      stepNode.tooltip = firstEvent ? firstEvent.msgText || firstEvent.title || '' : ''
+      // already part of label subStepNode.description = stepResults.map((e) => resAsEmoji(summaryForStepRes(e))).join('')
+      // add childs for each occurrence that reflects a sequence or par:
+      stepResults.forEach((stepRes, occIdx) => {
+        if (occIdx < 1000) {
+          if (stepRes.stepType === 'sequence') {
+            stepNode.children.push(this.createOccNode(stepNode, stepRes.res, occIdx))
+          } else if (stepRes.stepType === 'par') {
+            for (const [idx, parStepResults] of stepRes.res.entries()) {
+              stepNode.children.push(
+                this.createSubStepNode(
+                  stepNode,
+                  `par. step #${idx + 1}`,
+                  stepRes.step.par?.[idx]?.name || stepRes.step.name || '',
+                  parStepResults,
+                ),
+              )
+            }
+          }
+        }
+      })
+    } else {
+      // no results/occurrences for this subStep:
+      stepNode = createTreeNode(`${stepPrefix} '${subStepName}': no occ.`, this.uri, parentNode, undefined)
+      stepNode.description = 'no occurrences'
+    }
+
+    return stepNode
+  }
+
   /**
    * create a tree node for the occurrence of a sequence and add the steps as children
    * @param parentNode
@@ -3137,65 +3189,15 @@ export class AdltDocument implements vscode.Disposable {
 
     occ.stepsResult.forEach((stepResult, stepIdx) => {
       if (stepResult.length > 0) {
-        // create one node for the first occurrence using:
-        // msgIndex or timeInMs from the startEvent or first occ event
-        const firstOcc = stepResult[0]
-        const msgIndex = AdltDocument.getMsgIndexForStepRes(firstOcc)
-
-        const getFirstEvent = (stepRes: FbStepRes): FbEvent | undefined => {
-          switch (stepRes.stepType) {
-            case 'sequence':
-              return stepRes.res.startEvent
-            case 'filter':
-              return stepRes.res
-            case 'alt':
-              return getFirstEvent(stepRes.res)
-          }
-        }
-
-        const firstEvent = getFirstEvent(firstOcc)
-
-        const stepLabel =
-          stepResult.length === 1
-            ? resAsEmoji(summaryForStepRes(firstOcc)) || (firstOcc.stepType === 'filter' ? firstOcc.res.title : '')
-            : `${stepResult.length}*: ${stepResult
-                .map((e) => resAsEmoji(summaryForStepRes(e)) || (e.stepType === 'filter' ? e.res.title : ''))
-                .join('')}`
-
-        const stepNode = createTreeNode(
-          `step #${stepIdx + 1} '${firstOcc.step.name || ''}': ${stepLabel}`,
-          this.uri.with({
-            fragment: msgIndex ? `msgIndex:${msgIndex}` : firstEvent && firstEvent.timeInMs ? firstEvent.timeInMs.toString() : '',
-          }),
-          occNode,
-          undefined, // todo icon for step result (summary)
-        )
-        stepNode.tooltip = firstEvent ? firstEvent.msgText || '' : ''
-        occNode.children.push(stepNode)
-        // add childs for each occurrence that reflects a sequence:
-        stepResult.forEach((stepOcc, occIdx) => {
-          if (occIdx < 1000 && stepOcc.stepType === 'sequence') {
-            stepNode.children.push(this.createOccNode(stepNode, stepOcc.res, occIdx))
-          }
-        })
+        occNode.children.push(this.createSubStepNode(occNode, `step #${stepIdx + 1}`, stepResult[0].step.name || '', stepResult))
       }
     })
     return occNode
   }
 
-  static getMsgIndexForStepRes(stepRes: FbStepRes): number | undefined {
+  static getMsgIndexForStepRes(event: FbEvent): number | undefined {
     let msgIndex: RegExpMatchArray | null | undefined = undefined
-    switch (stepRes.stepType) {
-      case 'filter':
-        msgIndex = stepRes.res.msgText?.match(/^#(\d+) /)
-        break
-      case 'sequence':
-        msgIndex = stepRes.res.startEvent.msgText?.match(/^#(\d+) /)
-        break
-      case 'alt':
-        return this.getMsgIndexForStepRes(stepRes.res)
-        break
-    }
+    msgIndex = event?.msgText?.match(/^#(\d+) /)
     return msgIndex ? Number(msgIndex[1]) : undefined
   }
 
