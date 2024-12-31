@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.96.1](https://github.com/mbehr1/dlt-logs/compare/v1.96.0...v1.96.1) (2024-12-31)
+
+
+### Bug Fixes
+
+* **sequences:** par steps with sub-sequences ([6dd1a5d](https://github.com/mbehr1/dlt-logs/commit/6dd1a5d67f5d0b9ea0a946c2e424378aba9cb136))
+
 ## [1.96.0](https://github.com/mbehr1/dlt-logs/compare/v1.95.5...v1.96.0) (2024-12-30)
 
 
