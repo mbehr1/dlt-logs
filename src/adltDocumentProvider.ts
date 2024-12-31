@@ -55,6 +55,7 @@ import {
   FbSequenceResult,
   FbStepRes,
   SeqChecker,
+  nameFromStep,
   resAsEmoji,
   seqResultToMdAst,
   startEventForStepRes,
@@ -3189,7 +3190,7 @@ export class AdltDocument implements vscode.Disposable {
 
     occ.stepsResult.forEach((stepResult, stepIdx) => {
       if (stepResult.length > 0) {
-        occNode.children.push(this.createSubStepNode(occNode, `step #${stepIdx + 1}`, stepResult[0].step.name || '', stepResult))
+        occNode.children.push(this.createSubStepNode(occNode, `step #${stepIdx + 1}`, nameFromStep(stepResult[0].step, ''), stepResult))
       }
     })
     return occNode
