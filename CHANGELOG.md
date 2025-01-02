@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.97.0](https://github.com/mbehr1/dlt-logs/compare/v1.96.2...v1.97.0) (2025-01-02)
+
+
+### Features
+
+* **sequences:** support open as doc/markdown preview ([4b8fb0f](https://github.com/mbehr1/dlt-logs/commit/4b8fb0f761c5ec548429e56556966dca168bc7ed))
+
 ## [1.96.2](https://github.com/mbehr1/dlt-logs/compare/v1.96.1...v1.96.2) (2025-01-01)
 
 
