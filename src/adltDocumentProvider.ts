@@ -2914,11 +2914,30 @@ export class AdltDocument implements vscode.Disposable {
                         { type: 'root', children: resAsMd },
                         { extensions: [gfmTableToMarkdown({ tablePipeAlign: false })] },
                       )
-                      thisSequenceNode.contextValue = 'canCopyToClipboard'
+                      thisSequenceNode.contextValue = 'canCopyToClipboard canTreeItemToDocument'
                       thisSequenceNode.applyCommand = (command) => {
-                        // command should be 'copyToClipboard' but we can ignore it here
-                        vscode.env.clipboard.writeText(resAsMarkdown)
-                        vscode.window.showInformationMessage(`Exported sequence ${thisSequenceNode.label} to clipboard as markup text`)
+                        switch (command) {
+                          case 'copyToClipboard':
+                            vscode.env.clipboard.writeText(resAsMarkdown)
+                            vscode.window.showInformationMessage(`Exported sequence ${thisSequenceNode.label} to clipboard as markup text`)
+                            break
+                          case 'treeItemToDocument':
+                            vscode.workspace.openTextDocument({ content: resAsMarkdown, language: 'markdown' }).then((doc) => {
+                              vscode.window.showTextDocument(doc).then((editor) => {
+                                // id taken from here: https://github.com/microsoft/vscode/blob/6d6cfdc3a6a1836a29a7034d88958c0b91df5def/extensions/markdown-language-features/src/preview/preview.ts#L459
+                                vscode.commands
+                                  .executeCommand('vscode.openWith', doc.uri, 'vscode.markdown.preview.editor', editor.viewColumn)
+                                  .then((success) => {
+                                    if (!success) {
+                                      vscode.window.showInformationMessage(
+                                        `Failed to open markdown preview for sequence ${thisSequenceNode.label}`,
+                                      )
+                                    }
+                                  })
+                              })
+                            })
+                            break
+                        }
                       }
                     } catch (e) {
                       log.warn(`restQueryDocsFilters failed toMarkdown due to: ${e}`)
@@ -3688,6 +3707,7 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider, /*vscode
         this.modifyNode(node, 'setPosFilter')
         break
       case 'copyToClipboard':
+      case 'treeItemToDocument':
       case 'save':
         if (node.uri !== null && this._documents.get(node.uri.toString()) !== undefined && node.applyCommand) {
           node.applyCommand(command)

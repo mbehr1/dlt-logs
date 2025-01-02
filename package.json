@@ -804,6 +804,11 @@
         "command": "dlt-logs.treeItemToClipboard",
         "title": "Export to clipboard",
         "icon": "$(clippy)"
+      },
+      {
+        "command": "dlt-logs.treeItemToDocument",
+        "title": "Export to/open as document",
+        "icon": "$(open-preview)"
       }
     ],
     "menus": {
@@ -913,6 +918,11 @@
         {
           "command": "dlt-logs.treeItemToClipboard",
           "when": "view == dltLifecycleExplorer && viewItem =~ /canCopyToClipboard/",
+          "group": "inline"
+        },
+        {
+          "command": "dlt-logs.treeItemToDocument",
+          "when": "view == dltLifecycleExplorer && viewItem =~ /canTreeItemToDocument/",
           "group": "inline"
         }
       ],
