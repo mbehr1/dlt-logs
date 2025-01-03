@@ -63,6 +63,9 @@ pre {
     background-color: var(--vscode-inputOption-hoverBackground);
 }
 
+.sitemSelected {
+    background-color: var(--vscode-editor-selectionBackground);
+}
 .sitemFindMatch {
     background-color: var(--vscode-editor-findMatchHighlightBackground);
     outline-style: solid;
