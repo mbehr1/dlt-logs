@@ -37,12 +37,13 @@
  * [ ] refactor FindWidget and regular search to use same VSCodeUI (or own) elements
  * [ ] FindWidget load all results
  * [ ] update docs
+ * [ ] expand copy to clipboard function to find results (within search results) (if there is no selecction but find has results)
  */
 
 import { sendAndReceiveMsg, vscode } from './utilities/vscode'
 import React from 'react'
 import { ChangeEvent, Component, MouseEventHandler, useEffect, useRef, useState, useCallback } from 'react'
-import { VSCodeButton, VSCodeDropdown, VSCodeOption, VSCodeTextField } from '@vscode/webview-ui-toolkit/react'
+import { VSCodeButton, VSCodeDropdown, VSCodeOption, VSCodeTextField } from '@vscode/webview-ui-toolkit/react' // TODO deprecated, replace with https://github.com/vscode-elements/react-elements
 import { FixedSizeList, ListChildComponentProps } from 'react-window'
 import AutoSizer from 'react-virtualized-auto-sizer'
 import InfiniteLoader from 'react-window-infinite-loader'
@@ -214,10 +215,9 @@ function App() {
   const [data, setData] = useState([] as ConsecutiveRows[])
   const [lastLoad, setLastLoad] = useState<[number, number] | undefined>(undefined)
   const [searchDropDownOpen, setSearchDropDownOpen] = useState(false)
-
   const [findParams, setFindParams] = useState<[FindParams, boolean]>([{ findString: '', useCaseSensitive: false, useRegex: false }, false])
-
   const [findRes, setFindRes] = useState<FindResults | undefined>(undefined)
+  const isAllSelected = useRef<boolean>(false)
 
   const debouncedSetSearchString = useDebouncedCallback(
     (value) => {
@@ -274,6 +274,7 @@ function App() {
     let active = true
     // reset search results and related items
     setStreamInfo({ nrStreamMsgs: 0, nrMsgsProcessed: 0, nrMsgsTotal: 0 })
+    isAllSelected.current = false
     setData((d) => [])
     setErrorText(null)
     if (activeDoc.uri && !debouncedSetSearchString.isPending()) {
@@ -573,7 +574,7 @@ function App() {
       return (
         <div style={style}>
           <div
-            className='sitem'
+            className={isAllSelected.current ? 'sitem sitemSelected' : 'sitem'}
             data-time={msg.calculatedTimeInMs}
             style={{
               color: color,
@@ -597,6 +598,51 @@ function App() {
       )
     }
   }
+
+  // taken from https://github.com/jamiebuilds/tinykeys/blob/fcf253635231925d660fd6699c9a783ecd038faf/src/tinykeys.ts#L61
+  const PLATFORM = typeof navigator === 'object' ? navigator.platform : ''
+  const APPLE_DEVICE = /Mac|iPod|iPhone|iPad/.test(PLATFORM)
+
+  // the outerref (div) that the FixedSizeList is using:
+  const OuterElementFixedSizeList = React.useMemo(
+    () =>
+      React.forwardRef<HTMLDivElement>((props, ref) => (
+        <div
+          {...props}
+          onKeyDown={(e) => {
+            if (!e.shiftKey && ((APPLE_DEVICE && e.metaKey) || (!APPLE_DEVICE && e.ctrlKey))) {
+              console.log(`OuterElementFixedSizeList onKeyDown ${e.key} ${e.ctrlKey} ${e.metaKey} ${e.shiftKey} ${e.altKey}`)
+              if (e.key === 'a') {
+                e.preventDefault()
+                e.stopPropagation()
+                isAllSelected.current = !isAllSelected.current
+                listRef.current?.forceUpdate()
+                return false
+              } else if (e.key === 'c') {
+                if (isAllSelected.current) {
+                  vscode.postMessage({ type: 'copy', req: { isAllSelected: isAllSelected.current } })
+                  e.preventDefault()
+                  e.stopPropagation()
+                  // TODO disable once the next selection turn off the all selection to reflect same behaviour as in other editor windows
+                  isAllSelected.current = false
+                  listRef.current?.forceUpdate()
+                  return false
+                } else {
+                  // use default handling for now to copy text selections (below seems to work as well)
+                  /*
+                  e.preventDefault()
+                  e.stopPropagation()
+                  document.execCommand('copy')*/
+                }
+              }
+            }
+          }}
+          tabIndex={-1} // not included by tab but focussable via code or mouse
+          ref={ref}
+        />
+      )),
+    [], // if allSelected would be a state we cant use that as that will re-render the outer element -> the list and thus the list will loose focus
+  )
 
   return (
     <div style={{ display: 'flex', flexFlow: 'column', width: '100%', /*border: '1px solid gray',*/ height: '100%' }}>
@@ -690,7 +736,16 @@ function App() {
       {errorText !== null && <div className='inputValidation'>{errorText}</div>}
       <div style={{ flexGrow: 1 }}>
         <FindWidget triggerFind={triggerFind} results={findRes} scrollToItem={scrollToItem} />
-        <AutoSizer disableHeight={false}>
+        <AutoSizer
+          disableHeight={false}
+          onContextMenu={(e) => {
+            e.preventDefault() // prevent the default behaviour when right clicked
+            const clickX = e.pageX
+            const clickY = e.pageY
+            console.log(`AutoSizer/FixedSizeList right Click at (${clickX}, ${clickY})`, e)
+            // todo add own context menu. for now we just disable it to prevent copy not working for the own "allSelected" logic
+          }}
+        >
           {({ height, width }) => (
             <InfiniteLoader
               ref={infiniteLoaderRef}
@@ -706,6 +761,7 @@ function App() {
                   itemSize={18}
                   itemCount={streamInfo.nrStreamMsgs}
                   overscanCount={40}
+                  outerElementType={OuterElementFixedSizeList}
                   ref={(elem) => {
                     ref(elem)
                     listRef.current = elem

@@ -13,9 +13,11 @@ import {
   TextEditorEdit,
   ExtensionContext,
   LogOutputChannel,
+  env,
+  ProgressLocation,
 } from 'vscode'
-import { getNonce, getUri } from '../util'
-import { ADltDocumentProvider, AdltDocument, StreamMsgData } from '../adltDocumentProvider'
+import { getNonce, getUri, sleep } from '../util'
+import { ADltDocumentProvider, AdltDocument, AdltMsg, StreamMsgData } from '../adltDocumentProvider'
 import { DltFilter, DltFilterType } from '../dltFilter'
 import { FilterableDltMsg, ViewableDltMsg } from '../dltParser'
 
@@ -478,6 +480,9 @@ export class SearchPanelProvider implements WebviewViewProvider {
               })
             }
             break
+          case 'copy':
+            this.copyToClipboard(message)
+            break
           default:
             log.warn(`SearchPanel: unexpected msg:${JSON.stringify(message)}`)
         }
@@ -485,6 +490,97 @@ export class SearchPanelProvider implements WebviewViewProvider {
       undefined,
       this._disposables,
     )
+  }
+
+  /**
+   * copy all search results to the clipboard
+   * @param message - msg from webview with the copy command (type: 'copy', req: { isAllSelected: boolean })
+   *
+   * Awaits until the search results are fully available/processed and then copies them to the clipboard
+   */
+  private copyToClipboard(message: any) {
+    const msgType = message.type
+    const req = message.req
+    const msgId = message.id
+    const { isAllSelected } = req
+    const log = this.log
+    // copy all search items to clipboard
+    log.info(`SearchPanel: copy command from webview:${JSON.stringify(message)}`)
+    if (this._activeDoc && this.curStreamLoader) {
+      const streamLoader = this.curStreamLoader
+      vscodeWindow.withProgress(
+        {
+          cancellable: true,
+          title: 'copy to clipboard',
+          location: ProgressLocation.Notification,
+        },
+        (progress, token) => {
+          return new Promise<void>(async (resolve, reject) => {
+            // check whether we do have to wait for all msgs being processed?
+            if (streamLoader.lastStreamInfo.nrMsgsProcessed < streamLoader.lastStreamInfo.nrMsgsTotal) {
+              while (streamLoader.lastStreamInfo.nrMsgsProcessed < streamLoader.lastStreamInfo.nrMsgsTotal) {
+                progress.report({
+                  message: `waiting for full search result: ${streamLoader.lastStreamInfo.nrStreamMsgs} out of ${streamLoader.lastStreamInfo.nrMsgsProcessed}/${streamLoader.lastStreamInfo.nrMsgsTotal} logs`,
+                })
+                await sleep(500)
+                if (token.isCancellationRequested) {
+                  reject('cancelled')
+                  return
+                }
+              }
+            }
+
+            progress.report({ message: `copying ${streamLoader.lastStreamInfo.nrStreamMsgs} logs` })
+            let msgsCopied = 0
+            let percInt = 0
+            let clipboardContent = ''
+            for await (const msg of streamLoader.getAllMsgsAsync()) {
+              if (token.isCancellationRequested) {
+                reject('cancelled')
+                return
+              }
+              // TODO: refactor into helper function! (search window should already use same format as document window)
+              const str = `${String(Number(msg.index)).padStart(6, ' ')} ${new Date(msg.receptionTimeInMs).toLocaleTimeString()} ${(
+                msg.timeStamp / 10000
+              )
+                .toFixed(4)
+                .padStart(9)} ${msg.ecu.padEnd(4)} ${msg.apid.padEnd(4)} ${msg.ctid.padEnd(4)} ${msg.payloadString}\n`
+
+              clipboardContent += str
+              msgsCopied += 1
+              const percCopied = msgsCopied / streamLoader.lastStreamInfo.nrStreamMsgs
+              const newPercInt = Math.round(percCopied * 100)
+              if (newPercInt > percInt) {
+                progress.report({
+                  increment: newPercInt - percInt,
+                  message: `copying ${streamLoader.lastStreamInfo.nrStreamMsgs} logs`,
+                })
+                percInt = newPercInt
+              }
+            }
+            if (msgsCopied !== streamLoader.lastStreamInfo.nrStreamMsgs) {
+              log.error(`SearchPanel: copied only ${msgsCopied} out of ${streamLoader.lastStreamInfo.nrStreamMsgs} logs to clipboard!`)
+              progress.report({ message: `copied only ${msgsCopied} out of ${streamLoader.lastStreamInfo.nrStreamMsgs} logs!` })
+              await sleep(5000)
+            }
+            env.clipboard.writeText(clipboardContent).then(
+              async () => {
+                log.info(`SearchPanel: copy to clipboard done, #msgs=${msgsCopied}`)
+                progress.report({ message: `copied ${msgsCopied} logs` })
+                await sleep(1000) // to give some time to the user to read it
+                resolve()
+              },
+              async (reason) => {
+                log.error(`SearchPanel: copy to clipboard failed with: ${reason}`)
+                progress.report({ message: `copy to clipboard failed with: ${reason}` })
+                await sleep(5000)
+                reject(reason)
+              },
+            )
+          })
+        },
+      )
+    }
   }
 }
 
@@ -639,7 +735,16 @@ class DocStreamLoader {
   private streamId: number = NaN
   private streamIdUpdatePending = true
   private streamData: StreamMsgData
+  /**
+   * info from last sinkOnStreamInfo
+   */
+  public lastStreamInfo: { nrStreamMsgs: number; nrMsgsProcessed: number; nrMsgsTotal: number } = {
+    nrStreamMsgs: 0,
+    nrMsgsProcessed: 0,
+    nrMsgsTotal: 0,
+  }
   private curWindow: [number, number] // eg. [100-200)
+  private perfStart: number = performance.now()
 
   constructor(
     private log: LogOutputChannel,
@@ -694,7 +799,9 @@ class DocStreamLoader {
   }
 
   private sinkOnDone() {
-    this.log.trace(`SearchPanel DocStreamLoader sink.onDone()...`)
+    // TODO is not called... (check why, not needed here but...)
+    const perfEnd = performance.now()
+    this.log.info(`SearchPanel DocStreamLoader sink.onDone(streamId=${this.streamId}) took ${perfEnd - this.perfStart}ms...`)
   }
 
   private sinkOnNewMessages(nrNewMsgs: number) {
@@ -729,7 +836,13 @@ class DocStreamLoader {
   }
 
   private sinkOnStreamInfo(nrStreamMsgs: number, nrMsgsProcessed: number, nrMsgsTotal: number) {
-    // console.info(`SearchPanel DocStreamLoader sink.onStreamInfo(${nrStreamMsgs},${nrMsgsProcessed}, ${nrMsgsTotal} )...`);
+    this.lastStreamInfo = { nrStreamMsgs, nrMsgsProcessed, nrMsgsTotal }
+    if (nrMsgsProcessed === nrMsgsTotal) {
+      const perfEnd = performance.now()
+      this.log.info(
+        `SearchPanel DocStreamLoader sink.sinkOnStreamInfo (${nrMsgsProcessed}msg searched)took ${(perfEnd - this.perfStart).toFixed(1)}ms`,
+      )
+    }
     if (this.onStreamInfoChange) {
       this.onStreamInfoChange(nrStreamMsgs, nrMsgsProcessed, nrMsgsTotal)
     }
@@ -763,6 +876,21 @@ class DocStreamLoader {
 
       // console.log(`SearchPanel DocStreamLoader.getMsgs(${startIdx}, #${maxNumberOfMsgs}) !inWindow [${this.curWindow[0]}-${this.curWindow[1]}). Changing window to [${newWindow[0]}-${newWindow[1]})`);
       this.requestNewWindow(newWindow)
+    }
+  }
+
+  /**
+   * async iterator/generator to retrieve all msgs from this stream
+   *
+   */
+  async *getAllMsgsAsync(): AsyncGenerator<AdltMsg, void, void> {
+    let startIdx = 0
+    while (startIdx < this.lastStreamInfo.nrStreamMsgs) {
+      const msgs = await this.getMsgs(startIdx, startIdx + DocStreamLoader.windowSize) // TODO
+      for (const msg of msgs) {
+        yield msg as AdltMsg // TODO might be faster to yield the chunks of msgs
+      }
+      startIdx += msgs.length
     }
   }
 
@@ -802,7 +930,7 @@ class DocStreamLoader {
   private queuedRequests: [number, number, (msgs: FilterableDltMsg[] | PromiseLike<FilterableDltMsg[]>) => void, (reason?: any) => void][] =
     []
 
-  getAvailMsgs(startIdx: number, maxNumberOfMsgs: number, triggerExtend: boolean): FilterableDltMsg[] | undefined {
+  private getAvailMsgs(startIdx: number, maxNumberOfMsgs: number, triggerExtend: boolean): FilterableDltMsg[] | undefined {
     const maxIndexAvail = this.curWindow[0] + this.streamData.msgs.length - 1
     if (startIdx <= maxIndexAvail) {
       const startOffset = startIdx - this.curWindow[0]
