@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.98.0](https://github.com/mbehr1/dlt-logs/compare/v1.97.0...v1.98.0) (2025-01-03)
+
+
+### Features
+
+* **search:** cmd/ctrl+a/c copies all search results to clipboard ([89acb3c](https://github.com/mbehr1/dlt-logs/commit/89acb3c08b6b7ef4fa18df87609a2d9d286263c4))
+
 ## [1.97.0](https://github.com/mbehr1/dlt-logs/compare/v1.96.2...v1.97.0) (2025-01-02)
 
 
