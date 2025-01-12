@@ -37,19 +37,36 @@
  * [ ] refactor FindWidget and regular search to use same VSCodeUI (or own) elements
  * [ ] FindWidget load all results
  * [ ] update docs
- * [ ] expand copy to clipboard function to find results (within search results) (if there is no selecction but find has results)
+ * [ ] expand copy to clipboard function to find results (within search results) (if there is no selection but find has results)
  */
 
 import { sendAndReceiveMsg, vscode } from './utilities/vscode'
 import React from 'react'
 import { ChangeEvent, Component, MouseEventHandler, useEffect, useRef, useState, useCallback } from 'react'
-import { VSCodeButton, VSCodeDropdown, VSCodeOption, VSCodeTextField } from '@vscode/webview-ui-toolkit/react' // TODO deprecated, replace with https://github.com/vscode-elements/react-elements
+import { VscodeButton, VscodeTextfield, VscodeOption, VscodeSingleSelect, VscodeLabel } from '@vscode-elements/react-elements'
 import { FixedSizeList, ListChildComponentProps } from 'react-window'
 import AutoSizer from 'react-virtualized-auto-sizer'
 import InfiniteLoader from 'react-window-infinite-loader'
 import { useDebouncedCallback } from 'use-debounce'
 import './App.css'
 import { FindWidget } from './FindWidget'
+
+const VSCodeDropdown = React.forwardRef<HTMLInputElement, any>((props, ref) => {
+  return (
+    <VscodeSingleSelect style={{ width: 'auto', ...props.style }} {...props} ref={ref}>
+      {props.children}
+    </VscodeSingleSelect>
+  )
+})
+
+const VSCodeTextField = React.forwardRef<HTMLInputElement, any>((props, ref) => {
+  // works as well... if elements is used directly return <vscode-textfield />
+  return (
+    <VscodeTextfield style={{ width: 'auto', ...props.style }} {...props} ref={ref}>
+      {props.children}
+    </VscodeTextfield>
+  )
+})
 
 // persisted state data (in vscode.set/getState...)
 // defaults are provided in case they are not contained in getState...
@@ -198,7 +215,7 @@ export interface FindResults {
 
 function App() {
   // console.log(`search app (render)...`);
-  const inputReference = useRef<Component>(null)
+  const inputReference = useRef<HTMLInputElement | null>(null)
   const infiniteLoaderRef = useRef<null | InfiniteLoader>(null)
   const listRef = useRef<FixedSizeList | null>(null)
 
@@ -331,6 +348,8 @@ function App() {
       console.log(`search focusCb. msg=${JSON.stringify(msg)}`)
       if (inputReference.current) {
         ;(inputReference.current as any).focus()
+      } else {
+        console.log(`search focusCb. but no inputReference`)
       }
     }
     vscode.addMessageListener('focus', focusCb)
@@ -644,6 +663,61 @@ function App() {
     [], // if allSelected would be a state we cant use that as that will re-render the outer element -> the list and thus the list will loose focus
   )
 
+  // need to observe for closing the dropdown via 'open' attribute:
+  // this is mainly as we use the dropdown input only with open/expanded. once it closes we want to focus back to the main input
+  // if we dont observe e.g. if the user clicks escape or clicks outside the dropdown we dont get the focus back
+  // would be nicer if the VSCodeDropdown would have an event for opening/closing the dropdown
+  // the previous dropdown from vscode-webui-toolkit triggered a change event on close
+  useEffect(() => {
+    let observer: MutationObserver | undefined
+    let timeoutHandle: NodeJS.Timeout | undefined
+    if (searchDropDownOpen) {
+      window.postMessage({ type: 'focus' })
+      // console.log(`search useEffect open dropdown`)
+      // need to observe for closing the dropdown via 'open' attribute:
+      observer = new MutationObserver((mutations, observer) => {
+        let didClose = false
+        for (const [idx, m] of mutations.entries()) {
+          const target = m?.target as HTMLInputElement
+          /*console.log(
+            `search dropdown mutation observed: ${idx}/${mutations.length} name=${
+              m.attributeName
+            }: type=${m?.type} oldV=${m?.oldValue} newV=${target.getAttribute(m.attributeName!)}`,
+            target,
+          )*/
+          if (m.type === 'attributes' && m.attributeName === 'open' && target.getAttribute('open') === null) {
+            didClose = true
+            break
+          }
+        }
+        if (didClose) {
+          setSearchDropDownOpen(false)
+          window.postMessage({ type: 'focus' })
+          observer.disconnect()
+          // console.log(`search dropdown mutation observer disconnected`)
+        }
+      })
+      timeoutHandle = setTimeout(() => {
+        observer?.observe(inputReference.current as Node, {
+          attributes: true,
+          attributeOldValue: true,
+          attributeFilter: ['open'],
+        })
+        // console.log(`search dropdown mutation observer observing...`)
+      }, 0)
+    }
+    return () => {
+      if (observer) {
+        observer.disconnect()
+        if (timeoutHandle) {
+          clearTimeout(timeoutHandle)
+          timeoutHandle = undefined
+        }
+        // console.log(`search dropdown cleanup observer disconnected`)
+      }
+    }
+  }, [searchDropDownOpen])
+
   return (
     <div style={{ display: 'flex', flexFlow: 'column', width: '100%', /*border: '1px solid gray',*/ height: '100%' }}>
       {!searchDropDownOpen && (
@@ -652,16 +726,15 @@ function App() {
           id='inputSearch'
           placeholder='enter search'
           autoFocus
-          initialValue={searchString}
-          onInput={(v) => {
-            const iv = v as ChangeEvent<HTMLInputElement>
+          value={searchString}
+          onInput={(iv: ChangeEvent<HTMLInputElement>) => {
             const str = iv.target.value
             debouncedSetSearchString(str)
-            if (str.length === 0) {
+            if (str && str.length === 0) {
               debouncedSetSearchString.flush()
             }
           }}
-          onKeyDown={(e) => {
+          onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
             switch (e.key) {
               case 'ArrowDown':
                 setSearchDropDownOpen(true)
@@ -672,8 +745,8 @@ function App() {
             }
           }}
         >
-          <span slot='start' className='codicon codicon-search'></span>
-          <section slot='end' style={{ position: 'absolute', top: '2px' /* weird monaco has 3px */, right: '2px' }}>
+          <span slot='content-before' className='codicon codicon-search'></span>
+          <section slot='content-after' style={{ position: 'absolute', top: '2px' /* weird monaco has 3px */, right: '2px' }}>
             <span style={{ margin: '2px 4px' }} className='codicon codicon-chevron-down' onClick={() => setSearchDropDownOpen((d) => !d)} />
             <Toggle icon='filter' active={useFilter} title='Use current document filter' onClick={() => setUseFilter((d) => !d)} />
             <Toggle
@@ -684,53 +757,73 @@ function App() {
                 setUseCaseSensitive((d) => !d)
               }}
             />
-            {false && (
-              <VSCodeButton appearance='icon' aria-label='Match Whole Word'>
-                {getCodicon('whole-word')}
-              </VSCodeButton>
-            )}
+            {false && <VscodeButton /* appearance='icon'*/ aria-label='Match Whole Word'>{getCodicon('whole-word')}</VscodeButton>}
             <Toggle icon='regex' active={useRegex} title='Use Regular Expression' onClick={() => setUseRegex((d) => !d)} />
           </section>
         </VSCodeTextField>
       )}
       {searchDropDownOpen && (
         <VSCodeDropdown
+          tabIndex={0}
+          ref={inputReference}
+          autoFocus
+          open
           id='searchDropDown'
-          open={true}
-          onChange={(e) => {
-            //console.log(`search dropdown onChange`, e);
+          // todo any way to show the default items selected? value={searchString} or defaultValue dont work!
+          onChange={(e: ChangeEvent<HTMLInputElement>) => {
+            console.log(`search dropdown onChange`, e)
             if (e.target && 'value' in e.target) {
               setSearchString(e.target.value as string)
             }
             setSearchDropDownOpen(false)
             window.postMessage({ type: 'focus' })
           }}
-          onKeyDown={(e) => {
+          onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
             switch (e.key) {
               case 'Delete': // delete the current entry from the list
                 if (e.target && 'value' in e.target) {
-                  const toDel = e.target.value as string
-                  //console.log(`search dropdown onKeyDown Delete: '${toDel}'`);
-                  setLastUsedList((l) => {
-                    const idx = l.indexOf(toDel)
-                    if (idx >= 0) {
-                      const newL = l.slice()
-                      newL.splice(idx, 1)
-                      return newL
-                    } else {
-                      return l
+                  const target = e.target as HTMLInputElement & { options: { value: string; disabled?: boolean; selected?: boolean }[] }
+                  const activeOption = target.shadowRoot?.querySelector('.options .active')
+                  if (activeOption) {
+                    const indexToDel = activeOption ? Number(activeOption.getAttribute('data-index')) : -1
+                    let toDel: string = ''
+                    if (indexToDel >= 0) {
+                      toDel = target.options[indexToDel]?.value
                     }
-                  })
-                  e.preventDefault()
+                    console.log(`search dropdown onKeyDown Delete: '${toDel}' indexToDel=${indexToDel}`, activeOption)
+                    setLastUsedList((l) => {
+                      const idx = l.indexOf(toDel)
+                      if (idx >= 0) {
+                        const newL = l.slice()
+                        newL.splice(idx, 1)
+                        return newL
+                      } else {
+                        return l
+                      }
+                    })
+                    // remove from target as well:
+                    target.options[indexToDel].disabled = true
+                    e.preventDefault()
+                  }
                 }
                 break
             }
           }}
         >
-          {!lastUsedList.includes(searchString) && <VSCodeOption>{searchString}</VSCodeOption>}
-          {lastUsedList.map((l) => (
-            <VSCodeOption>{l}</VSCodeOption>
-          ))}
+          {!lastUsedList.includes(searchString) && (
+            <VscodeOption value={searchString} selected={true}>
+              {searchString}
+            </VscodeOption>
+          )}
+          {lastUsedList.map(
+            (
+              l, // we provide value as it might end with a space... and the contained text gets trimmed
+            ) => (
+              <VscodeOption value={l} selected={l === searchString}>
+                {l}
+              </VscodeOption>
+            ),
+          )}
         </VSCodeDropdown>
       )}
       {errorText !== null && <div className='inputValidation'>{errorText}</div>}
