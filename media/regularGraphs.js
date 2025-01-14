@@ -547,24 +547,26 @@ const graphConfigTemplate = {
                     let anDi = document.getElementById("editAnnotation");
                     editAnnotationObj = selectedTimeAnnotations.find(t => (t.id === context.element.options.id));
                     if (editAnnotationObj) {
-                        anDi.style.display = "block";
-                        anDi.style.top = event.native.y + "px";
-                        anDi.style.left = event.native.x + "px";
+                      anDi.style.display = 'block'
+                      anDi.style.top = event.native.y + 'px'
+                      anDi.style.left = event.native.x + 'px'
 
-                        let btnPin = document.getElementById("editAnnotationPinBtn");
-                        let btnUnpin = document.getElementById("editAnnotationUnpinBtn");
+                      let btnPin = document.getElementById('editAnnotationPinBtn')
+                      let btnUnpin = document.getElementById('editAnnotationUnpinBtn')
 
-                        let textDesc = document.getElementById("editAnnotationDesc");
-                        const curDesc = editAnnotationObj.desc_;
-                        textDesc.value = curDesc !== undefined ? curDesc : "";
+                      let textDesc = document.getElementById('editAnnotationDesc')
+                      const curDesc = editAnnotationObj.desc_
+                      textDesc.value = curDesc !== undefined ? curDesc : ''
 
-                        if (editAnnotationObj.pinned_) {
-                            btnPin.style.display = "none";
-                            btnUnpin.style.display = "";
-                        } else {
-                            btnUnpin.style.display = "none";
-                            btnPin.style.display = "";
-                        }
+                      if (editAnnotationObj.pinned_) {
+                        btnPin.style.display = 'none'
+                        btnUnpin.style.display = ''
+                      } else {
+                        btnUnpin.style.display = 'none'
+                        btnPin.style.display = ''
+                      }
+                    } else {
+                      //console.warn(`annotation click: no editAnnotationObj found for id=${context.element.options.id}`)
                     }
                 },
             },

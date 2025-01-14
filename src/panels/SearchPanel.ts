@@ -105,7 +105,7 @@ export class SearchPanelProvider implements WebviewViewProvider {
     webviewView.webview.options = {
       // Enable JavaScript in the webview
       enableScripts: true,
-      // Restrict the webview to only load resources from the `out` and `webview-ui/build` directories
+      // Restrict the webview to only load resources from the `out` and `webviews.../build` directories
       localResourceRoots: [
         Uri.joinPath(this._extensionUri, 'out'),
         Uri.joinPath(this._extensionUri, 'webviews/search/build'),
