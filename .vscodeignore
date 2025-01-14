@@ -10,7 +10,7 @@ esbuild.js
 node_modules
 !node_modules/node-adlt
 !node_modules/@vscode/codicons/dist
-!node_modules@vscode-elements/elements/dist
+!node_modules/@vscode-elements/elements/dist
 !node_modules/moment/min
 !node_modules/chart.js/dist
 !node_modules/chartjs-adapter-moment/dist
