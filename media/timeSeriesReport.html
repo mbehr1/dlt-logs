@@ -1,9 +1,8 @@
 <!doctype html>
 <html>
-
-<head>
+  <head>
     <title>Report</title>
-    <script type="module" src="${{scripts}}/@vscode/webview-ui-toolkit/dist/toolkit.min.js"></script>
+    <script type="module" src="${{scripts}}/@vscode-elements/elements/dist/bundled.js"></script>
 
     <script src="${{scripts}}/moment/min/moment.min.js"></script>
     <script src="${{scripts}}/chart.js/dist/chart.umd.js"></script>
@@ -16,719 +15,843 @@
     <script src="${{scripts}}/timelines-chart/dist/timelines-chart.min.js"></script>
     <script src="${{media}}/timeLinesChart.js"></script>
 
-    <link href="${{scripts}}/@vscode/codicons/dist/codicon.css" rel="stylesheet" />
+    <link id="vscode-codicon-stylesheet" href="${{scripts}}/@vscode/codicons/dist/codicon.css" rel="stylesheet" />
 
     <script>
-        const vscode = acquireVsCodeApi(); // acquireVsCodeApi can only be invoked once
+      const vscode = acquireVsCodeApi() // acquireVsCodeApi can only be invoked once
     </script>
     <style>
-        canvas {
-            user-select: none;
-            -moz-user-select: none;
-            -webkit-user-select: none;
-        }
+      canvas {
+        user-select: none;
+        -moz-user-select: none;
+        -webkit-user-select: none;
+      }
 
-        input {
-            height: 17px;
-            padding: 6px;
-            font-size: var(--vscode-editor-font-size);
-            font-family: var(--vscode-editor-font-family);
-            color: var(--vscode-settings-textInputForeground);
-            background: var(--vscode-settings-textInputBackground);
-            border: 1px solid var(--vscode-settings-textInputBorder);
-        }
+      input {
+        height: 17px;
+        padding: 6px;
+        font-size: var(--vscode-editor-font-size);
+        font-family: var(--vscode-editor-font-family);
+        color: var(--vscode-settings-textInputForeground);
+        background: var(--vscode-settings-textInputBackground);
+        border: 1px solid var(--vscode-settings-textInputBorder);
+      }
 
-        #report_filenames {
-            font-size: var(--vscode-editor-font-size);
-            font-family: var(--vscode-editor-font-family);
-            background-color: var(--vscode-settings-textInputBackground);
-            color: var(--vscode-settings-textInputForeground);
-            fill: var(--vscode-editor-background);
-            border: 5px solid var(--vscode-settings-textInputBorder);
-            resize:vertical;
-            width: 100%;
-        }
+      #report_filenames {
+        font-size: var(--vscode-editor-font-size);
+        font-family: var(--vscode-editor-font-family);
+        background-color: var(--vscode-settings-textInputBackground);
+        color: var(--vscode-settings-textInputForeground);
+        fill: var(--vscode-editor-background);
+        border: 5px solid var(--vscode-settings-textInputBorder);
+        resize: vertical;
+        width: 100%;
+      }
 
-        #report_warnings {
-            font-size: var(--vscode-editor-font-size);
-            font-family: var(--vscode-editor-font-family);
-            background-color: var(--vscode-textBlockQuote-background);
-            color: var(--vscode-errorForeground);
-            border: 3px solid var(--vscode-inputValidation-errorBorder);
-            resize:vertical;
-            width: 100%;
-            height: 200px;
-            white-space: pre-wrap;
-            overflow-y: scroll;
-        }
+      #report_warnings {
+        font-size: var(--vscode-editor-font-size);
+        font-family: var(--vscode-editor-font-family);
+        background-color: var(--vscode-textBlockQuote-background);
+        color: var(--vscode-errorForeground);
+        border: 3px solid var(--vscode-inputValidation-errorBorder);
+        resize: vertical;
+        width: 100%;
+        height: 200px;
+        white-space: pre-wrap;
+        overflow-y: scroll;
+      }
 
-        body {
-            color: var(--vscode-editor-foreground);
-            background-color: var(--vscode-editor-background);
-            font-family: var(--vscode-editor-font-family);
-            font-weight: var(--vscode-editor-font-weight);
-            font-size: var(--vscode-editor-font-size);
+      body {
+        color: var(--vscode-editor-foreground);
+        background-color: var(--vscode-editor-background);
+        font-family: var(--vscode-editor-font-family);
+        font-weight: var(--vscode-editor-font-weight);
+        font-size: var(--vscode-editor-font-size);
+      }
 
-        }
+      .timelines-chart .series-group {
+        fill-opacity: 0.2;
+      }
+      .timelines-chart .axises .grp-axis text {
+        fill: var(--vscode-editor-foreground);
+      }
+      .timelines-chart .axises .y-axis text {
+        fill: var(--vscode-editor-foreground);
+      }
+      .timelines-chart .reset-zoom-btn {
+        fill: var(--vscode-button-foreground);
+      }
+      .tl.tt ul {
+        list-style-type: none;
+        padding: 0;
+      }
+      .tl.tt li {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+      .tl.tt .sl {
+        width: 15px;
+        height: 15px;
+        border-radius: 50%;
+        margin-right: 10px;
+        background-color: var(--sc);
+      }
+      .brusher .grid-background {
+        /* background for time overview below the swimlanes */
+        fill: var(--vscode-editor-background);
+      }
+      .brusher .grid-background .selection {
+        /* selected time range for time overview */
+        fill: var(--vscode-list-focusOutline); /*var(--vscode-editor-selectionBackground);*/
+        stroke: var(--vscode-list-focusOutline);
+      }
+      .brusher .brush .selection {
+        /* selected time range for time overview */
+        fill: var(--vscode-list-focusOutline); /*var(--vscode-editor-selectionBackground);*/
+        stroke: var(--vscode-list-focusOutline);
+      }
+      .brusher .tick {
+        /* horz small lines for time overview */
+        stroke: var(--vscode-editor-foreground);
+      }
+      .brusher .grid line {
+        /* horz lines for time overview */
+        stroke: var(--vscode-editor-foreground);
+      }
+      .brusher .grid path {
+        /* horz lines for time overview */
+        stroke: var(--vscode-editor-foreground);
+      }
+      .chart-tooltip {
+        font-family: var(--vscode-editor-font-family);
+        background: var(--vscode-editorHoverWidget-background);
+        color: var(--vscode-editorHoverWidget-foreground);
+        border-color: var(--vscode-editorHoverWidget-border);
+        border-width: 1;
+      }
+      .modal {
+        display: none;
+        position: fixed;
+        z-index: 1;
+        left: 10%;
+        top: 10%;
+        color: var(--vscode-editorHoverWidget-foreground);
+        font-family: var(--vscode-editor-font-family);
+        font-weight: var(--vscode-editor-font-weight);
+        font-size: var(--vscode-editor-font-size);
+        background: var(--vscode-editorHoverWidget-background);
+        border: 2px solid var(--vscode-editorHoverWidget-border);
+      }
+      /* from vscode-eleements/elements-light generator! */
+      .vscode-action-button {
+        align-items: center;
+        background-color: transparent;
+        border-color: transparent;
+        border-style: solid;
+        border-width: 1px;
+        border-radius: 5px;
+        color: var(--vscode-foreground);
+        display: inline-flex;
+        cursor: pointer;
+        padding: 0;
+        user-select: none;
+      }
 
-        .timelines-chart .series-group {
-            fill-opacity: 0.2;
-        }
-        .timelines-chart .axises .grp-axis text {
-            fill: var(--vscode-editor-foreground);
-        }
-        .timelines-chart .axises .y-axis text {
-            fill: var(--vscode-editor-foreground);
-        }
-        .timelines-chart .reset-zoom-btn {
-            fill: var(--vscode-button-foreground);
-        }
-        .tl.tt ul {
-            list-style-type: none;
-            padding: 0;
-        }
-        .tl.tt li {
-            display: flex;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        .tl.tt .sl {
-            width: 15px;
-            height: 15px;
-            border-radius: 50%;
-            margin-right: 10px;
-            background-color: var(--sc);
-        }
-        .brusher .grid-background { /* background for time overview below the swimlanes */
-            fill: var(--vscode-editor-background);
-        }
-        .brusher .grid-background .selection { /* selected time range for time overview */
-            fill: var(--vscode-list-focusOutline); /*var(--vscode-editor-selectionBackground);*/
-            stroke: var(--vscode-list-focusOutline);
-        }
-        .brusher .brush .selection { /* selected time range for time overview */
-            fill: var(--vscode-list-focusOutline); /*var(--vscode-editor-selectionBackground);*/
-            stroke: var(--vscode-list-focusOutline);
-        }
-        .brusher .tick { /* horz small lines for time overview */
-            stroke: var(--vscode-editor-foreground);
-        }
-        .brusher .grid line { /* horz lines for time overview */
-            stroke: var(--vscode-editor-foreground);
-        }
-        .brusher .grid path { /* horz lines for time overview */
-            stroke: var(--vscode-editor-foreground);
-        }
-        .chart-tooltip {
-            font-family: var(--vscode-editor-font-family);
-            background: var(--vscode-editorHoverWidget-background);
-            color: var(--vscode-editorHoverWidget-foreground);
-            border-color: var(--vscode-editorHoverWidget-border);
-            border-width: 1;
-        }
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1;
-            left:10%;
-            top:10%;
-            color: var(--vscode-editorHoverWidget-foreground);
-            font-family: var(--vscode-editor-font-family);
-            font-weight: var(--vscode-editor-font-weight);
-            font-size: var(--vscode-editor-font-size);
-            background: var(--vscode-editorHoverWidget-background);
-            border: 2px solid var(--vscode-editorHoverWidget-border);
-        }
+      .vscode-action-button:disabled {
+        color: var(--vscode-disabledForeground);
+        cursor: default;
+        pointer-events: none;
+      }
 
+      .vscode-action-button .codicon,
+      .vscode-action-button svg {
+        color: var(--vscode-icon-foreground);
+        display: block;
+        padding: 2px;
+      }
+
+      .vscode-action-button svg {
+        box-sizing: content-box;
+        height: 16px;
+        width: 16px;
+      }
+
+      .vscode-action-button:disabled .codicon,
+      .vscode-action-button:disabled svg {
+        color: var(--vscode-disabledForeground);
+      }
+
+      .vscode-action-button:hover {
+        background-color: var(--vscode-toolbar-hoverBackground);
+      }
+
+      .vscode-action-button:active {
+        background-color: var(--vscode-toolbar-activeBackground);
+      }
+
+      .vscode-action-button:focus {
+        outline: none;
+      }
+
+      .vscode-action-button:focus-visible {
+        border-color: var(--vscode-focusBorder);
+      }
+
+      .label {
+        display: block;
+        padding: 0 5px 0 2px;
+      }
     </style>
-    <link rel="stylesheet" href="${{scripts}}/w3-css/w3.css">
-</head>
+    <link rel="stylesheet" href="${{scripts}}/w3-css/w3.css" />
+  </head>
 
-<body>
+  <body>
     <div id="message">
-        <textarea id="report_filenames" rows="1" cols="120" readonly>dlt-logs report ok: unknown</textarea>
-        <pre id="report_warnings" hidden></pre>
-        <div id="stacked-reports" style="position: relative; height:auto; width:auto">
-            <!-- hotfix to avoid https://github.com/chartjs/Chart.js/issues/11139 Needs to be removed once fixed
+      <textarea id="report_filenames" rows="1" cols="120" readonly>dlt-logs report ok: unknown</textarea>
+      <pre id="report_warnings" hidden></pre>
+      <div id="stacked-reports" style="position: relative; height: auto; width: auto">
+        <!-- hotfix to avoid https://github.com/chartjs/Chart.js/issues/11139 Needs to be removed once fixed
                 this adds a 20px gap on top of first chart and thus screws the e2etests but it's better than 
                 the bug which prevents zooming single charts on resize
             -->
-            <canvas id="not_used" style="width:0; height:0;"></canvas>
-        </div>
+        <canvas id="not_used" style="width: 0; height: 0"></canvas>
+      </div>
     </div>
-    <br>
-    <div id="buttons" width="100%" style="display:flex; flex-direction:row; gap:3px; align-items: center;">
-            <vscode-checkbox id="toggleLifecycleStart" checked onclick="toggleLifecycleStart(this)" title="This toggles the display of the detected lifecycle start until the first message. So removing the leftmost empty time of the first lifecycle.">Show lifecycle start</vscode-checkbox>
-            <div style="flex-grow: 1;"></div>
-            <vscode-button onclick="resetZoom()">Reset zoom</vscode-button>
-            <vscode-button id="drag-switch" 
-                onclick="toggleDragMode()"
-                title="In drag mode you can select the area to zoom into by mouse. In non-drag mode you can zoom+pan with the mouse.">
-                Enable drag mode
-            </vscode-button>
+    <br />
+    <div id="buttons" width="100%" style="display: flex; flex-direction: row; gap: 3px; align-items: center">
+      <vscode-checkbox
+        id="toggleLifecycleStart"
+        checked
+        onclick="toggleLifecycleStart(this)"
+        title="This toggles the display of the detected lifecycle start until the first message. So removing the leftmost empty time of the first lifecycle."
+        >Show lifecycle start</vscode-checkbox
+      >
+      <div style="flex-grow: 1"></div>
+      <vscode-button onclick="resetZoom()">Reset zoom</vscode-button>
+      <vscode-button
+        id="drag-switch"
+        onclick="toggleDragMode()"
+        title="In drag mode you can select the area to zoom into by mouse. In non-drag mode you can zoom+pan with the mouse."
+      >
+        Enable drag mode
+      </vscode-button>
     </div>
     <div class="w3-container">
-        <div id="timeline"></div>
+      <div id="timeline"></div>
     </div>
     <!-- modal dialog for annotations edit -->
     <div id="editAnnotation" class="modal">
-        <div width="95%" style="display:flex; flex-direction: row; gap:3px; align-items: center;">
-            <vscode-button id="editAnnotationPinBtn" appearance="icon" onclick="editAnnotationPin(true);" aria-label="pin">
-                Pin annotation
-                <span slot="start" class="codicon codicon-pin"></span>
-            </vscode-button>
-            <vscode-button id="editAnnotationUnpinBtn" appearance="icon" onclick="editAnnotationPin(false);" aria-label="unpin" style="display:none;">
-                Unpin annotation
-                <span slot="start" class="codicon codicon-pinned"></span>
-            </vscode-button>
-            <vscode-button appearance="icon" onclick="closeEditAnnotation();" style="margin-left:auto">
-                <span class="codicon codicon-close"></span>
-            </vscode-button>
-        </div>
-        <br/>
-        <vscode-text-area id="editAnnotationDesc" resize="both">Description</vscode-text-area>
-        <vscode-button id="editAnnotationUpdateBtn" appearance="icon" onclick="editAnnotationPin(true);" aria-label="pin">
-            Pin / update
-            <span slot="start" class="codicon codicon-edit"></span>
-        </vscode-button>
+      <div width="95%" style="display: flex; flex-direction: row; gap: 3px; align-items: center">
+        <!--action buttons from vscode-elements/elements-light -->
+        <button id="editAnnotationPinBtn" type="button" class="vscode-action-button" onclick="editAnnotationPin(true)" aria-label="pin">
+          <i class="codicon codicon-pin" aria-hidden="true"></i>
+          <span class="label">Pin annotation</span>
+        </button>
+        <button
+          id="editAnnotationUnpinBtn"
+          type="button"
+          class="vscode-action-button"
+          onclick="editAnnotationPin(false)"
+          aria-label="unpin"
+          style="display: none"
+        >
+          <i class="codicon codicon-pinned" aria-hidden="true"></i>
+          <span class="label">Unpin annotation</span>
+        </button>
+        <button type="button" class="vscode-action-button" onclick="closeEditAnnotation()" style="margin-left: auto">
+          <i class="codicon codicon-close" aria-hidden="true"></i>
+        </button>
+      </div>
+      <br />
+      <vscode-label for="editAnnotationDesc">
+        <span class="normal">Description:</span>
+      </vscode-label>
+      <vscode-textarea
+        style="width: unset"
+        id="editAnnotationDesc"
+        monospace
+        resize="both"
+        placeholder="enter a description"
+      ></vscode-textarea>
+      <button id="editAnnotationUpdateBtn" type="button" class="vscode-action-button" onclick="editAnnotationPin(true)" aria-label="pin">
+        <i class="codicon codicon-edit" aria-hidden="true"></i>
+        <span class="label">Pin / update</span>
+      </button>
     </div>
     <script>
-        const vscodeStyles = window.getComputedStyle(document.body);
+      const vscodeStyles = window.getComputedStyle(document.body)
     </script>
     <script src="${{media}}/regularGraphs.js"></script>
     <script>
+      var dragOptions = {
+        animationDuration: 1000,
+      }
 
-        var dragOptions = {
-            animationDuration: 1000
-        };
+      var editAnnotationObj = undefined // object (selectedTimeAnnotations member) clicked for editAnnotation modal dialog
 
-        var editAnnotationObj = undefined; // object (selectedTimeAnnotations member) clicked for editAnnotation modal dialog
+      function closeEditAnnotation() {
+        document.getElementById('editAnnotation').style.display = 'none'
+        editAnnotationObj = undefined
+        console.log('closeEditAnnotation / editAnnotationObj = undefined')
+      }
 
-        function closeEditAnnotation(){
-            document.getElementById("editAnnotation").style.display="none";
-            editAnnotationObj = undefined;
+      function editAnnotationPin(doPin) {
+        try {
+          //console.log(`editAnnotationPin(${doPin})`, editAnnotationObj);
+          if (editAnnotationObj) {
+            let nextPinNr = editAnnotationObj.pinned_
+            if (doPin) {
+              if (!nextPinNr) {
+                nextPinNr = selectedTimeAnnotations.reduce((prev, cur) => (cur.pinned_ > 0 ? Math.max(cur.pinned_, prev) : prev), 0) + 1
+                editAnnotationObj.pinned_ = nextPinNr
+              }
+              let textDesc = document.getElementById('editAnnotationDesc')
+              const textVal = textDesc.value
+              editAnnotationObj.desc_ = textVal
+            } else {
+              delete editAnnotationObj.pinned_
+            }
+            let content = editAnnotationObj.label.content // todo refactor with updateSelectedTimeAnnotations
+            let newTimeLabel = `${doPin ? `(${nextPinNr}) ` : ''}${moment(editAnnotationObj.value).format('LTS.SSS [ms]')}`
+            if (Array.isArray(content)) {
+              content[0] = newTimeLabel
+              content[1] = editAnnotationObj.desc_
+            } else {
+              if (editAnnotationObj.desc_.length > 0) {
+                editAnnotationObj.label.content = [newTimeLabel, editAnnotationObj.desc_]
+              } else {
+                editAnnotationObj.label.content = newTimeLabel
+              }
+            }
+            updateGraphs()
+          }
+          closeEditAnnotation()
+        } catch (e) {
+          console.error(`editAnnotationPin got e=${e}`)
         }
+      }
 
-        function editAnnotationPin(doPin) {
-            try{
-                //console.log(`editAnnotationPin(${doPin})`, editAnnotationObj);
-                if (editAnnotationObj){
-                    let nextPinNr;
-                    if (doPin){
-                        nextPinNr = selectedTimeAnnotations.reduce((prev, cur)=>cur.pinned_>0 ? Math.max(cur.pinned_, prev): prev, 0) +1;
-                        editAnnotationObj.pinned_ = nextPinNr;
-                        let textDesc = document.getElementById("editAnnotationDesc");
-                        const textVal = textDesc.value;
-                        editAnnotationObj.desc_ = textVal;
-                    }else{
-                        delete(editAnnotationObj.pinned_);
-                    }
-                    let content = editAnnotationObj.label.content; // todo refactor with updateSelectedTimeAnnotations
-                    let newTimeLabel =`${doPin ? `(${nextPinNr}) `:''}${moment(editAnnotationObj.value).format('LTS.SSS [ms]')}`;
-                    if (Array.isArray(content)){
-                        content[0] = newTimeLabel;
-                        content[1] = editAnnotationObj.desc_;
-                    }else{
-                        if (editAnnotationObj.desc_.length>0){
-                            editAnnotationObj.label.content = [newTimeLabel, editAnnotationObj.desc_];
-                        }else{
-                            editAnnotationObj.label.content = newTimeLabel;
-                        }
-                    }
-                    updateGraphs();
+      // safely handles circular references
+      // https://stackoverflow.com/questions/11616630/how-can-i-print-a-circular-structure-in-a-json-like-format
+      JSON.safeStringify = (obj, indent = 2) => {
+        let cache = []
+        const retVal = JSON.stringify(
+          obj,
+          (key, value) =>
+            typeof value === 'object' && value !== null ? (cache.includes(value) ? undefined : cache.push(value) && value) : value,
+          indent,
+        )
+        cache = null
+        return retVal
+      }
+
+      function handleClick(evt, elements, chart) {
+        try {
+          if (!evt.native.defaultPrevented) {
+            if (editAnnotationObj !== undefined) {
+              closeEditAnnotation()
+            }
+          }
+          const canvasPosition = Chart.helpers.getRelativePosition(evt, chart)
+          const dataX = chart.scales['x'].getValueForPixel(canvasPosition.x)
+          vscode.postMessage({ message: 'clicked', dataPoint: { x: dataX } }) // todo return full value, e.g. ... see intersect
+          timelineChartUpdate({ selectedTime: new Date(dataX) })
+        } catch (err) {
+          vscode.postMessage({ message: 'clicked got err ' + err })
+        }
+      }
+      graphsCommonOptions.onClick = handleClick
+
+      function handleTimelineChartZoom(startDate, endDate) {
+        try {
+          if (startDate === undefined || endDate === undefined) {
+            window.resetZoom()
+          } else {
+            //console.log(`handleTimelineChartZoom ${startDate}/${startDate.valueOf()}-${endDate}, cur=${chart.scales['x'].min }-${chart.scales['x'].max}`);
+            graphsSetStartEndDate(startDate, endDate)
+          }
+        } catch (e) {
+          console.error(`handleTimelineChartZoom got e=${e}`)
+        }
+      }
+
+      window.onload = function () {
+        try {
+          //console.error('Chart.defaults=', Chart.defaults);
+          Chart.defaults.font = {
+            weight: vscodeStyles.getPropertyValue('--vscode-editor-font-weight'),
+            size: vscodeStyles.getPropertyValue('--vscode-editor-font-size'),
+            family: vscodeStyles.getPropertyValue('--vscode-editor-font-family'),
+          }
+          Chart.defaults.datasets.line.spanGaps = false
+          Chart.defaults.borderColor = vscodeStyles.getPropertyValue('--vscode-editorWidget-border')
+          const stackedReports = document.getElementById('stacked-reports')
+          addNewGraph(stackedReports, null, 'main')
+        } catch (e) {
+          console.log(`window.onload() got e=${e}`)
+        }
+      }
+
+      let minDataPointTime = undefined
+
+      const isSimilarYAxis = (a, b) => {
+        // similar if a contains all attribs from b with same value
+        // i.e. a can have more attribs but those are ignored.
+        // does not work for arrays!
+
+        let similar = true
+        for (const [bKey, bVal] of Object.entries(b)) {
+          if (bKey in a && typeof a[bKey] === typeof bVal) {
+            switch (typeof bVal) {
+              case 'object':
+                similar = isSimilarYAxis(a[bKey], bVal)
+                break
+              default:
+                similar = a[bKey] === bVal
+                break
+            }
+          } else {
+            return false
+          }
+          if (!similar) return false
+        }
+        return true
+      }
+
+      /**
+       * update the config YAxes based on newData[].yAxis
+       */
+      const updateYAxes = (newData) => {
+        try {
+          if (Array.isArray(newData)) {
+            newData.forEach((dataSet) => {
+              const group = dataSet.group || 'main'
+              const graph = graphsGetOrCreate(group) || graphs.get('main')
+              let configScales = graph.config.options.scales
+
+              if (dataSet.yAxis !== undefined) {
+                const newYAxis = dataSet.yAxis
+                // do we have a similar yAxis already?
+                // to avoid issue #16 we do need to differentiate between
+                // category and non-category axis depending on whether the dataSet has
+                // dataYLabels.yLabels or not.
+                // So if the dataSet has yLabels it needs a category type.
+                if (dataSet.dataYLabels.yLabels !== undefined) {
+                  newYAxis.type = 'category'
                 }
-                closeEditAnnotation();
-            }catch(e){
-                console.error(`editAnnotationPin got e=${e}`);
-            }
-        }
 
-        // safely handles circular references
-        // https://stackoverflow.com/questions/11616630/how-can-i-print-a-circular-structure-in-a-json-like-format
-        JSON.safeStringify = (obj, indent = 2) => {
-            let cache = [];
-            const retVal = JSON.stringify(
-                obj,
-                (key, value) =>
-                    typeof value === "object" && value !== null
-                        ? cache.includes(value)
-                            ? undefined
-                            : cache.push(value) && value
-                        : value,
-                indent
-            );
-            cache = null;
-            return retVal;
-        };
-
-        function handleClick(evt, elements, chart) {
-            try {
-                if (!evt.native.defaultPrevented){
-                    if (editAnnotationObj!==undefined){
-                        closeEditAnnotation();
-                    };
+                let found = undefined
+                let nrYAxes = 0
+                for (const [sKey, sVal] of Object.entries(configScales)) {
+                  if (sKey.startsWith('y-axis-')) {
+                    nrYAxes += 1
+                    if (found === undefined && isSimilarYAxis(sVal, newYAxis)) {
+                      found = sKey
+                      // we determine the nr as well so no break;
+                    }
+                  }
                 }
-                const canvasPosition = Chart.helpers.getRelativePosition(evt, chart);
-                const dataX = chart.scales['x'].getValueForPixel(canvasPosition.x);
-                vscode.postMessage({ message: 'clicked', dataPoint: {x:dataX} }); // todo return full value, e.g. ... see intersect
-                timelineChartUpdate({selectedTime:new Date(dataX)});
-            } catch (err) {
-                vscode.postMessage({ message: 'clicked got err ' + err });
-            }
-        }
-        graphsCommonOptions.onClick = handleClick;
-
-        function handleTimelineChartZoom(startDate, endDate){
-            try{
-            if (startDate === undefined || endDate === undefined){
-                window.resetZoom();
-            }else{
-                //console.log(`handleTimelineChartZoom ${startDate}/${startDate.valueOf()}-${endDate}, cur=${chart.scales['x'].min }-${chart.scales['x'].max}`);
-                graphsSetStartEndDate(startDate, endDate);
-            }
-            }catch(e){
-                console.error(`handleTimelineChartZoom got e=${e}`);
-            }
-        }
-
-        window.onload = function () {
-            try{
-                //console.error('Chart.defaults=', Chart.defaults);
-                Chart.defaults.font = { weight: vscodeStyles.getPropertyValue('--vscode-editor-font-weight'), size: vscodeStyles.getPropertyValue('--vscode-editor-font-size'), family: vscodeStyles.getPropertyValue('--vscode-editor-font-family'), };
-                Chart.defaults.datasets.line.spanGaps = false;
-                Chart.defaults.borderColor=vscodeStyles.getPropertyValue('--vscode-editorWidget-border');
-                const stackedReports = document.getElementById('stacked-reports');
-                addNewGraph(stackedReports, null, 'main');
-            }catch(e){
-                console.log(`window.onload() got e=${e}`);
-            }
-        };
-
-        let minDataPointTime = undefined;
-
-        const isSimilarYAxis = (a,b) => {
-            // similar if a contains all attribs from b with same value
-            // i.e. a can have more attribs but those are ignored.
-            // does not work for arrays!
-
-            let similar=true;
-            for (const [bKey, bVal] of Object.entries(b)) {
-                if ((bKey in a) && typeof a[bKey] === typeof bVal){
-                    switch (typeof bVal){
-                        case 'object': similar = isSimilarYAxis(a[bKey], bVal); break;
-                        default:
-                            similar = a[bKey] === bVal; break;
-                    }    
+                //const found = configYAxes.find(yAxis => isSimilarYAxis(yAxis, newYAxis));
+                if (!found) {
+                  // add new one:
+                  dataSet.yAxisID = `y-axis-${nrYAxes}`
+                  configScales[dataSet.yAxisID] = { ...newYAxis, id: dataSet.yAxisID }
                 } else {
-                    return false;
+                  dataSet.yAxisID = found
                 }
-                if (!similar) return false;
+              }
+            })
+          }
+
+          graphs.forEach((graph) => {
+            // remove labels for all type 'category' axes:
+            const scales = graph.config.options.scales
+            for (const [sKey, sVal] of Object.entries(scales)) {
+              if (sKey.startsWith('y-axis-')) {
+                if (sVal.type === 'category') {
+                  sVal.labels = [] // remove labels here. we merge (=add) all values here later
+                }
+              }
             }
-            return true;
+          })
+        } catch (e) {
+          console.error(`updateYAxes got e=${e}`)
         }
+      }
 
-        /**
-         * update the config YAxes based on newData[].yAxis
-         */
-        const updateYAxes = (newData)=>{
-            try{
-                if (Array.isArray(newData)){
-                    newData.forEach(dataSet =>{
-                        const group = dataSet.group || 'main';
-                        const graph = graphsGetOrCreate(group) || graphs.get('main');
-                        let configScales =graph.config.options.scales; 
-
-                        if (dataSet.yAxis !== undefined){
-                            const newYAxis = dataSet.yAxis;
-                            // do we have a similar yAxis already?
-                            // to avoid issue #16 we do need to differentiate between
-                            // category and non-category axis depending on whether the dataSet has
-                            // dataYLabels.yLabels or not.
-                            // So if the dataSet has yLabels it needs a category type. 
-                            if (dataSet.dataYLabels.yLabels !== undefined){
-                                newYAxis.type = 'category';
-                            }
-
-                            let found = undefined;
-                            let nrYAxes = 0;
-                            for (const [sKey, sVal] of Object.entries(configScales)){
-                                if (sKey.startsWith('y-axis-')){
-                                    nrYAxes += 1;
-                                    if (found===undefined && isSimilarYAxis(sVal, newYAxis)){
-                                        found=sKey;
-                                        // we determine the nr as well so no break;
-                                    }
-                                }
-                            }
-                            //const found = configYAxes.find(yAxis => isSimilarYAxis(yAxis, newYAxis));
-                            if (!found){
-                                // add new one:
-                                dataSet.yAxisID = `y-axis-${nrYAxes}`;
-                                configScales[dataSet.yAxisID] = {...newYAxis, id: dataSet.yAxisID};
-                            } else {
-                                dataSet.yAxisID = found;
-                            }
-                        }
-                    });
-                }
-                
-                graphs.forEach((graph)=>{
-                    // remove labels for all type 'category' axes:
-                    const scales = graph.config.options.scales;
-                    for (const [sKey, sVal] of Object.entries(scales)){
-                        if (sKey.startsWith('y-axis-')){
-                            if (sVal.type === 'category'){
-                                sVal.labels = []; // remove labels here. we merge (=add) all values here later
-                            }
-                        }
-                    }
-                });
-
-            }catch(e){
-                console.error(`updateYAxes got e=${e}`);
+      const lcInfoEcuColorsMap = new Map() // map string (ecu) to color
+      const lcInfoEcuColors = ['rgba(0,200,0,0.8)', 'rgba(126,176,203,1)', 'rgba(165, 214, 167, 0.8)', 'rgba(100, 100, 100, 0.8)']
+      const lcInfoEcuBorderDashes = [
+        [6, 10],
+        [3, 5],
+        [3, 3],
+      ]
+      const lcInfoEcuYLevels = [95, 85, 80, 75, 70]
+      const updateLcInfosAnnotations = (lcInfos) => {
+        // lcInfos is LCInfoForReport[]
+        while (lcInfos.length > lcAnnotations.length) {
+          const newAnn = {
+            ...lcAnnotations[0],
+            label: { ...lcAnnotations[0].label },
+            xMin: null,
+            id: lcAnnotations[0].id + `_${lcAnnotations.length + 1}`,
+            pinned_: undefined,
+            desc_: undefined,
+          }
+          lcAnnotations.push(newAnn)
+        }
+        for (let i = 0; i < lcAnnotations.length; ++i) {
+          let lcAnnotation = lcAnnotations[i]
+          const hadSelectedTime = lcAnnotation.xMin !== null
+          if (i < lcInfos.length) {
+            let lcInfo = lcInfos[i]
+            lcAnnotation.xMin = lcInfo.isResume ? lcInfo.resumeDate : lcInfo.startDate
+            lcAnnotation.xMax = lcInfo.endDate
+            lcAnnotation.label.content = `${lcInfo.ecu} LC#${lcInfo.ecuLcNr}`
+            // determine color:
+            let { color, dash, yLevel } = lcInfoEcuColorsMap.get(lcInfo.ecu) || { color: undefined, dash: undefined, yLevel: undefined }
+            if (color === undefined) {
+              color = lcInfoEcuColors[lcInfoEcuColorsMap.size % lcInfoEcuColors.length]
+              dash = lcInfoEcuBorderDashes[lcInfoEcuColorsMap.size % lcInfoEcuBorderDashes.length]
+              yLevel = lcInfoEcuYLevels[lcInfoEcuColorsMap.size % lcInfoEcuYLevels.length]
+              lcInfoEcuColorsMap.set(lcInfo.ecu, { color: color, dash: dash, yLevel: yLevel })
             }
-        };
+            lcAnnotation.borderColor = color
+            lcAnnotation.borderDash = dash
+            lcAnnotation.yMin = yLevel // or for slightly ascending -1;
+            lcAnnotation.yMax = yLevel // +1;
+            // set gridXLabelColorMap
+            // console.log(`setting grid color for ${lcAnnotation.xMin.valueOf()} and ${lcAnnotation.xMax.valueOf()} to ${color}`);
+            gridXLabelColorMap.set(new Date(lcAnnotation.xMin).valueOf(), { color: color, dash: [] })
+            gridXLabelColorMap.set(new Date(lcAnnotation.xMax).valueOf(), { color: color, dash: dash })
+          } else {
+            lcAnnotation.xMin = null
+          }
+          const haveSelectedTime = lcAnnotation.xMin !== null
+          if (haveSelectedTime && !hadSelectedTime) {
+            graphsCommonOptions.plugins.annotation.annotations[lcAnnotation.id] = lcAnnotation
+          } else if (hadSelectedTime && !haveSelectedTime) {
+            delete graphsCommonOptions.plugins.annotation.annotations[lcAnnotation.id]
+          }
+        }
+      }
 
-        const lcInfoEcuColorsMap = new Map(); // map string (ecu) to color
-        const lcInfoEcuColors = ['rgba(0,200,0,0.8)',  'rgba(126,176,203,1)', 'rgba(165, 214, 167, 0.8)','rgba(100, 100, 100, 0.8)'];
-        const lcInfoEcuBorderDashes = [[6,10], [3,5], [3,3]];
-        const lcInfoEcuYLevels = [95,85,80,75,70];
-        const updateLcInfosAnnotations = (lcInfos) => {
-            // lcInfos is LCInfoForReport[]
-            while (lcInfos.length > lcAnnotations.length){
-                const newAnn = {...lcAnnotations[0], label: {...lcAnnotations[0].label }, xMin: null, id: lcAnnotations[0].id + `_${lcAnnotations.length+1}`, pinned_:undefined, desc_:undefined};
-                lcAnnotations.push(newAnn);
-            }
-            for (let i=0; i<lcAnnotations.length; ++i){
-                let lcAnnotation = lcAnnotations[i];
-                const hadSelectedTime = lcAnnotation.xMin !== null;
-                if (i < lcInfos.length){
-                    let lcInfo = lcInfos[i];
-                    lcAnnotation.xMin = lcInfo.isResume ? lcInfo.resumeDate : lcInfo.startDate;
-                    lcAnnotation.xMax = lcInfo.endDate;
-                    lcAnnotation.label.content = `${lcInfo.ecu} LC#${lcInfo.ecuLcNr}`;
-                    // determine color:
-                    let {color, dash, yLevel} = lcInfoEcuColorsMap.get(lcInfo.ecu)||{color:undefined, dash: undefined, yLevel: undefined};
-                    if (color === undefined){
-                        color = lcInfoEcuColors[lcInfoEcuColorsMap.size % lcInfoEcuColors.length];
-                        dash = lcInfoEcuBorderDashes[lcInfoEcuColorsMap.size % lcInfoEcuBorderDashes.length];
-                        yLevel = lcInfoEcuYLevels[lcInfoEcuColorsMap.size % lcInfoEcuYLevels.length];
-                        lcInfoEcuColorsMap.set(lcInfo.ecu, {color: color, dash: dash, yLevel: yLevel});
-                    }
-                    lcAnnotation.borderColor = color;
-                    lcAnnotation.borderDash = dash;
-                    lcAnnotation.yMin = yLevel;// or for slightly ascending -1;
-                    lcAnnotation.yMax = yLevel; // +1;
-                    // set gridXLabelColorMap
-                    // console.log(`setting grid color for ${lcAnnotation.xMin.valueOf()} and ${lcAnnotation.xMax.valueOf()} to ${color}`);
-                    gridXLabelColorMap.set(new Date(lcAnnotation.xMin).valueOf(), {color:color, dash: []});
-                    gridXLabelColorMap.set(new Date(lcAnnotation.xMax).valueOf(), {color:color, dash: dash});
-                }else{
-                    lcAnnotation.xMin = null;
-                }
-                const haveSelectedTime = lcAnnotation.xMin !== null;
-                if (haveSelectedTime && !hadSelectedTime){
-                    graphsCommonOptions.plugins.annotation.annotations[lcAnnotation.id] = lcAnnotation;
-                } else if (hadSelectedTime && !haveSelectedTime){
-                    delete graphsCommonOptions.plugins.annotation.annotations[lcAnnotation.id];
-                }
-            }
-        };
-
-        const updateSelectedTimeAnnotations = (times, tag) => {
-            // times can be an array of Date[] (or of number[] ??? )
-            const tagAnnotations = selectedTimeAnnotations.filter(t => (t.tag_ === tag && !t.pinned_));
-            while (times.length > tagAnnotations.length){
-                // clone the first element but change a few attributes:
-                // todo better use a proper clone here. if e.g. new object attributes are added they are not cloned
-                const newAnn = {...selectedTimeAnnotations[0], label: {...selectedTimeAnnotations[0].label, yAdjust: (selectedTimeAnnotations.length%6)*22}, value: null, id: selectedTimeAnnotations[0].id + `_${selectedTimeAnnotations.length+1}`, tag_: tag, pinned_:undefined, desc_:undefined};
-                selectedTimeAnnotations.push(newAnn);
-                tagAnnotations.push(newAnn);
-                //console.warn(` created ${JSON.stringify(selectedTimeAnnotations[selectedTimeAnnotations.length-1], undefined, 2)}`);
-            }
-            for (let i=0; i<tagAnnotations.length; ++i)
-            {
-                const timeAnnotation = tagAnnotations[i];
-                const hadSelectedTime = timeAnnotation.value !== null;
-                const [timeVal, timeLabel] = i < times.length ? (typeof times[i]==='object' ? [times[i].value, times[i].label] : [times[i],undefined]) : [null, undefined];
-                timeAnnotation.value = timeVal;
-                timeAnnotation.endValue = timeVal;
-                // todo format below assumed/used in editAnnotationPin as well!
-                timeAnnotation.desc_ = timeLabel;
-                timeAnnotation.label.content = timeLabel ? [moment(timeAnnotation.value).format('LTS.SSS [ms]'), timeLabel] : moment(timeAnnotation.value).format('LTS.SSS [ms]');
-                const haveSelectedTime = timeAnnotation.value !== null;
-                //console.warn(` onDidChangeSelectedTime times #${i} had=${hadSelectedTime} have=${haveSelectedTime} label=${selectedTimeAnnotation.label.content} annotations=${config.options.annotation.annotations.length}`);
-                if (haveSelectedTime && !hadSelectedTime){
-                    graphsCommonOptions.plugins.annotation.annotations[timeAnnotation.id] = timeAnnotation;
-                } else if (hadSelectedTime && !haveSelectedTime){
-                    delete graphsCommonOptions.plugins.annotation.annotations[timeAnnotation.id];
-                }/*else if (haveSelectedTime && hadSelectedTime){
+      const updateSelectedTimeAnnotations = (times, tag) => {
+        // times can be an array of Date[] (or of number[] ??? )
+        const tagAnnotations = selectedTimeAnnotations.filter((t) => t.tag_ === tag && !t.pinned_)
+        while (times.length > tagAnnotations.length) {
+          // clone the first element but change a few attributes:
+          // todo better use a proper clone here. if e.g. new object attributes are added they are not cloned
+          const newAnn = {
+            ...selectedTimeAnnotations[0],
+            label: { ...selectedTimeAnnotations[0].label, yAdjust: (selectedTimeAnnotations.length % 6) * 22 },
+            value: null,
+            id: selectedTimeAnnotations[0].id + `_${selectedTimeAnnotations.length + 1}`,
+            tag_: tag,
+            pinned_: undefined,
+            desc_: undefined,
+          }
+          selectedTimeAnnotations.push(newAnn)
+          tagAnnotations.push(newAnn)
+          //console.warn(` created ${JSON.stringify(selectedTimeAnnotations[selectedTimeAnnotations.length-1], undefined, 2)}`);
+        }
+        for (let i = 0; i < tagAnnotations.length; ++i) {
+          const timeAnnotation = tagAnnotations[i]
+          const hadSelectedTime = timeAnnotation.value !== null
+          const [timeVal, timeLabel] =
+            i < times.length ? (typeof times[i] === 'object' ? [times[i].value, times[i].label] : [times[i], undefined]) : [null, undefined]
+          timeAnnotation.value = timeVal
+          timeAnnotation.endValue = timeVal
+          // todo format below assumed/used in editAnnotationPin as well!
+          timeAnnotation.desc_ = timeLabel
+          timeAnnotation.label.content = timeLabel
+            ? [moment(timeAnnotation.value).format('LTS.SSS [ms]'), timeLabel]
+            : moment(timeAnnotation.value).format('LTS.SSS [ms]')
+          const haveSelectedTime = timeAnnotation.value !== null
+          //console.warn(` onDidChangeSelectedTime times #${i} had=${hadSelectedTime} have=${haveSelectedTime} label=${selectedTimeAnnotation.label.content} annotations=${config.options.annotation.annotations.length}`);
+          if (haveSelectedTime && !hadSelectedTime) {
+            graphsCommonOptions.plugins.annotation.annotations[timeAnnotation.id] = timeAnnotation
+          } else if (hadSelectedTime && !haveSelectedTime) {
+            delete graphsCommonOptions.plugins.annotation.annotations[timeAnnotation.id]
+          } /*else if (haveSelectedTime && hadSelectedTime){
                     // no need to modify elements directly: (fixed with chartjs v3...)
                 }*/
+        }
+      }
+
+      function handleTimelineChartSelectedTime(times) {
+        console.log(`handleTimelineChartSelectedTimes`, times)
+        updateSelectedTimeAnnotations(times, 'tl')
+        updateGraphs()
+      }
+
+      let graphResetTime = {
+        minTime: undefined,
+      }
+
+      const autoScaleData = new Map() // group id -> scale id -> yExtrema
+
+      function getBestFittingAutoScale(autoScaleMap, scales, min, max) {
+        // console.log(`auto-scale for yExtrema (${min}-${max}),  size=${autoScaleMap.size}...`);
+        if (autoScaleMap.size === 0) {
+          const axis = 'y-axis-0'
+          // first one just sets the data:
+          autoScaleMap.set(axis, { min: min, max: max })
+          return axis
+        } else {
+          // now we iterate through the existing scales:
+          for ([axis, extrema] of autoScaleMap) {
+            // console.log(`auto-scale for yExtrema (${min}-${max}),  comparing with '${axis}' (${extrema.min}-${extrema.max})...`);
+            const newMin = Math.min(min, extrema.min)
+            const newMax = Math.max(max, extrema.max)
+            const newDist = newMax - newMin
+            // we consider two aspects:
+            // a) would a change of min/max of axis render the current content unreadable?
+            if (min < extrema.min || max > extrema.max) {
+              // if we're here newDist is >0
+              const oldDist = extrema.max - extrema.min
+              if (oldDist > 0 && oldDist / newDist < 0.1) {
+                // console.log(`auto-scale for yExtrema (${min}-${max}),  would render '${axis}' non significant (${oldDist/newDist}<0.1)`);
+                continue
+              }
+            }
+            // b) would the min-max values be significant inside the existing axis
+            const ownDist = max - min
+            if (ownDist > 0 && newDist > 0 && ownDist / newDist < 0.1) {
+              // console.log(`auto-scale for yExtrema (${min}-${max}),  would be non significant (${ownDist/newDist}<0.1) inside '${axis}' `);
+              continue
             }
 
-        };
-
-        function handleTimelineChartSelectedTime(times){
-            console.log(`handleTimelineChartSelectedTimes`, times);
-            updateSelectedTimeAnnotations(times, 'tl');
-            updateGraphs();
+            // we can use this one:
+            extrema.min = newMin
+            extrema.max = newMax
+            return axis
+          }
+          // if we end here there is no fitting existing one (not considering the ones we do have no min/max info from)
+          // todo could check the other scales for min/max and see whether one is fitting
+          let newAxis = `y-as-${Object.keys(scales).length}`
+          console.log(`auto-scale for yExtrema (${min}-${max}),  returning a new axis '${newAxis}' (${min}-${max})...`)
+          scales[newAxis] = { ...scales['y-axis-0'], id: newAxis }
+          autoScaleMap.set(newAxis, { min: min, max: max })
+          return newAxis
         }
+        // return undefined or a y-scale id.
+      }
 
-        let graphResetTime = {
-            minTime: undefined,
-        };
+      window.addEventListener('message', (event) => {
+        try {
+          const message = event.data
+          // vscode.postMessage({ message: 'got message ' + message.command + ' ' + Array.isArray(message.data) });
+          switch (message.command) {
+            case 'update':
+              //vscode.postMessage({ message: 'update message.data.length=' + message.data.length });
+              //vscode.postMessage({ message: 'update config.data.datasets[0].data.length=' + config.data.datasets[0].data.length });
+              //vscode.postMessage({ message: `#yAxis= ${message.data.filter(f=>f.yAxis !== undefined).length}`});
 
-        const autoScaleData = new Map(); // group id -> scale id -> yExtrema
+              updateYAxes(message.data) // afterwards dataSet.yAxisID is set if dataSet.yAxis was set
 
-        function getBestFittingAutoScale(autoScaleMap, scales, min, max ){
-            // console.log(`auto-scale for yExtrema (${min}-${max}),  size=${autoScaleMap.size}...`);
-            if (autoScaleMap.size === 0){
-                const axis = 'y-axis-0';
-                // first one just sets the data:
-                autoScaleMap.set(axis, {min: min, max:max});
-                return axis;
-            }else{
-                // now we iterate through the existing scales:
-                for ([axis, extrema] of autoScaleMap){
-                    // console.log(`auto-scale for yExtrema (${min}-${max}),  comparing with '${axis}' (${extrema.min}-${extrema.max})...`);
-                    const newMin = Math.min(min, extrema.min);
-                    const newMax = Math.max(max, extrema.max);
-                    const newDist = newMax - newMin;
-                    // we consider two aspects:
-                    // a) would a change of min/max of axis render the current content unreadable?
-                    if (min < extrema.min || max > extrema.max){
-                        // if we're here newDist is >0
-                        const oldDist = extrema.max - extrema.min;
-                        if (oldDist > 0 && oldDist/newDist < 0.1){
-                            // console.log(`auto-scale for yExtrema (${min}-${max}),  would render '${axis}' non significant (${oldDist/newDist}<0.1)`);
-                            continue;
-                        }
-                    }
-                    // b) would the min-max values be significant inside the existing axis
-                    const ownDist = max-min;
-                    if (ownDist > 0 && newDist>0 && ownDist/newDist < 0.1){
-                            // console.log(`auto-scale for yExtrema (${min}-${max}),  would be non significant (${ownDist/newDist}<0.1) inside '${axis}' `);
-                            continue;
-                    }
-
-                    // we can use this one:
-                    extrema.min = newMin;
-                    extrema.max = newMax;
-                    return axis;
+              const nrDatasetsByGroup = new Map()
+              for (let i = 0; i < message.data.length; ++i) {
+                const messageData = message.data[i]
+                if (messageData.label.startsWith('TL_')) {
+                  continue
                 }
-                // if we end here there is no fitting existing one (not considering the ones we do have no min/max info from)
-                // todo could check the other scales for min/max and see whether one is fitting
-                let newAxis = `y-as-${Object.keys(scales).length}`;
-                console.log(`auto-scale for yExtrema (${min}-${max}),  returning a new axis '${newAxis}' (${min}-${max})...`);
-                scales[newAxis] = {...scales['y-axis-0'], id: newAxis};
-                autoScaleMap.set(newAxis, {min: min, max: max});
-                return newAxis;
-            }
-            // return undefined or a y-scale id.
-        }
 
-        window.addEventListener('message', event => {
-            try {
-                const message = event.data;
-                // vscode.postMessage({ message: 'got message ' + message.command + ' ' + Array.isArray(message.data) });
-                switch (message.command) {
-                    case 'update':
-                        //vscode.postMessage({ message: 'update message.data.length=' + message.data.length });
-                        //vscode.postMessage({ message: 'update config.data.datasets[0].data.length=' + config.data.datasets[0].data.length });
-                        //vscode.postMessage({ message: `#yAxis= ${message.data.filter(f=>f.yAxis !== undefined).length}`});
-
-                        updateYAxes(message.data ); // afterwards dataSet.yAxisID is set if dataSet.yAxis was set
-
-                        const nrDatasetsByGroup = new Map();
-                        for (let i = 0; i < message.data.length; ++i) {
-                            const messageData = message.data[i];
-                            if (messageData.label.startsWith("TL_")) {continue;}
-
-                            // determine which chart to use by group name:
-                            const group = messageData.group || 'main';
-                            const graph = graphsGetOrCreate(group) || graphs.get('main');
-                            let d = nrDatasetsByGroup.get(group) || 0;
-                            const graphData = graph.config.data;
-                            const scales = graph.config.options.scales;
-                            if (d >= graphData.datasets.length) {
-                                const dataType = ('type' in messageData) ? messageData.type : 'line';
-                                graphData.datasets.push({ // todo check for multiple yLabels
-                                    type: dataType,
-                                    label: messageData.label,
-                                    data: messageData.dataYLabels.data,
-                                    fill: false,
-                                    parsing: false,
-                                    borderWidth: 1,
-                                    pointRadius: 2,
-                                    yAxisID: messageData.yAxisID,
-                                    indexAxis: 'x',
-                                });
-                            }
-
-                            if (d < graphData.datasets.length) {
-                                const configDataset = graphData.datasets[d];
-                                configDataset.label = messageData.label;
-                                configDataset.hidden = messageData.yAxis?.hidden;
-                                configDataset.type = ('type' in messageData) ? messageData.type : 'line';
-                                if (messageData.dataYLabels.yLabels !== undefined) { // todo! yAxisID could be set!
-                                    const dsi = configDataset;
-                                    const yAxis = messageData.yAxisID !== undefined ? scales[messageData.yAxisID]  : scales['y-axis-1'];
-                                    configDataset.yAxisID = yAxis.id;
-                                    configDataset.lineTension = 0;
-                                    if (!Array.isArray(yAxis.labels)){
-                                            yAxis['labels'] = [];
-                                    }
-                                    for (let j = 0; j < messageData.dataYLabels.yLabels.length; ++j) {
-                                        if (!(yAxis.labels.includes(messageData.dataYLabels.yLabels[j])))
-                                            yAxis.labels.push(messageData.dataYLabels.yLabels[j]);
-                                    }
-                                } else {
-                                    if (messageData.yAxisID === undefined && messageData.yExtrema !== undefined){
-                                        const {min, max} = messageData.yExtrema;
-                                        // auto-determine a fitting scale based on yExtrema, fallback to 'y-axis-0'
-                                        let autoScaleDataGroup = autoScaleData.get(group);
-                                        if (autoScaleDataGroup === undefined){
-                                            autoScaleDataGroup = new Map();
-                                            autoScaleData.set(group, autoScaleDataGroup);
-                                        }
-                                        let axisId = getBestFittingAutoScale(autoScaleDataGroup, scales, min, max ) || 'y-axis-0';
-                                        // console.log(`auto-scale for yExtrema (${min}-${max}) for group '${group}' = ${axisId}`);
-                                        configDataset.yAxisID = axisId;
-                                    }else{
-                                        const axis = messageData.yAxisID !== undefined ? messageData.yAxisID : 'y-axis-0';
-                                        if (messageData.yExtrema !== undefined){
-                                            // if yExtrema, update metrics for group/yAxisID
-                                            const {min, max} = messageData.yExtrema;
-                                            // console.log(`auto-scale set yExtrema (${min}-${max}) for group '${group}' for yAxis ${messageData.yAxisID}`);
-                                            let autoScaleDataGroup = autoScaleData.get(group);
-                                            if (autoScaleDataGroup === undefined){
-                                                autoScaleDataGroup = new Map();
-                                                autoScaleData.set(group, autoScaleDataGroup);
-                                            }
-                                            let extrema = autoScaleDataGroup.get(axis);
-                                            if (extrema === undefined){
-                                                extrema={min: min, max: max};
-                                                autoScaleDataGroup.set(axis, extrema);
-                                            } else{
-                                                if (min < extrema.min){ extrema.min = min; } else
-                                                    if (max > extrema.max) { extrema.max = max; }
-                                            }
-                                        }
-                                        configDataset.yAxisID = axis;
-                                    }
-                                    configDataset.lineTension = 0.4;
-                                }
-                                if (configDataset._data !== undefined){
-                                    console.warn(`configDataset._data (decimation data) exists!`);
-                                    // todo investigate whether updates of data to an existing decimation active works!
-                                }
-                                configDataset.data = messageData.dataYLabels.data;
-                            }
-                            d += 1;
-                            nrDatasetsByGroup.set(group, d);
-                        }
-                        updateGraphs();
-                        timelineChartUpdate({datasets:message.data /* no need to filter here. timelineChartUpdate checks anyhow */, groupPrios: message.groupPrios, onZoom: handleTimelineChartZoom, onSelectedTime:handleTimelineChartSelectedTime});
-                        break;
-                    case 'onDidChangeSelectedTime':
-                        { // todo check if times are within boundaries of this report?
-                            const times = Array.isArray(message.selectedTime) ? message.selectedTime : [message.selectedTime];
-                            updateSelectedTimeAnnotations(times, 'msg');
-
-                            let msgAnnotation = selectedTimeAnnotations.find(t => t.tag_ === 'msg' && !t.pinned_ && t.value !== null);
-                            if (msgAnnotation === undefined){
-                                msgAnnotation = selectedTimeAnnotations.find(t => t.tag_ === 'msg' && t.value !== null); // fallback to pinned one
-                            }
-
-                            if (msgAnnotation !== undefined){
-                                timelineChartUpdate({selectedTime:new Date(msgAnnotation.value)}); 
-                            }
-
-                            updateGraphs();
-                        }
-                        break;
-                    case 'update lcInfos':
-                        try{
-                            updateLcInfosAnnotations(message.lcInfos,  'lcInfo');
-                        }catch(e){
-                            console.warn(`update lcInfos got e='${e}'`);
-                        }
-                        break;
-                    case 'update labels':
-                        // we must not change the array obj but modify it:
-                        graphsCommonXLabels.length = 0;
-                        if (Array.isArray(message.labels)){
-                            message.labels.forEach((label)=>graphsCommonXLabels.push(label));
-                        }
-
-                        minDataPointTime = message.minDataPointTime;
-                        updateGraphs();
-                        // todo ? timelineChartUpdate({config:config});
-                        vscode.postMessage({ message: 'update labels #' + message.labels.length });
-                        break;
-                    case 'update titles':
-                        graphsUpdateTitle('main', message.titles);
-                        // update filenames:
-                        document.getElementById('report_filenames').innerText = 'dlt-logs report of: '+message.fileNames.join(' , ');
-                        break;
-                    case 'update warnings':
-                        const warnings = message.warnings || [];
-                        document.getElementById('report_warnings').hidden = warnings.length === 0;
-                        document.getElementById('report_warnings').innerText = warnings.length>0 ? 'Errors/warnings during report generation:\n\n'+warnings.join('\n\n') : '';
-                        break;
+                // determine which chart to use by group name:
+                const group = messageData.group || 'main'
+                const graph = graphsGetOrCreate(group) || graphs.get('main')
+                let d = nrDatasetsByGroup.get(group) || 0
+                const graphData = graph.config.data
+                const scales = graph.config.options.scales
+                if (d >= graphData.datasets.length) {
+                  const dataType = 'type' in messageData ? messageData.type : 'line'
+                  graphData.datasets.push({
+                    // todo check for multiple yLabels
+                    type: dataType,
+                    label: messageData.label,
+                    data: messageData.dataYLabels.data,
+                    fill: false,
+                    parsing: false,
+                    borderWidth: 1,
+                    pointRadius: 2,
+                    yAxisID: messageData.yAxisID,
+                    indexAxis: 'x',
+                  })
                 }
-            } catch (err) {
-                vscode.postMessage({ message: `update(${event.data.command}) got err:${err}` });
-            }
-        });
 
-        window.toggleLifecycleStart = function (checkbox) {
-            console.log("toggleLifecycleStart checkbox " + checkbox.checked);
-            // checkbox.checked contains the prev value
-            if (!checkbox.checked ){ // we want to see the lc start:
-                graphResetTime.minTime = undefined;
-                graphs.forEach((graph) => {
-                        graph.config.options.scales['x'].min = undefined;
-                });
-                
-            } else if (checkbox.checked) {
-                // hide the time until first msg:
-                if (minDataPointTime !== undefined) {
-                    graphResetTime.minTime = minDataPointTime;
-                    graphs.forEach((graph) => {
-                        graph.config.options.scales['x'].min = minDataPointTime;
-                    });
-                    // if the minDataPointTime is not yet within the labels add it:
-                    const minDataPointTimeAsDate = new Date(minDataPointTime);
-                    if (!graphsCommonXLabels.includes(minDataPointTimeAsDate)){
-                        let lcStartDate = [];
-                        while (graphsCommonXLabels.length > 0 && graphsCommonXLabels[0].valueOf() <= minDataPointTime) { lcStartDate.push(graphsCommonXLabels.shift()); }
-                        graphsCommonXLabels.unshift(minDataPointTimeAsDate);
-                        for (let i = lcStartDate.length - 1; i >= 0; --i) {
-                            graphsCommonXLabels.unshift(lcStartDate[i]);
-                        }
+                if (d < graphData.datasets.length) {
+                  const configDataset = graphData.datasets[d]
+                  configDataset.label = messageData.label
+                  configDataset.hidden = messageData.yAxis?.hidden
+                  configDataset.type = 'type' in messageData ? messageData.type : 'line'
+                  if (messageData.dataYLabels.yLabels !== undefined) {
+                    // todo! yAxisID could be set!
+                    const dsi = configDataset
+                    const yAxis = messageData.yAxisID !== undefined ? scales[messageData.yAxisID] : scales['y-axis-1']
+                    configDataset.yAxisID = yAxis.id
+                    configDataset.lineTension = 0
+                    if (!Array.isArray(yAxis.labels)) {
+                      yAxis['labels'] = []
                     }
+                    for (let j = 0; j < messageData.dataYLabels.yLabels.length; ++j) {
+                      if (!yAxis.labels.includes(messageData.dataYLabels.yLabels[j])) yAxis.labels.push(messageData.dataYLabels.yLabels[j])
+                    }
+                  } else {
+                    if (messageData.yAxisID === undefined && messageData.yExtrema !== undefined) {
+                      const { min, max } = messageData.yExtrema
+                      // auto-determine a fitting scale based on yExtrema, fallback to 'y-axis-0'
+                      let autoScaleDataGroup = autoScaleData.get(group)
+                      if (autoScaleDataGroup === undefined) {
+                        autoScaleDataGroup = new Map()
+                        autoScaleData.set(group, autoScaleDataGroup)
+                      }
+                      let axisId = getBestFittingAutoScale(autoScaleDataGroup, scales, min, max) || 'y-axis-0'
+                      // console.log(`auto-scale for yExtrema (${min}-${max}) for group '${group}' = ${axisId}`);
+                      configDataset.yAxisID = axisId
+                    } else {
+                      const axis = messageData.yAxisID !== undefined ? messageData.yAxisID : 'y-axis-0'
+                      if (messageData.yExtrema !== undefined) {
+                        // if yExtrema, update metrics for group/yAxisID
+                        const { min, max } = messageData.yExtrema
+                        // console.log(`auto-scale set yExtrema (${min}-${max}) for group '${group}' for yAxis ${messageData.yAxisID}`);
+                        let autoScaleDataGroup = autoScaleData.get(group)
+                        if (autoScaleDataGroup === undefined) {
+                          autoScaleDataGroup = new Map()
+                          autoScaleData.set(group, autoScaleDataGroup)
+                        }
+                        let extrema = autoScaleDataGroup.get(axis)
+                        if (extrema === undefined) {
+                          extrema = { min: min, max: max }
+                          autoScaleDataGroup.set(axis, extrema)
+                        } else {
+                          if (min < extrema.min) {
+                            extrema.min = min
+                          } else if (max > extrema.max) {
+                            extrema.max = max
+                          }
+                        }
+                      }
+                      configDataset.yAxisID = axis
+                    }
+                    configDataset.lineTension = 0.4
+                  }
+                  if (configDataset._data !== undefined) {
+                    console.warn(`configDataset._data (decimation data) exists!`)
+                    // todo investigate whether updates of data to an existing decimation active works!
+                  }
+                  configDataset.data = messageData.dataYLabels.data
                 }
+                d += 1
+                nrDatasetsByGroup.set(group, d)
+              }
+              updateGraphs()
+              timelineChartUpdate({
+                datasets: message.data /* no need to filter here. timelineChartUpdate checks anyhow */,
+                groupPrios: message.groupPrios,
+                onZoom: handleTimelineChartZoom,
+                onSelectedTime: handleTimelineChartSelectedTime,
+              })
+              break
+            case 'onDidChangeSelectedTime':
+              {
+                // todo check if times are within boundaries of this report?
+                const times = Array.isArray(message.selectedTime) ? message.selectedTime : [message.selectedTime]
+                updateSelectedTimeAnnotations(times, 'msg')
+
+                let msgAnnotation = selectedTimeAnnotations.find((t) => t.tag_ === 'msg' && !t.pinned_ && t.value !== null)
+                if (msgAnnotation === undefined) {
+                  msgAnnotation = selectedTimeAnnotations.find((t) => t.tag_ === 'msg' && t.value !== null) // fallback to pinned one
+                }
+
+                if (msgAnnotation !== undefined) {
+                  timelineChartUpdate({ selectedTime: new Date(msgAnnotation.value) })
+                }
+
+                updateGraphs()
+              }
+              break
+            case 'update lcInfos':
+              try {
+                updateLcInfosAnnotations(message.lcInfos, 'lcInfo')
+              } catch (e) {
+                console.warn(`update lcInfos got e='${e}'`)
+              }
+              break
+            case 'update labels':
+              // we must not change the array obj but modify it:
+              graphsCommonXLabels.length = 0
+              if (Array.isArray(message.labels)) {
+                message.labels.forEach((label) => graphsCommonXLabels.push(label))
+              }
+
+              minDataPointTime = message.minDataPointTime
+              updateGraphs()
+              // todo ? timelineChartUpdate({config:config});
+              vscode.postMessage({ message: 'update labels #' + message.labels.length })
+              break
+            case 'update titles':
+              graphsUpdateTitle('main', message.titles)
+              // update filenames:
+              document.getElementById('report_filenames').innerText = 'dlt-logs report of: ' + message.fileNames.join(' , ')
+              break
+            case 'update warnings':
+              const warnings = message.warnings || []
+              document.getElementById('report_warnings').hidden = warnings.length === 0
+              document.getElementById('report_warnings').innerText =
+                warnings.length > 0 ? 'Errors/warnings during report generation:\n\n' + warnings.join('\n\n') : ''
+              break
+          }
+        } catch (err) {
+          vscode.postMessage({ message: `update(${event.data.command}) got err:${err}` })
+        }
+      })
+
+      window.toggleLifecycleStart = function (checkbox) {
+        console.log('toggleLifecycleStart checkbox ' + checkbox.checked)
+        // with vscode-elements it contains the new value: checkbox.checked contains the prev value
+        if (checkbox.checked) {
+          // we want to see the lc start:
+          graphResetTime.minTime = undefined
+          graphs.forEach((graph) => {
+            graph.config.options.scales['x'].min = undefined
+          })
+        } else {
+          // hide the time until first msg:
+          if (minDataPointTime !== undefined) {
+            graphResetTime.minTime = minDataPointTime
+            graphs.forEach((graph) => {
+              graph.config.options.scales['x'].min = minDataPointTime
+            })
+            // if the minDataPointTime is not yet within the labels add it:
+            const minDataPointTimeAsDate = new Date(minDataPointTime)
+            if (!graphsCommonXLabels.includes(minDataPointTimeAsDate)) {
+              let lcStartDate = []
+              while (graphsCommonXLabels.length > 0 && graphsCommonXLabels[0].valueOf() <= minDataPointTime) {
+                lcStartDate.push(graphsCommonXLabels.shift())
+              }
+              graphsCommonXLabels.unshift(minDataPointTimeAsDate)
+              for (let i = lcStartDate.length - 1; i >= 0; --i) {
+                graphsCommonXLabels.unshift(lcStartDate[i])
+              }
             }
-            updateGraphs();
+          }
         }
+        updateGraphs()
+      }
 
-        window.resetZoom = function () {
-            graphsResetZoom(graphResetTime.minTime);
-        }
+      window.resetZoom = function () {
+        graphsResetZoom(graphResetTime.minTime)
+      }
 
-        window.toggleDragMode = function () {
-            graphsToggleDragMode();
-            // doesn't change zoom or any other data... timelineChartUpdate({config:config});
-            var zoomOptions = graphs.get('main').chart.options.plugins.zoom;
-            document.getElementById('drag-switch').innerText = zoomOptions.zoom.drag.enabled ? "Disable drag mode" : "Enable drag mode";
-        }
+      window.toggleDragMode = function () {
+        graphsToggleDragMode()
+        // doesn't change zoom or any other data... timelineChartUpdate({config:config});
+        var zoomOptions = graphs.get('main').chart.options.plugins.zoom
+        document.getElementById('drag-switch').innerText = zoomOptions.zoom.drag.enabled ? 'Disable drag mode' : 'Enable drag mode'
+      }
 
-        vscode.postMessage({ message: 'hello from timeSeriesReport.html' });
-
+      vscode.postMessage({ message: 'hello from timeSeriesReport.html' })
     </script>
-
-</body>
-
+  </body>
 </html>
