@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.99.0](https://github.com/mbehr1/dlt-logs/compare/v1.98.2...v1.99.0) (2025-02-03)
+
+
+### Features
+
+* **adlt:** improve output for ctrl messages ([267c253](https://github.com/mbehr1/dlt-logs/commit/267c253bf3d0dc74774ac11fbf81cb799ce837e9))
+
 ## [1.98.2](https://github.com/mbehr1/dlt-logs/compare/v1.98.1...v1.98.2) (2025-01-14)
 
 
