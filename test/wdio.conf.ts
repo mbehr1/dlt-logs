@@ -26,7 +26,6 @@ export const config: Options.Testrunner = {
   // environment variables for ts-node or use wdio config's autoCompileOpts section.
   //
   outputDir: 'test/trace',
-
   autoCompileOpts: {
     autoCompile: true,
     // see https://github.com/TypeStrong/ts-node#cli-and-programmatic-options
@@ -92,7 +91,7 @@ export const config: Options.Testrunner = {
       maxInstances: 5,
       //
       browserName: 'vscode',
-      browserVersion: '1.78.0', // "insiders" or "stable" for latest VSCode version
+      browserVersion: '1.93.0', // version before 1.90.0 fail, 1.94.0, 1.95.0, 1.96.0, 1.97.2 fails as well, stable fails. "insiders" or "stable" for latest VSCode version
       'wdio:vscodeOptions': {
         // binary: '/Users/mbehr/develop/vscode/dlt-logs/.wdio-vscode-service/vscode-darwin-arm64-1.70.2/Visual Studio Code.app/Contents/Resources/app/bin/code',
         extensionPath: path.join(__dirname, '..'),
@@ -298,13 +297,13 @@ export const config: Options.Testrunner = {
   // },
   afterTest: async function (test, __, { passed }) {
     if (passed) {
-      return;
+      return
     }
 
-    console.log('Capturing screenshot for debugging');
-    const screenshotDir = path.join(__dirname, 'screenshots');
-    await fs.mkdir(screenshotDir, { recursive: true });
-    await browser.saveScreenshot(path.join(screenshotDir, `failed ${test.parent} - ${test.title}.png`));
+    console.log('Capturing screenshot for debugging')
+    const screenshotDir = path.join(__dirname, 'screenshots')
+    await fs.mkdir(screenshotDir, { recursive: true })
+    await browser.saveScreenshot(path.join(screenshotDir, `failed ${test.parent} - ${test.title}.png`))
   },
 
   /**
@@ -356,4 +355,4 @@ export const config: Options.Testrunner = {
    */
   // onReload: function(oldSessionId, newSessionId) {
   // }
-};
+}
