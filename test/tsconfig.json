@@ -4,7 +4,7 @@
         "module": "ESNext",
         "types": [
             "node",
-            "webdriverio/async",
+            "@wdio/globals/types",
             "@wdio/mocha-framework",
             "expect-webdriverio",
             "wdio-vscode-service"
@@ -12,7 +12,16 @@
         "target": "es2022",
         "moduleResolution": "node",
         "esModuleInterop": true,
-        "experimentalDecorators": true
+        "experimentalDecorators": true,
+        "skipLibCheck": true,
+        "noEmit": true,
+        "allowImportingTsExtensions": true,
+        "resolveJsonModule": true,
+        "isolatedModules": true,
+        "strict": true,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
+        "noFallthroughCasesInSwitch": true
     },
     "ts-node": {
         // Tell ts-node CLI to install the --loader automatically, explained below
