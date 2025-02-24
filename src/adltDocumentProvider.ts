@@ -36,7 +36,16 @@ import { DltFilter, DltFilterType } from './dltFilter'
 import { DltReport, NewMessageSink, ReportDocument } from './dltReport'
 import { FilterableDltMsg, ViewableDltMsg, MSTP, MTIN_CTRL, MTIN_LOG, EAC, getEACFromIdx, getIdxFromEAC, MTIN_LOG_strs } from './dltParser'
 import { DltLifecycleInfoMinIF } from './dltLifecycle'
-import { TreeViewNode, FilterNode, LifecycleRootNode, LifecycleNode, EcuNode, FilterRootNode, DynFilterNode } from './dltTreeViewNodes'
+import {
+  TreeViewNode,
+  FilterNode,
+  LifecycleRootNode,
+  LifecycleNode,
+  EcuNode,
+  FilterRootNode,
+  DynFilterNode,
+  ConfigNode,
+} from './dltTreeViewNodes'
 
 import * as remote_types from './remote_types'
 import { DltDocument, ColumnConfig } from './dltDocument'
@@ -379,7 +388,7 @@ export class AdltDocument implements vscode.Disposable {
   treeNode: TreeViewNode
   lifecycleTreeNode: LifecycleRootNode
   filterTreeNode: FilterRootNode
-  //configTreeNode: TreeViewNode;
+  configTreeNode?: TreeViewNode
   pluginTreeNode: TreeViewNode
   eventsTreeNode: TreeViewNode
 
@@ -755,6 +764,156 @@ export class AdltDocument implements vscode.Disposable {
   }
 
   /**
+   * return the tree node for the 'Configs' section
+   * It's created only on demand (if doCreate is true) and inserted between filterTreeNode and pluginTreeNode
+   * @param doCreate
+   * @returns this.configTreeNode
+   */
+  getConfigTreeRootNode(doCreate: boolean): TreeViewNode | undefined {
+    if (doCreate && !this.configTreeNode) {
+      this.configTreeNode = {
+        id: util.createUniqueId(),
+        label: 'Configs',
+        uri: this.uri,
+        parent: this.treeNode,
+        children: [],
+        tooltip: undefined,
+        iconPath: new vscode.ThemeIcon('references'),
+      }
+      // insert between filterTreeNode and pluginTreeNode
+      const idx = this.treeNode.children.findIndex((child) => child === this.filterTreeNode)
+      this.treeNode.children.splice(idx + 1, 0, this.configTreeNode)
+      this._treeEventEmitter.fire(this.treeNode)
+    }
+    return this.configTreeNode
+  }
+
+  getConfigNode(name: string, create = true): TreeViewNode | undefined {
+    if (name.length === 0) {
+      return undefined
+    }
+    const confStr = name.split('/')
+    let parentNode: TreeViewNode | undefined = this.configTreeNode
+    for (let l = 0; l < confStr.length; ++l) {
+      const confPart = confStr[l]
+      if (confPart.length === 0) {
+        return undefined
+      }
+      let child: ConfigNode | undefined = undefined
+      // search for confPart within parentNode/children
+      if (parentNode !== undefined) {
+        for (let n = 0; n < parentNode.children.length; ++n) {
+          if (parentNode.children[n].label === confPart) {
+            child = parentNode.children[n] as ConfigNode
+            break
+          }
+        }
+      }
+      if (create && child === undefined) {
+        // create new child
+        if (parentNode === undefined) {
+          parentNode = this.getConfigTreeRootNode(true)!
+        }
+        child = new ConfigNode(parentNode.uri, parentNode, confPart)
+        const filterChild = new ConfigNode(child.uri, child, '')
+        filterChild.iconPath = new vscode.ThemeIcon('list-flat')
+        filterChild.description = 'list of assigned filters'
+        child.children.push(filterChild)
+        parentNode.children.push(child)
+        console.log(`getConfigNode created child ${child.label}`)
+        this._treeEventEmitter.fire(this.configTreeNode!)
+      }
+      parentNode = child
+      if (parentNode === undefined) {
+        break
+      }
+    }
+    return parentNode
+  }
+
+  updateConfigs(filter: DltFilter) {
+    const configContainsFilterDirectly = function (node: ConfigNode, filter: DltFilter) {
+      // see whether "filterChild" contains the filter:
+      if (node.children.length < 1) {
+        return false
+      }
+      const filterChild = node.children[0]
+      if (filterChild instanceof ConfigNode) {
+        for (let f = 0; f < filterChild.children.length; ++f) {
+          const filterNode = filterChild.children[f]
+          if (filterNode instanceof FilterNode) {
+            if (filterNode.filter === filter) {
+              return true
+            }
+          }
+        }
+      }
+      return false
+    }
+    const confCopy = filter.configs // not a copy but ref to orig filter.configs
+    const shouldBeInConfigNodes: ConfigNode[] = []
+    for (let c = 0; c < confCopy.length; ++c) {
+      const configNode = this.getConfigNode(confCopy[c], true) // allow create
+      if (configNode !== undefined) {
+        if (configNode instanceof ConfigNode) {
+          shouldBeInConfigNodes.push(configNode)
+          if (!configContainsFilterDirectly(configNode, filter)) {
+            //console.log(`updateConfigs adding filter '${filter.name}' to '${configNode.label}'`)
+            if (configNode.tooltip) {
+              configNode.tooltip += `\n${filter.name}`
+            } else {
+              configNode.tooltip = `filter:\n${filter.name}`
+            }
+            // and add this filter as a child to the filters:
+            let filterNode = new FilterNode(configNode.uri, configNode.children[0], filter)
+            configNode.children[0].children.push(filterNode)
+          } else {
+            // console.log(`filter already in configNode ${configNode.label}`);
+          }
+        }
+      }
+    }
+    const checkAndRemoveNode = function (node: ConfigNode, shouldBeInConfigNodes: readonly ConfigNode[]) {
+      if (shouldBeInConfigNodes.includes(node)) {
+        //assert(configContainsFilterDirectly(node, filter));
+      } else {
+        if (configContainsFilterDirectly(node, filter)) {
+          // remove
+          for (let i = 0; i < node.children[0].children.length; ++i) {
+            const filterNode = node.children[0].children[i]
+            if (filterNode instanceof FilterNode) {
+              if (filterNode.filter === filter) {
+                console.log(
+                  `removing FilterNode(id=${filterNode.id}, label=${filterNode.label}) with ${filterNode.children.length} children`,
+                )
+                node.children[0].children.splice(i, 1)
+                break // we add filters only once
+              }
+            }
+          }
+          // we keep nodes with empty filters as well
+        }
+      }
+
+      // now check for all children:
+      node.children.forEach((c) => {
+        if (c instanceof ConfigNode) {
+          if (c.label.length > 0) {
+            checkAndRemoveNode(c, shouldBeInConfigNodes)
+          }
+        }
+      })
+    }
+    if (this.configTreeNode) {
+      this.configTreeNode.children.forEach((node) => {
+        if (node instanceof ConfigNode) {
+          checkAndRemoveNode(node, shouldBeInConfigNodes)
+        }
+      })
+    }
+  }
+
+  /**
    * callback to handle any configuration change dynamically
    *
    * will be called on each configuration change.
@@ -825,7 +984,9 @@ export class AdltDocument implements vscode.Disposable {
    * @param filterObjs array of filter objects as received from the configuration
    */ // todo move to extension
   parseFilterConfigs(filterObjs: Object[] | undefined) {
-    // console.log(`AdltDocument.parseFilterConfigs: have ${filterObjs?.length} filters to parse. Currently have ${this.allFilters.length} filters...`);
+    console.error(
+      `AdltDocument.parseFilterConfigs: have ${filterObjs?.length} filters to parse. Currently have ${this.allFilters.length} filters...`,
+    )
     if (filterObjs) {
       let skipped = 0
       for (let i = 0; i < filterObjs.length; ++i) {
@@ -838,8 +999,13 @@ export class AdltDocument implements vscode.Disposable {
           if (containedIdx < 0) {
             // not contained yet:
             let newFilter = new DltFilter(filterConf)
+            console.error(
+              `AdltDocument.parseFilterConfigs: filter configs=${JSON.stringify(newFilter.configs)} from filterConf=${JSON.stringify(
+                newFilter.configOptions,
+              )}!`,
+            )
             if (newFilter.configs.length > 0) {
-              // todo adlt this.updateConfigs(newFilter);
+              this.updateConfigs(newFilter)
               // for now (as no proper config support) we disable those filters:
               newFilter.enabled = false
             }
@@ -853,8 +1019,27 @@ export class AdltDocument implements vscode.Disposable {
             // its contained already. so lets first update the settings:
             const existingFilter = this.allFilters[containedIdx]
             if ('type' in filterConf && 'id' in filterConf) {
+              const newHasConf = Array.isArray(filterConf.configs) && filterConf.configs.length
+              const oldHasConf = existingFilter.configs.length
+              let updateConfigsNeeded = false
+              if (
+                (oldHasConf && !newHasConf) ||
+                (newHasConf && !oldHasConf) ||
+                (newHasConf &&
+                  !(
+                    filterConf.configs.length === existingFilter.configs.length &&
+                    existingFilter.configs.every((v, i) => v === filterConf.configs[i])
+                  ))
+              ) {
+                updateConfigsNeeded = true
+              }
               existingFilter.configOptions = JSON.parse(JSON.stringify(filterConf)) // create a new object
               existingFilter.reInitFromConfiguration()
+              if (updateConfigsNeeded) {
+                this.updateConfigs(existingFilter)
+                // for now (as no proper config support) we disable those filters:
+                existingFilter.enabled = false
+              }
             } else {
               this.log.warn(
                 `AdltDocument skipped update of existingFilter=${existingFilter.id} due to wrong config: '${JSON.stringify(filterConf)}'`,
@@ -1952,10 +2137,12 @@ export class AdltDocument implements vscode.Disposable {
 
   onFilterAdd(filter: DltFilter, callTriggerApplyFilter: boolean = true): boolean {
     this.filterTreeNode.children.push(new FilterNode(null, this.filterTreeNode, filter))
-    /*if (filter.configs.length > 0) {
-            this.updateConfigs(filter);
-            this._treeEventEmitter.fire(this.configTreeNode);
-        }*/
+    if (filter.configs.length > 0) {
+      this.updateConfigs(filter)
+      if (this.configTreeNode) {
+        this._treeEventEmitter.fire(this.configTreeNode)
+      }
+    }
 
     this.allFilters.push(filter)
     if (!callTriggerApplyFilter) {
@@ -1970,8 +2157,8 @@ export class AdltDocument implements vscode.Disposable {
     // update filterNode needs to be done by caller. a bit messy...
 
     // we dont know whether configs have changed so lets recheck/update:
-    // this.updateConfigs(filter);
-    //dont call this or a strange warning occurs. not really clear why. this._treeEventEmitter.fire(this.configTreeNode);
+    this.updateConfigs(filter)
+    // TODO! dont call this or a strange warning occurs. not really clear why. this._treeEventEmitter.fire(this.configTreeNode);
 
     this.triggerApplyFilter()
     return true

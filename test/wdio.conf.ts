@@ -95,9 +95,9 @@ export const config: Options.Testrunner = {
       'wdio:vscodeOptions': {
         // binary: '/Users/mbehr/develop/vscode/dlt-logs/.wdio-vscode-service/vscode-darwin-arm64-1.70.2/Visual Studio Code.app/Contents/Resources/app/bin/code',
         extensionPath: path.join(__dirname, '..'),
-        //workspacePath: path.join(__dirname, '..'),
+        workspacePath: path.join(__dirname, ''),
         // filePath: path.join(__dirname, '..', 'README.md'),
-        //verboseLogging: true,
+        verboseLogging: true,
         userSettings: {
           // doesn't seem to work? todo "workbench.colorTheme": "Visual Studio Dark",
           'editor.fontSize': 14,
@@ -110,6 +110,12 @@ export const config: Options.Testrunner = {
               payloadRegex:
                 'CPU usage in interval : (?<cpu_usage>.*)% iowait: .* cpu since boot : (?<cpu_since_boot>.*)% Total thread cpu load : (?<thread_cpu_load>.*)%',
               id: 'c42e9fa4-4013-4668-9083-e3ccf57f9bc0',
+            },
+            {
+              type: 0,
+              apid: 'MON',
+              ctid: 'MEMS',
+              id: 'c42e9fa4-4013-4668-9083-e3ccf57f9bc1',
             },
           ],
         },
@@ -128,7 +134,7 @@ export const config: Options.Testrunner = {
   // Define all options that are relevant for the WebdriverIO instance here
   //
   // Level of logging verbosity: trace | debug | info | warn | error | silent
-  logLevel: 'trace', // 'info',
+  logLevel: 'info', // 'info',
   //
   // Set specific log levels per logger
   // loggers:
@@ -140,7 +146,7 @@ export const config: Options.Testrunner = {
   // - @wdio/cli, @wdio/config, @wdio/utils
   // Level of logging verbosity: trace | debug | info | warn | error | silent
   logLevels: {
-    webdriver: 'trace',
+    webdriver: 'info',
     //     '@wdio/appium-service': 'info'
   },
   //
