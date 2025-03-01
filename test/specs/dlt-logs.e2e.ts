@@ -57,7 +57,7 @@ const closeDltFile = async () => {
 }
 
 const closeActiveEditor = async () => {
-  browser.executeWorkbench(async (vscode, newConfigs: string[][]) => {
+  browser.executeWorkbench(async (vscode) => {
     vscode.commands.executeCommand('workbench.action.closeActiveEditor')
   })
 }
