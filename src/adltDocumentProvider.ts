@@ -5,7 +5,6 @@
 /// todo: major issues before release:
 
 /// not mandatory for first release:
-/// [ ] support configs (for filters). currently all filters that have a configs entry are auto disabled at start
 /// [ ] opening of a stream (and support within reports)
 /// [ ] onDidChangeConfiguration
 /// [ ] timeSync, adjustTime support
@@ -538,6 +537,7 @@ export class AdltDocument implements vscode.Disposable {
     })
     parentTreeNode.push(this.treeNode)
 
+    this.onDidChangeConfigConfigs() // load configs (we do it before filters) (autoEnableIf is anyhow done later)
     this.onDidChangeConfigFilters() // load filters
 
     {
@@ -914,12 +914,120 @@ export class AdltDocument implements vscode.Disposable {
   }
 
   /**
+   * called when the config/settings for dlt-logs.configs have changed (or at startup)
+   */
+  onDidChangeConfigConfigs() {
+    type ConfigObj = { name: string; autoEnableIf?: string }
+    const configObjs = vscode.workspace.getConfiguration().get<Array<ConfigObj>>('dlt-logs.configs')
+    if (configObjs && Array.isArray(configObjs) && configObjs.length > 0) {
+      for (const configObj of configObjs) {
+        try {
+          if ('name' in configObj) {
+            const configNode = this.getConfigNode(configObj.name, true)
+            if (configNode && configNode instanceof ConfigNode) {
+              if ('autoEnableIf' in configObj) {
+                configNode.autoEnableIf = configObj.autoEnableIf
+              }
+              if (configNode.tooltip) {
+                // might be an update so we need to replace:
+                configNode.tooltip = configNode.tooltip.replace(/\n?AutoEnableIf\:\'.*\'/g, '')
+                configNode.tooltip += `\nAutoEnableIf:'${configNode.autoEnableIf}'`
+              } else {
+                configNode.tooltip = `AutoEnableIf:'${configNode.autoEnableIf}'`
+              }
+            }
+          }
+        } catch (error) {
+          this.log.warn(`dlt-logs.AdltDocument.onDidChangeConfigConfigs() got error:${error}`)
+        }
+      }
+      if (this.configTreeNode) {
+        this._treeEventEmitter.fire(this.configTreeNode)
+        // iterate through all known ecus:
+        let didUpdateFilters = false
+        for (const ecu of this.ecuApidInfosMap.keys()) {
+          if (this.checkConfigAutoEnable(ecu)) {
+            didUpdateFilters = true
+          }
+        }
+        if (didUpdateFilters) {
+          this.triggerApplyFilter() // at startup none are known yet so this wont be called (which is good)
+        }
+      }
+    }
+  }
+
+  /**
+   * check whether a config should be enabled as it matches the autoEnableIf regex
+   *
+   * This is expected to be called just one time for each ecu.
+   * Currently called from processEacInfo on the first time we get the eacInfo for an ecu.
+   *
+   * @param ecu - ecu to check for auto enable
+   *
+   * @returns true if any config was enabled
+   *
+   * @note treeView will be udpated automatically. But new filters are not applied yet. To be done by the caller.
+   */
+  checkConfigAutoEnable(ecu: string): boolean {
+    const log = this.log
+    // log.info(`checkConfigAutoEnable for ecu='${ecu}'`)
+
+    const checkNode = (node: ConfigNode) => {
+      let didEnable: boolean = false
+      if (node.autoEnableIf !== undefined) {
+        try {
+          let regEx = new RegExp(node.autoEnableIf)
+          if (regEx.test(ecu)) {
+            if (node.anyFilterWith(false)) {
+              didEnable = true
+              log.info(`checkConfigAutoEnable(${ecu}): enabling config '${node.label}'`)
+              node.applyCommand('enable')
+            }
+          }
+        } catch (error) {
+          log.warn(`checkConfigAutoEnable(${ecu}): got error:${error}`)
+        }
+      }
+      // if we didn't enable it we have to check the children:
+      // otherwise we dont have to as the 'enable' enabled the children already anyhow
+      if (!didEnable) {
+        node.children.forEach((n) => {
+          if (n instanceof ConfigNode) {
+            if (checkNode(n)) {
+              didEnable = true // we any how check the other children
+            }
+          }
+        })
+      }
+      return didEnable
+    }
+
+    // iterate through all configs:
+    let didEnable = false
+    this.configTreeNode?.children.forEach((configNode) => {
+      if (configNode instanceof ConfigNode) {
+        if (checkNode(configNode)) {
+          didEnable = true
+        }
+      }
+    })
+    if (didEnable) {
+      this._treeEventEmitter.fire(this.configTreeNode!)
+    }
+    return didEnable
+  }
+
+  /**
    * callback to handle any configuration change dynamically
    *
    * will be called on each configuration change.
    * @param event
    */
   onDidChangeConfiguration(event: vscode.ConfigurationChangeEvent) {
+    if (event.affectsConfiguration('dlt-logs.configs')) {
+      this.onDidChangeConfigConfigs()
+    }
     if (event.affectsConfiguration('dlt-logs.filters')) {
       this.onDidChangeConfigFilters()
       this.triggerApplyFilter()
@@ -1402,12 +1510,14 @@ export class AdltDocument implements vscode.Disposable {
   }
 
   processEacInfo(eacInfo: Array<remote_types.BinEcuStats>) {
+    let didChangeFilters = false
     for (let ecuStat of eacInfo) {
       let ecu = char4U32LeToString(ecuStat.ecu)
       let apidInfos = this.ecuApidInfosMap.get(ecu)
       if (apidInfos === undefined) {
         apidInfos = new Map()
         this.ecuApidInfosMap.set(ecu, apidInfos)
+        didChangeFilters = this.checkConfigAutoEnable(ecu)
       }
       let did_modify_apidInfos = false
       for (let newApidInfo of ecuStat.apids) {
@@ -1518,14 +1628,16 @@ export class AdltDocument implements vscode.Disposable {
       }
     }
     if (this._startStreamPendingSince !== undefined) {
-      // now we might have some ECUs and can determine the autoenabled configs/filters
-      // autoEnableConfigs() todo!
+      // we did determine the configs.autoEnableIf filters already upfront (didChangeFilters)
+      // no need here to apply filters are this is part of startStream
 
       this.log.info(
         `adlt.processEacInfo starting stream after ${Date.now() - this._startStreamPendingSince}ms. #Ecus=${this.ecuApidInfosMap.size}`,
       )
       this._startStreamPendingSince = undefined
       this.startStream()
+    } else if (didChangeFilters) {
+      this.triggerApplyFilter()
     }
   }
 
