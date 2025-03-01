@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.99.1](https://github.com/mbehr1/dlt-logs/compare/v1.99.0...v1.99.1) (2025-03-01)
+
+
+### Bug Fixes
+
+* **configs:** configs didn't work with adlt ([61d62d7](https://github.com/mbehr1/dlt-logs/commit/61d62d7dc5eed1399142a8c2f1d587da71d335f8)), closes [#245](https://github.com/mbehr1/dlt-logs/issues/245)
+
 ## [1.99.0](https://github.com/mbehr1/dlt-logs/compare/v1.98.2...v1.99.0) (2025-02-03)
 
 
