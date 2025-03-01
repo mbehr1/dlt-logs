@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.99.2](https://github.com/mbehr1/dlt-logs/compare/v1.99.1...v1.99.2) (2025-03-01)
+
+
+### Bug Fixes
+
+* **configs:** support autoEnableIf ([5d5150b](https://github.com/mbehr1/dlt-logs/commit/5d5150b6f34310c585282e20ffd2bc21d89aaf21))
+
 ## [1.99.1](https://github.com/mbehr1/dlt-logs/compare/v1.99.0...v1.99.1) (2025-03-01)
 
 
