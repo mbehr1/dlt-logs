@@ -112,17 +112,189 @@ interface StreamInfo {
  * @returns index where the item was added
  */
 function addRows(consRows: ConsecutiveRows[], toAdd: ConsecutiveRows): number {
-  const idx = consRows.findIndex((rows) => rows.startIdx > toAdd.startIdx)
+  const idx = consRows.findIndex((rows) => rows.startIdx >= toAdd.startIdx)
   if (idx >= 0) {
-    // insert before the idx:
-    consRows.splice(idx, 0, toAdd)
+    const curStartIdx = consRows[idx].startIdx
+    if (curStartIdx === toAdd.startIdx) {
+      // replace existing item if the new item has more data
+      if (toAdd.rows.length > consRows[idx].rows.length) {
+        consRows[idx] = toAdd
+      } // else keep the existing one
+    } else {
+      // curStartIdx > toAdd.startIdx
+      // const nextRow = consRows[idx]
+      // check whether the toAdd overlaps the curStartIdx
+      const toAddEndIdx = toAdd.startIdx + toAdd.rows.length - 1
+      if (toAddEndIdx >= curStartIdx) {
+        // console.warn(`addRows(${toAdd.startIdx}-${toAddEndIdx}) overlaps with cur. item ${curStartIdx} #${consRows[idx].rows.length}`)
+        // modify the existing one and add the new rows that are not yet contained in the existing one:
+        consRows[idx].rows.unshift(...toAdd.rows.slice(0, curStartIdx - toAdd.startIdx))
+        consRows[idx].startIdx = toAdd.startIdx
+        return idx
+      }
+      // insert before the idx:
+      consRows.splice(idx, 0, toAdd)
+    }
     return idx
   } else {
-    // no existing item has a startIdx<=toAdd
+    // no existing item has a startIdx>=toAdd => all (if any) are smaller
     // add to the end
+    // check whether we do overlap with the prev one:
+    if (consRows.length > 0) {
+      const prevRow = consRows[consRows.length - 1]
+      const prevRowEndIdx = prevRow.startIdx + prevRow.rows.length - 1
+      if (prevRowEndIdx >= toAdd.startIdx) {
+        //console.warn(`addRows(${toAdd.startIdx}) overlaps with prev. item ${prevRow.startIdx}-${prevRowEndIdx} #${prevRow.rows.length}`)
+        // add only the new rows that are not yet contained in the prevRow:
+        prevRow.rows.push(...toAdd.rows.slice(prevRowEndIdx - toAdd.startIdx + 1))
+        return consRows.length - 1
+      }
+    }
     consRows.push(toAdd)
     return consRows.length - 1
   }
+}
+
+function isFullyAvailable(consRows: ConsecutiveRows[], startIdx: number, stopIdx: number): boolean {
+  if (consRows.length === 0) {
+    return false
+  }
+  let aStartIdx = startIdx
+  for (const row of consRows) {
+    if (row.startIdx > aStartIdx) {
+      return false
+    }
+    const rowEndIdx = row.startIdx + row.rows.length - 1
+    if (rowEndIdx >= aStartIdx) {
+      aStartIdx = rowEndIdx + 1
+      if (aStartIdx > stopIdx) {
+        return true
+      }
+    }
+  }
+  return false
+}
+
+type InfLoaderRequest = {
+  promiseResolveCb: () => void
+  startIndex: number
+  stopIndex: number
+}
+
+type DataFromExtension = {
+  searchId: number // unique id for this search, used as handle for the load requests
+  consRows: ConsecutiveRows[] // data we did receive, strictly ordered by startIdx
+  pendingRequests: InfLoaderRequest[]
+  ongoingRequests: InfLoaderRequest[] // those are sent to the extension (currently just one at a time)
+}
+
+function resetDataFromExtension(data: DataFromExtension) {
+  data.searchId += 1
+  data.consRows.length = 0
+  data.pendingRequests.forEach((r) => r.promiseResolveCb())
+  data.pendingRequests.length = 0
+  data.ongoingRequests.length = 0 // we can ignore them as they will be ignored due to searchId mismatch
+}
+
+function checkPendingRequests(data: DataFromExtension) {
+  if (data.ongoingRequests.length === 0 && data.pendingRequests.length > 0) {
+    // send a new request:
+    const req = data.pendingRequests.pop() as InfLoaderRequest
+
+    // if this is fully available we can directly resolve it:
+    if (isFullyAvailable(data.consRows, req.startIndex, req.stopIndex)) {
+      req.promiseResolveCb()
+      checkPendingRequests(data)
+      return
+    }
+
+    data.ongoingRequests.push(req)
+    const searchId = data.searchId
+    const startIdx = req.startIndex
+    const stopIdx = req.stopIndex
+    sendAndReceiveMsg({ cmd: 'load', data: { startIdx, stopIdx, searchId } }).then((res: any) => {
+      if (res && Array.isArray(res.msgs)) {
+        if (res.searchId !== data.searchId) {
+          console.warn(
+            `checkPendingRequests(${req.startIndex}-${req.stopIndex})... ignored res.searchId=${res.searchId} !== data.searchId=${data.searchId}`,
+          )
+          req.promiseResolveCb()
+          // not needed. any newly added will trigger that. checkPendingRequests(data)
+          return
+        }
+        const ogReq = data.ongoingRequests.pop() as InfLoaderRequest // TODO or find by start/stopIdx and remove that? curently just one at a time
+        const msgs = res.msgs
+        if (msgs.length > 0) {
+          const curData = data.consRows
+          const addedIdx = addRows(curData, { startIdx: req.startIndex, rows: msgs })
+          if (curData.length > 100) {
+            // prune one with highest distance from the added one:
+            if (addedIdx < curData.length / 2) {
+              curData.pop()
+            } else {
+              curData.shift()
+            }
+          }
+          if (msgs.length < stopIdx - startIdx + 1) {
+            console.warn(
+              `search checkPendingRequests(${startIdx}-${startIdx + msgs.length - 1}) setData(msg.length=${msgs.length})->#${
+                curData.length
+              } missed=${stopIdx - startIdx + 1 - msgs.length}`,
+            )
+            // we cannot fully resolve the request as we need to load more data
+            // modify the request and add it back to the pendingRequests
+            req.startIndex += msgs.length
+            data.pendingRequests.push(req)
+          } else {
+            /*console.log(
+              `search checkPendingRequests(${startIdx}-${startIdx + msgs.length - 1}) setData(msg.length=${msgs.length})->#${
+                curData.length
+              }`,
+            )*/
+            req.promiseResolveCb()
+          }
+        }
+      } else {
+        console.warn(`checkPendingRequests(${req.startIndex}-${req.stopIndex})... unexpected res=${JSON.stringify(res)}`)
+        req.promiseResolveCb() // even though its an error? (or move back to pending?)
+      }
+      checkPendingRequests(data)
+    })
+  }
+}
+
+/**
+ * check whether two requests are overlapping. The stopIndex is inclusive.
+ * @param a - one request
+ * @param b - request to compare with
+ * @returns whether a and b do overlap
+ */
+function areOverlapping(a: InfLoaderRequest, b: InfLoaderRequest): boolean {
+  return b.startIndex < a.startIndex ? b.stopIndex >= a.startIndex : b.startIndex <= a.stopIndex
+}
+
+function addNewRequest(data: DataFromExtension, startIndex: number, stopIndex: number, promiseResolveCb: () => void) {
+  // we do need to fullfil the request in any case. but the order can be different
+  // we try whether we can extend any previous pending request
+  //  in that case we'd add it before the previous/extended one
+
+  const newReq = { promiseResolveCb, startIndex, stopIndex }
+
+  for (let i = data.pendingRequests.length - 1; i >= 0; i--) {
+    const req = data.pendingRequests[i]
+    // does it overlap?
+    if (areOverlapping(req, newReq)) {
+      // extend the previous one:
+      req.startIndex = Math.min(req.startIndex, newReq.startIndex)
+      req.stopIndex = Math.max(req.stopIndex, newReq.stopIndex)
+      // insert the newReq anyhow before the req
+      data.pendingRequests.splice(i, 0, newReq)
+      return
+    }
+  }
+
+  // if not we add it to the end (so that it gets processed first)
+  data.pendingRequests.push(newReq)
 }
 
 const isLightTheme = document.body.classList.contains('vscode-light') // else 'vscode-dark', 'vscode-high-contrast' we assume dark
@@ -229,8 +401,7 @@ function App() {
   const [errorText, setErrorText] = useState<string | null>(null)
   const [activeDoc, setActiveDoc] = useState<{ uri: string | null; filterGen: number }>({ uri: null, filterGen: 0 })
   const [streamInfo, setStreamInfo] = useState({ nrStreamMsgs: 0, nrMsgsProcessed: 0, nrMsgsTotal: 0 } as StreamInfo)
-  const [data, setData] = useState([] as ConsecutiveRows[])
-  const [lastLoad, setLastLoad] = useState<[number, number] | undefined>(undefined)
+  const data = useRef<DataFromExtension>({ searchId: 0, consRows: [], pendingRequests: [], ongoingRequests: [] })
   const [searchDropDownOpen, setSearchDropDownOpen] = useState(false)
   const [findParams, setFindParams] = useState<[FindParams, boolean]>([{ findString: '', useCaseSensitive: false, useRegex: false }, false])
   const [findRes, setFindRes] = useState<FindResults | undefined>(undefined)
@@ -243,37 +414,32 @@ function App() {
     700, // 700ms delay till automatic search
   )
 
-  const loadMoreItems = useCallback((startIndex: number, stopIndex: number, noLastLoadStoring?: boolean): Promise<void> => {
-    // console.log(`search loadMoreItems(${startIndex}-${stopIndex})...`);
-    if (!noLastLoadStoring) {
-      setLastLoad([startIndex, stopIndex])
-    }
-    return new Promise<void>((resolve, reject) => {
-      sendAndReceiveMsg({ cmd: 'load', data: { startIdx: startIndex, stopIdx: stopIndex } }).then((res: any) => {
-        if (res && Array.isArray(res.msgs)) {
-          const msgs = res.msgs
-          if (msgs.length > 0) {
-            setData((d) => {
-              const curData = d.slice()
-              const addedIdx = addRows(curData, { startIdx: startIndex, rows: msgs })
-              if (curData.length > 50) {
-                // todo constant! use a lot higher value, this one only for testing
-                // prune one with highest distance from the added one:
-                if (addedIdx < curData.length / 2) {
-                  curData.pop()
-                } else {
-                  curData.shift()
-                }
-              }
-              //console.log(`search loadMoreItems setData(d.length=${d.length})->#${curData.length}`);
-              return curData
-            })
-          }
-        } else {
-          console.warn(`loadMoreItems(${startIndex}-${stopIndex})... unexpected res=${JSON.stringify(res)}`)
-        }
+  // loadMoreItesm will be called multiple times for the same range if the range is not yet loaded esp. on scrolling 0..20, 0..21, 0..22, ...
+  // in case where the response comes for an older search string/params it will be ignored (detected via searchId comparison)
+
+  const loadMoreItems = useCallback((startIndex: number, stopIndex: number): Promise<void> => {
+    // console.log(`search loadMoreItems(${startIndex}-${stopIndex})...`)
+
+    const searchId = data.current.searchId
+
+    // we add it to the pendingRequests and return a promise that will be resolved once all the data is loaded/available
+    // return null if already all data is loaded/available!
+    /* TODO the types is ...Promise<void>. the code https://github.com/bvaughn/react-window-infinite-loader/blob/314f3c3125805b85ccd96cb5c110319fcf32572c/src/InfiniteLoader.js#L144
+       checks for != null
+    
+    if (isFullyAvailable(data.current.consRows, startIndex, stopIndex)) {
+      return null
+    }*/
+
+    return new Promise<void>((resolve, _reject) => {
+      if (data.current.searchId != searchId || isFullyAvailable(data.current.consRows, startIndex, stopIndex)) {
+        console.log(`search loadMoreItems(${startIndex}-${stopIndex}) resolving immediately as invalid or fully available`)
         resolve()
-      })
+      } else {
+        // we always add the last to the end of the queue (we use it as a stack)
+        addNewRequest(data.current, startIndex, stopIndex, resolve)
+        checkPendingRequests(data.current)
+      }
     })
   }, [])
 
@@ -289,10 +455,11 @@ function App() {
 
   useEffect(() => {
     let active = true
+    // console.log(`search cleanup useEffect... active=true`)
     // reset search results and related items
     setStreamInfo({ nrStreamMsgs: 0, nrMsgsProcessed: 0, nrMsgsTotal: 0 })
     isAllSelected.current = false
-    setData((d) => [])
+    resetDataFromExtension(data.current)
     setErrorText(null)
     if (activeDoc.uri && !debouncedSetSearchString.isPending()) {
       vscode.postMessage({ type: 'click', req: { index: -1, timeInMs: undefined } }) // to unselect any msgTimeHighlights
@@ -301,13 +468,21 @@ function App() {
           if (active) {
             if (Array.isArray(res)) {
               if (infiniteLoaderRef.current) {
-                //console.log(`search lastRenderedStartIndex=${(infiniteLoaderRef.current as any)._lastRenderedStartIndex} ${(infiniteLoaderRef.current as any)._lastRenderedStopIndex}`);
-                infiniteLoaderRef.current?.resetloadMoreItemsCache(true)
-              }
-              loadMoreItems(0, 100, true) // todo this seems needed to avoid list with item ... loading how to reset? InfiniteLoader? on itemCountCb? (resetloadMoreItemsCache doesn't seem to be enough)
-              if (lastLoad !== undefined && lastLoad[1] > 100) {
-                // see https://github.com/bvaughn/react-virtualized/blob/master/docs/InfiniteLoader.md#memoization-and-rowcount-changes
-                loadMoreItems(lastLoad[0], lastLoad[1], true)
+                if (data.current.consRows.length > 0) {
+                  console.warn(`resetloadMoreItemsCache but data not empty! #${data.current.consRows.length}`)
+                }
+                /*console.log(
+                  `search lastRenderedStartIndex=${(infiniteLoaderRef.current as any)._lastRenderedStartIndex} ${
+                    (infiniteLoaderRef.current as any)._lastRenderedStopIndex
+                  }`,
+                )
+                console.log(
+                  `search props.itemCount=${(infiniteLoaderRef.current as any).props.itemCount} streamInfo.nrMsgsTotal=${
+                    streamInfo.nrMsgsTotal
+                  }`,
+                )
+                console.log(`search _memoizedUnloadedRanges=${(infiniteLoaderRef.current as any)._memoizedUnloadedRanges.length}`)*/
+                infiniteLoaderRef.current.resetloadMoreItemsCache(true)
               }
               setLastUsedList((l) => {
                 const curIdx = l.indexOf(searchString)
@@ -339,6 +514,7 @@ function App() {
       }
     }
     return () => {
+      // console.log(`search cleanup useEffect... active=false`)
       active = false
     }
   }, [useFilter, useCaseSensitive, useRegex, searchString, activeDoc, loadMoreItems]) // we want it to trigger if activeDoc.filterGen changes as well
@@ -456,31 +632,41 @@ function App() {
   // const singleLoadMoreItems = loadPending ? (startIndex: number, stopIndex: number) => { console.log(`search ignored load [${startIndex}-${stopIndex})`); } : loadMoreItems;
 
   const isItemLoaded = (index: number): boolean => {
-    //console.log(`isItemLoaded(${index})...`);
     // check whether we do have this item... this is kind of slow...
-    for (const rows of data) {
+    for (const rows of data.current.consRows) {
       if (rows.startIdx <= index && index < rows.startIdx + rows.rows.length) {
+        // console.log(`isItemLoaded(${index})=true`)
         return true
       }
+      if (rows.startIdx > index) {
+        // console.log(`isItemLoaded(${index})= break false (startIdx=${rows.startIdx})`)
+        return false
+      }
     }
+    // console.log(`isItemLoaded(${index})=false`)
     return false
   }
 
   const getItem = (index: number): Msg | undefined => {
-    //console.log(`isItemLoaded(${index})...`);
+    // console.log(`getItem(${index})...`)
     // check whether we do have this item... this is kind of slow...
-    for (const rows of data) {
+    for (const rows of data.current.consRows) {
       if (rows.startIdx <= index && index < rows.startIdx + rows.rows.length) {
+        // console.log(`getItem(${index}) true`)
         return rows.rows[index - rows.startIdx]
       }
+      if (rows.startIdx > index) {
+        // console.log(`getItem(${index})= break undefined (startIdx=${rows.startIdx})`)
+        return undefined
+      }
     }
+    // console.log(`getItem(${index}) undefined`)
     return undefined
   }
 
   const renderListRow = (props: ListChildComponentProps) => {
     const { index, style } = props
     const msg = getItem(index)
-    // console.log(`search renderListRow(${index})...`);
     if (msg) {
       const str = `${String(Number(msg.index)).padStart(6, ' ')} ${new Date(msg.receptionTimeInMs).toLocaleTimeString()} ${(
         msg.timeStamp / 10000
@@ -718,6 +904,7 @@ function App() {
     }
   }, [searchDropDownOpen])
 
+  // console.log(`render search with streamInfo.nrStreamMsgs=${streamInfo.nrStreamMsgs}...`)
   return (
     <div style={{ display: 'flex', flexFlow: 'column', width: '100%', /*border: '1px solid gray',*/ height: '100%' }}>
       {!searchDropDownOpen && (
@@ -839,33 +1026,42 @@ function App() {
             // todo add own context menu. for now we just disable it to prevent copy not working for the own "allSelected" logic
           }}
         >
-          {({ height, width }) => (
-            <InfiniteLoader
-              ref={infiniteLoaderRef}
-              minimumBatchSize={20}
-              isItemLoaded={isItemLoaded}
-              itemCount={streamInfo.nrStreamMsgs}
-              loadMoreItems={loadMoreItems}
-            >
-              {({ onItemsRendered, ref }) => (
-                <FixedSizeList
-                  height={height || 400}
-                  width={width || 200}
-                  itemSize={18}
-                  itemCount={streamInfo.nrStreamMsgs}
-                  overscanCount={40}
-                  outerElementType={OuterElementFixedSizeList}
-                  ref={(elem) => {
-                    ref(elem)
-                    listRef.current = elem
-                  }}
-                  onItemsRendered={onItemsRendered}
-                >
-                  {renderListRow}
-                </FixedSizeList>
-              )}
-            </InfiniteLoader>
-          )}
+          {({ height, width }: { height?: number | undefined; width?: number | undefined }) => {
+            // console.log(`AutoSizer child height=${height} width=${width} itemCount=${streamInfo.nrStreamMsgs}`)
+            return (
+              <InfiniteLoader
+                ref={infiniteLoaderRef}
+                minimumBatchSize={20}
+                isItemLoaded={isItemLoaded}
+                itemCount={streamInfo.nrStreamMsgs}
+                loadMoreItems={loadMoreItems}
+              >
+                {({ onItemsRendered, ref }) => {
+                  // console.log(`InfiniteLoader child height=${height} width=${width} itemCount=${streamInfo.nrStreamMsgs}`)
+                  // the key for the FixedSizeList is important as it will be re-created on every search string change
+                  // otherwise the list will not be re-rendered and sometime ... items remain
+                  return (
+                    <FixedSizeList
+                      key={'FixedSizeList_key_' + searchString + '#' + streamInfo.nrStreamMsgs}
+                      height={height || 400}
+                      width={width || 200}
+                      itemSize={18}
+                      itemCount={streamInfo.nrStreamMsgs}
+                      overscanCount={40}
+                      outerElementType={OuterElementFixedSizeList}
+                      ref={(elem) => {
+                        ref(elem)
+                        listRef.current = elem
+                      }}
+                      onItemsRendered={onItemsRendered}
+                    >
+                      {renderListRow}
+                    </FixedSizeList>
+                  )
+                }}
+              </InfiniteLoader>
+            )
+          }}
         </AutoSizer>
       </div>
       <div style={{ padding: '4px 2px 2px 4px' }}>
