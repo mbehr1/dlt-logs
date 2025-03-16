@@ -195,7 +195,7 @@ const ResultBadge: React.FC<{
   selectedResult: number | undefined
   onUncap(): void
 }> = ({ results, selectedResult, onUncap }) => {
-  console.log(`search find ResultBadge(${JSON.stringify(results)})`)
+  // console.log(`search find ResultBadge(${JSON.stringify(results)})`)
   const nrResults = results ? results.searchIdxs.length : 0
   const resultCountStr = resultCountFormat.format(nrResults)
   const capped = results ? results.nextSearchIdx !== undefined : false

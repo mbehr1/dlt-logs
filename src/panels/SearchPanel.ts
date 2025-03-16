@@ -378,7 +378,7 @@ export class SearchPanelProvider implements WebviewViewProvider {
                 break
               case 'load':
                 // stop stream once webview visibility=false
-                const { startIdx, stopIdx } = req.data
+                const { startIdx, stopIdx, searchId } = req.data
                 if (this._activeDoc && this.curStreamLoader) {
                   const doc = this._activeDoc
                   let decFilters = doc.allFilters.filter(
@@ -393,6 +393,7 @@ export class SearchPanelProvider implements WebviewViewProvider {
                       type: 'sAr',
                       id: msgId,
                       res: {
+                        searchId,
                         msgs: msgs.map((fm) => {
                           const m = fm as ViewableDltMsg
                           // gather decorations:
