@@ -7,7 +7,8 @@
 			"label": "watch",
 			"dependsOn": [
 				"npm: watch:tsc",
-				"npm: watch:esbuild"
+				"npm: watch:esbuild",
+				"npm: watch:webview:search"
 			],
 			"presentation": {
 				"reveal": "never"
@@ -36,6 +37,18 @@
 			"problemMatcher": "$tsc-watch",
 			"isBackground": true,
 			"label": "npm: watch:tsc",
+			"presentation": {
+				"group": "watch",
+				"reveal": "never"
+			}
+		},
+		{
+			"type": "npm",
+			"script": "watch:webview:search",
+			"group": "build",
+			"problemMatcher": "$esbuild-watch",
+			"isBackground": true,
+			"label": "npm: watch:webview:search",
 			"presentation": {
 				"group": "watch",
 				"reveal": "never"
