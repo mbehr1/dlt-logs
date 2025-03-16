@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.99.5](https://github.com/mbehr1/dlt-logs/compare/v1.99.4...v1.99.5) (2025-03-16)
+
+
+### Bug Fixes
+
+* **search:** fix sporadic ... in search panel ([161f294](https://github.com/mbehr1/dlt-logs/commit/161f294974006cb251cebe66fbf12795e31c9c0e))
+
 ## [1.99.4](https://github.com/mbehr1/dlt-logs/compare/v1.99.3...v1.99.4) (2025-03-02)
 
 
