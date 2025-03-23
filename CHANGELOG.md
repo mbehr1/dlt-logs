@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.100.0](https://github.com/mbehr1/dlt-logs/compare/v1.99.5...v1.100.0) (2025-03-23)
+
+
+### Features
+
+* **sequences:** add generate report for occurrences ([1099fb1](https://github.com/mbehr1/dlt-logs/commit/1099fb13ee060e9dbfa286cf3c1d5aed8305a0ae))
+
 ## [1.99.5](https://github.com/mbehr1/dlt-logs/compare/v1.99.4...v1.99.5) (2025-03-16)
 
 
