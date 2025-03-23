@@ -809,6 +809,11 @@
         "command": "dlt-logs.treeItemToDocument",
         "title": "Export to/open as document",
         "icon": "$(open-preview)"
+      },
+      {
+        "command": "dlt-logs.treeItemGenReport",
+        "title": "open report",
+        "icon": "$(graph)"
       }
     ],
     "menus": {
@@ -923,6 +928,11 @@
         {
           "command": "dlt-logs.treeItemToDocument",
           "when": "view == dltLifecycleExplorer && viewItem =~ /canTreeItemToDocument/",
+          "group": "inline"
+        },
+        {
+          "command": "dlt-logs.treeItemGenReport",
+          "when": "view == dltLifecycleExplorer && viewItem =~ /canTreeItemGenReport/",
           "group": "inline"
         }
       ],

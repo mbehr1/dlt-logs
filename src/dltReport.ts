@@ -73,7 +73,7 @@ interface DataExtrema {
   max: number
 }
 
-interface DataSet {
+export interface DataSet {
   data: DataPoint[]
   yExtrema?: DataExtrema // only available if DataPoint.y is a number (so not for string or objects/late eval.)
   yLabels?: string[]
@@ -83,10 +83,22 @@ interface DataSet {
 }
 
 /**
+ * interface needed for DltReport
+ */
+export interface SingleReportIF extends vscode.Disposable {
+  dataSets: Map<string, DataSet>
+  minDataPointTime?: number // in ms
+  warnings: string[]
+  reportTitles: string[]
+  filters: DltFilter[] // a bit weird here. should be refactored. needed by DltReport::addFilter... to check for duplicates
+  dataSetsGroupPrios: Record<string, number> // mapping group name to number
+}
+
+/**
  * SingleReport represents a report generated from a set of filters.
  * It implements a NewMessageSink that processes the msgs for that report/set of filters.
  */
-class SingleReport implements NewMessageSink {
+class SingleReport implements NewMessageSink, SingleReportIF, vscode.Disposable {
   public msgs: Array<FilterableDltMsg> = []
   public pruneMsgsAfterProcessing: boolean = true
   public dataSets: Map<string, DataSet> = new Map<string, DataSet>()
@@ -94,10 +106,10 @@ class SingleReport implements NewMessageSink {
 
   public warnings: string[] = []
   public reportTitles: string[] = []
-  public dataSetsGroupPrios: any = {}
+  public dataSetsGroupPrios: Record<string, number> = {}
   private _maxReportLogs: number
-  convFunctionCache = new Map<DltFilter, [Function | undefined, Object]>()
-  reportObj = {} // an object to store e.g. settings per report from a filter
+  private convFunctionCache = new Map<DltFilter, [Function | undefined, Object]>()
+  private reportObj = {} // an object to store e.g. settings per report from a filter
   lateEvalDPs: Map<DataPoint, any> = new Map()
 
   msgsProcessed: number = 0
@@ -140,6 +152,10 @@ class SingleReport implements NewMessageSink {
         }
       }
     }
+  }
+
+  dispose() {
+    this.log.info(`SingleReport dispose called.`)
   }
 
   onNewMessages(nrNewMsgs: number) {
@@ -617,7 +633,7 @@ export class DltReport implements vscode.Disposable {
 
   private _reportTitles: string[] = []
 
-  singleReports: SingleReport[] = []
+  private singleReports: SingleReportIF[] = []
 
   lastChangeActive: Date | undefined
 
@@ -625,7 +641,7 @@ export class DltReport implements vscode.Disposable {
     private log: vscode.LogOutputChannel,
     private context: vscode.ExtensionContext,
     private doc: ReportDocument,
-    private callOnDispose: (r: DltReport) => any,
+    callOnDispose: (r: DltReport) => any,
   ) {
     this.disposables = [{ dispose: () => callOnDispose(this) }]
     this.panel = vscode.window.createWebviewPanel('dlt-logs.report', `dlt-logs report`, vscode.ViewColumn.Beside, {
@@ -699,7 +715,12 @@ export class DltReport implements vscode.Disposable {
       this.panel.dispose()
       this.panel = undefined
     }
-    for (let disposable of this.disposables) {
+    for (const singleReport of this.singleReports) {
+      singleReport.dispose()
+    }
+    this.singleReports.length = 0
+
+    for (const disposable of this.disposables) {
       disposable.dispose()
     }
     this.disposables.length = 0
@@ -752,8 +773,12 @@ export class DltReport implements vscode.Disposable {
     filters.forEach((f) => (f.enabled = true))
 
     reportToRet = new SingleReport(this.log, this, this.doc, filters)
-    this.singleReports.push(reportToRet)
+    this.addReport(reportToRet)
     return reportToRet
+  }
+
+  addReport(report: SingleReportIF) {
+    this.singleReports.push(report)
   }
 
   onDidChangeSelectedTime(time: Date[] | Date | null) {
