@@ -700,6 +700,11 @@ export function activate(context: vscode.ExtensionContext) {
       adltProvider.onTreeNodeCommand('treeItemToDocument', args[0])
     }),
   )
+  context.subscriptions.push(
+    vscode.commands.registerCommand('dlt-logs.treeItemGenReport', async (...args: any[]) => {
+      adltProvider.onTreeNodeCommand('treeItemGenReport', args[0])
+    }),
+  )
 
   context.subscriptions.push(
     vscode.commands.registerCommand('dlt-logs.openReport', async (...args: any[]) => {

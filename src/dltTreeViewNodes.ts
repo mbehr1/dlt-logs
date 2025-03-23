@@ -18,6 +18,7 @@ export interface TreeViewNode {
   description?: string
   iconPath?: vscode.ThemeIcon
   applyCommand?: (cmd: string) => void
+  privData?: any
 }
 
 /**

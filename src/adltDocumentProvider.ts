@@ -71,6 +71,7 @@ import {
 } from 'dlt-logs-utils/sequence'
 import { toMarkdown } from 'mdast-util-to-markdown'
 import { gfmTableToMarkdown } from 'mdast-util-gfm-table'
+import { EventReport, reportEventsFromSeq } from './eventReport'
 
 //import { adltPath } from 'node-adlt';
 // with optionalDependency we use require to catch errors
@@ -2433,6 +2434,32 @@ export class AdltDocument implements vscode.Disposable {
     }
   }
 
+  getLastActiveReport(): DltReport | undefined {
+    let lastChangeActive = -1
+    let lastReport: DltReport | undefined = undefined
+    for (const r of this._reports) {
+      if (r.lastChangeActive && r.lastChangeActive.valueOf() > lastChangeActive) {
+        lastReport = r
+        lastChangeActive = r.lastChangeActive.valueOf()
+      }
+    }
+    return lastReport
+  }
+
+  getNewReport(context: vscode.ExtensionContext): DltReport {
+    const log = this.log
+    const docThis = this
+    const report = new DltReport(log, context, this, (r: DltReport) => {
+      log.trace(`getNewReport... onDispose called... #reports=${docThis._reports.length}`)
+      const idx = docThis._reports.indexOf(r)
+      if (idx >= 0) {
+        docThis._reports.splice(idx, 1)
+      }
+    })
+    this._reports.push(report)
+    return report
+  }
+
   onOpenReport(
     context: vscode.ExtensionContext,
     filter: DltFilter | DltFilter[],
@@ -2451,17 +2478,7 @@ export class AdltDocument implements vscode.Disposable {
 
     if (!newReport && (this._reports.length > 0 || reportToAdd !== undefined)) {
       // we do add to the report that was last active or to the provided one
-      let report = reportToAdd ? reportToAdd : this._reports[0]
-      if (reportToAdd === undefined) {
-        let lastChangeActive = report.lastChangeActive
-        for (let i = 1; i < this._reports.length; ++i) {
-          const r2 = this._reports[i]
-          if (lastChangeActive === undefined || (r2.lastChangeActive && r2.lastChangeActive.valueOf() > lastChangeActive.valueOf())) {
-            report = r2
-            lastChangeActive = r2.lastChangeActive
-          }
-        }
-      }
+      let report = reportToAdd ? reportToAdd : this.getLastActiveReport() || this._reports[0]
       let filters = Array.isArray(filter) ? filter : [filter]
       let filterStr = filters
         .filter((f) => f.enabled)
@@ -2476,6 +2493,7 @@ export class AdltDocument implements vscode.Disposable {
         if (singleReport !== undefined) {
           let streamMsgs: AdltMsg[] = singleReport.msgs as AdltMsg[]
           report.disposables.push({
+            // TODO should refactor to use Disposable from SingleReport
             dispose: () => {
               this.sendAndRecvAdltMsg(`stop ${streamObj.id}`).then(() => {})
               log.trace(`onOpenReport reportToAdd onDispose stopped stream`)
@@ -2507,6 +2525,7 @@ export class AdltDocument implements vscode.Disposable {
         const streamObj = JSON.parse(response.substring(11))
         // console.log(`adtl ok:stream`, JSON.stringify(streamObj));
         //let streamMsgs: AdltMsg[] = [];
+        // TODO refactor to use getNewReport
         let report = new DltReport(log, context, this, (r: DltReport) => {
           // todo msgs
           log.trace(`onOpenReport onDispose called... #reports=${this._reports.length}`)
@@ -3205,6 +3224,7 @@ export class AdltDocument implements vscode.Disposable {
                       thisSequenceNode = createTreeNode(seqChecker.name, this.uri, seqNode, undefined)
                       seqNode.children.push(thisSequenceNode)
                       this._treeEventEmitter.fire(seqNode)
+                      thisSequenceNode.privData = {}
                     }
                     // get the full md from the sequence result:
                     try {
@@ -3214,10 +3234,22 @@ export class AdltDocument implements vscode.Disposable {
                         { extensions: [gfmTableToMarkdown({ tablePipeAlign: false })] },
                       )
                       thisSequenceNode.contextValue = 'canCopyToClipboard canTreeItemToDocument'
+                      if (seqResult.occurrences.length > 0) {
+                        thisSequenceNode.contextValue += ' canTreeItemGenReport'
+                      }
+
+                      thisSequenceNode.privData.seqResult = seqResult
+                      const docThis = this
+                      // if we have an active eventReport, we have to update it
+                      if (thisSequenceNode.privData?.eventReport) {
+                        thisSequenceNode.privData.eventReport.update(reportEventsFromSeq(seqResult))
+                        thisSequenceNode.privData.report?.updateReport()
+                      }
+
                       thisSequenceNode.applyCommand = (command) => {
                         switch (command) {
                           case 'copyToClipboard':
-                            vscode.env.clipboard.writeText(resAsMarkdown)
+                            vscode.env.clipboard.writeText(resAsMarkdown) // todo could generate only here on a need basis from privData = seqResult
                             vscode.window.showInformationMessage(`Exported sequence ${thisSequenceNode.label} to clipboard as markup text`)
                             break
                           case 'treeItemToDocument':
@@ -3235,6 +3267,27 @@ export class AdltDocument implements vscode.Disposable {
                                   })
                               })
                             })
+                            break
+                          case 'treeItemGenReport':
+                            if (thisSequenceNode.privData?.seqResult) {
+                              const seqResult = thisSequenceNode.privData.seqResult as FbSequenceResult
+                              const events = reportEventsFromSeq(seqResult)
+                              if (thisSequenceNode.privData?.eventReport) {
+                                thisSequenceNode.privData?.eventReport.update(events)
+                                thisSequenceNode.privData?.report?.updateReport() // TODO shall we support more than 1?
+                              } else {
+                                const newReport = new EventReport(log, thisSequenceNode.label, events, (_r) => {
+                                  log.info(`treeItemGenReport EventReport onDispose...`)
+                                  delete thisSequenceNode.privData.eventReport
+                                  delete thisSequenceNode.privData.report
+                                })
+                                let report = docThis.getLastActiveReport() || docThis.getNewReport(context)
+                                report.addReport(newReport)
+                                report.updateReport()
+                                thisSequenceNode.privData.eventReport = newReport
+                                thisSequenceNode.privData.report = report
+                              }
+                            }
                             break
                         }
                       }
@@ -4007,6 +4060,7 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider, /*vscode
         break
       case 'copyToClipboard':
       case 'treeItemToDocument':
+      case 'treeItemGenReport':
       case 'save':
         if (node.uri !== null && this._documents.get(node.uri.toString()) !== undefined && node.applyCommand) {
           node.applyCommand(command)
