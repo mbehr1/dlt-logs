@@ -532,6 +532,34 @@ export class DltFilter {
     return activeFilters
   }
 
+  public getFragsForSimilarComparison(overwrite: any) {
+    const conf = this.asConfiguration()
+    // we need to set the following fragments:
+    // - value null -> the filter to compare with must not contain this value
+    // - value undefined -> the key/value is ignored (e.g. a filter can have this (like can have a config))
+    const frag = {
+      ...conf,
+      ...Object.keys(conf).reduce((acc: any, key) => {
+        if (conf[key] === undefined) {
+          acc[key] = null // include in comparison
+        }
+        return acc
+      }, {}),
+      ignoreCasePayload: conf.payload ? !!conf.ignoreCasePayload : undefined, // ignore if no payload
+      apidIsRegex: conf.apid && !!conf.apidIsRegex ? true : undefined, // remove if no apid or if default (false)
+      ctidIsRegex: conf.ctid && !!conf.ctidIsRegex ? true : undefined, // remove if no ctid or if default (false)
+      configs: undefined,
+      ...overwrite,
+    }
+    // need to remove the undefined values from frag (JSON.stringify/parse would do that as well)
+    Object.keys(frag).forEach((key) => {
+      if (DltFilter.similarFiltersKeysToIgnore.includes(key) || frag[key] === undefined) {
+        delete frag[key]
+      }
+    })
+    return frag
+  }
+
   /**
    * parse dlt-viewer filter files in xml/dlf format
    *
