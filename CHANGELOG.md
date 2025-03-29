@@ -1,5 +1,18 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.101.0](https://github.com/mbehr1/dlt-logs/compare/v1.100.0...v1.101.0) (2025-03-29)
+
+
+### Features
+
+* add filter from Filters treeview ([f3ef912](https://github.com/mbehr1/dlt-logs/commit/f3ef912c0030b92281dec210d9f26b7a9e58c1c5))
+* **search:** set/deactive filters directly from search ([51139bc](https://github.com/mbehr1/dlt-logs/commit/51139bc5c6751a6b298912aa8f19ae26fb0582d7))
+
+
+### Bug Fixes
+
+* **adlt:** update to 0.61.3 ([9f1ae74](https://github.com/mbehr1/dlt-logs/commit/9f1ae7403235af2f4da8a318a86cf4754338aff1))
+
 ## [1.100.0](https://github.com/mbehr1/dlt-logs/compare/v1.99.5...v1.100.0) (2025-03-23)
 
 
