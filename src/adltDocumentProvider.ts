@@ -1637,6 +1637,8 @@ export class AdltDocument implements vscode.Disposable {
       )
       this._startStreamPendingSince = undefined
       this.startStream()
+      // if we did change filters we need to fire the onApplyFilter event here as we dont trigger the full apply filter:
+      this._onApplyFilterEmitter.fire()
     } else if (didChangeFilters) {
       this.triggerApplyFilter()
     }
@@ -2261,8 +2263,7 @@ export class AdltDocument implements vscode.Disposable {
     if (!callTriggerApplyFilter) {
       return true
     }
-    this._treeEventEmitter.fire(this.filterTreeNode)
-    this.triggerApplyFilter()
+    this.triggerApplyFilter(true)
     return true
   }
 
@@ -2307,8 +2308,7 @@ export class AdltDocument implements vscode.Disposable {
     if (!callTriggerApplyFilter) {
       return true
     }
-    this._treeEventEmitter.fire(this.filterTreeNode)
-    this.triggerApplyFilter()
+    this.triggerApplyFilter(true)
     return true
   }
 
@@ -2318,8 +2318,13 @@ export class AdltDocument implements vscode.Disposable {
    * This is debounced/delayed a bit (500ms) to avoid too frequent
    * apply filter operation that is longlasting.
    */
-  triggerApplyFilter() {
+  triggerApplyFilter(fireTreeEvent: boolean = false) {
     const log = this.log
+
+    if (fireTreeEvent) {
+      this._treeEventEmitter.fire(this.filterTreeNode)
+    }
+
     // console.log(`adlt.triggerApplyFilter() called for '${this.uri.toString().slice(0, 100)}'`);
     if (this.debouncedApplyFilterTimeout) {
       clearTimeout(this.debouncedApplyFilterTimeout)
@@ -3443,8 +3448,7 @@ export class AdltDocument implements vscode.Disposable {
         }
       }
       if (didModifyAnyFilter) {
-        this._treeEventEmitter.fire(this.filterTreeNode)
-        this.triggerApplyFilter()
+        this.triggerApplyFilter(true)
       }
       if (!('data' in retObj)) {
         // we add the filters only if no other data existing yet (e.g. from query)

@@ -696,6 +696,16 @@
         "icon": "$(search-fuzzy)"
       },
       {
+        "command": "dlt-logs.searchAddFilter",
+        "title": "add as filter",
+        "icon": "$(add)"
+      },
+      {
+        "command": "dlt-logs.searchDelFilter",
+        "title": "deactivate filter",
+        "icon": "$(chrome-minimize)"
+      },
+      {
         "command": "dlt-logs.addFilter",
         "title": "add new filter...",
         "icon": "$(add)"
@@ -968,6 +978,18 @@
           "alt": "dlt-logs.sendTimeSyncEvents",
           "when": "editorLangId == dlt-log",
           "group": "navigation@5"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "dlt-logs.searchAddFilter",
+          "group": "navigation@100",
+          "when": "view === mbehr1DltLogsSearch && dlt-logs.CanSearchAddFilter === true"
+        },
+        {
+          "command": "dlt-logs.searchDelFilter",
+          "group": "navigation@101",
+          "when": "view === mbehr1DltLogsSearch && dlt-logs.CanSearchDelFilter === true"
         }
       ]
     },

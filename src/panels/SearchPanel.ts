@@ -24,10 +24,15 @@ import { FilterableDltMsg, ViewableDltMsg } from '../dltParser'
 const RegExpParser = require('regexp-to-ast').RegExpParser
 
 /**
+ * The data for the seach request from the webview
+ */
+type SearchRequest = { searchString: string; useRegex: boolean; useCaseSensitive: boolean; useFilter: boolean }
+
+
+/**
  * Provide a Search Dialog webview
  *
  */
-
 export class SearchPanelProvider implements WebviewViewProvider {
   public static readonly viewType = 'mbehr1DltLogsSearch'
 
@@ -57,6 +62,17 @@ export class SearchPanelProvider implements WebviewViewProvider {
         this,
       ),
     )
+    context.subscriptions.push(
+      commands.registerCommand('dlt-logs.searchAddFilter', () => {
+        this.addOrDeactivateFilters(true)
+      }),
+    )
+    context.subscriptions.push(
+      commands.registerCommand('dlt-logs.searchDelFilter', () => {
+        this.addOrDeactivateFilters(false)
+      }),
+    )
+    this.setMenuVisibility(false, false)
 
     _onDidChangeActiveRestQueryDoc((uri) => {
       const log = this.log
@@ -71,6 +87,9 @@ export class SearchPanelProvider implements WebviewViewProvider {
         }
         // store last search for doc?
         this._activeDoc = doc
+
+        this.setMenuVisibility(false, false) // will be activated/evaluted later
+
         // inform webview
         this._view?.webview.postMessage({
           type: 'docUpdate',
@@ -88,10 +107,128 @@ export class SearchPanelProvider implements WebviewViewProvider {
               type: 'docUpdate',
               onApplyFilter: true,
             })
+            if (this.lastSearchReq) {
+              this.updateMenuVisibility(this.lastSearchFilters, this.lastSearchReq!)
+            }
           })
         }
       }
     }, this._disposables)
+  }
+
+  setMenuVisibility(canAdd: boolean, canDel: boolean) {
+    commands.executeCommand('setContext', 'dlt-logs.CanSearchAddFilter', canAdd)
+    commands.executeCommand('setContext', 'dlt-logs.CanSearchDelFilter', canDel)
+  }
+
+  lastSearchFilters: DltFilter[] = []
+  lastSearchReq: SearchRequest | undefined
+  updateMenuVisibility(searchFilters: DltFilter[], searchReq: SearchRequest) {
+    const log = this.log
+    const doc = this._activeDoc
+    this.lastSearchFilters = searchFilters
+    this.lastSearchReq = searchReq
+    if (!doc) {
+      return
+    }
+    // evaluate whether we can offer addFilter delFilter:
+    {
+      if (searchFilters.length === 0) {
+        this.setMenuVisibility(false, false)
+      } else {
+        const allPosNegFilters = doc.allFilters.filter((f) => f.type === DltFilterType.POSITIVE || f.type === DltFilterType.NEGATIVE)
+        //log.info(`SearchPanel: search allPosNegFilters=${JSON.stringify(allPosNegFilters)}`)
+
+        let nrSimilar = 0
+        for (const sf of searchFilters) {
+          const overwrite = {
+            type: DltFilterType.POSITIVE,
+            id: undefined,
+          }
+          const frag = sf.getFragsForSimilarComparison(overwrite)
+          const similarFilters = DltFilter.getSimilarFilters(false, false, frag, allPosNegFilters)
+          log.info(
+            `SearchPanel: search '${searchReq.searchString}' #similarFilters=${similarFilters.length}`,
+          )
+          if (similarFilters.length > 0) {
+            nrSimilar += 1
+          }
+        }
+        const canAdd = nrSimilar < searchFilters.length
+        const canDel = nrSimilar > 0
+        this.setMenuVisibility(canAdd, canDel)
+      }
+    }
+  }
+
+  addOrDeactivateFilters(doAdd: boolean) {
+    const log = this.log
+    if (this._activeDoc) {
+      const doc = this._activeDoc
+      const allPosNegFilters = doc.allFilters.filter((f) => f.type === DltFilterType.POSITIVE || f.type === DltFilterType.NEGATIVE)
+      log.info(
+        `SearchPanelProvider: addOrDeactivateFilters(${doAdd ? 'doAdd' : 'doDeactivate/Del'}) #lastSearchFilters=${
+          this.lastSearchFilters.length
+        } #allPosNegFilters=${allPosNegFilters.length}`,
+      )
+
+      const filtersToAdd = []
+      const overwrite = {
+        type: DltFilterType.POSITIVE,
+        id: undefined,
+      }
+
+      let triggerFilterUpdate = false
+      for (const searchFilter of this.lastSearchFilters) {
+        const frag = searchFilter.getFragsForSimilarComparison(overwrite)
+        const similarFilters = DltFilter.getSimilarFilters(false, true, frag, allPosNegFilters)
+        log.info(`SearchPanel: addOrDeactivateFilters '${searchFilter.name}' #similarFilters=${similarFilters.length}`)
+        if (doAdd) {
+          if (similarFilters.length > 0) {
+            // we enable only the first one:
+            for (const sf of similarFilters) {
+              if (!sf.enabled) {
+                sf.enabled = true
+                triggerFilterUpdate = true
+                log.info(`SearchPanel: addOrDeactivateFilters '${searchFilter.name}' enabling filter ${sf.name}`)
+                break
+              }
+            }
+          } else {
+            filtersToAdd.push(new DltFilter({ ...searchFilter.asConfiguration(), type: DltFilterType.POSITIVE, id: undefined }, true))
+          }
+        } else {
+          // deactivate
+          for (const sf of similarFilters) {
+            if (sf.enabled) {
+              log.info(`SearchPanel: addOrDeactivateFilters '${searchFilter.name}' deactivating filter ${sf.name}`)
+              sf.enabled = false
+              triggerFilterUpdate = true
+            }
+          }
+        }
+      }
+
+      if (filtersToAdd.length > 0) {
+        if (doAdd) {
+          // add the filters
+          for (let i = 0; i < filtersToAdd.length; ++i) {
+            const sf = filtersToAdd[i]
+            sf.enabled = true
+            doc.onFilterAdd(sf, i === filtersToAdd.length - 1)
+            log.info(`SearchPanel: addOrDeactivateFilters adding filter ${sf.name}`)
+          }
+          vscodeWindow.showInformationMessage(`Temporarily added ${filtersToAdd.length} new filter(s). To persist edit the filter.`)
+        }
+      }
+      if (triggerFilterUpdate) {
+        log.info(`SearchPanel: addOrDeactivateFilters triggerFilterUpdate`)
+        doc.triggerApplyFilter(true)
+      }
+      if (triggerFilterUpdate || filtersToAdd.length > 0) {
+        this.updateMenuVisibility(this.lastSearchFilters, this.lastSearchReq!)
+      }
+    }
   }
 
   public resolveWebviewView(
@@ -154,6 +291,7 @@ export class SearchPanelProvider implements WebviewViewProvider {
   public dispose() {
     const log = this.log
     log.trace(`SearchPanel.dispose()...`)
+    this.setMenuVisibility(false, false)
     if (this._onApplyFilterDisp) {
       this._onApplyFilterDisp.dispose()
       this._onApplyFilterDisp = undefined
@@ -320,7 +458,7 @@ export class SearchPanelProvider implements WebviewViewProvider {
                 break
               case 'search':
                 {
-                  const searchReq: { searchString: string; useRegex: boolean; useCaseSensitive: boolean; useFilter: boolean } = req.data
+                  const searchReq: SearchRequest = req.data
                   // trigger new one
                   // todo check if searchReg is the same as last time (e.g. if webview gets hidden/reopened) and keep current one?
 
@@ -343,6 +481,8 @@ export class SearchPanelProvider implements WebviewViewProvider {
                             ...searchFilters,
                           ]
                         : searchFilters
+
+                      this.updateMenuVisibility(searchFilters, searchReq)
                       this.curStreamLoader = new DocStreamLoader(
                         log,
                         doc,
@@ -369,10 +509,12 @@ export class SearchPanelProvider implements WebviewViewProvider {
                     } catch (e) {
                       log.warn(`SearchPanel: sAr cmd search new DocStreamLoader failed with: ${e}`)
                       res = { err: `search cmd failed with: ${e}` }
+                      this.setMenuVisibility(false, false)
                     }
                   } else {
                     // return an error
                     res = { err: 'no active adlt document available! Select one first.' }
+                    this.setMenuVisibility(false, false)
                   }
                 }
                 break

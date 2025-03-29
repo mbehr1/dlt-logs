@@ -36,8 +36,9 @@ export function deleteFilter(doc: FilterableDocument, filter: DltFilter) {
         }
       }
       if (!deletedConf) {
-        console.log(`can't find current config for filter '${filter.name}'`)
-        vscode.window.showErrorMessage(`can't find current config for filter '${filter.name}'`)
+        console.log(`can't find current config for filter '${filter.name}'. Not deleted/found from config.`)
+        // this is no error. can happen e.g. if non persisted filters are deleted from tree view
+        // vscode.window.showErrorMessage(`can't find current config for filter '${filter.name}'`)
       }
     } else {
       vscode.window.showErrorMessage(`can't read current config '${confSection}'`)
@@ -93,8 +94,13 @@ export function editFilter(
             }
           }
           if (!updatedConf) {
-            console.log(`can't find current config for filter '${filter.name}'`)
-            vscode.window.showErrorMessage(`can't find current config for filter '${filter.name}'`)
+            console.log(`can't find current config for filter '${filter.name}'. Adding even though !isAdd`)
+            //vscode.window.showErrorMessage(`can't find current config for filter '${filter.name}'`)
+            let newOpt = filter.asConfiguration()
+            curFilter.push(newOpt)
+            util.updateConfiguration(confSection, curFilter)?.then(() => {
+              console.log(`updateConfiguration finished for new filter ${filter.name}`)
+            })
           }
           doc.onFilterEdit(filter)
         }
