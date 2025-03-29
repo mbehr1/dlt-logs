@@ -58,7 +58,7 @@ export class FilterRootNode implements TreeViewNode {
     let canZoomOut: boolean =
       this.anyFilterWith(true, { type: DltFilterType.POSITIVE }) || this.anyFilterWith(false, { type: DltFilterType.NEGATIVE })
 
-    return `${anyEnabled ? 'filterEnabled ' : ''}${anyDisabled ? 'filterDisabled ' : ''}${canZoomIn ? 'canZoomIn ' : ''}${
+    return `canAddFilter ${anyEnabled ? 'filterEnabled ' : ''}${anyDisabled ? 'filterDisabled ' : ''}${canZoomIn ? 'canZoomIn ' : ''}${
       canZoomOut ? 'canZoomOut ' : ''
     }`
   }
