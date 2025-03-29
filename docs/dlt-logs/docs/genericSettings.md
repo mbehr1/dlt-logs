@@ -18,9 +18,9 @@ You can to configure the following generic options.
         {label: 'Linux', value: 'linux'}
     ]
     }>
-<TabItem value="win">Use F1 or Ctrl+Shift+P and enter/select command "Preferences: Open Settings (JSON)".</TabItem>
-<TabItem value="mac">Use &#8679;&#8984;P and enter/select command "Preferences: Open Settings (JSON)".</TabItem>
-<TabItem value="linux">Use Ctrl+Shift+P and enter/select command "Preferences: Open Settings (JSON)".</TabItem>
+<TabItem value="win">Use F1 or Ctrl+Shift+P and enter/select command "Preferences: Open User Settings (JSON)".</TabItem>
+<TabItem value="mac">Use &#8679;&#8984;P and enter/select command "Preferences: Open User Settings (JSON)".</TabItem>
+<TabItem value="linux">Use Ctrl+Shift+P and enter/select command "Preferences: Open User Settings (JSON)".</TabItem>
 </Tabs>
 
 ```jsonc

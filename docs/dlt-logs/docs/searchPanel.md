@@ -5,10 +5,14 @@ sidebar_label: Search function
 ---
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
+import ImageSwitcher from './ImageSwitcher';
+import useBaseUrl from '@docusaurus/useBaseUrl';
 
 To open the search panel use the command "search dlt logs".
 
-(todo add picture)
+<ImageSwitcher 
+lightImageSrc={useBaseUrl("/img/searchPanel_light.png")}
+darkImageSrc={useBaseUrl("/img/searchPanel.png")}/>
 
 The function searches for matching logs with the text in the payload text.
 See [Search for ecu/apid/ctid](#search-for-ecuapidctid) on how to restrict/extend the search to ECU/APID/CTID.
@@ -22,6 +26,26 @@ mode name | description
 `Use current document filter` | The search will be limited to the logs matching the filters set in the current document.
 `Use case sensitive` | If set the search considers the case (upper/lower). If not set the search is case-insensitive.
 `Use regular expression` | If set the search text is a **regular expression**. E.g. `^error\|^warning` finds only logs starting with `error` or `warning`. <br/>If not set any logs containing the **whole search text** within the payload is found. E.g. `err #2` matches all logs containing exactly `err #2` in the payload.
+
+:::tip
+Use the excellent website [regex101.com](https://regex101.com/?regex=^MemTotal&flavor=javascript) to test your regex expressions.
+It provides a good help as well. Flavor used is 'javascript'.
+:::
+
+### Set filters directly from search
+
+#### Adding / enabling a filter
+The current search expression can be quickly set as a filter via the '+' button in the right corner of the search panel title.
+If the filter does already exist but it disabled it will be enabled.
+
+:::note
+An added filter is added only temporarily and will only be available for the current document. To persist the filter to the configuration
+you can edit the filter by the 'edit' button in the tree view:
+<ImageSwitcher 
+lightImageSrc={useBaseUrl("/img/treeView_editFilter_light.png")}
+darkImageSrc={useBaseUrl("/img/treeView_editFilter_dark.png")}/>
+
+:::
 
 ## Search for ecu/apid/ctid
 
