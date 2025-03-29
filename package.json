@@ -697,7 +697,8 @@
       },
       {
         "command": "dlt-logs.addFilter",
-        "title": "add filter..."
+        "title": "add new filter...",
+        "icon": "$(add)"
       },
       {
         "command": "dlt-logs.editFilter",
@@ -903,6 +904,11 @@
         {
           "command": "dlt-logs.treeViewSave",
           "when": "view == dltLifecycleExplorer && viewItem =~ /canSave/",
+          "group": "inline"
+        },
+{
+          "command": "dlt-logs.addFilter",
+          "when": "view == dltLifecycleExplorer && viewItem =~ /canAddFilter/",
           "group": "inline"
         },
         {

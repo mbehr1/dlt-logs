@@ -595,10 +595,22 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.commands.registerCommand('dlt-logs.addFilter', async (...args) => {
-      args.forEach((a) => {
-        log.trace(` dlt-logs.addFilter arg='${JSON.stringify(a)}'`)
+      log.info(`dlt-logs.addFilter called with ${args.length} args`)
+      args.forEach((a, idx) => {
+        try {
+          log.info(` dlt-logs.addFilter arg#${idx}='${JSON.stringify(a)}'`)
+        } catch (e) {
+          log.info(` dlt-logs.addFilter failed to json output arg#${idx} '${typeof a}' with error=${e}`)
+        }
       })
       if (args.length < 2) {
+        return
+      }
+      if (args[1] === undefined && typeof args[0] === 'object' && args[0].uri) {
+        let { doc, provider } = getDocAndProviderFor(args[0].uri.toString())
+        if (doc) {
+          addFilter(doc, {})
+        }
         return
       }
       // first arg should contain uri or preferrably base64Uri
@@ -620,7 +632,7 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand('dlt-logs.editFilter', async (...args: any[]) => {
       const filterNode = <FilterNode>args[0]
-      const parentUri = filterNode.parent?.uri
+      const parentUri = filterNode?.parent?.uri
       if (parentUri) {
         let { doc, provider } = getDocAndProviderFor(parentUri.toString())
         if (doc) {
