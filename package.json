@@ -906,7 +906,7 @@
           "when": "view == dltLifecycleExplorer && viewItem =~ /canSave/",
           "group": "inline"
         },
-{
+        {
           "command": "dlt-logs.addFilter",
           "when": "view == dltLifecycleExplorer && viewItem =~ /canAddFilter/",
           "group": "inline"
@@ -1105,7 +1105,7 @@
     "ws": "^8.13.0"
   },
   "optionalDependencies": {
-    "node-adlt": "0.61.2"
+    "node-adlt": "0.61.3"
   },
   "commitlint": {
     "extends": [
