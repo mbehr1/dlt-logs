@@ -168,7 +168,8 @@ export class DltFilter {
 
     this.mstp = 'mstp' in options ? options.mstp : undefined
 
-    if ('ecu' in options) {
+    if ('ecu' in options && typeof options.ecu === 'string') {
+      // todo support array of ecus?
       const isRegex = 'ecuIsRegex' in options ? !!options.ecuIsRegex : containsRegexChars(options.ecu)
       if (isRegex) {
         this.ecu = new RegExp(options.ecu)
@@ -178,7 +179,7 @@ export class DltFilter {
     } else {
       this.ecu = undefined
     }
-    if ('apid' in options) {
+    if ('apid' in options && typeof options.apid === 'string') {
       const isRegex = 'apidIsRegex' in options ? !!options.apidIsRegex : containsRegexChars(options.apid)
       if (isRegex) {
         this.apid = new RegExp(options.apid)
@@ -188,7 +189,7 @@ export class DltFilter {
     } else {
       this.apid = undefined
     }
-    if ('ctid' in options) {
+    if ('ctid' in options && typeof options.ctid === 'string') {
       const isRegex = 'ctidIsRegex' in options ? !!options.ctidIsRegex : containsRegexChars(options.ctid)
       if (isRegex) {
         this.ctid = new RegExp(options.ctid)
