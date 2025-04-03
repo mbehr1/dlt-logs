@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.101.2](https://github.com/mbehr1/dlt-logs/compare/v1.101.1...v1.101.2) (2025-04-03)
+
+
+### Bug Fixes
+
+* **filter:** support filter with ecu:null ([879b310](https://github.com/mbehr1/dlt-logs/commit/879b310cf8bf14fb5e11c981828dab1cba23bcef))
+
 ## [1.101.1](https://github.com/mbehr1/dlt-logs/compare/v1.101.0...v1.101.1) (2025-04-03)
 
 
