@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.101.1](https://github.com/mbehr1/dlt-logs/compare/v1.101.0...v1.101.1) (2025-04-03)
+
+
+### Bug Fixes
+
+* **deps:** bump dlt-logs-utils from 0.10.4 to 0.11.0 ([51e3fe4](https://github.com/mbehr1/dlt-logs/commit/51e3fe49064d438acf72f635c7822d0200f33a57))
+
 ## [1.101.0](https://github.com/mbehr1/dlt-logs/compare/v1.100.0...v1.101.0) (2025-03-29)
 
 
