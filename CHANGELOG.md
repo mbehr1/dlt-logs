@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.102.0](https://github.com/mbehr1/dlt-logs/compare/v1.101.2...v1.102.0) (2025-04-06)
+
+
+### Features
+
+* **sequence:** add first KPIs support ([7fab1a8](https://github.com/mbehr1/dlt-logs/commit/7fab1a8fef41477da4c280f5817f7624479283b1))
+
 ## [1.101.2](https://github.com/mbehr1/dlt-logs/compare/v1.101.1...v1.101.2) (2025-04-03)
 
 
