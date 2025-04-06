@@ -3555,8 +3555,18 @@ export class AdltDocument implements vscode.Disposable {
         return step.map((e) => resAsEmoji(summaryForStepRes(e))).join('')
       })
       .join(',')
+    let tooltipText = ''
     if (occ.context.length > 0) {
-      occNode.tooltip = occ.context.map(([key, value]) => `${key}: ${value}`).join('\n')
+      tooltipText = occ.context.map(([key, value]) => `${key}: ${value}`).join('\n')
+    }
+    if (occ.kpis.length > 0) {
+      if (tooltipText.length > 0) {
+        tooltipText += '\n'
+      }
+      tooltipText += `KPIs:\n` + occ.kpis.map((kpi) => `${kpi.name}: ${kpi.values.join(', ')}`).join('\n')
+    }
+    if (tooltipText.length > 0) {
+      occNode.tooltip = tooltipText
     }
     // add step details as children:
     // occ.stepsResult: StepResult[] <- step result for each step
