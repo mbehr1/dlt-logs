@@ -46,7 +46,25 @@
 			"type": "npm",
 			"script": "watch:webview:search",
 			"group": "build",
-			"problemMatcher": "$esbuild-watch",
+			"problemMatcher": {
+				"owner": "custom",
+				"fileLocation": [
+					"relative",
+					"${workspaceFolder}"
+				],
+				"pattern": {
+					"regexp": "^(.+):(\\d+):(\\d+):\\s+(.*)$",
+					"file": 1,
+					"line": 2,
+					"column": 3,
+					"message": 4
+				},
+				"background": {
+					"activeOnStart": true,
+					"beginsPattern": "build started",
+					"endsPattern": "built in \\d+ms"
+				}
+			},
 			"isBackground": true,
 			"label": "npm: watch:webview:search",
 			"presentation": {

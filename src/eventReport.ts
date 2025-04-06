@@ -3,7 +3,7 @@ import { DataSet, SingleReportIF } from './dltReport'
 import { DltFilter } from './dltFilter'
 import * as uv0 from 'dlt-logs-utils'
 import { DltLifecycleInfoMinIF } from './dltLifecycle'
-import { FbEvent, FbSeqOccurrence, FbSequenceResult, FbStepRes } from 'dlt-logs-utils/sequence'
+import { FbSequenceResult, lastEventForOccurrence } from 'dlt-logs-utils/sequence'
 
 interface ReportEventIF {
   lifecycle: DltLifecycleInfoMinIF
@@ -159,54 +159,4 @@ function resAsColor(res: string): string {
     return 'red'
   }
   return 'gray'
-}
-
-function lastEventForFbStepRes(stepRes: FbStepRes): FbEvent | undefined {
-  switch (stepRes.stepType) {
-    case 'filter':
-      return stepRes.res
-      break
-    case 'alt':
-      return lastEventForFbStepRes(stepRes.res)
-      break
-    case 'sequence':
-      return lastEventForOccurrence(stepRes.res)
-      break
-    case 'par':
-      {
-        let lastEvent = undefined
-        let lastTimeInMs = 0
-        for (const resArray of stepRes.res) {
-          for (const res of resArray) {
-            const event = lastEventForFbStepRes(res)
-            if (event) {
-              const timeInMs = event.timeInMs || 0
-              if (timeInMs > lastTimeInMs) {
-                lastTimeInMs = timeInMs
-                lastEvent = event
-              }
-            }
-          }
-        }
-      }
-      break
-  }
-}
-
-function lastEventForOccurrence(occ: FbSeqOccurrence): FbEvent {
-  let lastEvent = occ.startEvent
-  let lastTimeInMs = lastEvent.timeInMs || 0
-  for (const stepsRes of occ.stepsResult) {
-    for (const stepRes of stepsRes) {
-      const event = lastEventForFbStepRes(stepRes)
-      if (event) {
-        const timeInMs = event.timeInMs || 0
-        if (timeInMs > lastTimeInMs) {
-          lastTimeInMs = timeInMs
-          lastEvent = event
-        }
-      }
-    }
-  }
-  return lastEvent
 }
