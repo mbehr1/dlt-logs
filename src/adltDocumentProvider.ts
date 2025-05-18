@@ -1093,9 +1093,9 @@ export class AdltDocument implements vscode.Disposable {
    * @param filterObjs array of filter objects as received from the configuration
    */ // todo move to extension
   parseFilterConfigs(filterObjs: Object[] | undefined) {
-    console.error(
+    /*console.error(
       `AdltDocument.parseFilterConfigs: have ${filterObjs?.length} filters to parse. Currently have ${this.allFilters.length} filters...`,
-    )
+    )*/
     if (filterObjs) {
       let skipped = 0
       for (let i = 0; i < filterObjs.length; ++i) {
@@ -1108,11 +1108,11 @@ export class AdltDocument implements vscode.Disposable {
           if (containedIdx < 0) {
             // not contained yet:
             let newFilter = new DltFilter(filterConf)
-            console.error(
+            /*console.error(
               `AdltDocument.parseFilterConfigs: filter configs=${JSON.stringify(newFilter.configs)} from filterConf=${JSON.stringify(
                 newFilter.configOptions,
               )}!`,
-            )
+            )*/
             if (newFilter.configs.length > 0) {
               this.updateConfigs(newFilter)
               // for now (as no proper config support) we disable those filters:
