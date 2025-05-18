@@ -1368,6 +1368,7 @@ export function activate(context: vscode.ExtensionContext) {
                     id: lc.persistentId, // todo to ease parsing with jsonPath...
                     label: lc.getTreeNodeLabel(),
                     startTimeUtc: lc.lifecycleStart.toUTCString(),
+                    resumeTimeUtc:  'isResume' in lc && lc.isResume ? lc.lifecycleResume?.toUTCString() : undefined,
                     endTimeUtc: lc.lifecycleEnd.toUTCString(),
                     sws: lc.swVersions,
                     msgs: lc.nrMsgs,
