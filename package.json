@@ -771,6 +771,11 @@
         "icon": "$(list-ordered)"
       },
       {
+        "command": "dlt-logs.reloadDocument",
+        "title": "reload current document",
+        "icon": "$(debug-restart)"
+      },
+      {
         "command": "dlt-logs.testRestQuery",
         "title": "test rest query"
       },
@@ -966,6 +971,7 @@
         {
           "command": "dlt-logs.toggleSortOrder",
           "when": "resourceLangId == dlt-log || resourceLangId == can-asc",
+          "alt": "dlt-logs.reloadDocument",
           "group": "navigation@3"
         },
         {

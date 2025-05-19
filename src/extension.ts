@@ -827,6 +827,12 @@ export function activate(context: vscode.ExtensionContext) {
   )
 
   context.subscriptions.push(
+    vscode.commands.registerTextEditorCommand('dlt-logs.reloadDocument', async (textEditor: vscode.TextEditor) => {
+      adltProvider.reloadDocument(textEditor?.document?.uri)
+    }),
+  )
+
+  context.subscriptions.push(
     vscode.commands.registerTextEditorCommand('dlt-logs.toggleSortOrder', async (textEditor: vscode.TextEditor) => {
       log.info(`dlt-logs.toggleSortOrder(textEditor.uri = ${textEditor.document.uri.toString()}) called...`)
       const uriStr = textEditor.document.uri.toString()
