@@ -4203,6 +4203,42 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider, /*vscode
     dataTransfer.set('application/vnd.dlt-logs+json', new vscode.DataTransferItem(jsonObj))
   }
 
+  /**
+   * reload an opened document. This is e.g. helpful if the adlt process has been restarted/killed/...
+   * Will reload all filters (so any temp filters will be lost).
+   * @param uri 
+   */
+  public reloadDocument(uri: vscode.Uri) {
+    const uriStr = uri.toString()
+    this.log.info(`adltDocumentProvider.reloadDocument(${uriStr})...`)
+    const doc = this._documents.get(uriStr)
+    if (doc) {
+      // remove treee view node:
+      let childNode: TreeViewNode = doc.treeNode
+      for (let i = 0; i < this._treeRootNodes.length; ++i) {
+        if (this._treeRootNodes[i] === childNode) {
+          this._treeRootNodes.splice(i, 1)
+          break
+        }
+      }
+      this._onDidChangeTreeData.fire(null)
+
+      this._documents.delete(uriStr)
+      this.onDidClose(doc)
+
+      const _ = this.readFile(uri) // stat doesn't work with remotes. this creates a new document
+      const newDoc = this._documents.get(uriStr)
+      if (newDoc) {
+        newDoc.textDocument = doc.textDocument // todo or copy before onDidClose/dispose...
+        doc.textDocument = undefined
+        newDoc.textEditors = [...doc.textEditors] // copy the text editors (see todo above)
+        doc.textEditors = []
+      } else {
+        this.log.error(`adltDocumentProvider.reloadDocument(${uriStr}) failed to open document`)
+      }
+    }
+  }
+
   public onDidClose(doc: ReportDocument) {
     // doc has been removed already from this._documents!
     if (doc !== undefined && doc instanceof AdltDocument) {
@@ -4217,8 +4253,10 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider, /*vscode
     this.log.info(`adlt.closeAdltProcess()...`)
     if (this._adltProcess) {
       try {
-        this._adltProcess.kill()
+        const oldProc = this._adltProcess
         this._adltProcess = undefined
+        oldProc.removeAllListeners('exit') // expected
+        oldProc.kill()
       } catch (err) {
         this.log.error(`adlt.closeAdltProcess(port=${this._adltPort}) got err=${err}`)
       }
@@ -4312,6 +4350,14 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider, /*vscode
           .then(([childProc, port]) => {
             this._adltProcess = childProc
             this._adltPort = port
+            const aThis = this
+            this._adltProcess.on('exit', (code: number | null, signal: NodeJS.Signals | null) => {
+              if (aThis._adltProcess === childProc) {
+                aThis.log.warn(`adlt.getAdltProcessAndPort() process exited with code='${code}' signal='${signal}'!`)
+                aThis._adltProcess = undefined
+                aThis._adltPort = 0
+              } // else we ignore it as we have a new process already
+            })
             resolve(port)
           })
           .catch((reason) => {
