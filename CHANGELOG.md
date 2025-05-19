@@ -1,5 +1,14 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.102.3](https://github.com/mbehr1/dlt-logs/compare/v1.102.2...v1.102.3) (2025-05-19)
+
+
+### Bug Fixes
+
+* add reloadDocument ui command ([da36118](https://github.com/mbehr1/dlt-logs/commit/da361182f1fc3149fc85fdf440826508aaff2059))
+* **adlt:** update to 0.61.4 ([a7993e1](https://github.com/mbehr1/dlt-logs/commit/a7993e1ba858113f3b8c72a12afffee8a66347eb))
+* **rest:** add resumeTimeUtc to lifecycles ecu info ([4426ac3](https://github.com/mbehr1/dlt-logs/commit/4426ac33e71285598aff2b5c7a8710a62fee8cf1))
+
 ## [1.102.2](https://github.com/mbehr1/dlt-logs/compare/v1.102.1...v1.102.2) (2025-04-13)
 
 
