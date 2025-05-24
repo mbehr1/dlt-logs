@@ -3895,14 +3895,16 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider, /*vscode
       prompt: 'Comment prompt',
     }
     this.commentController.commentingRangeProvider = {
-      provideCommentingRanges: (document: vscode.TextDocument, token: vscode.CancellationToken) => {
+      provideCommentingRanges: (document: vscode.TextDocument, _token: vscode.CancellationToken) => {
         const data = this._documents.get(document.uri.toString())
         if (data) {
-          // log.info(`AdltDocumentProvider provideCommentingRanges called for ${document.uri.toString()}`)
           const lineCount = document.lineCount
           if (lineCount > 1) {
             // last line is empty (not assigned to a msg)
             return [new vscode.Range(0, 0, lineCount - 2, 0)]
+          } else {
+            return [new vscode.Range(0, 0, lineCount - 1, 0)] // weird. this is a workaround for a bug( https://github.com/microsoft/vscode/issues/249716 ) in vscode that
+            // allows comments only if the document is once made invisble and then visible again.
           }
         }
         return []
@@ -4206,7 +4208,7 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider, /*vscode
   /**
    * reload an opened document. This is e.g. helpful if the adlt process has been restarted/killed/...
    * Will reload all filters (so any temp filters will be lost).
-   * @param uri 
+   * @param uri
    */
   public reloadDocument(uri: vscode.Uri) {
     const uriStr = uri.toString()
