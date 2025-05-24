@@ -794,7 +794,8 @@
       },
       {
         "command": "dlt-logs.commentCreate",
-        "title": "Create"
+        "title": "Create",
+        "enablement": "!commentIsEmpty"
       },
       {
         "command": "dlt-logs.commentThreadDelete",
