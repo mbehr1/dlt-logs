@@ -763,7 +763,7 @@ function App() {
           prevLastIndex = r.lastIndex
         }
         // add end of str:
-        if (str.length > idxToProcess + 1) {
+        if (str.length > idxToProcess) {
           frags.push(<pre>{str.slice(idxToProcess)}</pre>)
         }
 
