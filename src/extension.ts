@@ -539,10 +539,59 @@ export function activate(context: vscode.ExtensionContext) {
     }),
   )
 
+  const dirtyDocTimers: Map<string, NodeJS.Timeout | null> = new Map() // null used to indicate to ignore
+
   context.subscriptions.push(
     vscode.workspace.onDidChangeTextDocument(async (event) => {
       let { doc, provider } = getDocAndProviderFor(event.document.uri.toString())
       if (doc) {
+        if (event.document.isDirty) {
+          if (dirtyDocTimers.has(doc.uri.toString())) {
+            const timer = dirtyDocTimers.get(doc.uri.toString())
+            if (timer) {
+              timer.refresh() // renew the timer:
+            }
+          } else {
+            const fileName = event.document.fileName
+            const timer = setTimeout(() => {
+              // ignore updates while this is shown
+              dirtyDocTimers.set(doc.uri.toString(), null)
+              vscode.window
+                .showWarningMessage(
+                  `Document '...${fileName.slice(-20)}' is manually edited! Filter, re-loads,... wont work! Please undo changes.`,
+                  { modal: false },
+                  { title: 'Ignore' },
+                  // TODO add Undo option using vscode.commands.executeCommand('undo') until the document is not dirty anymore
+                  // this required searching windows.tabGroups..., selecting the tabgroup via window.showTextDocument(this.editor.document,...)
+                  // see a code snippet e.g. here: https://github.com/microsoft/vscode/issues/175297
+                )
+                .then((value) => {
+                  switch (value?.title) {
+                    case 'Ignore':
+                      break
+                    default:
+                      // remove the timer:
+                      dirtyDocTimers.delete(doc.uri.toString())
+                      break
+                  }
+                })
+            }, 2000)
+            dirtyDocTimers.set(doc.uri.toString(), timer)
+            log.info(`dlt-logs.onDidChangeTextDocument: dirty doc '${fileName}' detected, timer set.`)
+          }
+        } else {
+          // clear the timer:
+          const timer = dirtyDocTimers.get(doc.uri.toString())
+          if (timer !== undefined) {
+            const fileName = event.document.fileName
+            if (timer !== null) {
+              // or keep ignored?
+              clearTimeout(timer)
+            }
+            dirtyDocTimers.delete(doc.uri.toString())
+            log.info(`dlt-logs.onDidChangeTextDocument: non-dirty doc '${fileName}' detected, timer deleted.`)
+          }
+        }
         // update decorations:
         doc.updateDecorations()
 
@@ -1374,7 +1423,7 @@ export function activate(context: vscode.ExtensionContext) {
                     id: lc.persistentId, // todo to ease parsing with jsonPath...
                     label: lc.getTreeNodeLabel(),
                     startTimeUtc: lc.lifecycleStart.toUTCString(),
-                    resumeTimeUtc:  'isResume' in lc && lc.isResume ? lc.lifecycleResume?.toUTCString() : undefined,
+                    resumeTimeUtc: 'isResume' in lc && lc.isResume ? lc.lifecycleResume?.toUTCString() : undefined,
                     endTimeUtc: lc.lifecycleEnd.toUTCString(),
                     sws: lc.swVersions,
                     msgs: lc.nrMsgs,
