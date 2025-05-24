@@ -1,5 +1,19 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.103.0](https://github.com/mbehr1/dlt-logs/compare/v1.102.3...v1.103.0) (2025-05-24)
+
+
+### Features
+
+* show warning if document gets manually edited ([fb460e4](https://github.com/mbehr1/dlt-logs/commit/fb460e46043e21d3edd1f5f8942234e963f2be69))
+
+
+### Bug Fixes
+
+* **comments:** add workaround for a vscode bug on adding comments ([28bb2b5](https://github.com/mbehr1/dlt-logs/commit/28bb2b5645498c49461bbb07802fe6eee3d5cae5))
+* **comments:** enable Create button only if text not empty ([be55ef5](https://github.com/mbehr1/dlt-logs/commit/be55ef513e857119581120f564ab6c4c04283888))
+* **search:** last char after the found expr was removed ([c95f586](https://github.com/mbehr1/dlt-logs/commit/c95f5866b68dd89640a08c91a9d032e468bf63f6))
+
 ## [1.102.3](https://github.com/mbehr1/dlt-logs/compare/v1.102.2...v1.102.3) (2025-05-19)
 
 
