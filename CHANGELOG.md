@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.103.1](https://github.com/mbehr1/dlt-logs/compare/v1.103.0...v1.103.1) (2025-06-01)
+
+
+### Bug Fixes
+
+* **adlt:** update to 0.61.5 with file transfer plugin fixes ([63a7bee](https://github.com/mbehr1/dlt-logs/commit/63a7bee59f5bc23ec58d539ae809c372b555c7ab))
+
 ## [1.103.0](https://github.com/mbehr1/dlt-logs/compare/v1.102.3...v1.103.0) (2025-05-24)
 
 
