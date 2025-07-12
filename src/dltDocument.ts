@@ -1905,7 +1905,7 @@ export class DltDocument {
         }
         if (showTime) {
           toRet += new Date(msg.receptionTimeInMs).toLocaleTimeString() + ' '
-        } // todo pad to one len?
+        } // todo pad to one len? (pad based on max time 23:59:59?)
         if (showCalculatedTime) {
           let timeC =
             msg.mstp === MSTP.TYPE_CONTROL && msg.mtin === MTIN_CTRL.CONTROL_REQUEST

@@ -135,7 +135,8 @@ export async function loadTimeFilterAssistant(fileUri: vscode.Uri, allFilters: D
       tempEnableLoadTimeFilters = []
       if (Array.isArray(v)) {
         //console.log(` onValue(${v.map(v => v.name).join(',')})`);
-        ;(<readonly PickItem[]>v).forEach((pi) => {
+        const piv: PickItem[] = v as PickItem[]
+        piv.forEach((pi) => {
           if (pi.data !== undefined) {
             tempEnableLoadTimeFilters.push(pi.data)
           }
