@@ -197,7 +197,8 @@ export async function exportDltOldTS(srcUris: vscode.Uri[], allFilters: DltFilte
       if (Array.isArray(v)) {
         console.log(`lcs onValue(${v.map((v) => v.name).join(',')})`)
         // now add the lifecycles:
-        ;(<readonly PickItem[]>v).forEach((pi) => {
+        const piv: PickItem[] = v as PickItem[]
+        piv.forEach((pi) => {
           if (pi.data !== undefined && pi.data.lcInfo !== undefined) {
             exportOptions.lcsToKeep.push(pi.data.lcInfo)
           }

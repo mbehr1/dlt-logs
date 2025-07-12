@@ -125,7 +125,12 @@ class AdltLifecycleInfo implements DltLifecycleInfoMinIF {
   ecuLcNr: number
   decorationType?: vscode.TextEditorDecorationType
 
-  constructor(binLc: remote_types.BinLifecycle, uri: vscode.Uri, ecuNode: EcuNode, lcRootNode: LifecycleRootNode) {
+  constructor(
+    binLc: remote_types.BinLifecycle,
+    uri: vscode.Uri,
+    private ecuNode: EcuNode,
+    lcRootNode: LifecycleRootNode,
+  ) {
     this.ecu = char4U32LeToString(binLc.ecu)
     this.id = binLc.id
     this.nrMsgs = binLc.nr_msgs
@@ -157,14 +162,49 @@ class AdltLifecycleInfo implements DltLifecycleInfoMinIF {
   }
 
   update(binLc: remote_types.BinLifecycle, eventEmitter: vscode.EventEmitter<TreeViewNode | null>) {
-    this.nrMsgs = binLc.nr_msgs
-    this.startTime = Number(binLc.start_time / 1000n) // start time in ms
-    this.resumeTime = binLc.resume_time !== undefined ? Number(binLc.resume_time / 1000n) : undefined
-    this.endTime = Number(binLc.end_time / 1000n) // end time in ms
-    this.swVersion = binLc.sw_version // todo update parent ecuNode if changed
+    let didChange = false
+    if (this.nrMsgs !== binLc.nr_msgs) {
+      this.nrMsgs = binLc.nr_msgs
+      didChange = true
+    }
+
+    const lcStartTime = Number(binLc.start_time / 1000n) // start time in ms
+    if (this.startTime !== lcStartTime) {
+      this.startTime = lcStartTime
+      didChange = true
+    }
+
+    const lcResumeTime = binLc.resume_time !== undefined ? Number(binLc.resume_time / 1000n) : undefined
+    if (this.resumeTime !== lcResumeTime) {
+      this.resumeTime = lcResumeTime
+      didChange = true
+    }
+
+    const lcEndTime = Number(binLc.end_time / 1000n) // end time in ms
+    if (this.endTime !== lcEndTime) {
+      this.endTime = lcEndTime
+      didChange = true
+    }
+
+    if (binLc.sw_version !== undefined && binLc.sw_version !== this.swVersion) {
+      didChange = true
+      this.swVersion = binLc.sw_version
+      if (!this.ecuNode.swVersions.includes(this.swVersion)) {
+        this.ecuNode.swVersions.push(this.swVersion)
+        this.ecuNode.label = `ECU: ${this.ecu}, SW${
+          this.ecuNode.swVersions.length > 1 ? `(${this.ecuNode.swVersions.length}):` : `:`
+        } ${this.ecuNode.swVersions.join(' and ')}`
+        eventEmitter.fire(this.ecuNode) // update the node
+      }
+    }
+    if (!didChange) {
+      // nothing changed
+      return
+    }
     // update node (todo refactor)
     this.node.label = `LC${this.getTreeNodeLabel()}`
-    // fire if we did update
+    this.node.tooltip = this.tooltip
+    // fire as we did update
     eventEmitter.fire(this.node)
   }
 
@@ -2852,6 +2892,12 @@ export class AdltDocument implements vscode.Disposable {
     const log = this.log
     // todo check for changes compared to last update
     // for now we check only whether some ecus or lifecycles are not needed anymore:
+    /*log.warn(
+      `adlt.processLifecycleUpdates lcs=`,
+      lifecycles
+        .map((lc) => JSON.stringify({ id: lc.id, ecu: char4U32LeToString(lc.ecu), nr_msgs: lc.nr_msgs, sw: lc.sw_version }))
+        .join(', '),
+    )*/
 
     // determine ecu to decorate if called the first time:
     let decorateEcu: string | undefined = undefined
@@ -2878,10 +2924,15 @@ export class AdltDocument implements vscode.Disposable {
       let lcInfo = this.lifecyclesByPersistentId.get(lc.id)
       if (lcInfo !== undefined) {
         // update
-        ;(lcInfo as AdltLifecycleInfo).update(lc, this._treeEventEmitter)
+        const lcI: AdltLifecycleInfo = lcInfo as AdltLifecycleInfo
+        lcI.update(lc, this._treeEventEmitter)
+        /*log.warn(
+          `adlt.processLifecycleUpdates updated ecu=${lcI.ecu}, id=${lc.id}, sw=${lc.sw_version}, nr_msgs=${lc.nr_msgs}, new sw: ${lcI.swVersion}`,
+        )*/
       } else {
         // new one
         let ecu = char4U32LeToString(lc.ecu)
+        //log.warn(`adlt.processLifecycleUpdates new lifecycle for ecu=${ecu}, id=${lc.id}, sw=${lc.sw_version}, nr_msgs=${lc.nr_msgs}`)
         let isMaxNrMsgsEcu = false // todo...
 
         let lcInfos = this.lifecycles.get(ecu)

@@ -230,12 +230,12 @@ export function editFilter(
     }
 
     if ('configTreeNode' in doc) {
-      ;(doc as DltDocument) /* todo! */.configTreeNode.children
-        .forEach((node) => {
-          if (node instanceof ConfigNode) {
-            addConfig(node, '')
-          }
-        })
+      const dDoc: DltDocument = doc as DltDocument
+      dDoc.configTreeNode.children.forEach((node) => {
+        if (node instanceof ConfigNode) {
+          addConfig(node, '')
+        }
+      })
     }
 
     let stepInput = new MultiStepInput(
