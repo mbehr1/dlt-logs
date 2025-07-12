@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.103.2](https://github.com/mbehr1/dlt-logs/compare/v1.103.1...v1.103.2) (2025-07-12)
+
+
+### Bug Fixes
+
+* ecu lc nodes were showing outdated info / adlt 0.62.0 ([a961279](https://github.com/mbehr1/dlt-logs/commit/a9612797eecde0bf92bc2515e08279e563c4c062))
+
 ## [1.103.1](https://github.com/mbehr1/dlt-logs/compare/v1.103.0...v1.103.1) (2025-06-01)
 
 
