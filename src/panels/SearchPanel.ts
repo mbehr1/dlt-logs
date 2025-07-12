@@ -435,6 +435,13 @@ export class SearchPanelProvider implements WebviewViewProvider {
                                     })
                                   }
                                 }, 200)
+                              }else{
+                                log.warn(`SearchPanel: sAr cmd find failed with: ${res.err}`)
+                                webview.postMessage({
+                                  type: 'sAr',
+                                  id: msgId,
+                                  res,
+                                })
                               }
                             } else {
                               // assume string
@@ -447,8 +454,8 @@ export class SearchPanelProvider implements WebviewViewProvider {
                           },
                         )
                       } catch (e) {
-                        log.warn(`SearchPanel: sAr cmd find failed with: ${e}`)
-                        res = { err: `find cmd failed outer with: ${e}` }
+                        log.warn(`SearchPanel: sAr cmd find failed outer with: ${e}`)
+                        res = { err: `find cmd failed with: ${e}` }
                       }
                       return res
                     }
