@@ -4,7 +4,7 @@ module.exports = {
   url: 'https://mbehr1.github.io',
   baseUrl: '/dlt-logs/',
   onBrokenLinks: 'throw',
-  favicon: 'img/favicon.ico',
+  favicon: 'img/dlt-logs-icon.png',
   organizationName: 'mbehr1', // Usually your GitHub org/user name.
   projectName: 'dlt-logs', // Usually your repo name.
   themeConfig: {
@@ -12,7 +12,7 @@ module.exports = {
       title: 'DLT-Logs',
       logo: {
         alt: 'DLT-Logs logo',
-        src: 'img/logs.svg', // todo improve color...
+        src: 'img/dlt-logs-icon.png',
       },
       items: [
         {
@@ -70,6 +70,10 @@ module.exports = {
               href: 'https://github.com/mbehr1/dlt-logs',
             },
             {
+              label: 'GitHub dlt-logs-utils',
+              href: 'https://github.com/mbehr1/dlt-logs-utils',
+            },
+            {
               label: 'vsc-webshark',
               href: 'https://github.com/mbehr1/vsc-webshark',
             },
@@ -84,7 +88,9 @@ module.exports = {
           ],
         },
       ],
-      copyright: `Copyright © ${new Date().getFullYear() > 2020 ? `2020 - ${new Date().getFullYear()}` : new Date().getFullYear()} Matthias Behr. Docs built with Docusaurus.`,
+      copyright: `Copyright © ${
+        new Date().getFullYear() > 2020 ? `2020 - ${new Date().getFullYear()}` : new Date().getFullYear()
+      } Matthias Behr. Docs built with Docusaurus.`,
     },
   },
   presets: [
@@ -94,23 +100,21 @@ module.exports = {
         docs: {
           sidebarPath: require.resolve('./sidebars.js'),
           // Please change this to your repo.
-          editUrl:
-            'https://github.com/mbehr1/dlt-logs/edit/master/docs/dlt-logs/',
+          editUrl: 'https://github.com/mbehr1/dlt-logs/edit/master/docs/dlt-logs/',
         },
         blog: {
           showReadingTime: true,
           // Please change this to your repo.
-          editUrl:
-            'https://github.com/mbehr1/dlt-logs/edit/master/docs/dlt-logs/',
+          editUrl: 'https://github.com/mbehr1/dlt-logs/edit/master/docs/dlt-logs/',
         },
         theme: {
           customCss: require.resolve('./src/css/custom.css'),
         },
         gtag: {
           trackingID: 'UA-180286216-1',
-          anonymizeIP: true
-        },    
+          anonymizeIP: true,
+        },
       },
     ],
   ],
-};
+}
