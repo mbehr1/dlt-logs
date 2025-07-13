@@ -5,8 +5,10 @@ src/**
 .gitignore
 .github
 .husky
+BUILD.md
 vsc-extension-quickstart.md
 esbuild.js
+eslint.config.mjs
 node_modules
 !node_modules/node-adlt
 !node_modules/@vscode/codicons/dist
