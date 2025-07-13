@@ -1460,9 +1460,20 @@ export function activate(context: vscode.ExtensionContext) {
     },
     // restQuery should follow the principles from here: https://jsonapi.org/format/
     restQuery(query: string) {
-      /*console.log(`dlt-logs.restQuery(${query}) called.`); */ return restQuery(context, query)
+      return restQuery(context, query)
     },
     onDidChangeActiveRestQueryDoc(listener: any) {
+      if (_lastActiveQueryDocUri !== undefined) {
+        // we'll inform the listener about the current active doc immediately as the doc might not change for a while
+        setImmediate(() => {
+          log.info(`dlt-logs.onDidChangeActiveRestQueryDoc: calling listener for _lastActiveQueryDocUri=${_lastActiveQueryDocUri}`)
+          try {
+            listener(_lastActiveQueryDocUri)
+          } catch (err) {
+            log.error(`dlt-logs.onDidChangeActiveRestQueryDoc: listener threw error=${err}`)
+          }
+        })
+      }
       return onDidChangeActiveRestQueryDoc(listener)
     },
   }
