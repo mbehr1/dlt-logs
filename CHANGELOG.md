@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.103.4](https://github.com/mbehr1/dlt-logs/compare/v1.103.3...v1.103.4) (2025-07-13)
+
+
+### Bug Fixes
+
+* **restquery:** inform on subscribe about the active doc ([8ab4b82](https://github.com/mbehr1/dlt-logs/commit/8ab4b826704205954fcc691628d722e8e069c288))
+
 ## [1.103.3](https://github.com/mbehr1/dlt-logs/compare/v1.103.2...v1.103.3) (2025-07-13)
 
 
