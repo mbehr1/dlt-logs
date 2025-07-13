@@ -484,7 +484,7 @@ return new uv0.TL('group','lane', value,
   { tooltip: 'a tooltip for value', 
     color: 'green',
     tlEnds: false,
-    persistsLcs: true
+    persistLcs: true
   } )
 ```
 
@@ -497,7 +497,7 @@ options | optional object with the following optional parameters:
 options.tooltip | tooltip to use. `\|` will be replaced with `' '` (space)
 options.color | the html color name to use.
 options.tlEnds | boolean whether the timeline should end after this value. Default false
-options.persistsLcs | shall the timeline end at the current lifecycle end? Default false
+options.persistLcs | shall the timeline end at the current lifecycle end? Default false
 options.lateEval | Indicates whether the value should be evaluated at constructor time or at the end of report generation. Default false
 
 #### tlAll function
