@@ -1,5 +1,13 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.103.3](https://github.com/mbehr1/dlt-logs/compare/v1.103.2...v1.103.3) (2025-07-13)
+
+
+### Bug Fixes
+
+* **search:** forward find errors to webview ([1fd7eea](https://github.com/mbehr1/dlt-logs/commit/1fd7eea78ffe556e0eda94da53d1c24e91bed704))
+* **search:** search with regex chars ([b5f3301](https://github.com/mbehr1/dlt-logs/commit/b5f330104a1adbf4463100777679368f99b530c1))
+
 ## [1.103.2](https://github.com/mbehr1/dlt-logs/compare/v1.103.1...v1.103.2) (2025-07-12)
 
 
