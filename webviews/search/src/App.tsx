@@ -404,7 +404,7 @@ function App() {
   const data = useRef<DataFromExtension>({ searchId: 0, consRows: [], pendingRequests: [], ongoingRequests: [] })
   const [searchDropDownOpen, setSearchDropDownOpen] = useState(false)
   const [findParams, setFindParams] = useState<[FindParams, boolean]>([{ findString: '', useCaseSensitive: false, useRegex: false }, false])
-  const [findRes, setFindRes] = useState<FindResults | undefined>(undefined)
+  const [findRes, setFindRes] = useState<FindResults | string | undefined>(undefined) // string for error message
   const isAllSelected = useRef<boolean>(false)
 
   const debouncedSetSearchString = useDebouncedCallback(
@@ -566,20 +566,25 @@ function App() {
         (res) => {
           if (active) {
             try {
-              console.log(`search find got: #${res.search_idxs.length} find results`)
-              // create regex for match highlighting:
-              const findRegex = findParams[0].useRegex
-                ? new RegExp(findParams[0].findString, findParams[0].useCaseSensitive ? 'g' : 'gi')
-                : new RegExp(findParams[0].findString, findParams[0].useCaseSensitive ? 'g' : 'gi')
+              if (res && res.err !== undefined) {
+                console.log(`search find got err '${res.err}'`)
+                setFindRes(res.err)
+              } else {
+                console.log(`search find got: #${res.search_idxs.length} find results`)
+                // create regex for match highlighting:
+                const findRegex = findParams[0].useRegex
+                  ? new RegExp(findParams[0].findString, findParams[0].useCaseSensitive ? 'g' : 'gi')
+                  : new RegExp(escapeRegExp(findParams[0].findString), findParams[0].useCaseSensitive ? 'g' : 'gi')
 
-              setFindRes({
-                findString: findParams[0].findString,
-                findRegex,
-                nextSearchIdx: res.next_search_idx !== null ? res.next_search_idx : undefined,
-                searchIdxs: res.search_idxs,
-              })
-              if (res.search_idxs.length > 0) {
-                scrollToItem(res.search_idxs[0])
+                setFindRes({
+                  findString: findParams[0].findString,
+                  findRegex,
+                  nextSearchIdx: res.next_search_idx !== null ? res.next_search_idx : undefined,
+                  searchIdxs: res.search_idxs,
+                })
+                if (res.search_idxs.length > 0) {
+                  scrollToItem(res.search_idxs[0])
+                }
               }
             } catch (e) {
               console.error(`search find got e=${e}`, res)
@@ -735,7 +740,7 @@ function App() {
 
       // we do use outline instead of border to have the border drawn within and not around our item
 
-      const isFindMatch = findRes && findRes.searchIdxs.includes(index)
+      const isFindMatch = findRes && typeof findRes === 'object' && findRes.searchIdxs.includes(index)
       let frag: JSX.Element
       if (isFindMatch) {
         // find all matches as there can be more than 1 within one log:
@@ -1014,6 +1019,7 @@ function App() {
         </VSCodeDropdown>
       )}
       {errorText !== null && <div className='inputValidation'>{errorText}</div>}
+      {typeof findRes === 'string' && <div className='inputValidation'>{findRes}</div>}
       <div style={{ flexGrow: 1 }}>
         <FindWidget triggerFind={triggerFind} results={findRes} scrollToItem={scrollToItem} />
         <AutoSizer
@@ -1080,6 +1086,11 @@ function App() {
       </div>
     </div>
   )
+}
+
+// from mdn web docs:
+function escapeRegExp(aString: string) {
+  return aString.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') // $& means the whole matched string
 }
 
 export default App

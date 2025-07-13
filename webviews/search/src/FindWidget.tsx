@@ -27,7 +27,7 @@ const style = throwOnUndefinedAccessInDev(styles)
 
 export const FindWidget: React.FC<{
   triggerFind(params: FindParams, findAll?: boolean): void
-  results?: FindResults
+  results?: FindResults | string // string for error message
   scrollToItem(itemIndex: number): void
 }> = ({ triggerFind, results, scrollToItem }) => {
   const [visible, setVisible] = usePersistedState('find.visible', false)
@@ -118,7 +118,9 @@ export const FindWidget: React.FC<{
   const navigateResults = (increment: number) => {
     console.log(`search find navigateResults(${increment})...`)
 
-    if (!results || results.searchIdxs.length === 0) {
+    const isErr = typeof results === 'string'
+
+    if (!results || isErr || results.searchIdxs.length === 0) {
       return
     }
 
@@ -169,13 +171,17 @@ export const FindWidget: React.FC<{
             selectedResult={selectedResult}
           />
           <VsIconButton
-            disabled={results ? results.searchIdxs.length === 0 : true}
+            disabled={results ? typeof results === 'string' || results.searchIdxs.length === 0 : true}
             onClick={() => navigateResults(-1)}
             title='Previous Match'
           >
             <ArrowUp />
           </VsIconButton>
-          <VsIconButton disabled={results ? results.searchIdxs.length === 0 : true} onClick={() => navigateResults(1)} title='Next Match'>
+          <VsIconButton
+            disabled={results ? typeof results === 'string' || results.searchIdxs.length === 0 : true}
+            onClick={() => navigateResults(1)}
+            title='Next Match'
+          >
             <ArrowDown />
           </VsIconButton>
           <VsIconButton title='Close Widget (Esc)' onClick={closeWidget}>
@@ -191,20 +197,22 @@ const resultCountFormat = new Intl.NumberFormat(undefined, { notation: 'compact'
 const selectedFormat = new Intl.NumberFormat()
 
 const ResultBadge: React.FC<{
-  results: FindResults | undefined
+  results: FindResults | string | undefined
   selectedResult: number | undefined
   onUncap(): void
 }> = ({ results, selectedResult, onUncap }) => {
   // console.log(`search find ResultBadge(${JSON.stringify(results)})`)
-  const nrResults = results ? results.searchIdxs.length : 0
+  const isErr = typeof results === 'string'
+  const hasResults = results && !isErr && results.searchIdxs.length > 0
+  const nrResults = hasResults ? results.searchIdxs.length : 0
   const resultCountStr = resultCountFormat.format(nrResults)
-  const capped = results ? results.nextSearchIdx !== undefined : false
+  const capped = hasResults ? results.nextSearchIdx !== undefined : false
   const resultCountComponent = capped ? (
     <a role='button' title={`More than ${nrResults} logs, click to find all`} onClick={onUncap}>
       {resultCountStr}+
     </a>
   ) : (
-    <span title={`${results ? results.searchIdxs.length : 0} logs`}>{resultCountStr}</span>
+    <span title={`${hasResults ? results.searchIdxs.length : 0} logs`}>{resultCountStr}</span>
   )
 
   return (
@@ -212,6 +220,8 @@ const ResultBadge: React.FC<{
       {
         /*results.progress*/ 1 < 1 ? (
           `Found ${resultCountStr}...`
+        ) : isErr ? (
+          <>error!</>
         ) : nrResults === 0 ? (
           'No logs'
         ) : selectedResult !== undefined ? (
