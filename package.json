@@ -23,6 +23,7 @@
   "engines": {
     "vscode": "^1.87.0"
   },
+  "icon": "dlt-logs-icon.png",
   "categories": [
     "Other"
   ],
@@ -1028,7 +1029,8 @@
       "mbehr1Logs": [
         {
           "id": "dltLifecycleExplorer",
-          "name": "DLT-Logs Explorer"
+          "name": "DLT-Logs Explorer",
+          "icon": "dlt-logs-icon.png"
         }
       ]
     },
