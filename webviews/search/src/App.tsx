@@ -368,7 +368,7 @@ const persistedState: PersistedState = {
   lastUsedSearchStrings: [],
   ...(vscode.getState() || {}),
 }
-const MAX_LAST_USED_LIST_ITEMS = 50 // we persist max 50 last used search strings
+const MAX_LAST_USED_LIST_ITEMS = 200 // we persist max 200 last used search strings
 
 export interface FindParams {
   findString: string
@@ -494,6 +494,31 @@ function App() {
                 if (curIdx > 0) {
                   newL.splice(curIdx, 1)
                 } else {
+                  // new entry (searchString) not in the list yet
+                  // we check whether it's similar to an existing one.
+                  // similar by: an other entry is the start of the new one and the rest doesn't start with a |
+                  // (we do want to keep entries before the | or in other word | starts a new entry)
+
+                  let similarEntryIdx = newL.reduce((acc, curEntry, idx, arr) => {
+                    if (
+                      (acc < 0 || curEntry.length > arr[acc].length) &&
+                      searchString.startsWith(curEntry) &&
+                      searchString[curEntry.length] !== '|'
+                    ) {
+                      // we want the longest similar entry
+                      return idx
+                    }
+                    return acc
+                  }, -1)
+
+                  if (similarEntryIdx >= 0) {
+                    console.log(
+                      `search similarEntryIdx=${similarEntryIdx} curEntry='${newL[similarEntryIdx]}' replaced by new searchString='${searchString}'`,
+                    )
+                    // remove the similar entry
+                    newL.splice(similarEntryIdx, 1)
+                  }
+
                   if (newL.length > MAX_LAST_USED_LIST_ITEMS) {
                     newL.pop()
                   }
