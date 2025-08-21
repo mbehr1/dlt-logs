@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.104.0](https://github.com/mbehr1/dlt-logs/compare/v1.103.5...v1.104.0) (2025-08-21)
+
+
+### Features
+
+* **search:** improve last used search list ([7a2a047](https://github.com/mbehr1/dlt-logs/commit/7a2a04745f1c4592f11b8c0970f49da2d07326af))
+
 ## [1.103.5](https://github.com/mbehr1/dlt-logs/compare/v1.103.4...v1.103.5) (2025-07-14)
 
 
