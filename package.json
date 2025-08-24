@@ -1067,6 +1067,7 @@
     "vscode:prepublish": "npm run package && npm run build:webview:search",
     "package": "npm run check-types && node esbuild.js --production",
     "install:all": "npm install && cd webviews/search && npm install",
+    "install:ci": "npm ci && cd webviews/search && npm ci",
     "start:webview:search": "cd webviews/search && npm run start",
     "build:webview:search": "cd webviews/search && npm run build",
     "prepare": "husky install",
