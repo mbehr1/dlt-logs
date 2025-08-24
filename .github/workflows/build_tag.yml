@@ -48,7 +48,7 @@ jobs:
         with:
           node-version: "lts/*"
       - run: npm --version
-      - run: npm run install:all
+      - run: npm run install:ci
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           npm_config_arch: ${{ matrix.npm_config_arch }}
