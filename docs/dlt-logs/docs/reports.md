@@ -32,7 +32,7 @@ Open **Preferences: Open Settings (JSON)** and add a filter:
       "type": 3,
       "apid": "MON",
       "ctid": "CPUS",
-      "payloadRegex": "CPU usage in interval : (?<cpu_usage>.*)% cpu since boot : (?<cpu_since_boot>.*)% Total thread cpu load : (<thread_cpu_load>*)%"
+      "payloadRegex": "CPU usage in interval : (?<cpu_usage>.*)% cpu since boot : (?<cpu_since_boot>.*)% Total thread cpu load : (?<thread_cpu_load>.*)%"
   }
 ]
 ```
