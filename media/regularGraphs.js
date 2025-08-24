@@ -493,17 +493,30 @@ const graphConfigTemplate = {
                     },
                     label: (item) => { // the lower part per item. Should contain: label name and label value (e.g. thread cpu load: 15)
                         // console.warn(`label() called for`, item);
-                        return (
-                          (item.dataset.label || 'no dataset label') +
-                          ': ' +
-                          (item.formattedValue.startsWith('(')
-                            ? item.formattedValue.slice(item.formattedValue.indexOf(',') + 1, item.formattedValue.length - 1).trim()
-                            : item.formattedValue || typeof item.formattedValue === 'number'
-                              ? '' + item.formattedValue
-                              : item.parsed?.y
-                                ? '' + item.parsed.y
-                                : 'no item formatted value')
-                        )
+                        
+                        let displayValue;
+                        
+                        // For category charts (when yLabels/valuesMap is used), Chart.js may show index instead of actual value
+                        // We need to get the actual data point value, not the parsed chart position
+                        if (item.dataset.valuesMap && item.dataIndex !== undefined) {
+                            // Get the actual data point from the dataset
+                            const dataPoint = item.dataset.data[item.dataIndex];
+                            if (dataPoint && typeof dataPoint.y !== 'undefined') {
+                                displayValue = '' + dataPoint.y;
+                            } else {
+                                // Fallback to original logic
+                                displayValue = item.formattedValue.startsWith('(')
+                                    ? item.formattedValue.slice(item.formattedValue.indexOf(',') + 1, item.formattedValue.length - 1).trim()
+                                    : item.formattedValue || (typeof item.formattedValue === 'number' ? '' + item.formattedValue : (item.parsed?.y ? '' + item.parsed.y : 'no item formatted value'));
+                            }
+                        } else {
+                            // Original logic for datasets without valuesMap
+                            displayValue = item.formattedValue.startsWith('(')
+                                ? item.formattedValue.slice(item.formattedValue.indexOf(',') + 1, item.formattedValue.length - 1).trim()
+                                : item.formattedValue || (typeof item.formattedValue === 'number' ? '' + item.formattedValue : (item.parsed?.y ? '' + item.parsed.y : 'no item formatted value'));
+                        }
+                        
+                        return (item.dataset.label || 'no dataset label') + ': ' + displayValue
                     }
 
                 }
