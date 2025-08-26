@@ -523,7 +523,11 @@ export class AdltDocument implements vscode.Disposable {
     const isLocalAddress = uri.authority === undefined || uri.authority === ''
     if (isLocalAddress) {
       const fileExists = this._fileNames.length > 0 && fs.existsSync(this._fileNames[0])
-      const isLocalArchive = !fileExists && this._fileNames.length > 0 && this._fileNames[0].includes('!/')
+      const isLocalArchive =
+        !fileExists &&
+        this._fileNames.length > 0 &&
+        this._fileNames[0].includes('!/') &&
+        !(this._fileNames[0].includes('.git/config') || this._fileNames[0].includes('.git\\config')) // todo proper fix needed to handle readFile of non existing files in zip
       if (!(fileExists || isLocalArchive)) {
         log.warn(`AdltDocument file ${uri.toString()} ('${JSON.stringify(this._fileNames)}') doesn't exist!`)
         throw Error(`AdltDocument file ${uri.toString()} doesn't exist!`)
@@ -3808,7 +3812,7 @@ export class AdltDocument implements vscode.Disposable {
     }
   }
 
-  public text: String
+  public text: string
 }
 
 export class ADltDocumentProvider implements vscode.FileSystemProvider, /*vscode.DocumentSymbolProvider,*/ vscode.Disposable {
@@ -4562,16 +4566,19 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider, /*vscode
     return { size: 0, ctime: 0, mtime: 0, type: vscode.FileType.Unknown }
   }
 
+  sharedTextEncoder = new TextEncoder()
+
   readFile(uri: vscode.Uri): Uint8Array {
     let doc = this._documents.get(uri.toString())
-    // this.log.info(`ADltDocumentProvider.readFile(uri.authority='${uri.authority}' ${uri.toString().slice(0, 100)})...`)
+    const log = this.log
     if (!doc) {
+      log.debug(`ADltDocumentProvider.readFile(uri.authority='${uri.authority}' ${uri.toString().slice(0, 100)})...`)
       const isLocalAddress = uri.authority === undefined || uri.authority === ''
       const address = isLocalAddress
         ? this.getAdltProcessAndPort().then((port) => `ws://localhost:${port}`)
         : Promise.resolve(uri.authority)
       doc = new AdltDocument(
-        this.log,
+        log,
         this.globalState,
         this.commentController,
         address,
@@ -4584,9 +4591,28 @@ export class ADltDocumentProvider implements vscode.FileSystemProvider, /*vscode
         this._columns,
         this._reporter,
       )
+      /*
+      // test only:
+      if (!uri.path.includes('/config')) {
+        setTimeout(() => {
+          const uriWithGitConfig = uri.with({ path: uri.path + '/.git/config' })
+          log.info(
+            `adlt-logs.readFile(uri=${uri.toString().slice(0, 100)}) testing readFile of .git/config: ${uriWithGitConfig
+              .toString()
+              .slice(0, 100)}`,
+          )
+          try {
+            vscode.workspace.fs.readFile(uriWithGitConfig).then((data) => {
+              log.info(`adlt-logs.readFile(uri=${uriWithGitConfig.toString().slice(0, 100)}) readFile got ${data.length} bytes`)
+            })
+          } catch (e) {
+            log.warn(`adlt-logs.readFile(uri=${uriWithGitConfig.toString().slice(0, 100)}) readFile failed: ${e}`)
+          }
+        }, 5000)
+      } */
       this._documents.set(uri.toString(), doc)
     }
-    return Buffer.from(doc.text)
+    return this.sharedTextEncoder.encode(doc.text)
   }
 
   watch(uri: vscode.Uri): vscode.Disposable {
