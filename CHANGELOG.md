@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.104.1](https://github.com/mbehr1/dlt-logs/compare/v1.104.0...v1.104.1) (2025-08-26)
+
+
+### Bug Fixes
+
+* hotfix to prevent .git/config files opened as document ([794095b](https://github.com/mbehr1/dlt-logs/commit/794095bbbea59a52f89bb4256fa78c3866b54392))
+
 ## [1.104.0](https://github.com/mbehr1/dlt-logs/compare/v1.103.5...v1.104.0) (2025-08-21)
 
 
