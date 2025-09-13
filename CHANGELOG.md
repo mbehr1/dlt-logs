@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.105.0](https://github.com/mbehr1/dlt-logs/compare/v1.104.1...v1.105.0) (2025-09-13)
+
+
+### Features
+
+* **report:** add checkbox to show the lc annotation lines ([b53c637](https://github.com/mbehr1/dlt-logs/commit/b53c637125e42333b9da8f997c2aa73224d4bf7a))
+
 ## [1.104.1](https://github.com/mbehr1/dlt-logs/compare/v1.104.0...v1.104.1) (2025-08-26)
 
 
