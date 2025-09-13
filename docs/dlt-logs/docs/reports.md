@@ -68,6 +68,11 @@ In general the report covers the timeframe from all [lifecycles](lifecycleDetect
 E.g. in the picture from the example above the first lifecycle starts at 5:41:05pm but the first logs start only at 5:42:29pm. The default view is useful to e.g. understood how the lifecycle was already running before the logs have been captured or exported.
 With the `Toggle lifecycle start` button you can toggle the view to hide/show the timeframe where no logs are available for.
 
+### Show lifecycle annotations
+
+The `LC annotations` checkbox allows you to hide/show the lifecycle horizontal lines that show the start, end, ECU name and lifecycle number.
+The setting is persisted in the extension globalState.
+
 ### Show the current selected time
 
 The report highlights the selected time - i.e. the time that corresponds to the selected line in the DLT file with a vertical green dotted line, e.g. here at 5:42:41 PM and 22ms:

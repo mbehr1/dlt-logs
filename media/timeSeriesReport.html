@@ -19,6 +19,18 @@
 
     <script>
       const vscode = acquireVsCodeApi() // acquireVsCodeApi can only be invoked once
+      let persistedState = {
+        showLifecycleLines: true,
+      }
+      try{
+        persistedState = {
+          ...persistedState,
+          ...(JSON.parse('${{persistedState}}')||{})
+        }
+      }catch(e){
+        console.warn(`couldn't parse persistedState e=${e}`);
+      }
+      console.log('persistedState=', persistedState)
     </script>
     <style>
       canvas {
@@ -227,6 +239,12 @@
         title="This toggles the display of the detected lifecycle start until the first message. So removing the leftmost empty time of the first lifecycle."
         >Show lifecycle start</vscode-checkbox
       >
+      <vscode-checkbox
+        id="chkboxLifecycleLines" 
+        onclick="toggleLifecycleLines(this)"
+        title="Toggles the display of the lifecycle horizontal lines with info on ecu name and lc number."
+        >LC annotations</vscode-checkbox
+      >
       <div style="flex-grow: 1"></div>
       <vscode-button onclick="resetZoom()">Reset zoom</vscode-button>
       <vscode-button
@@ -378,6 +396,7 @@
 
       window.onload = function () {
         try {
+          document.getElementById('chkboxLifecycleLines').checked = !!persistedState.showLifecycleLines
           //console.error('Chart.defaults=', Chart.defaults);
           Chart.defaults.font = {
             weight: vscodeStyles.getPropertyValue('--vscode-editor-font-weight'),
@@ -501,8 +520,10 @@
           }
           lcAnnotations.push(newAnn)
         }
+        const showLifecycleLines = document.getElementById('chkboxLifecycleLines').checked
         for (let i = 0; i < lcAnnotations.length; ++i) {
           let lcAnnotation = lcAnnotations[i]
+          lcAnnotation.display = showLifecycleLines
           const hadSelectedTime = lcAnnotation.xMin !== null
           if (i < lcInfos.length) {
             let lcInfo = lcInfos[i]
@@ -806,6 +827,21 @@
           vscode.postMessage({ message: `update(${event.data.command}) got err:${err}` })
         }
       })
+
+      window.toggleLifecycleLines = function (checkbox) {
+        console.log('toggleLifecycleLines checkbox ' + checkbox.checked)
+        try{
+          persistedState.showLifecycleLines = checkbox.checked
+          vscode.postMessage({ message: 'persistState', state: JSON.stringify(persistedState) }) 
+          console.log('updated persistedState=', persistedState)
+        }catch(e){
+          console.warn(`toggleLifecycleLines persisting failed with e=${e}`);
+        }
+        for (const lcAnnotation of lcAnnotations) {
+          lcAnnotation.display = checkbox.checked
+        }
+        updateGraphs()
+      }
 
       window.toggleLifecycleStart = function (checkbox) {
         console.log('toggleLifecycleStart checkbox ' + checkbox.checked)

@@ -691,6 +691,17 @@ export class DltReport implements vscode.Disposable {
             log.warn(`report.onDidReceiveMessage clicked got err=${err}`, e)
           }
           break
+        case 'persistState':
+          try {
+            log.debug(`report.onDidReceiveMessage persistState=${e.state}`)
+            this.context.globalState.update('dltLogsReportState', JSON.parse(e.state))
+          } catch (err) {
+            log.warn(`report.onDidReceiveMessage persistState got err=${err}`, e)
+          }
+          break
+        default:
+          log.debug(`report.onDidReceiveMessage: message '${e.message}'`, e)
+          break
       }
     })
 
@@ -702,6 +713,12 @@ export class DltReport implements vscode.Disposable {
       htmlStr = htmlStr.replace(/\${{media}}/g, mediaPart)
       const scriptsPart = this.panel.webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'node_modules')).toString()
       htmlStr = htmlStr.replace(/\${{scripts}}/g, scriptsPart)
+
+      // persistence of state:
+      let persistedState: any = {
+        ...(this.context.globalState.get('dltLogsReportState') || {}),
+      }
+      htmlStr = htmlStr.replace(/\${{persistedState}}/g, JSON.stringify(persistedState))
       this.panel.webview.html = htmlStr
     } else {
       vscode.window.showErrorMessage(`couldn't load timeSeriesReport.html`)
