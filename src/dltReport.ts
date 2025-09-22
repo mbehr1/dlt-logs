@@ -629,6 +629,8 @@ export class DltReport implements vscode.Disposable {
   panel: vscode.WebviewPanel | undefined
   private _gotAliveFromPanel: boolean = false
   private _msgsToPost: any[] = [] // msgs queued to be send to panel once alive
+  private _lastAliveTime: Date | undefined // last time we received a message from webview
+  private _webviewInitialized: boolean = false // tracks if webview HTML was set
   public disposables: vscode.Disposable[]
 
   private _reportTitles: string[] = []
@@ -664,12 +666,23 @@ export class DltReport implements vscode.Disposable {
       log.info(`DltReport panel onDidChangeViewState(${e.webviewPanel.active}) called.`)
       if (e.webviewPanel.active) {
         this.lastChangeActive = new Date(Date.now())
+        
+        // Detect if webview might have been recreated (e.g., moved to new window)
+        const now = new Date()
+        const isStaleConnection = this._lastAliveTime && (now.getTime() - this._lastAliveTime.getTime() > 5000) // 5 seconds
+        const hasQueuedMessages = this._msgsToPost.length > 0
+        
+        if ((isStaleConnection || hasQueuedMessages) && this._webviewInitialized) {
+          log.info(`DltReport panel became active - webview may need reinitialization (stale: ${isStaleConnection}, queued msgs: ${this._msgsToPost.length})`)
+          this.reinitializeWebview()
+        }
       }
     })
 
     this.panel.webview.onDidReceiveMessage((e) => {
       // console.log(`report.onDidReceiveMessage e=${e.message}`, e);
       this._gotAliveFromPanel = true
+      this._lastAliveTime = new Date()
       // any messages to post?
       if (this._msgsToPost.length) {
         let msg: any
@@ -720,9 +733,44 @@ export class DltReport implements vscode.Disposable {
       }
       htmlStr = htmlStr.replace(/\${{persistedState}}/g, JSON.stringify(persistedState))
       this.panel.webview.html = htmlStr
+      this._webviewInitialized = true
     } else {
       vscode.window.showErrorMessage(`couldn't load timeSeriesReport.html`)
       // throw?
+    }
+  }
+
+  private reinitializeWebview() {
+    if (!this.panel) {
+      return
+    }
+    
+    this.log.info(`DltReport reinitializeWebview called - reloading HTML content`)
+    
+    // Reset state
+    this._gotAliveFromPanel = false
+    this._webviewInitialized = false
+    this._lastAliveTime = undefined
+    
+    // Reload HTML content
+    const htmlFile = fs.readFileSync(path.join(this.context.extensionPath, 'media', 'timeSeriesReport.html'))
+    if (htmlFile.length) {
+      let htmlStr = htmlFile.toString()
+      const mediaPart = this.panel.webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'media')).toString()
+      htmlStr = htmlStr.replace(/\${{media}}/g, mediaPart)
+      const scriptsPart = this.panel.webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'node_modules')).toString()
+      htmlStr = htmlStr.replace(/\${{scripts}}/g, scriptsPart)
+
+      // persistence of state:
+      let persistedState: any = {
+        ...(this.context.globalState.get('dltLogsReportState') || {}),
+      }
+      htmlStr = htmlStr.replace(/\${{persistedState}}/g, JSON.stringify(persistedState))
+      this.panel.webview.html = htmlStr
+      this._webviewInitialized = true
+      
+      // Schedule a report update to resend all data
+      setTimeout(() => this.updateReport(), 200)
     }
   }
 
@@ -752,6 +800,19 @@ export class DltReport implements vscode.Disposable {
       })
     } else {
       this._msgsToPost.push(msg)
+      // If we have many queued messages and haven't heard from webview recently, 
+      // try to reinitialize after a delay
+      if (this._msgsToPost.length > 3 && this._webviewInitialized) {
+        const now = new Date()
+        if (!this._lastAliveTime || (now.getTime() - this._lastAliveTime.getTime() > 3000)) {
+          this.log.warn(`DltReport has ${this._msgsToPost.length} queued messages with stale connection - attempting recovery`)
+          setTimeout(() => {
+            if (!this._gotAliveFromPanel && this._msgsToPost.length > 0) {
+              this.reinitializeWebview()
+            }
+          }, 1000)
+        }
+      }
     }
   }
 
