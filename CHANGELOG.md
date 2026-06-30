@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.105.2](https://github.com/mbehr1/dlt-logs/compare/v1.105.1...v1.105.2) (2026-06-30)
+
+
+### Bug Fixes
+
+* update untrusted workspace settings to restrict adlt binary path ([122377d](https://github.com/mbehr1/dlt-logs/commit/122377def0db60156e4d145c79127b66c231ea1b))
+
 ## [1.105.1](https://github.com/mbehr1/dlt-logs/compare/v1.105.0...v1.105.1) (2025-09-15)
 
 
