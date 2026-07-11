@@ -698,6 +698,7 @@
                     pointRadius: 2,
                     yAxisID: messageData.yAxisID,
                     indexAxis: 'x',
+                    valuesMap: messageData.dataYLabels.valuesMap,
                   })
                 }
 
@@ -706,6 +707,7 @@
                   configDataset.label = messageData.label
                   configDataset.hidden = messageData.yAxis?.hidden
                   configDataset.type = 'type' in messageData ? messageData.type : 'line'
+                  configDataset.valuesMap = messageData.dataYLabels.valuesMap
                   if (messageData.dataYLabels.yLabels !== undefined) {
                     // todo! yAxisID could be set!
                     const dsi = configDataset
