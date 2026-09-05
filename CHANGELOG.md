@@ -1,5 +1,12 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.105.4](https://github.com/mbehr1/dlt-logs/compare/v1.105.3...v1.105.4) (2026-09-05)
+
+
+### Bug Fixes
+
+* **deps:** bump node-adlt from 0.62.1 to 0.65.2 ([79b1273](https://github.com/mbehr1/dlt-logs/commit/79b127398aa014cb350add734b384423134eb1f1))
+
 ## [1.105.3](https://github.com/mbehr1/dlt-logs/compare/v1.105.2...v1.105.3) (2026-09-05)
 
 
