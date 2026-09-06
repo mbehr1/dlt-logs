@@ -1,5 +1,13 @@
 # Change log for 'DLT-Logs': ([documentation](https://mbehr1.github.io/dlt-logs))
 
+## [1.105.5](https://github.com/mbehr1/dlt-logs/compare/v1.105.4...v1.105.5) (2026-09-06)
+
+
+### Bug Fixes
+
+* **adlt:** set timeouts to 10s ([81b99ea](https://github.com/mbehr1/dlt-logs/commit/81b99ea5df59a6c98a69fa049baf683f9864a558))
+* **license:** switch to MPL-2.0 ([d29c71c](https://github.com/mbehr1/dlt-logs/commit/d29c71c0c76265132b470f58f1d2e53ab53de675))
+
 ## [1.105.4](https://github.com/mbehr1/dlt-logs/compare/v1.105.3...v1.105.4) (2026-09-05)
 
 
