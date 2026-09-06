@@ -603,7 +603,13 @@ export class AdltDocument implements vscode.Disposable {
     adltAddress
       .then((address) => {
         log.info(`adlt.Document using websocket address '${address}'`)
-        this.webSocket = new WebSocket(address, [], { perMessageDeflate: false, origin: 'adlt-logs', maxPayload: 1_000_000_000 })
+        this.webSocket = new WebSocket(address, [], {
+          timeout: 10000,
+          handshakeTimeout: 10000,
+          perMessageDeflate: false,
+          origin: 'adlt-logs',
+          maxPayload: 1_000_000_000,
+        })
         //log.info(`adlt.Document got the websocket`)
         //console.warn(`adlt.webSocket.binaryType=`, this.webSocket.binaryType);
         //this.webSocket.binaryType = "nodebuffer"; // or Arraybuffer?
